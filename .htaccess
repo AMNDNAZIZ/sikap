@@ -39,3 +39,29 @@ Options -Indexes
 # Disable server signature start
 ServerSignature Off
 # Disable server signature end
+
+# ----------------------------------------------------------------------
+# PHP Settings — wajib untuk form dengan banyak input (Dapodik sync)
+# max_input_vars default 1000, form syncStudents bisa kirim 8000+ vars
+# (325 siswa x 25 hidden fields = ~8125 vars)
+# ----------------------------------------------------------------------
+<IfModule mod_php.c>
+    php_value output_buffering 4096
+    php_value max_input_vars 10000
+</IfModule>
+<IfModule mod_php8.c>
+    php_value output_buffering 4096
+    php_value max_input_vars 10000
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Gzip / Deflate Compression (Apache level — lebih aman dari ob_gzhandler)
+# ----------------------------------------------------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+    AddOutputFilterByType DEFLATE text/javascript application/javascript application/x-javascript
+    AddOutputFilterByType DEFLATE application/json application/xml application/xhtml+xml
+    AddOutputFilterByType DEFLATE image/svg+xml font/ttf font/otf font/woff font/woff2
+    # Jangan compress file yang sudah terkompresi
+    SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|webp|zip|gz|bz2|rar|7z)$ no-gzip dont-vary
+</IfModule>

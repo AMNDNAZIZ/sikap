@@ -97,9 +97,9 @@ class Dapodik extends BaseController
     public function fetchStudents()
     {
         // Tingkatkan execution time limit untuk data banyak
+        // set_time_limit() boleh dipanggil kapan saja, berbeda dengan ini_set session
         set_time_limit(180); // 3 menit
-        ini_set('max_execution_time', 180);
-        
+
         $url = env('DAPODIK_API_URL');
         $key = env('DAPODIK_API_KEY');
         $npsn = env('DAPODIK_NPSN');
@@ -109,7 +109,7 @@ class Dapodik extends BaseController
         }
 
         $endpoint = rtrim($url, '/') . '/getPesertaDidik?npsn=' . $npsn;
-        
+
         // Gunakan timeout 120 detik untuk data siswa (biasanya banyak)
         $response = $this->callApi($endpoint, $key, 120);
 
@@ -136,7 +136,7 @@ class Dapodik extends BaseController
         if ($response && isset($response['message'])) {
             $errorMsg .= ' Detail: ' . $response['message'];
         }
-        
+
         log_message('error', 'Dapodik: Failed to fetch students - ' . $errorMsg);
         return redirect()->back()->with('error', $errorMsg);
     }
@@ -152,7 +152,7 @@ class Dapodik extends BaseController
         }
 
         $endpoint = rtrim($url, '/') . '/getGtk?npsn=' . $npsn;
-        
+
         // Gunakan timeout 60 detik untuk data guru
         $response = $this->callApi($endpoint, $key, 60);
 
@@ -181,15 +181,27 @@ class Dapodik extends BaseController
 
     public function syncStudents()
     {
+        // Tingkatkan execution time limit — proses insert banyak siswa bisa lama
+        set_time_limit(300); // 5 menit
+
         helper('security');
         $selected = $this->request->getPost('selected_students');
         $classId = $this->request->getPost('class_id');
         $syncMode = $this->request->getPost('sync_mode') ?? 'skip'; // skip, update, merge
-        $studentsData = $this->request->getPost('students_data');
 
-        if (empty($selected) || empty($studentsData)) {
+        // Baca data siswa dari JSON (satu field) bukan dari ratusan hidden fields
+        // Ini menghindari masalah max_input_vars PHP yang default hanya 1000
+        // sedangkan 325 siswa x 25 fields = ~8125 vars
+        $studentsJson = $this->request->getPost('students_json');
+        $studentsArray = $studentsJson ? json_decode($studentsJson, true) : null;
+
+        if (empty($selected) || empty($studentsArray)) {
             return redirect()->back()->with('error', 'Tidak ada data siswa yang dipilih.');
         }
+
+        // Konversi array indexed (dari JSON) ke format yang bisa diakses by index
+        // $studentsArray adalah array numerik: [0 => {...}, 1 => {...}, ...]
+        $studentsData = $studentsArray;
 
         $success = 0;
         $skipped = 0;
@@ -216,7 +228,7 @@ class Dapodik extends BaseController
 
             // Cek apakah siswa sudah ada (berdasarkan NISN)
             $existing = $this->studentModel->where('nisn', $nisn)->first();
-            
+
             if ($existing) {
                 if ($syncMode === 'skip') {
                     // Mode Skip: Lewati data yang sudah ada
@@ -355,7 +367,7 @@ class Dapodik extends BaseController
     {
         $studentData = $this->mapStudentData($d, $name, $gender, $tmpLahir, $tglLahir);
         $this->studentModel->update($studentId, $studentData);
-        
+
         log_message('info', 'Dapodik Sync: Updated student NISN ' . ($d['nisn'] ?? '') . ' (mode: update)');
     }
 
@@ -366,7 +378,7 @@ class Dapodik extends BaseController
     {
         $existing = $this->studentModel->find($studentId);
         $newData = $this->mapStudentData($d, $name, $gender, $tmpLahir, $tglLahir);
-        
+
         $mergedData = [];
         foreach ($newData as $key => $value) {
             // Hanya update jika field existing kosong dan data baru tidak kosong
@@ -374,7 +386,7 @@ class Dapodik extends BaseController
                 $mergedData[$key] = $value;
             }
         }
-        
+
         if (!empty($mergedData)) {
             $this->studentModel->update($studentId, $mergedData);
             log_message('info', 'Dapodik Sync: Merged student NISN ' . ($d['nisn'] ?? '') . ' - Updated ' . count($mergedData) . ' fields (mode: merge)');
@@ -383,6 +395,9 @@ class Dapodik extends BaseController
 
     public function syncTeachers()
     {
+        // Tingkatkan execution time limit
+        set_time_limit(300); // 5 menit
+
         helper('security');
         $selected = $this->request->getPost('selected_teachers');
         $teachersData = $this->request->getPost('teachers_data');
