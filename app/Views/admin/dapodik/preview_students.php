@@ -16,8 +16,16 @@
     <i class="fas fa-exclamation-triangle"></i> <strong>Data yang Sudah Ada:</strong> Pilih bagaimana menangani siswa yang NISN-nya sudah terdaftar di sistem.
 </div>
 
-<form action="<?= base_url('admin/dapodik/syncStudents') ?>" method="post">
+<form action="<?= base_url('admin/dapodik/syncStudents') ?>" method="post" id="sync-form">
     <?= csrf_field() ?>
+
+    <?php
+    // Encode semua data siswa sebagai satu JSON field
+    // Ini menghindari masalah max_input_vars (default 1000) yang terlampaui
+    // ketika mengirim ratusan siswa dengan puluhan hidden fields masing-masing
+    $studentsJson = json_encode($students, JSON_UNESCAPED_UNICODE);
+    ?>
+    <input type="hidden" name="students_json" value="<?= esc($studentsJson, 'attr') ?>">
 
     <div class="card mb-3">
         <div class="card-body">
@@ -27,9 +35,9 @@
                     <select name="class_id" class="form-select" required>
                         <option value="">-- Pilih Kelas --</option>
                         <?php foreach ($classes as $c): ?>
-                            <option value="<?= $c['id'] ?>">
-                                <?= esc($c['name']) ?>
-                            </option>
+                                <option value="<?= $c['id'] ?>">
+                                    <?= esc($c['name']) ?>
+                                </option>
                         <?php endforeach; ?>
                     </select>
                     <small class="text-muted">Kelas cadangan jika auto-detect gagal</small>
@@ -44,7 +52,7 @@
                     <small class="text-muted">Cara menangani data duplikat</small>
                 </div>
                 <div class="col-md-4 text-end pt-4">
-                    <button type="submit" class="btn btn-success">🚀 Mulai Sinkronisasi</button>
+                    <button type="submit" class="btn btn-success" id="sync-btn">🚀 Mulai Sinkronisasi</button>
                 </div>
             </div>
         </div>
@@ -65,110 +73,29 @@
                 </thead>
                 <tbody>
                     <?php if (!empty($students)): ?>
-                        <?php foreach ($students as $index => $s): ?>
-                            <tr>
-                                <td>
-                                    <input type="checkbox" name="selected_students[]" value="<?= $index ?>"
-                                        class="form-check-input student-check">
-                                    <!-- Hidden fields untuk data dasar -->
-                                    <input type="hidden" name="students_data[<?= $index ?>][nisn]"
-                                        value="<?= esc($s['nisn'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][nis]"
-                                        value="<?= esc($s['nis'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][nama]"
-                                        value="<?= esc($s['nama'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][nik]"
-                                        value="<?= esc($s['nik'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][jenis_kelamin]"
-                                        value="<?= esc($s['jenis_kelamin'] ?? 'L') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][tempat_lahir]"
-                                        value="<?= esc($s['tempat_lahir'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][tanggal_lahir]"
-                                        value="<?= esc($s['tanggal_lahir'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][anak_keberapa]"
-                                        value="<?= esc($s['anak_keberapa'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][agama]"
-                                        value="<?= esc($s['agama'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][kewarganegaraan]"
-                                        value="<?= esc($s['kewarganegaraan'] ?? 'WNI') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][nama_rombel]"
-                                        value="<?= esc($s['nama_rombel'] ?? '') ?>">
-                                    
-                                    <!-- Hidden fields untuk alamat -->
-                                    <input type="hidden" name="students_data[<?= $index ?>][alamat_jalan]"
-                                        value="<?= esc($s['alamat_jalan'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][jenis_tinggal]"
-                                        value="<?= esc($s['jenis_tinggal'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][moda_transportasi]"
-                                        value="<?= esc($s['moda_transportasi'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][jarak_rumah_ke_sekolah]"
-                                        value="<?= esc($s['jarak_rumah_ke_sekolah'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][latitude]"
-                                        value="<?= esc($s['latitude'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][longitude]"
-                                        value="<?= esc($s['longitude'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][kebutuhan_khusus]"
-                                        value="<?= esc($s['kebutuhan_khusus'] ?? '') ?>">
-                                    
-                                    <!-- Hidden fields untuk data ayah -->
-                                    <input type="hidden" name="students_data[<?= $index ?>][nama_ayah]"
-                                        value="<?= esc($s['nama_ayah'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][nik_ayah]"
-                                        value="<?= esc($s['nik_ayah'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][tahun_lahir_ayah]"
-                                        value="<?= esc($s['tahun_lahir_ayah'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][pendidikan_ayah]"
-                                        value="<?= esc($s['pendidikan_ayah'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][pekerjaan_ayah]"
-                                        value="<?= esc($s['pekerjaan_ayah'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][penghasilan_ayah]"
-                                        value="<?= esc($s['penghasilan_ayah'] ?? '') ?>">
-                                    
-                                    <!-- Hidden fields untuk data ibu -->
-                                    <input type="hidden" name="students_data[<?= $index ?>][nama_ibu_kandung]"
-                                        value="<?= esc($s['nama_ibu_kandung'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][nik_ibu]"
-                                        value="<?= esc($s['nik_ibu'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][tahun_lahir_ibu]"
-                                        value="<?= esc($s['tahun_lahir_ibu'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][pendidikan_ibu]"
-                                        value="<?= esc($s['pendidikan_ibu'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][pekerjaan_ibu]"
-                                        value="<?= esc($s['pekerjaan_ibu'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][penghasilan_ibu]"
-                                        value="<?= esc($s['penghasilan_ibu'] ?? '') ?>">
-                                    
-                                    <!-- Hidden fields untuk data wali -->
-                                    <input type="hidden" name="students_data[<?= $index ?>][nama_wali]"
-                                        value="<?= esc($s['nama_wali'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][pendidikan_wali]"
-                                        value="<?= esc($s['pendidikan_wali'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][pekerjaan_wali]"
-                                        value="<?= esc($s['pekerjaan_wali'] ?? '') ?>">
-                                    <input type="hidden" name="students_data[<?= $index ?>][penghasilan_wali]"
-                                        value="<?= esc($s['penghasilan_wali'] ?? '') ?>">
-                                </td>
-                                <td><code><?= esc($s['nisn'] ?? '-') ?></code></td>
-                                <td class="fw-bold">
-                                    <?= esc($s['nama'] ?? '-') ?>
-                                </td>
-                                <td>
-                                    <?= esc($s['jenis_kelamin'] ?? '-') ?>
-                                </td>
-                                <td>
-                                    <?= esc($s['tempat_lahir'] ?? '-') ?>,
-                                    <?= esc($s['tanggal_lahir'] ?? '-') ?>
-                                </td>
-                                <td><small class="text-muted">
-                                        <?= esc($s['nama_rombel'] ?? '-') ?>
-                                    </small></td>
-                            </tr>
-                        <?php endforeach; ?>
+                            <?php foreach ($students as $index => $s): ?>
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" name="selected_students[]"
+                                                value="<?= $index ?>"
+                                                class="form-check-input student-check" checked>
+                                        </td>
+                                        <td><code><?= esc($s['nisn'] ?? '-') ?></code></td>
+                                        <td class="fw-bold"><?= esc($s['nama'] ?? '-') ?></td>
+                                        <td><?= esc($s['jenis_kelamin'] ?? '-') ?></td>
+                                        <td>
+                                            <?= esc($s['tempat_lahir'] ?? '-') ?>,
+                                            <?= esc($s['tanggal_lahir'] ?? '-') ?>
+                                        </td>
+                                        <td><small class="text-muted"><?= esc($s['nama_rombel'] ?? '-') ?></small></td>
+                                    </tr>
+                            <?php endforeach; ?>
                     <?php else: ?>
-                        <tr>
-                            <td colspan="6" class="text-center py-4 text-muted">Tidak ada data siswa ditemukan di Dapodik
-                                untuk NPSN ini.</td>
-                        </tr>
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    Tidak ada data siswa ditemukan di Dapodik untuk NPSN ini.
+                                </td>
+                            </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -180,6 +107,12 @@
     document.getElementById('check-all').addEventListener('change', function () {
         const checks = document.querySelectorAll('.student-check');
         checks.forEach(c => c.checked = this.checked);
+    });
+
+    document.getElementById('sync-form').addEventListener('submit', function (e) {
+        const btn = document.getElementById('sync-btn');
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Memproses...';
     });
 </script>
 
