@@ -1,0 +1,29 @@
+# Composer dependencies
+/vendor/
+
+# User-specific configuration
+.env
+phpunit.xml
+
+# CodeIgniter 4 writable directory
+/writable/*
+!/writable/index.html
+!/writable/keep
+
+# Development tools
+*.log
+*.sql
+*.sqlite
+
+# IDE/Editor specific
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS specific
+.DS_Store
+Thumbs.db

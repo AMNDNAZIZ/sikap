@@ -1,0 +1,101 @@
+<div class="position-sticky pt-3 sidebar-mini">
+  <ul class="nav flex-column">
+
+    <!-- Dashboard -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('dashboard*') ? 'active' : '' ?>" href="<?= base_url('dashboard') ?>">
+        🏠 <span class="label">Dashboard</span>
+      </a>
+    </li>
+
+    <!-- Lihat Website -->
+    <li class="nav-item">
+      <a class="nav-link text-info" href="<?= base_url('/') ?>" target="_blank">
+        🌐 <span class="label">Lihat Website</span>
+      </a>
+    </li>
+
+    <?php
+    $inDataInduk = url_is('admin/school*') || url_is('admin/academic-year*') || url_is('admin/holidays*') ||
+                   url_is('admin/subjects*') || url_is('admin/mapel-master*') ||
+                   url_is('admin/administrasi-guru/cp-master*') || url_is('admin/administrasi-guru/mapping*');
+    $inGuru      = url_is('admin/teachers*') || url_is('admin/teachingassignments*') || url_is('admin/dapodik*');
+    $inSiswa     = (url_is('admin/students*') && !url_is('admin/student-map*')) || url_is('admin/classes*') ||
+                   url_is('admin/active-classes*') || url_is('admin/placement*') || url_is('admin/promotions*') ||
+                   url_is('admin/student-records*');
+    ?>
+
+    <!-- ══ SETUP ══ -->
+    <li class="nav-item mt-2">
+      <small class="text-uppercase text-muted px-3 label" style="font-size:.68rem;letter-spacing:.08em;">Setup</small>
+    </li>
+
+    <!-- Data Induk -->
+    <li class="nav-item">
+      <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#menuDataInduk"
+        role="button" aria-expanded="<?= $inDataInduk ? 'true' : 'false' ?>">
+        ⚙️ <span class="label">Data Induk</span>
+        <i class="bi bi-chevron-down chevron label ms-auto"></i>
+      </a>
+      <div class="collapse <?= $inDataInduk ? 'show' : '' ?>" id="menuDataInduk">
+        <ul class="nav flex-column ms-3">
+          <li><a class="nav-link <?= url_is('admin/school*') ? 'active' : '' ?>" href="<?= base_url('admin/school') ?>">🏫 <span class="label">Identitas Sekolah</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/academic-year*') ? 'active' : '' ?>" href="<?= base_url('admin/academic-year') ?>">📅 <span class="label">Tahun Ajaran</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/holidays*') ? 'active' : '' ?>" href="<?= base_url('admin/holidays') ?>">🌴 <span class="label">Hari Libur</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/subjects*') ? 'active' : '' ?>" href="<?= base_url('admin/subjects') ?>">📘 <span class="label">Mata Pelajaran</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/mapel-master*') ? 'active' : '' ?>" href="<?= base_url('admin/mapel-master') ?>">📚 <span class="label">Mapel Master</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/administrasi-guru/cp-master*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/cp-master') ?>">📜 <span class="label">Data Master CP</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/administrasi-guru/mapping*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/mapping') ?>">🔗 <span class="label">Mapping Kurikulum</span></a></li>
+        </ul>
+      </div>
+    </li>
+
+    <!-- ══ SDM ══ -->
+    <li class="nav-item mt-2">
+      <small class="text-uppercase text-muted px-3 label" style="font-size:.68rem;letter-spacing:.08em;">SDM</small>
+    </li>
+
+    <!-- Guru & Staff -->
+    <li class="nav-item">
+      <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#menuGuru"
+        role="button" aria-expanded="<?= $inGuru ? 'true' : 'false' ?>">
+        👨‍🏫 <span class="label">Guru & Staff</span>
+        <i class="bi bi-chevron-down chevron label ms-auto"></i>
+      </a>
+      <div class="collapse <?= $inGuru ? 'show' : '' ?>" id="menuGuru">
+        <ul class="nav flex-column ms-3">
+          <li><a class="nav-link <?= url_is('admin/teachers*') ? 'active' : '' ?>" href="<?= base_url('admin/teachers') ?>">👨‍🏫 <span class="label">Data Guru & Staff</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/teachingassignments*') ? 'active' : '' ?>" href="<?= base_url('admin/teachingassignments') ?>">🗂️ <span class="label">Plotting Pengajaran</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/dapodik*') ? 'active' : '' ?>" href="<?= base_url('admin/dapodik') ?>">🔌 <span class="label">Integrasi Dapodik</span></a></li>
+        </ul>
+      </div>
+    </li>
+
+    <!-- Siswa & Kelas -->
+    <li class="nav-item">
+      <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#menuSiswa"
+        role="button" aria-expanded="<?= $inSiswa ? 'true' : 'false' ?>">
+        🎓 <span class="label">Siswa & Kelas</span>
+        <i class="bi bi-chevron-down chevron label ms-auto"></i>
+      </a>
+      <div class="collapse <?= $inSiswa ? 'show' : '' ?>" id="menuSiswa">
+        <ul class="nav flex-column ms-3">
+          <li><a class="nav-link <?= url_is('admin/students*') && !url_is('admin/student-map*') ? 'active' : '' ?>" href="<?= base_url('admin/students') ?>">🎓 <span class="label">Data Siswa</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/classes*') ? 'active' : '' ?>" href="<?= base_url('admin/classes') ?>">🏷️ <span class="label">Master Kelas</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/active-classes*') ? 'active' : '' ?>" href="<?= base_url('admin/active-classes') ?>">🏫 <span class="label">Kelas Aktif</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/placement*') ? 'active' : '' ?>" href="<?= base_url('admin/placement') ?>">📌 <span class="label">Penempatan Siswa</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/promotions*') ? 'active' : '' ?>" href="<?= base_url('admin/promotions') ?>">🚀 <span class="label">Kenaikan & Kelulusan</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/student-records*') ? 'active' : '' ?>" href="<?= base_url('admin/student-records') ?>">📖 <span class="label">Riwayat Siswa</span></a></li>
+        </ul>
+      </div>
+    </li>
+
+    <!-- Pengaturan Profil -->
+    <li class="nav-item mt-2">
+      <a class="nav-link <?= url_is('profile*') ? 'active' : '' ?>" href="<?= base_url('profile') ?>">
+        ⚙️ <span class="label">Pengaturan Profil</span>
+      </a>
+    </li>
+
+  </ul>
+</div>

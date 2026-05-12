@@ -1,0 +1,1 @@
+<?= $this->include('admin/cms/sliders/form') ?>
