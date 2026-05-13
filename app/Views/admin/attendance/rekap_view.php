@@ -16,8 +16,8 @@
 
 <div class="mb-3">
   <a href="<?= base_url('admin/attendance') ?>" class="btn btn-secondary">Kembali</a>
-  <a href="<?= base_url("admin/attendance/rekapPdf?class_id={$class['id']}&periode={$periode}") ?>" class="btn btn-danger" target="_blank">Export PDF</a>
-  <a href="<?= base_url("admin/attendance/rekapExcel?class_id={$class['id']}&periode={$periode}") ?>" class="btn btn-success">Export Excel</a>
+  <a href="#" data-href="<?= base_url("admin/attendance/rekapPdf?class_id={$class['id']}&periode={$periode}") ?>" class="btn btn-danger btn-export">Export PDF</a>
+  <a href="#" data-href="<?= base_url("admin/attendance/rekapExcel?class_id={$class['id']}&periode={$periode}") ?>" class="btn btn-success btn-export">Export Excel</a>
 </div>
 
 <table class="table table-bordered table-striped">
@@ -51,4 +51,5 @@
   </tbody>
 </table>
 
+<?= $this->include('admin/components/modal_export_kop') ?>
 <?= $this->endSection() ?>

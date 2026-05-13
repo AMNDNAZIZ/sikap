@@ -534,21 +534,11 @@ class Attendance extends BaseController
             'schoolDays' => $schoolDays,
         ];
 
-        $html = view('admin/attendance/pdf_grid', $data);
+        $useKop = $this->request->getGet('use_kop') == 1;
+        $filename = 'Absensi_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $class['name']) . "_{$month}";
 
-        // bersihkan output buffer agar PDF tidak corrupt
-        if (ob_get_length()) {
-            @ob_end_clean();
-        }
-
-        $dompdf = new Dompdf();
-        $dompdf->loadHtml($html);
-        // orientasi landscape agar tabel bulanan muat A4
-        $dompdf->setPaper('A4', 'landscape');
-        $dompdf->render();
-
-        $filename = 'Absensi_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $class['name']) . "_{$month}.pdf";
-        $dompdf->stream($filename, ['Attachment' => false]);
+        $pdfGenerator = new \App\Libraries\PdfGenerator();
+        $pdfGenerator->stream('admin/attendance/pdf_grid', $data, $filename, 'landscape', $useKop, false);
         exit;
     }
 
@@ -611,98 +601,89 @@ class Attendance extends BaseController
         $activeYear = $this->yearModel->getActiveYear() ?: [];
         $schoolDays = $activeYear['school_days'] ?? 5;
 
-        // buat excel
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
+        $useKop = $this->request->getGet('use_kop') == 1;
+        $filename = 'Absensi_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $class['name']) . "_{$month}";
 
-        // header
-        $sheet->setCellValue('A1', 'No');
-        $sheet->setCellValue('B1', 'NIS');
-        $sheet->setCellValue('C1', 'Nama');
-        $sheet->setCellValue('D1', 'JK');
+        $excelGenerator = new \App\Libraries\ExcelGenerator();
+        $excelGenerator->download($filename, function($sheet, $startRow) use ($students, $dates, $attMap, $holidaySet, $schoolDays) {
+            // header
+            $sheet->setCellValue('A' . $startRow, 'No');
+            $sheet->setCellValue('B' . $startRow, 'NIS');
+            $sheet->setCellValue('C' . $startRow, 'Nama');
+            $sheet->setCellValue('D' . $startRow, 'JK');
 
-        $firstDataCol = 5; // E
-        foreach ($dates as $i => $d) {
-            $colIndex = $firstDataCol + $i;
-            $colLetter = Coordinate::stringFromColumnIndex($colIndex);
-            $sheet->setCellValue($colLetter . '1', date('d', strtotime($d)));
-        }
-
-        // rekap cols
-        $lastDateColIndex = $firstDataCol + count($dates) - 1;
-        $rekapCols = ['H', 'I', 'S', 'A', '%'];
-        foreach ($rekapCols as $j => $label) {
-            $colLetter = Coordinate::stringFromColumnIndex($lastDateColIndex + 1 + $j);
-            $sheet->setCellValue($colLetter . '1', $label);
-        }
-
-        $row = 2;
-        foreach ($students as $index => $s) {
-            $sheet->setCellValue('A' . $row, $index + 1);
-            $sheet->setCellValue('B' . $row, $s['nis'] ?? '-');
-            $sheet->setCellValue('C' . $row, $s['name']);
-            $sheet->setCellValue('D' . $row, $s['gender']);
-
-            $H = $I = $S = $A = 0;
-
+            $firstDataCol = 5; // E
             foreach ($dates as $i => $d) {
                 $colIndex = $firstDataCol + $i;
                 $colLetter = Coordinate::stringFromColumnIndex($colIndex);
-                // Gunakan helper is_weekend untuk cek weekend berdasarkan school_days
-                $isWeekend = is_weekend($d, $schoolDays);
-                $isHoliday = $isWeekend || !empty($holidaySet[$d]);
-                $val = $attMap[$s['id']][$d] ?? null;
+                $sheet->setCellValue($colLetter . $startRow, date('d', strtotime($d)));
+            }
 
-                if ($isHoliday) {
-                    $display = '-';
-                } elseif ($d <= date('Y-m-d')) {
-                    $display = $val ?? 'H';
-                } else {
-                    $display = '-';
+            // rekap cols
+            $lastDateColIndex = $firstDataCol + count($dates) - 1;
+            $rekapCols = ['H', 'I', 'S', 'A', '%'];
+            foreach ($rekapCols as $j => $label) {
+                $colLetter = Coordinate::stringFromColumnIndex($lastDateColIndex + 1 + $j);
+                $sheet->setCellValue($colLetter . $startRow, $label);
+            }
+
+            $row = $startRow + 1;
+            foreach ($students as $index => $s) {
+                $sheet->setCellValue('A' . $row, $index + 1);
+                $sheet->setCellValue('B' . $row, $s['nis'] ?? '-');
+                $sheet->setCellValue('C' . $row, $s['name']);
+                $sheet->setCellValue('D' . $row, $s['gender']);
+
+                $H = $I = $S = $A = 0;
+
+                foreach ($dates as $i => $d) {
+                    $colIndex = $firstDataCol + $i;
+                    $colLetter = Coordinate::stringFromColumnIndex($colIndex);
+                    // Gunakan helper is_weekend untuk cek weekend berdasarkan school_days
+                    $isWeekend = is_weekend($d, $schoolDays);
+                    $isHoliday = $isWeekend || !empty($holidaySet[$d]);
+                    $val = $attMap[$s['id']][$d] ?? null;
+
+                    if ($isHoliday) {
+                        $display = '-';
+                    } elseif ($d <= date('Y-m-d')) {
+                        $display = $val ?? 'H';
+                    } else {
+                        $display = '-';
+                    }
+
+                    $sheet->setCellValue($colLetter . $row, $display);
+
+                    if ($display === 'H')
+                        $H++;
+                    elseif ($display === 'I')
+                        $I++;
+                    elseif ($display === 'S')
+                        $S++;
+                    elseif ($display === 'A')
+                        $A++;
                 }
 
-                $sheet->setCellValue($colLetter . $row, $display);
+                $workDays = 0;
+                foreach ($dates as $d) {
+                    // Gunakan helper is_weekend untuk cek weekend berdasarkan school_days
+                    $isWeekend = is_weekend($d, $schoolDays);
+                    $isHoliday = $isWeekend || !empty($holidaySet[$d]);
+                    if ($d <= date('Y-m-d') && !$isHoliday)
+                        $workDays++;
+                }
 
-                if ($display === 'H')
-                    $H++;
-                elseif ($display === 'I')
-                    $I++;
-                elseif ($display === 'S')
-                    $S++;
-                elseif ($display === 'A')
-                    $A++;
+                $percent = $workDays ? round(($H / $workDays) * 100, 1) : 0;
+
+                $sheet->setCellValue(Coordinate::stringFromColumnIndex($lastDateColIndex + 1) . $row, $H);
+                $sheet->setCellValue(Coordinate::stringFromColumnIndex($lastDateColIndex + 2) . $row, $I);
+                $sheet->setCellValue(Coordinate::stringFromColumnIndex($lastDateColIndex + 3) . $row, $S);
+                $sheet->setCellValue(Coordinate::stringFromColumnIndex($lastDateColIndex + 4) . $row, $A);
+                $sheet->setCellValue(Coordinate::stringFromColumnIndex($lastDateColIndex + 5) . $row, $percent . '%');
+
+                $row++;
             }
-
-            $workDays = 0;
-            foreach ($dates as $d) {
-                // Gunakan helper is_weekend untuk cek weekend berdasarkan school_days
-                $isWeekend = is_weekend($d, $schoolDays);
-                $isHoliday = $isWeekend || !empty($holidaySet[$d]);
-                if ($d <= date('Y-m-d') && !$isHoliday)
-                    $workDays++;
-            }
-
-            $percent = $workDays ? round(($H / $workDays) * 100, 1) : 0;
-
-            $sheet->setCellValue(Coordinate::stringFromColumnIndex($lastDateColIndex + 1) . $row, $H);
-            $sheet->setCellValue(Coordinate::stringFromColumnIndex($lastDateColIndex + 2) . $row, $I);
-            $sheet->setCellValue(Coordinate::stringFromColumnIndex($lastDateColIndex + 3) . $row, $S);
-            $sheet->setCellValue(Coordinate::stringFromColumnIndex($lastDateColIndex + 4) . $row, $A);
-            $sheet->setCellValue(Coordinate::stringFromColumnIndex($lastDateColIndex + 5) . $row, $percent . '%');
-
-            $row++;
-        }
-
-        // kirim file
-        $filename = 'Absensi_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $class['name']) . "_{$month}.xlsx";
-        if (ob_get_length())
-            @ob_end_clean();
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header("Content-Disposition: attachment; filename=\"{$filename}\"");
-        header('Cache-Control: max-age=0');
-
-        $writer = new Xlsx($spreadsheet);
-        $writer->save('php://output');
+        }, $useKop);
         exit;
     }
 
@@ -865,24 +846,21 @@ class Attendance extends BaseController
         $class = $this->classModel->find($classId);
         $rekap = $this->generateRekap((int) $classId, $periode);
 
-        $html = view('admin/attendance/rekap_pdf_template', [
+        // =========================
+        // 6. Generate PDF
+        // =========================
+        $useKop = $this->request->getGet('use_kop') == 1;
+        $filename = "Rekap_{$class['name']}_{$periode}";
+        
+        $data = [
             'class' => $class,
             'activeYear' => $rekap['activeYear'],
             'periode' => $periode,
             'rekapSiswa' => $rekap['rekapSiswa'],
-        ]);
+        ];
 
-        // =========================
-        // 6. Generate PDF
-        // =========================
-        if (ob_get_length())
-            @ob_end_clean();
-
-        $dompdf = new \Dompdf\Dompdf();
-        $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', 'portrait');
-        $dompdf->render();
-        $dompdf->stream("Rekap_{$class['name']}_{$periode}.pdf", ['Attachment' => true]);
+        $pdfGenerator = new \App\Libraries\PdfGenerator();
+        $pdfGenerator->stream('admin/attendance/rekap_pdf_template', $data, $filename, 'portrait', $useKop, true);
         exit;
     }
 
@@ -915,38 +893,30 @@ class Attendance extends BaseController
         // =========================
         // 6. Generate Excel
         // =========================
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
+        $useKop = $this->request->getGet('use_kop') == 1;
+        $filename = "Rekap_{$class['name']}_{$periode}";
 
-        $sheet->fromArray(['No', 'NIS', 'Nama', 'JK', 'H', 'I', 'S', 'A', '%'], null, 'A1');
+        $excelGenerator = new \App\Libraries\ExcelGenerator();
+        $excelGenerator->download($filename, function($sheet, $startRow) use ($rekapSiswa) {
+            $sheet->fromArray(['No', 'NIS', 'Nama', 'JK', 'H', 'I', 'S', 'A', '%'], null, 'A' . $startRow);
 
-        $row = 2;
-        foreach ($rekapSiswa as $i => $r) {
-            $s = $r['student'];
-            $sheet->fromArray([
-                $i + 1,
-                $s['nis'] ?? '-',
-                $s['name'] ?? '-',
-                $s['gender'] ?? '-',
-                $r['H'],
-                $r['I'],
-                $r['S'],
-                $r['A'],
-                $r['percent'] . '%'
-            ], null, "A{$row}");
-            $row++;
-        }
-
-        $filename = "Rekap_{$class['name']}_{$periode}.xlsx";
-
-        if (ob_get_length())
-            @ob_end_clean();
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header("Content-Disposition: attachment; filename=\"{$filename}\"");
-        header('Cache-Control: max-age=0');
-
-        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-        $writer->save('php://output');
+            $row = $startRow + 1;
+            foreach ($rekapSiswa as $i => $r) {
+                $s = $r['student'];
+                $sheet->fromArray([
+                    $i + 1,
+                    $s['nis'] ?? '-',
+                    $s['name'] ?? '-',
+                    $s['gender'] ?? '-',
+                    $r['H'],
+                    $r['I'],
+                    $r['S'],
+                    $r['A'],
+                    $r['percent'] . '%'
+                ], null, "A{$row}");
+                $row++;
+            }
+        }, $useKop);
         exit;
     }
 

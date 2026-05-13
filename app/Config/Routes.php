@@ -61,6 +61,11 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('users/reset-password/(:num)', 'User::resetPassword/$1', $auth12);
 
     // 2. Identitas & Pengaturan
+    $routes->group('settings', $auth127, function($routes) {
+        $routes->get('kop-surat', 'SettingsController::kopSurat');
+        $routes->post('kop-surat/upload', 'SettingsController::uploadKopSurat');
+    });
+
     $routes->get('school', 'School::index', $auth127);
     $routes->post('school/update', 'School::update', $auth127);
     $routes->get('academic-year', 'AcademicYear::index', $auth127);
