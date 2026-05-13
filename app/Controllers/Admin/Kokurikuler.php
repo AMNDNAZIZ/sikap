@@ -104,7 +104,8 @@ class Kokurikuler extends BaseController
             
             // Get semua mata pelajaran yang diajarkan di kelas tersebut
             $subjectIds = $db->table('teaching_assignments')
-                ->select('DISTINCT subject_id')
+                ->select('subject_id')
+                ->distinct()
                 ->where('class_id', $waliClass->id)
                 ->where('academic_year_id', $activeYear['id'])
                 ->get()
