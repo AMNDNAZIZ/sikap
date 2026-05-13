@@ -99,7 +99,7 @@ class Dapodik extends BaseController
         // Tingkatkan execution time limit untuk data banyak
         // set_time_limit() boleh dipanggil kapan saja, berbeda dengan ini_set session
         set_time_limit(180); // 3 menit
-
+        
         $url = env('DAPODIK_API_URL');
         $key = env('DAPODIK_API_KEY');
         $npsn = env('DAPODIK_NPSN');
@@ -109,7 +109,7 @@ class Dapodik extends BaseController
         }
 
         $endpoint = rtrim($url, '/') . '/getPesertaDidik?npsn=' . $npsn;
-
+        
         // Gunakan timeout 120 detik untuk data siswa (biasanya banyak)
         $response = $this->callApi($endpoint, $key, 120);
 
@@ -136,7 +136,7 @@ class Dapodik extends BaseController
         if ($response && isset($response['message'])) {
             $errorMsg .= ' Detail: ' . $response['message'];
         }
-
+        
         log_message('error', 'Dapodik: Failed to fetch students - ' . $errorMsg);
         return redirect()->back()->with('error', $errorMsg);
     }
@@ -152,7 +152,7 @@ class Dapodik extends BaseController
         }
 
         $endpoint = rtrim($url, '/') . '/getGtk?npsn=' . $npsn;
-
+        
         // Gunakan timeout 60 detik untuk data guru
         $response = $this->callApi($endpoint, $key, 60);
 
@@ -219,16 +219,47 @@ class Dapodik extends BaseController
                 continue;
 
             $d = $studentsData[$id];
-            $nisn = $d['nisn'] ?? '';
+            $nisn = trim($d['nisn'] ?? '');
+            $nis  = trim($d['nis'] ?? '');
+            $nik  = trim($d['nik'] ?? '');
             $name = strtoupper($d['nama'] ?? '-');
             $gender = $d['jenis_kelamin'] ?? 'L';
             $tmpLahir = $d['tempat_lahir'] ?? '-';
             $tglLahir = $d['tanggal_lahir'] ?? '2000-01-01';
             $dapodikRombel = $d['nama_rombel'] ?? '';
 
-            // Cek apakah siswa sudah ada (berdasarkan NISN)
-            $existing = $this->studentModel->where('nisn', $nisn)->first();
+            // Deteksi duplikat berlapis:
+            // 1. Cari berdasarkan NISN (paling akurat — nomor nasional unik)
+            // 2. Cari berdasarkan NIS lokal (jika NISN kosong)
+            // 3. Cari berdasarkan NIK (jika keduanya kosong)
+            // 4. Cari berdasarkan nama + tanggal lahir (last resort)
+            // PENTING: NIS tidak boleh disamakan dengan NISN — keduanya field berbeda
+            $existing = null;
 
+            if (!empty($nisn)) {
+                $existing = $this->studentModel->where('nisn', $nisn)->first();
+            }
+
+            if (!$existing && !empty($nis)) {
+                // Cari berdasarkan NIS lokal, tapi pastikan NIS bukan sama dengan NISN
+                // (menghindari false match dari data lama yang salah input)
+                $existing = $this->studentModel
+                    ->where('nis', $nis)
+                    ->where('nis !=', $nisn)  // jangan match jika NIS = NISN (data lama yang salah)
+                    ->first();
+            }
+
+            if (!$existing && !empty($nik)) {
+                $existing = $this->studentModel->where('nik', $nik)->first();
+            }
+
+            if (!$existing && !empty($name) && !empty($tglLahir) && $tglLahir !== '2000-01-01') {
+                $existing = $this->studentModel
+                    ->where('name', $name)
+                    ->where('birth_date', $tglLahir)
+                    ->first();
+            }
+            
             if ($existing) {
                 if ($syncMode === 'skip') {
                     // Mode Skip: Lewati data yang sudah ada
@@ -314,9 +345,16 @@ class Dapodik extends BaseController
      */
     private function mapStudentData($d, $name, $gender, $tmpLahir, $tglLahir, $userId = null)
     {
+        // NIS (Nomor Induk Siswa) adalah nomor lokal sekolah — ambil dari field 'nis' Dapodik.
+        // JANGAN fallback ke NISN karena keduanya adalah nomor yang berbeda:
+        //   - NISN = Nomor Induk Siswa Nasional (10 digit, unik nasional)
+        //   - NIS  = Nomor Induk Siswa lokal sekolah (bisa berbeda format)
+        // Jika Dapodik tidak mengirim NIS, biarkan kosong — jangan isi dengan NISN.
+        $nis = trim($d['nis'] ?? '');
+
         $data = [
             'nisn' => $d['nisn'] ?? '',
-            'nis' => $d['nis'] ?? ($d['nisn'] ?? ''),
+            'nis'  => $nis,  // kosong jika Dapodik tidak punya NIS lokal
             'name' => $name,
             'nik' => $d['nik'] ?? '',
             'gender' => $gender,
@@ -362,12 +400,20 @@ class Dapodik extends BaseController
 
     /**
      * Update mode: Timpa semua data dengan data Dapodik
+     * NIS lokal yang sudah ada TIDAK ditimpa jika Dapodik tidak mengirim NIS
+     * (mencegah NIS yang valid terhapus karena Dapodik tidak punya data NIS lokal)
      */
     private function updateStudentData($studentId, $d, $name, $gender, $tmpLahir, $tglLahir)
     {
         $studentData = $this->mapStudentData($d, $name, $gender, $tmpLahir, $tglLahir);
-        $this->studentModel->update($studentId, $studentData);
 
+        // Jika Dapodik tidak mengirim NIS (kosong), pertahankan NIS yang sudah ada
+        // agar tidak menghapus NIS lokal yang sudah diinput manual
+        if (empty($studentData['nis'])) {
+            unset($studentData['nis']);
+        }
+
+        $this->studentModel->update($studentId, $studentData);
         log_message('info', 'Dapodik Sync: Updated student NISN ' . ($d['nisn'] ?? '') . ' (mode: update)');
     }
 
@@ -378,7 +424,7 @@ class Dapodik extends BaseController
     {
         $existing = $this->studentModel->find($studentId);
         $newData = $this->mapStudentData($d, $name, $gender, $tmpLahir, $tglLahir);
-
+        
         $mergedData = [];
         foreach ($newData as $key => $value) {
             // Hanya update jika field existing kosong dan data baru tidak kosong
@@ -386,7 +432,7 @@ class Dapodik extends BaseController
                 $mergedData[$key] = $value;
             }
         }
-
+        
         if (!empty($mergedData)) {
             $this->studentModel->update($studentId, $mergedData);
             log_message('info', 'Dapodik Sync: Merged student NISN ' . ($d['nisn'] ?? '') . ' - Updated ' . count($mergedData) . ' fields (mode: merge)');

@@ -1144,6 +1144,12 @@ class GradesManageController extends BaseController
         }
         $subjects = $uniqueSubjects;
 
+        // Guard: jika tidak ada mata pelajaran, kembalikan data kosong
+        // Ini mencegah SQL error "IN ()" ketika whereIn dipanggil dengan array kosong
+        if (empty($subjects)) {
+            return ['class' => $class, 'year' => $year, 'students' => $students, 'subjects' => [], 'scores' => [], 'col_avg' => [], 'score_type_label' => 'Belum ada mata pelajaran yang di-assign ke kelas ini.'];
+        }
+
         // Get weights for report score calculation
         $fWeight = ($year['formatif_weight'] ?? 60) / 100;
         $sWeight = ($year['sumatif_weight'] ?? 40) / 100;
@@ -1156,7 +1162,7 @@ class GradesManageController extends BaseController
         // Pre-fetch all relevant scores in bulk
         // Formatif averages
         $formatifAvg = [];
-        if (in_array($scoreType, ['formatif', 'rapor'])) {
+        if (in_array($scoreType, ['formatif', 'rapor']) && !empty($studentIds) && !empty($subjectIds)) {
             $fRows = $db->table('material_scores ms')
                 ->select('ms.student_id, atp.subject_id, AVG(ms.score) as avg_score')
                 ->join('alur_tujuan_pembelajaran atp', 'atp.id = ms.material_id')
@@ -1173,7 +1179,7 @@ class GradesManageController extends BaseController
 
         // Sumatif averages
         $sumatifAvg = [];
-        if (in_array($scoreType, ['sumatif', 'rapor'])) {
+        if (in_array($scoreType, ['sumatif', 'rapor']) && !empty($studentIds) && !empty($subjectIds)) {
             $sRows = $db->table('summative_scores')
                 ->select('student_id, subject_id, AVG(score) as avg_score')
                 ->whereIn('student_id', $studentIds)
@@ -1189,7 +1195,7 @@ class GradesManageController extends BaseController
 
         // Final exam scores (semester 2 only)
         $finalScores = [];
-        if ($scoreType === 'final' || ($scoreType === 'rapor' && $semester == 2)) {
+        if (($scoreType === 'final' || ($scoreType === 'rapor' && $semester == 2)) && !empty($studentIds) && !empty($subjectIds)) {
             $fExRows = $db->table('final_exam_scores')
                 ->select('student_id, subject_id, score')
                 ->whereIn('student_id', $studentIds)
@@ -1203,7 +1209,7 @@ class GradesManageController extends BaseController
 
         // Rapor scores from grades table
         $raporScores = [];
-        if ($scoreType === 'rapor') {
+        if ($scoreType === 'rapor' && !empty($studentIds) && !empty($subjectIds)) {
             $rRows = $db->table('grades')
                 ->select('student_id, subject_id, report_score')
                 ->whereIn('student_id', $studentIds)
