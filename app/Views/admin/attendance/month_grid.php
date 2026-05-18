@@ -80,8 +80,8 @@
     class="btn btn-danger btn-export">
     <i class="bi bi-file-earmark-pdf"></i> Cetak PDF
   </a>
-  <a href="#" data-href="<?= base_url('admin/attendance/excel?class_id=' . (int) $class['id'] . '&month=' . $month) ?>"
-    class="btn btn-success btn-export">
+  <a href="<?= base_url('admin/attendance/excel?class_id=' . (int) $class['id'] . '&month=' . $month) ?>"
+    class="btn btn-success" target="_blank">
     <i class="bi bi-file-earmark-excel"></i> Ekspor Excel
   </a>
 

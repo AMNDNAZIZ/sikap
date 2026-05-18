@@ -601,7 +601,7 @@ class Attendance extends BaseController
         $activeYear = $this->yearModel->getActiveYear() ?: [];
         $schoolDays = $activeYear['school_days'] ?? 5;
 
-        $useKop = $this->request->getGet('use_kop') == 1;
+        $useKop = false; // Kop surat tidak digunakan pada file Excel
         $filename = 'Absensi_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $class['name']) . "_{$month}";
 
         $excelGenerator = new \App\Libraries\ExcelGenerator();
@@ -893,7 +893,7 @@ class Attendance extends BaseController
         // =========================
         // 6. Generate Excel
         // =========================
-        $useKop = $this->request->getGet('use_kop') == 1;
+        $useKop = false; // Kop surat tidak digunakan pada file Excel
         $filename = "Rekap_{$class['name']}_{$periode}";
 
         $excelGenerator = new \App\Libraries\ExcelGenerator();
