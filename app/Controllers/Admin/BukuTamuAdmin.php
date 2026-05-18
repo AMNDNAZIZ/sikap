@@ -68,7 +68,14 @@ class BukuTamuAdmin extends BaseController
             'filter_type'  => $type,
         ];
 
-        $filename = 'Buku_Tamu_' . ($month ? date('F', mktime(0,0,0,(int)$month,1)) . '_' : '') . $year . '.pdf';
+        // Build filename
+        $typeLabel = match($type) {
+            'umum'  => '_Umum',
+            'dinas' => '_Dinas',
+            default => '',
+        };
+        $monthLabel = $month ? '_' . date('F', mktime(0,0,0,(int)$month,1)) : '';
+        $filename = 'Buku_Tamu' . $typeLabel . $monthLabel . '_' . $year . '.pdf';
 
         $pdfGenerator = new \App\Libraries\PdfGenerator();
         $pdfGenerator->stream('admin/buku_tamu/exports/pdf_template', $data, $filename, 'landscape', $use_kop, false);
@@ -136,7 +143,8 @@ class BukuTamuAdmin extends BaseController
                 $sheet->setCellValue('G' . $row, $tamu['bertemu_dengan'] ?? '-');
                 $sheet->setCellValue('H' . $row, $tamu['no_hp'] ?? '-');
             } else {
-                $sheet->setCellValue('E' . $row, $tamu['nip'] ?: '-');
+                // Kolom NIP diset sebagai string agar tidak berubah ke notasi saintifik
+                $sheet->setCellValueExplicit('E' . $row, $tamu['nip'] ?: '-', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
                 $sheet->setCellValue('F' . $row, $instansiKet);
                 $sheet->setCellValue('G' . $row, $tamu['tujuan']);
                 $sheet->setCellValue('H' . $row, $tamu['bertemu_dengan'] ?? '-');
@@ -157,7 +165,14 @@ class BukuTamuAdmin extends BaseController
                 ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
         }
 
-        $filename = 'Buku_Tamu_' . ($month ? date('F', mktime(0,0,0,$month,1)) . '_' : '') . $year . '.xlsx';
+        // Build filename
+        $typeLabel = match($type) {
+            'umum'  => '_Umum',
+            'dinas' => '_Dinas',
+            default => '',
+        };
+        $monthLabel = $month ? '_' . date('F', mktime(0,0,0,(int)$month,1)) : '';
+        $filename = 'Buku_Tamu' . $typeLabel . $monthLabel . '_' . $year . '.xlsx';
 
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
