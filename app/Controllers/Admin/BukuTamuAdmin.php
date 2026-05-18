@@ -65,6 +65,7 @@ class BukuTamuAdmin extends BaseController
             'data_tamu'    => $data_tamu,
             'periodeLabel' => $periodeLabel,
             'printDate'    => date('d F Y'),
+            'filter_type'  => $type,
         ];
 
         $filename = 'Buku_Tamu_' . ($month ? date('F', mktime(0,0,0,(int)$month,1)) . '_' : '') . $year . '.pdf';
@@ -92,18 +93,22 @@ class BukuTamuAdmin extends BaseController
         $sheet       = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Buku Tamu');
 
+        $lastCol = $type === 'umum' ? 'H' : 'I';
+
         // Header info
-        $sheet->mergeCells('A1:H1');
+        $sheet->mergeCells("A1:{$lastCol}1");
         $sheet->setCellValue('A1', 'BUKU TAMU DIGITAL — ' . strtoupper($school['name'] ?? 'SEKOLAH'));
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13);
         $sheet->getStyle('A1')->getAlignment()->setHorizontal('center');
 
-        $sheet->mergeCells('A2:H2');
+        $sheet->mergeCells("A2:{$lastCol}2");
         $sheet->setCellValue('A2', 'Periode: ' . $periodeLabel . ' | Dicetak: ' . date('d F Y'));
         $sheet->getStyle('A2')->getAlignment()->setHorizontal('center');
 
         // Table header — row 4
-        $headers = ['No', 'Tanggal', 'Jenis', 'Nama', 'Instansi / Keterangan', 'Tujuan', 'Bertemu Dengan', 'No HP'];
+        $headers = $type === 'umum' 
+            ? ['No', 'Tanggal', 'Jenis', 'Nama', 'Instansi / Keterangan', 'Tujuan', 'Bertemu Dengan', 'No HP']
+            : ['No', 'Tanggal', 'Jenis', 'Nama', 'NIP', 'Instansi / Keterangan', 'Tujuan', 'Bertemu Dengan', 'No HP'];
         foreach ($headers as $col => $header) {
             $cell = chr(65 + $col) . '4';
             $sheet->setCellValue($cell, $header);
@@ -124,22 +129,31 @@ class BukuTamuAdmin extends BaseController
             $sheet->setCellValue('B' . $row, date('d/m/Y H:i', strtotime($tamu['created_at'])));
             $sheet->setCellValue('C' . $row, ucfirst($tamu['guest_type']));
             $sheet->setCellValue('D' . $row, $tamu['nama']);
-            $sheet->setCellValue('E' . $row, $instansiKet);
-            $sheet->setCellValue('F' . $row, $tamu['tujuan']);
-            $sheet->setCellValue('G' . $row, $tamu['bertemu_dengan'] ?? '-');
-            $sheet->setCellValue('H' . $row, $tamu['no_hp'] ?? '-');
+            
+            if ($type === 'umum') {
+                $sheet->setCellValue('E' . $row, $instansiKet);
+                $sheet->setCellValue('F' . $row, $tamu['tujuan']);
+                $sheet->setCellValue('G' . $row, $tamu['bertemu_dengan'] ?? '-');
+                $sheet->setCellValue('H' . $row, $tamu['no_hp'] ?? '-');
+            } else {
+                $sheet->setCellValue('E' . $row, $tamu['nip'] ?: '-');
+                $sheet->setCellValue('F' . $row, $instansiKet);
+                $sheet->setCellValue('G' . $row, $tamu['tujuan']);
+                $sheet->setCellValue('H' . $row, $tamu['bertemu_dengan'] ?? '-');
+                $sheet->setCellValue('I' . $row, $tamu['no_hp'] ?? '-');
+            }
             $row++;
         }
 
         // Auto size columns
-        foreach (range('A', 'H') as $col) {
+        foreach (range('A', $lastCol) as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
         // Border for data area
         if (count($data_tamu) > 0) {
             $lastRow = 4 + count($data_tamu);
-            $sheet->getStyle('A4:H' . $lastRow)->getBorders()->getAllBorders()
+            $sheet->getStyle("A4:{$lastCol}" . $lastRow)->getBorders()->getAllBorders()
                 ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
         }
 

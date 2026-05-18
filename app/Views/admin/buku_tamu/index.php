@@ -138,6 +138,9 @@
             <th>Tanggal</th>
             <th>Jenis</th>
             <th>Nama</th>
+            <?php if (($filter['type'] ?? '') !== 'umum'): ?>
+            <th>NIP</th>
+            <?php endif; ?>
             <th>Instansi / Ket.</th>
             <th>Tujuan</th>
             <th>Bertemu</th>
@@ -148,7 +151,7 @@
         <tbody>
           <?php if (empty($data_tamu)): ?>
             <tr>
-              <td colspan="9" class="text-center text-muted py-4">
+              <td colspan="<?= ($filter['type'] ?? '') !== 'umum' ? '10' : '9' ?>" class="text-center text-muted py-4">
                 <i class="bi bi-inbox fs-4 d-block mb-1"></i>
                 Belum ada data tamu.
               </td>
@@ -166,6 +169,9 @@
                   <?php endif; ?>
                 </td>
                 <td class="fw-semibold"><?= esc($tamu['nama']) ?></td>
+                <?php if (($filter['type'] ?? '') !== 'umum'): ?>
+                <td><?= esc($tamu['nip'] ?: '-') ?></td>
+                <?php endif; ?>
                 <td>
                   <?php if ($tamu['guest_type'] === 'dinas'): ?>
                     <?= esc($tamu['instansi'] ?? '-') ?>
