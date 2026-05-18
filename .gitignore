@@ -27,3 +27,6 @@ phpunit.xml
 # OS specific
 .DS_Store
 Thumbs.db
+
+#PRD dokumen
+/prd/

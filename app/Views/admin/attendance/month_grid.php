@@ -76,12 +76,12 @@
 </div>
 
 <div class="mb-3 d-flex gap-2">
-  <a href="<?= base_url('admin/attendance/pdf?class_id=' . (int) $class['id'] . '&month=' . $month) ?>" target="_blank"
-    class="btn btn-danger">
+  <a href="#" data-href="<?= base_url('admin/attendance/pdf?class_id=' . (int) $class['id'] . '&month=' . $month) ?>"
+    class="btn btn-danger btn-export">
     <i class="bi bi-file-earmark-pdf"></i> Cetak PDF
   </a>
   <a href="<?= base_url('admin/attendance/excel?class_id=' . (int) $class['id'] . '&month=' . $month) ?>"
-    class="btn btn-success">
+    class="btn btn-success" target="_blank">
     <i class="bi bi-file-earmark-excel"></i> Ekspor Excel
   </a>
 
@@ -473,5 +473,5 @@
   // inisialisasi
   resetTable();
 </script>
-
+<?= $this->include('admin/components/modal_export_kop') ?>
 <?= $this->endSection() ?>
