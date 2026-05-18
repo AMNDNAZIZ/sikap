@@ -432,7 +432,7 @@
       </div>
     </div>
     
-    <div class="col-lg-4">
+        <div class="col-lg-4">
       <div class="modern-card h-100">
         <div class="modern-card-header">
           <h5 class="mb-0 fw-bold">
@@ -451,8 +451,11 @@
             <a href="<?= site_url('admin/announcements') ?>" class="btn btn-warning btn-sm text-start py-2 rounded-3 text-white">
               <i class="bi bi-megaphone me-2"></i> Buat Pengumuman
             </a>
-            <a href="<?= site_url('admin/reports') ?>" class="btn btn-success btn-sm text-start py-2 rounded-3 text-white">
-              <i class="bi bi-graph-up me-2"></i> Laporan & Analisis
+            <a href="<?= site_url('admin/buku-tamu') ?>" class="btn btn-outline-primary btn-sm text-start py-2 rounded-3" id="btn-buku-tamu-quick">
+              <i class="bi bi-clipboard-check me-2"></i> Buku Tamu
+              <?php if (($stats['tamu_hari_ini'] ?? 0) > 0): ?>
+                <span class="badge bg-primary ms-1"><?= $stats['tamu_hari_ini'] ?></span>
+              <?php endif; ?>
             </a>
           </div>
         </div>

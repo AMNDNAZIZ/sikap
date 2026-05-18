@@ -77,7 +77,7 @@
 
     <!-- Stats Cards -->
     <div class="row g-3 mb-4">
-        <div class="col-12 col-sm-6 col-xl-4">
+        <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm h-100 overflow-hidden">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
@@ -92,7 +92,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-xl-4">
+        <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm h-100 overflow-hidden">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
@@ -107,7 +107,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-xl-4">
+        <div class="col-12 col-sm-6 col-xl-3">
             <div class="card border-0 shadow-sm h-100 overflow-hidden">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
@@ -121,6 +121,24 @@
                     </div>
                 </div>
             </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <a href="<?= base_url('admin/buku-tamu') ?>" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 overflow-hidden" style="border-left: 4px solid #0d6efd !important;">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0 bg-primary bg-opacity-10 p-3 rounded-3 me-3">
+                                <i class="bi bi-clipboard-check-fill text-primary fs-4"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="card-subtitle text-muted mb-1">Tamu Hari Ini</h6>
+                                <h4 class="card-title mb-0 fw-bold text-primary"><?= $stats['tamu_hari_ini'] ?? 0 ?></h4>
+                                <small class="text-muted">📋 Lihat Buku Tamu</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </a>
         </div>
     </div>
 

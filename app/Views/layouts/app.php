@@ -27,6 +27,13 @@
   <!-- CKEditor Custom Styles -->
   <link href="<?= base_url('css/ckeditor-custom.css') ?>" rel="stylesheet" />
 
+  <!-- Sidebar state: applied BEFORE render to prevent flicker -->
+  <script>
+    if (localStorage.getItem('sidebar') === 'expanded') {
+      document.documentElement.classList.add('sidebar-preexpanded');
+    }
+  </script>
+
   <style>
     body {
       font-size: 0.875rem;
@@ -77,11 +84,13 @@
         display: none;
       }
 
-      .sidebar.sidebar-expanded {
+      .sidebar.sidebar-expanded,
+      html.sidebar-preexpanded .sidebar {
         width: 220px;
       }
 
-      .sidebar.sidebar-expanded .nav-link span.label {
+      .sidebar.sidebar-expanded .nav-link span.label,
+      html.sidebar-preexpanded .sidebar .nav-link span.label {
         display: inline;
       }
 
@@ -504,9 +513,12 @@
       const sidebar = document.querySelector("#sidebarDesktop");
       const toggleBtn = document.getElementById("sidebarToggle");
 
+      // Sync class dari pre-render state ke elemen sidebar yang sesungguhnya
       if (localStorage.getItem("sidebar") === "expanded") {
         sidebar.classList.add("sidebar-expanded");
       }
+      // Hapus class sementara di <html> agar tidak ada konflik
+      document.documentElement.classList.remove("sidebar-preexpanded");
 
       toggleBtn.addEventListener("click", function () {
         sidebar.classList.toggle("sidebar-expanded");

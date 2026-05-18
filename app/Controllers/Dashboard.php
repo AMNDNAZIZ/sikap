@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\TeacherModel;
 use App\Models\UserModel;
 use App\Models\ScheduleModel;
+use App\Models\BukuTamuModel;
 
 class Dashboard extends BaseController
 {
@@ -92,10 +93,11 @@ class Dashboard extends BaseController
                 $stats = [
                     'total_students' => $db->table('students')->countAllResults(),
                     'total_teachers' => $db->table('teachers')->countAllResults(),
-                    'total_classes' => $db->table('classes')->countAllResults(),
+                    'total_classes'  => $db->table('classes')->countAllResults(),
                     'active_students' => $db->table('student_records')->where('status', 'aktif')->countAllResults(),
-                    'active_teachers' => $db->table('teachers')->countAllResults(), // Assume all teachers are active if no status column
-                    'total_subjects' => $db->table('subjects')->countAllResults(),
+                    'active_teachers' => $db->table('teachers')->countAllResults(),
+                    'total_subjects'  => $db->table('subjects')->countAllResults(),
+                    'tamu_hari_ini'   => (new BukuTamuModel())->getStats()['hari_ini'],
                 ];
 
                 $upcomingAgendas = $db->table('agendas a')
@@ -280,7 +282,8 @@ class Dashboard extends BaseController
                 $stats = [
                     'total_students' => $db->table('students')->countAllResults(),
                     'total_teachers' => $db->table('teachers')->countAllResults(),
-                    'total_classes' => $db->table('classes')->countAllResults(),
+                    'total_classes'  => $db->table('classes')->countAllResults(),
+                    'tamu_hari_ini'  => (new BukuTamuModel())->getStats()['hari_ini'],
                 ];
 
                 $upcomingAgendas = $db->table('agendas a')

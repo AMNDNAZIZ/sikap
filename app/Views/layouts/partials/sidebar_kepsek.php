@@ -18,7 +18,8 @@
     <?php
     $inDataInduk = url_is('admin/school*') || url_is('admin/academic-year*') || url_is('admin/holidays*') ||
                    url_is('admin/subjects*') || url_is('admin/mapel-master*') ||
-                   url_is('admin/administrasi-guru/cp-master*') || url_is('admin/administrasi-guru/mapping*');
+                   url_is('admin/administrasi-guru/cp-master*') || url_is('admin/administrasi-guru/mapping*') ||
+                   url_is('admin/settings/kop-surat*');
     $inGuru      = url_is('admin/teachers*') || url_is('admin/teachingassignments*') || url_is('admin/dapodik*');
     $inSiswa     = (url_is('admin/students*') && !url_is('admin/student-map*')) || url_is('admin/classes*') ||
                    url_is('admin/active-classes*') || url_is('admin/placement*') || url_is('admin/promotions*') ||
@@ -31,6 +32,7 @@
     $inCbt       = url_is('admin/cbt*') || url_is('admin/exam-schedule*') || url_is('admin/kartu-peserta*');
     $inKonseling = url_is('admin/student-notes*') || url_is('admin/behaviors*') || url_is('admin/student-academic-record*');
     $inKomunikasi= url_is('admin/announcements*') || url_is('admin/chat*');
+    $inBukuTamu  = url_is('admin/buku-tamu*');
     $inCms       = url_is('admin/cms*') || url_is('admin/changelogs*');
     $inAkun      = url_is('admin/users*') || url_is('profile*');
     ?>
@@ -56,6 +58,7 @@
           <li><a class="nav-link <?= url_is('admin/mapel-master*') ? 'active' : '' ?>" href="<?= base_url('admin/mapel-master') ?>">📚 <span class="label">Mapel Master (CP)</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/cp-master*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/cp-master') ?>">📜 <span class="label">Data Master CP</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/mapping*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/mapping') ?>">🔗 <span class="label">Mapping Kurikulum</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/settings/kop-surat*') ? 'active' : '' ?>" href="<?= base_url('admin/settings/kop-surat') ?>">📄 <span class="label">Kop Surat</span></a></li>
         </ul>
       </div>
     </li>
@@ -243,6 +246,13 @@
           </li>
         </ul>
       </div>
+    </li>
+
+    <!-- Buku Tamu Digital -->
+    <li class="nav-item">
+      <a class="nav-link <?= $inBukuTamu ? 'active' : '' ?>" href="<?= base_url('admin/buku-tamu') ?>">
+        📋 <span class="label">Buku Tamu Digital</span>
+      </a>
     </li>
 
     <!-- ══ SISTEM ══ -->
