@@ -34,6 +34,14 @@ $routes->get('/dashboard', 'Dashboard::index');
 $routes->get('maintenance/reset-hashes/(:any)', 'Maintenance::resetHashes/$1');
 $routes->get('maintenance/debug-token', 'Maintenance::debugToken');
 
+// ==================== BUKU TAMU (PUBLIK — tanpa auth) ====================
+$routes->get('buku-tamu', 'BukuTamu::index');
+$routes->get('buku-tamu/umum', 'BukuTamu::formUmum');
+$routes->post('buku-tamu/umum/store', 'BukuTamu::storeUmum');
+$routes->get('buku-tamu/dinas', 'BukuTamu::formDinas');
+$routes->post('buku-tamu/dinas/store', 'BukuTamu::storeDinas');
+$routes->get('buku-tamu/sukses', 'BukuTamu::sukses');
+
 // ==================== ADMIN & GURU ROUTES ====================
 $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($routes) {
 
@@ -499,6 +507,13 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('changelogs/edit/(:num)', 'Changelogs::edit/$1');
     $routes->post('changelogs/save', 'Changelogs::save');
     $routes->get('changelogs/delete/(:num)', 'Changelogs::delete/$1');
+
+    // ==================== BUKU TAMU ADMIN ====================
+    $routes->get('buku-tamu', 'BukuTamuAdmin::index', $auth12);
+    $routes->get('buku-tamu/export-pdf', 'BukuTamuAdmin::exportPdf', $auth12);
+    $routes->get('buku-tamu/export-excel', 'BukuTamuAdmin::exportExcel', $auth12);
+    $routes->get('buku-tamu/delete/(:num)', 'BukuTamuAdmin::delete/$1', $auth12);
+    $routes->get('buku-tamu/print-qr', 'BukuTamuAdmin::printQr', $auth12);
 
 });
 
