@@ -449,6 +449,10 @@ class Attendance extends BaseController
             $holidays[$h['date']] = $h['description'] ?? 'Libur';
         }
 
+        // Ambil pengaturan hari pembelajaran (5 atau 6 hari)
+        $activeYear = $this->yearModel->getActiveYear() ?: [];
+        $schoolDays = $activeYear['school_days'] ?? 5;
+
         return view('admin/attendance/week_grid', [
             'title' => 'Absensi Mingguan',
             'class' => $class,
@@ -457,6 +461,7 @@ class Attendance extends BaseController
             'attMap' => $attMap,
             'holidays' => $holidays,
             'week' => $weekStr,
+            'schoolDays' => $schoolDays,
         ]);
     }
 
