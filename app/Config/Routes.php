@@ -515,6 +515,12 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('buku-tamu/delete/(:num)', 'BukuTamuAdmin::delete/$1', $auth12);
     $routes->get('buku-tamu/print-qr', 'BukuTamuAdmin::printQr', $auth12);
 
+    // ==================== TATA USAHA ====================
+    $routes->group('tata-usaha', $auth127, function($routes) {
+        $routes->get('cetak-daftar-hadir', 'TataUsaha::cetakDaftarHadir');
+        $routes->post('cetak-daftar-hadir/generate', 'TataUsaha::generatePDF');
+    });
+
 });
 
 // ==================== SISWA & ORANG TUA ROUTES ====================
