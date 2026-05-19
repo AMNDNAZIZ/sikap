@@ -35,7 +35,8 @@
     $inBukuTamu  = url_is('admin/buku-tamu*');
     $inCms       = url_is('admin/cms*') || url_is('admin/changelogs*');
     $inAkun      = url_is('admin/users*') || url_is('profile*');
-    $inTataUsaha = $inBukuTamu;
+    $inSuratMenyurat = url_is('admin/surat-keluar*') || url_is('admin/surat-masuk*') || url_is('admin/agenda-surat*');
+    $inTataUsaha = $inBukuTamu || $inSuratMenyurat;
     ?>
 
     <!-- ══ SETUP ══ -->
@@ -259,6 +260,9 @@
       <div class="collapse <?= $inTataUsaha ? 'show' : '' ?>" id="menuTataUsaha">
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= $inBukuTamu ? 'active' : '' ?>" href="<?= base_url('admin/buku-tamu') ?>">📋 <span class="label">Buku Tamu Digital</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/surat-keluar*') ? 'active' : '' ?>" href="<?= base_url('admin/surat-keluar') ?>">📤 <span class="label">Surat Keluar</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/surat-masuk*') ? 'active' : '' ?>" href="<?= base_url('admin/surat-masuk') ?>">📥 <span class="label">Surat Masuk</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/agenda-surat*') ? 'active' : '' ?>" href="<?= base_url('admin/agenda-surat') ?>">📓 <span class="label">Buku Agenda Surat</span></a></li>
         </ul>
       </div>
     </li>
