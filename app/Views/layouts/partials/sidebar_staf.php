@@ -23,6 +23,7 @@
     $inSiswa     = (url_is('admin/students*') && !url_is('admin/student-map*')) || url_is('admin/classes*') ||
                    url_is('admin/active-classes*') || url_is('admin/placement*') || url_is('admin/promotions*') ||
                    url_is('admin/student-records*');
+    $inTataUsaha = url_is('admin/tata-usaha*');
     ?>
 
     <!-- ══ SETUP ══ -->
@@ -86,6 +87,20 @@
           <li><a class="nav-link <?= url_is('admin/placement*') ? 'active' : '' ?>" href="<?= base_url('admin/placement') ?>">📌 <span class="label">Penempatan Siswa</span></a></li>
           <li><a class="nav-link <?= url_is('admin/promotions*') ? 'active' : '' ?>" href="<?= base_url('admin/promotions') ?>">🚀 <span class="label">Kenaikan & Kelulusan</span></a></li>
           <li><a class="nav-link <?= url_is('admin/student-records*') ? 'active' : '' ?>" href="<?= base_url('admin/student-records') ?>">📖 <span class="label">Riwayat Siswa</span></a></li>
+        </ul>
+      </div>
+    </li>
+
+    <!-- Tata Usaha -->
+    <li class="nav-item">
+      <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#menuTataUsaha"
+        role="button" aria-expanded="<?= $inTataUsaha ? 'true' : 'false' ?>">
+        🗃️ <span class="label">Tata Usaha</span>
+        <i class="bi bi-chevron-down chevron label ms-auto"></i>
+      </a>
+      <div class="collapse <?= $inTataUsaha ? 'show' : '' ?>" id="menuTataUsaha">
+        <ul class="nav flex-column ms-3">
+          <li><a class="nav-link <?= url_is('admin/tata-usaha/cetak-daftar-hadir*') ? 'active' : '' ?>" href="<?= base_url('admin/tata-usaha/cetak-daftar-hadir') ?>">🖨️ <span class="label">Cetak Daftar Hadir</span></a></li>
         </ul>
       </div>
     </li>

@@ -35,6 +35,7 @@
     $inBukuTamu  = url_is('admin/buku-tamu*');
     $inCms       = url_is('admin/cms*') || url_is('admin/changelogs*');
     $inAkun      = url_is('admin/users*') || url_is('profile*') || url_is('admin/updater*');
+    $inTataUsaha = url_is('admin/tata-usaha*') || $inBukuTamu;
     ?>
 
     <!-- ══ SETUP ══ -->
@@ -252,11 +253,20 @@
       </div>
     </li>
 
-    <!-- Buku Tamu Digital -->
+
+    <!-- Tata Usaha -->
     <li class="nav-item">
-      <a class="nav-link <?= $inBukuTamu ? 'active' : '' ?>" href="<?= base_url('admin/buku-tamu') ?>">
-        📋 <span class="label">Buku Tamu Digital</span>
+      <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#menuTataUsaha"
+        role="button" aria-expanded="<?= $inTataUsaha ? 'true' : 'false' ?>">
+        🗃️ <span class="label">Tata Usaha</span>
+        <i class="bi bi-chevron-down chevron label ms-auto"></i>
       </a>
+      <div class="collapse <?= $inTataUsaha ? 'show' : '' ?>" id="menuTataUsaha">
+        <ul class="nav flex-column ms-3">
+          <li><a class="nav-link <?= url_is('admin/tata-usaha/cetak-daftar-hadir*') ? 'active' : '' ?>" href="<?= base_url('admin/tata-usaha/cetak-daftar-hadir') ?>">🖨️ <span class="label">Cetak Daftar Hadir</span></a></li>
+          <li><a class="nav-link <?= $inBukuTamu ? 'active' : '' ?>" href="<?= base_url('admin/buku-tamu') ?>">📋 <span class="label">Buku Tamu Digital</span></a></li>
+        </ul>
+      </div>
     </li>
 
     <!-- ══ SISTEM ══ -->

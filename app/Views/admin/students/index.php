@@ -18,24 +18,55 @@
 <?php elseif (session()->getFlashdata('error')): ?>
   <div class="alert alert-danger"><?= session()->getFlashdata('error') ?></div>
 <?php endif; ?>
-<?php if (session()->getFlashdata('import_success')): ?>
+<?php if (session()->getFlashdata('import_recap')): ?>
+  <?php $recap = session()->getFlashdata('import_recap'); ?>
   <div class="alert alert-success">
-    <strong>✅ Berhasil diimpor:</strong>
-    <ul>
-      <?php foreach (session()->getFlashdata('import_success') as $s): ?>
-        <li><?= esc($s) ?></li>
-      <?php endforeach ?>
-    </ul>
-  </div>
-<?php endif; ?>
+    <strong>✅ Rekap Import Data Siswa:</strong>
+    <ul class="mb-0 mt-2 list-unstyled">
+      <!-- Insert -->
+      <li class="mb-2">
+        <button class="btn btn-sm btn-outline-success py-0 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseInsert" aria-expanded="false" aria-controls="collapseInsert">
+          <i class="fas fa-plus"></i> <?= count($recap['insert']) ?> data siswa baru ditambahkan
+        </button>
+        <div class="collapse mt-2" id="collapseInsert">
+          <ul class="mb-0 small text-success">
+            <?php foreach ($recap['insert'] as $item): ?>
+              <li><?= esc($item) ?></li>
+            <?php endforeach; ?>
+            <?php if(empty($recap['insert'])) echo '<li>Tidak ada</li>'; ?>
+          </ul>
+        </div>
+      </li>
+      
+      <!-- Update -->
+      <li class="mb-2">
+        <button class="btn btn-sm btn-outline-primary py-0 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseUpdate" aria-expanded="false" aria-controls="collapseUpdate">
+          <i class="fas fa-sync"></i> <?= count($recap['update']) ?> data siswa eksisting diperbarui
+        </button>
+        <div class="collapse mt-2" id="collapseUpdate">
+          <ul class="mb-0 small text-primary">
+            <?php foreach ($recap['update'] as $item): ?>
+              <li><?= esc($item) ?></li>
+            <?php endforeach; ?>
+            <?php if(empty($recap['update'])) echo '<li>Tidak ada</li>'; ?>
+          </ul>
+        </div>
+      </li>
 
-<?php if (session()->getFlashdata('import_failed')): ?>
-  <div class="alert alert-danger">
-    <strong>⚠️ Gagal diimpor:</strong>
-    <ul>
-      <?php foreach (session()->getFlashdata('import_failed') as $f): ?>
-        <li><?= esc($f) ?></li>
-      <?php endforeach ?>
+      <!-- Fail -->
+      <li>
+        <button class="btn btn-sm btn-outline-danger py-0 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFail" aria-expanded="false" aria-controls="collapseFail">
+          <i class="fas fa-times"></i> <?= count($recap['fail']) ?> baris data gagal diproses
+        </button>
+        <div class="collapse mt-2" id="collapseFail">
+          <ul class="mb-0 small text-danger">
+            <?php foreach ($recap['fail'] as $item): ?>
+              <li><?= esc($item) ?></li>
+            <?php endforeach; ?>
+            <?php if(empty($recap['fail'])) echo '<li>Tidak ada</li>'; ?>
+          </ul>
+        </div>
+      </li>
     </ul>
   </div>
 <?php endif; ?>
@@ -44,9 +75,16 @@
 <div class="card mb-3">
   <div class="card-body">
     <form method="get" class="row g-2">
+      <div class="col-md-2">
+        <select name="per_page" class="form-select" onchange="this.form.submit()">
+          <?php foreach ([10, 25, 50, 100, 250, 500] as $num): ?>
+            <option value="<?= $num ?>" <?= (isset($perPage) && $perPage == $num) ? 'selected' : '' ?>><?= $num ?> Baris</option>
+          <?php endforeach; ?>
+        </select>
+      </div>
       <div class="col-md-4">
         <input type="text" name="search" class="form-control" placeholder="Cari nama/NIS/NISN..."
-          value="<?= esc($search) ?>">
+          value="<?= esc($search ?? '') ?>">
       </div>
       <div class="col-md-2">
         <button type="submit" class="btn btn-primary w-100">🔍 Cari</button>
@@ -137,8 +175,9 @@
           </div>
           <div class="alert alert-info py-2">
             <small>
-              <i class="fas fa-info-circle"></i> Belum punya template?
-              <a href="<?= base_url('admin/students/download-template') ?>" class="fw-bold">Unduh Template Disini</a>
+              <i class="fas fa-info-circle"></i> Mendukung dua format Excel:<br>
+              1. <b>Format Dapodik</b> (Unduh Daftar Peserta Didik dari Web Dapodik).<br>
+              2. <b>Format Template Sederhana</b> (<a href="<?= base_url('admin/students/download-template') ?>" class="fw-bold">Unduh Template Disini</a>).
             </small>
           </div>
         </div>
