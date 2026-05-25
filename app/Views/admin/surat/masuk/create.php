@@ -213,7 +213,7 @@ async function handleFile(file) {
     pdfLabel.style.display = 'block';
     document.getElementById('pdf-filename').textContent = file.name;
     
-    // Konversi halaman 1 PDF ke Gambar untuk di-OCR
+    // Konversi semua halaman PDF ke Gambar untuk di-OCR
     document.getElementById('ocr-loading').style.display = 'block';
     document.querySelector('#ocr-loading span').textContent = 'Membaca PDF...';
     
@@ -221,29 +221,47 @@ async function handleFile(file) {
       const fileUrl = URL.createObjectURL(file);
       const loadingTask = pdfjsLib.getDocument(fileUrl);
       const pdf = await loadingTask.promise;
-      
-      // Ambil Halaman 1
-      const page = await pdf.getPage(1);
-      
-      // Render ke canvas dengan resolusi cukup (scale 1.5)
+      const numPages = pdf.numPages;
+
       const scale = 1.5;
-      const viewport = page.getViewport({ scale: scale });
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-      
-      const renderContext = {
-        canvasContext: context,
-        viewport: viewport
-      };
-      await page.render(renderContext).promise;
-      
+
+      // Render semua halaman ke canvas masing-masing, kumpulkan ukuran
+      const canvases = [];
+      let totalHeight = 0;
+      let maxWidth = 0;
+
+      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+        document.querySelector('#ocr-loading span').textContent = `Membaca halaman ${pageNum} dari ${numPages}...`;
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale: scale });
+
+        const c = document.createElement('canvas');
+        c.width  = viewport.width;
+        c.height = viewport.height;
+        await page.render({ canvasContext: c.getContext('2d'), viewport }).promise;
+
+        canvases.push(c);
+        totalHeight += viewport.height;
+        if (viewport.width > maxWidth) maxWidth = viewport.width;
+      }
+
+      // Gabungkan semua halaman ke satu canvas panjang (atas ke bawah)
+      const mergedCanvas = document.createElement('canvas');
+      mergedCanvas.width  = maxWidth;
+      mergedCanvas.height = totalHeight;
+      const mergedCtx = mergedCanvas.getContext('2d');
+
+      let offsetY = 0;
+      for (const c of canvases) {
+        mergedCtx.drawImage(c, 0, offsetY);
+        offsetY += c.height;
+      }
+
       // Ubah ke base64 image dan jalankan OCR
-      const base64Img = canvas.toDataURL('image/jpeg');
-      document.querySelector('#ocr-loading span').textContent = 'Memproses OCR... harap tunggu';
+      const base64Img = mergedCanvas.toDataURL('image/jpeg');
+      document.querySelector('#ocr-loading span').textContent = `Memproses OCR ${numPages} halaman... harap tunggu`;
       runOCR(base64Img);
-      
+
     } catch (err) {
       console.error('PDF JS error:', err);
       document.getElementById('ocr-loading').style.display = 'none';

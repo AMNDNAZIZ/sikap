@@ -25,23 +25,14 @@ $tgl   = date('d', strtotime($letter['issued_at'])) . ' ' . $bulan[(int)date('m'
         <tr><td class="label">Nama</td><td class="colon">:</td><td><strong><?= esc($letter['recipient_name']) ?></strong></td></tr>
         <tr><td class="label">NISN</td><td class="colon">:</td><td><?= esc($rd['nisn'] ?? $ld['nisn'] ?? '-') ?></td></tr>
         <tr><td class="label">NIK</td><td class="colon">:</td><td><?= esc($rd['nik'] ?? $ld['nik'] ?? '-') ?></td></tr>
-        <tr><td class="label">Tempat / Tgl. Lahir</td><td class="colon">:</td><td><?= esc($ld['ttl'] ?? $rd['ttl'] ?? '-') ?></td></tr>
-        <tr><td class="label">Kelas</td><td class="colon">:</td><td><?= esc($ld['kelas'] ?? $rd['kelas'] ?? '-') ?></td></tr>
+        <tr><td class="label">Tempat/Tanggal Lahir</td><td class="colon">:</td><td><?= esc($ld['ttl'] ?? $rd['ttl'] ?? '-') ?></td></tr>
         <tr><td class="label">Alamat Domisili</td><td class="colon">:</td><td><?= esc($ld['alamat_domisili'] ?? '-') ?></td></tr>
     </table>
 
     <div class="isi">
         adalah benar-benar tercatat sebagai siswa aktif di
         <strong><?= esc($school['name'] ?? 'SD Negeri Mangga Besar 11 Pagi') ?></strong>
-        Tahun Pelajaran <strong><?= esc($active_year) ?></strong>.
-    </div>
-
-    <div class="isi">
-        Surat Keterangan ini dibuat untuk keperluan
-        <strong><?= esc($ld['keperluan_detail'] ?? '-') ?></strong>.
-        <?php if (!empty($ld['lampiran'])): ?>
-            <br><?= esc($ld['lampiran']) ?>.
-        <?php endif; ?>
+        yang saat ini duduk di kelas <strong><?= esc($ld['kelas'] ?? $rd['kelas'] ?? '-') ?></strong> pada Tahun Pelajaran <strong><?= esc($active_year) ?></strong> dan ingin melakukan <strong><?= esc($ld['keperluan_detail'] ?? '-') ?></strong><?= !empty($ld['lampiran']) ? ' (' . esc($ld['lampiran']) . ')' : '' ?>.
     </div>
 
     <div class="penutup">Demikian Surat Keterangan ini dibuat untuk dapat dipergunakan sebagaimana mestinya.</div>

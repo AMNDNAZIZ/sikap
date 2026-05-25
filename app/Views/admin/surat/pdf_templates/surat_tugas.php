@@ -50,7 +50,8 @@ if (!empty($ld['activity_date'])) {
         <tr><td class="label">Nama</td><td class="colon">:</td><td><strong><?= esc($letter['recipient_name']) ?></strong></td></tr>
         <tr><td class="label">NIP</td><td class="colon">:</td><td><?= esc($ld['nip'] ?? '-') ?></td></tr>
         <tr><td class="label">Jabatan</td><td class="colon">:</td><td><?= esc($ld['jabatan'] ?? 'Guru') ?></td></tr>
-        <tr><td class="label">Unit Kerja</td><td class="colon">:</td><td><?= esc($school['name'] ?? '-') ?></td></tr>
+        <tr><td class="label">Tempat Tugas</td><td class="colon">:</td><td><?= esc($school['name'] ?? 'SD Negeri Mangga Besar 11 Pagi') ?></td></tr>
+        <tr><td class="label">Alamat Tempat Tugas</td><td class="colon">:</td><td><?= esc($school['address'] ?? 'Jalan Gedong No. 16 Kecamatan Tamansari') ?></td></tr>
     </table>
 
     <div class="isi">Untuk mengikuti / melaksanakan :</div>
@@ -64,7 +65,7 @@ if (!empty($ld['activity_date'])) {
     </table>
 
     <div class="penutup">
-        Demikian Surat Tugas ini dibuat untuk dilaksanakan dengan penuh tanggung jawab dan
+        Demikian Surat Tugas ini dibuat untuk dilaksanakan dengan penuh tanggung jawab and
         melaporkan hasilnya kepada pimpinan.
     </div>
 

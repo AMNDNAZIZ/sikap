@@ -1,5 +1,37 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
+<style>
+  .autocomplete-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1050;
+    display: none;
+    width: 100%;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    max-height: 250px;
+    overflow-y: auto;
+  }
+  .autocomplete-suggestions .list-group-item-action {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+  .autocomplete-suggestions .list-group-item-action:hover {
+    background-color: #f8f9fa;
+    color: #0b5ed7;
+  }
+  /* Prevent clipping of autocomplete suggestions inside tables */
+  .table-responsive, 
+  #tbl-recipients, 
+  #tbl-recipients td, 
+  #tbl-recipients th, 
+  #tbl-recipients tr {
+    overflow: visible !important;
+  }
+</style>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
@@ -94,28 +126,69 @@
           <input type="hidden" name="recipient_ref_id" id="recipient_ref_id">
 
           <!-- Autocomplete Siswa -->
-          <div id="recipient-siswa-section">
+          <div id="recipient-siswa-section" class="position-relative">
             <label class="form-label fw-semibold" for="recipient_search_siswa">Nama Siswa <span class="text-danger">*</span></label>
-            <input type="text" id="recipient_search_siswa" class="form-control" placeholder="Ketik nama atau NISN siswa...">
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" id="recipient_search_siswa" class="form-control" placeholder="Ketik nama atau NISN siswa..." autocomplete="off">
+            </div>
+            <div id="siswa-autocomplete-result" class="autocomplete-suggestions list-group"></div>
             <input type="hidden" name="recipient_name" id="recipient_name">
-            <div id="siswa-autocomplete-result" class="list-group mt-1" style="max-height:200px;overflow-y:auto;"></div>
-            <div class="mt-2 text-muted small" id="siswa-detail-preview"></div>
-            <!-- Field tersembunyi untuk data siswa -->
-            <input type="hidden" name="nisn" id="f_nisn">
-            <input type="hidden" name="nik" id="f_nik">
-            <input type="hidden" name="ttl" id="f_ttl">
-            <input type="hidden" name="kelas" id="f_kelas">
             <input type="hidden" name="alamat_domisili" id="f_alamat">
+
+            <!-- Detail Data Siswa (Visible & Editable) -->
+            <div id="siswa-detail-fields" class="mt-3 p-3 bg-light rounded border" style="display:none;">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="fw-bold mb-0 text-secondary" style="font-size:0.82rem;"><i class="bi bi-card-text me-1"></i>Detail Data Siswa</h6>
+                <small class="text-muted" style="font-size: 0.72rem;">(Auto-filled, dapat diedit jika manual)</small>
+              </div>
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">NISN</label>
+                  <input type="text" name="nisn" id="f_nisn" class="form-control form-control-sm" placeholder="NISN Siswa">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">NIK</label>
+                  <input type="text" name="nik" id="f_nik" class="form-control form-control-sm" placeholder="NIK Siswa">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Tempat, Tanggal Lahir</label>
+                  <input type="text" name="ttl" id="f_ttl" class="form-control form-control-sm" placeholder="Tempat, YYYY-MM-DD">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Kelas</label>
+                  <input type="text" name="kelas" id="f_kelas" class="form-control form-control-sm" placeholder="Kelas Siswa">
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Autocomplete Guru -->
-          <div id="recipient-guru-section" style="display:none;">
+          <div id="recipient-guru-section" class="position-relative" style="display:none;">
             <label class="form-label fw-semibold" for="recipient_search_guru">Nama Guru <span class="text-danger">*</span></label>
-            <input type="text" id="recipient_search_guru" class="form-control" placeholder="Ketik nama atau NIP guru...">
-            <div id="guru-autocomplete-result" class="list-group mt-1" style="max-height:200px;overflow-y:auto;"></div>
-            <div class="mt-2 text-muted small" id="guru-detail-preview"></div>
-            <input type="hidden" name="nip" id="f_nip">
-            <input type="hidden" name="jabatan" id="f_jabatan">
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" id="recipient_search_guru" class="form-control" placeholder="Ketik nama atau NIP guru..." autocomplete="off">
+            </div>
+            <div id="guru-autocomplete-result" class="autocomplete-suggestions list-group"></div>
+            
+            <!-- Detail Data Guru (Visible & Editable) -->
+            <div id="guru-detail-fields" class="mt-3 p-3 bg-light rounded border" style="display:none;">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="fw-bold mb-0 text-secondary" style="font-size:0.82rem;"><i class="bi bi-card-text me-1"></i>Detail Data Guru</h6>
+                <small class="text-muted" style="font-size: 0.72rem;">(Auto-filled, dapat diedit jika manual)</small>
+              </div>
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">NIP</label>
+                  <input type="text" name="nip" id="f_nip" class="form-control form-control-sm" placeholder="NIP Guru">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Jabatan</label>
+                  <input type="text" name="jabatan" id="f_jabatan" class="form-control form-control-sm" placeholder="Jabatan Guru">
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Penerima Internal (Undangan) -->
@@ -207,7 +280,12 @@
                 <tbody id="recipient-rows">
                   <tr id="row-template">
                     <td class="row-no">1</td>
-                    <td><input type="text" name="rec_name[]" class="form-control form-control-sm" required></td>
+                    <td>
+                      <div class="position-relative">
+                        <input type="text" name="rec_name[]" class="form-control form-control-sm autocomplete-rec-name" required autocomplete="off" placeholder="Ketik nama atau NISN...">
+                        <div class="autocomplete-suggestions list-group"></div>
+                      </div>
+                    </td>
                     <td><input type="text" name="rec_kelas[]" class="form-control form-control-sm"></td>
                     <td><input type="date" name="rec_birth_date[]" class="form-control form-control-sm"></td>
                     <td><input type="text" name="rec_cabang[]" class="form-control form-control-sm"></td>
@@ -365,12 +443,44 @@ $('input[name="letter_type"]').on('change', function() {
   $('#selected-type-badge').show();
   $('#selected-type-label').text(LETTER_TYPES[selectedType]);
 
+  // Reset fields on change to avoid stale data
+  $('#recipient_name').val('');
+  $('#recipient_ref_id').val('');
+  $('#f_nisn').val('');
+  $('#f_nik').val('');
+  $('#f_ttl').val('');
+  $('#f_kelas').val('');
+  $('#f_alamat').val('');
+  $('#f_nip').val('');
+  $('#f_jabatan').val('');
+  $('#recipient_search_siswa').val('');
+  $('#recipient_search_guru').val('');
+  $('#siswa-autocomplete-result').empty().hide();
+  $('#guru-autocomplete-result').empty().hide();
+  $('#siswa-detail-preview').empty();
+  $('#guru-detail-preview').empty();
+  $('input[name="nik_guru"]').val('');
+  $('input[name="nip"]').val('');
+  $('input[name="jabatan"]').val('');
+
   // Tampilkan field penerima yang sesuai
   const rtype = RECIPIENT_MAP[selectedType] || 'siswa';
   $('#recipient-siswa-section').toggle(rtype === 'siswa');
   $('#recipient-guru-section').toggle(rtype === 'guru');
   $('#recipient-internal-section').toggle(rtype === 'internal');
   $('#recipient_type').val(rtype === 'multi' ? 'siswa' : rtype);
+
+  // Show/hide visible details fields
+  if (rtype === 'siswa') {
+    $('#siswa-detail-fields').show();
+    $('#guru-detail-fields').hide();
+  } else if (rtype === 'guru') {
+    $('#siswa-detail-fields').hide();
+    $('#guru-detail-fields').show();
+  } else {
+    $('#siswa-detail-fields').hide();
+    $('#guru-detail-fields').hide();
+  }
 
   // Set recipient_name untuk internal
   if (rtype === 'internal') {
@@ -387,32 +497,69 @@ let siswaTimer;
 $('#recipient_search_siswa').on('input', function() {
   clearTimeout(siswaTimer);
   const q = $(this).val();
-  if (q.length < 2) return;
+  
+  // Set recipient_name to the custom text entered
+  $('#recipient_name').val(q);
+  $('#recipient_ref_id').val('');
+  $('#f_nisn').val('');
+  $('#f_nik').val('');
+  $('#f_ttl').val('');
+  $('#f_kelas').val('');
+  $('#siswa-detail-preview').empty();
+  
+  if (q.length < 2) {
+    $('#siswa-autocomplete-result').empty().hide();
+    return;
+  }
+  
   siswaTimer = setTimeout(() => {
     $.getJSON(SISWA_SEARCH_URL, { q }, function(data) {
       const list = $('#siswa-autocomplete-result').empty();
-      data.forEach(s => {
-        list.append(`<a href="#" class="list-group-item list-group-item-action py-1 px-2 small siswa-item"
-          data-id="${s.id}" data-name="${s.name}" data-nisn="${s.nisn}"
-          data-nik="${s.nik}" data-ttl="${s.ttl}" data-kelas="${s.kelas}">${s.text}</a>`);
-      });
+      if (data.length > 0) {
+        data.forEach(s => {
+          list.append(`<a href="#" class="list-group-item list-group-item-action py-2 px-3 small siswa-item"
+            data-id="${s.id}" data-name="${s.name}" data-nisn="${s.nisn}"
+            data-nik="${s.nik}" data-ttl="${s.ttl}" data-kelas="${s.kelas}" data-alamat="${s.alamat}">
+            <i class="bi bi-person me-2"></i><strong>${s.name}</strong> <span class="text-muted ms-1">(NISN: ${s.nisn} - Kelas: ${s.kelas})</span>
+          </a>`);
+        });
+        list.show();
+      } else {
+        list.hide();
+      }
     });
-  }, 400);
+  }, 300);
 });
 
 $(document).on('click', '.siswa-item', function(e) {
   e.preventDefault();
-  const d = $(this).data();
-  $('#recipient_name').val(d.name);
-  $('#recipient_ref_id').val(d.id);
-  $('#recipient_search_siswa').val(d.name);
-  $('#siswa-autocomplete-result').empty();
-  $('#f_nisn').val(d.nisn);
-  $('#f_nik').val(d.nik);
-  $('#f_ttl').val(d.ttl);
-  $('#f_kelas').val(d.kelas);
-  $('#siswa-detail-preview').html(`<span class="badge bg-light text-dark border">NISN: ${d.nisn}</span>
-    <span class="badge bg-light text-dark border ms-1">Kelas: ${d.kelas}</span>`);
+  const item = $(this);
+  const d = item.data();
+  
+  const name = d.name || item.attr('data-name');
+  const id = d.id || item.attr('data-id');
+  const nisn = d.nisn || item.attr('data-nisn') || '';
+  const nik = d.nik || item.attr('data-nik') || '';
+  const ttl = d.ttl || item.attr('data-ttl') || '';
+  const kelas = d.kelas || item.attr('data-kelas') || '';
+  const alamat = d.alamat || item.attr('data-alamat') || '';
+
+  $('#recipient_name').val(name);
+  $('#recipient_ref_id').val(id);
+  $('#recipient_search_siswa').val(name);
+  $('#siswa-autocomplete-result').empty().hide();
+  
+  $('#f_nisn').val(nisn);
+  $('#f_nik').val(nik);
+  $('#f_ttl').val(ttl);
+  $('#f_kelas').val(kelas);
+  $('#f_alamat').val(alamat);
+  
+  // Prefill dynamic sections if present
+  $('input[name="alamat_domisili"]').val(alamat);
+
+  $('#siswa-detail-preview').html(`<span class="badge bg-light text-dark border">NISN: ${nisn}</span>
+    <span class="badge bg-light text-dark border ms-1">Kelas: ${kelas}</span>`);
 });
 
 // Autocomplete Guru
@@ -420,30 +567,136 @@ let guruTimer;
 $('#recipient_search_guru').on('input', function() {
   clearTimeout(guruTimer);
   const q = $(this).val();
-  if (q.length < 2) return;
+  
+  // Set recipient_name to the custom text entered
+  $('#recipient_name').val(q);
+  $('#recipient_ref_id').val('');
+  $('#f_nip').val('');
+  $('#f_jabatan').val('');
+  $('input[name="nik_guru"]').val('');
+  $('input[name="nip"]').val('');
+  $('input[name="jabatan"]').val('');
+  $('input[name="alamat_tinggal"]').val('');
+  $('input[name="no_hp"]').val('');
+  $('#guru-detail-preview').empty();
+  
+  if (q.length < 2) {
+    $('#guru-autocomplete-result').empty().hide();
+    return;
+  }
+  
   guruTimer = setTimeout(() => {
     $.getJSON(GURU_SEARCH_URL, { q }, function(data) {
       const list = $('#guru-autocomplete-result').empty();
-      data.forEach(t => {
-        list.append(`<a href="#" class="list-group-item list-group-item-action py-1 px-2 small guru-item"
-          data-id="${t.id}" data-name="${t.name}" data-nip="${t.nip}"
-          data-nik="${t.nik}" data-jabatan="${t.jabatan}">${t.text}</a>`);
-      });
+      if (data.length > 0) {
+        data.forEach(t => {
+          list.append(`<a href="#" class="list-group-item list-group-item-action py-2 px-3 small guru-item"
+            data-id="${t.id}" data-name="${t.name}" data-nip="${t.nip}"
+            data-nik="${t.nik}" data-jabatan="${t.jabatan}" data-phone="${t.phone}" data-address="${t.address}">
+            <i class="bi bi-person-badge me-2"></i><strong>${t.name}</strong> <span class="text-muted ms-1">(NIP: ${t.nip || '-'} - ${t.jabatan})</span>
+          </a>`);
+        });
+        list.show();
+      } else {
+        list.hide();
+      }
     });
-  }, 400);
+  }, 300);
 });
 
 $(document).on('click', '.guru-item', function(e) {
   e.preventDefault();
-  const d = $(this).data();
-  $('#recipient_name').val(d.name);
-  $('#recipient_ref_id').val(d.id);
-  $('#recipient_search_guru').val(d.name);
-  $('#guru-autocomplete-result').empty();
-  $('#f_nip').val(d.nip);
-  $('#f_jabatan').val(d.jabatan);
-  $('#guru-detail-preview').html(`<span class="badge bg-light text-dark border">NIP: ${d.nip}</span>
-    <span class="badge bg-light text-dark border ms-1">${d.jabatan}</span>`);
+  const item = $(this);
+  const d = item.data();
+  
+  const name = d.name || item.attr('data-name');
+  const id = d.id || item.attr('data-id');
+  const nip = d.nip || item.attr('data-nip') || '';
+  const nik = d.nik || item.attr('data-nik') || '';
+  const jabatan = d.jabatan || item.attr('data-jabatan') || 'Guru';
+  const phone = d.phone || item.attr('data-phone') || '';
+  const address = d.address || item.attr('data-address') || '';
+
+  $('#recipient_name').val(name);
+  $('#recipient_ref_id').val(id);
+  $('#recipient_search_guru').val(name);
+  $('#guru-autocomplete-result').empty().hide();
+  
+  $('#f_nip').val(nip);
+  $('#f_jabatan').val(jabatan);
+
+  // Auto pre-fill sub-form fields for Keterangan Mengajar
+  $('input[name="nik_guru"]').val(nik);
+  $('input[name="alamat_tinggal"]').val(address);
+  $('input[name="no_hp"]').val(phone);
+  
+  // Auto pre-fill sub-form fields for Surat Tugas
+  $('input[name="nip"]').val(nip);
+  $('input[name="jabatan"]').val(jabatan);
+
+  $('#guru-detail-preview').html(`<span class="badge bg-light text-dark border">NIP: ${nip}</span>
+    <span class="badge bg-light text-dark border ms-1">${jabatan}</span>`);
+});
+
+// Autocomplete Lomba (Multi-Siswa)
+let recTimer;
+$(document).on('input', '.autocomplete-rec-name', function() {
+  clearTimeout(recTimer);
+  const input = $(this);
+  const q = input.val();
+  const list = input.siblings('.autocomplete-suggestions').empty();
+  
+  if (q.length < 2) {
+    list.hide();
+    return;
+  }
+  
+  recTimer = setTimeout(() => {
+    $.getJSON(SISWA_SEARCH_URL, { q }, function(data) {
+      list.empty();
+      if (data.length > 0) {
+        data.forEach(s => {
+          list.append(`<a href="#" class="list-group-item list-group-item-action py-2 px-3 small rec-siswa-item"
+            data-name="${s.name}" data-birth-date="${s.birth_date}" data-birth_date="${s.birth_date}" data-kelas="${s.kelas}">
+            <i class="bi bi-person me-2"></i><strong>${s.name}</strong> <span class="text-muted ms-1">(NISN: ${s.nisn} - Kelas: ${s.kelas})</span>
+          </a>`);
+        });
+        list.show();
+      } else {
+        list.hide();
+      }
+    });
+  }, 300);
+});
+
+$(document).on('click', '.rec-siswa-item', function(e) {
+  e.preventDefault();
+  const item = $(this);
+  const d = item.data();
+  const row = item.closest('tr');
+  
+  const name = d.name || item.attr('data-name') || '';
+  const kelas = d.kelas || item.attr('data-kelas') || '';
+  const birthDate = d.birth_date || d.birthDate || item.attr('data-birth-date') || item.attr('data-birth_date') || '';
+  
+  row.find('.autocomplete-rec-name').val(name);
+  row.find('input[name="rec_kelas[]"]').val(kelas);
+  row.find('input[name="rec_birth_date[]"]').val(birthDate);
+  
+  item.closest('.autocomplete-suggestions').empty().hide();
+});
+
+// Close suggestions on outside click
+$(document).on('click', function(e) {
+  if (!$(e.target).closest('#recipient-siswa-section').length) {
+    $('#siswa-autocomplete-result').hide();
+  }
+  if (!$(e.target).closest('#recipient-guru-section').length) {
+    $('#guru-autocomplete-result').hide();
+  }
+  if (!$(e.target).closest('.position-relative').length) {
+    $('.autocomplete-suggestions').hide();
+  }
 });
 
 // Tambah baris siswa (lomba)
@@ -452,7 +705,12 @@ $('#btn-add-recipient').on('click', function() {
   rowCount++;
   const newRow = `<tr>
     <td class="row-no">${rowCount}</td>
-    <td><input type="text" name="rec_name[]" class="form-control form-control-sm" required></td>
+    <td>
+      <div class="position-relative">
+        <input type="text" name="rec_name[]" class="form-control form-control-sm autocomplete-rec-name" required autocomplete="off" placeholder="Ketik nama atau NISN...">
+        <div class="autocomplete-suggestions list-group"></div>
+      </div>
+    </td>
     <td><input type="text" name="rec_kelas[]" class="form-control form-control-sm"></td>
     <td><input type="date" name="rec_birth_date[]" class="form-control form-control-sm"></td>
     <td><input type="text" name="rec_cabang[]" class="form-control form-control-sm"></td>

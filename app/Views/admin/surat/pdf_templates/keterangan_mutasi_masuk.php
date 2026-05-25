@@ -26,9 +26,8 @@ $tgl   = date('d', strtotime($letter['issued_at'])) . ' ' . $bulan[(int)date('m'
     <table class="data-tabel" style="margin-bottom:8px;">
         <tr><td class="label">Nama</td><td class="colon">:</td><td><strong><?= esc($letter['recipient_name']) ?></strong></td></tr>
         <tr><td class="label">NISN</td><td class="colon">:</td><td><?= esc($rd['nisn'] ?? $ld['nisn'] ?? '-') ?></td></tr>
-        <tr><td class="label">Tempat / Tgl. Lahir</td><td class="colon">:</td><td><?= esc($ld['ttl'] ?? $rd['ttl'] ?? '-') ?></td></tr>
-        <tr><td class="label">Sekolah Asal</td><td class="colon">:</td><td><?= esc($ld['sekolah_asal'] ?? '-') ?></td></tr>
-        <tr><td class="label">Alamat Sekolah Asal</td><td class="colon">:</td><td><?= esc($ld['alamat_sekolah_asal'] ?? '-') ?></td></tr>
+        <tr><td class="label">Tempat/Tanggal Lahir</td><td class="colon">:</td><td><?= esc($ld['ttl'] ?? $rd['ttl'] ?? '-') ?></td></tr>
+        <tr><td class="label">Sekolah Asal</td><td class="colon">:</td><td><?= esc($ld['sekolah_asal'] ?? '-') ?><?= !empty($ld['alamat_sekolah_asal']) ? ' – ' . esc($ld['alamat_sekolah_asal']) : '' ?></td></tr>
     </table>
 
     <div class="isi">

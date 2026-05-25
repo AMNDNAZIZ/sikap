@@ -283,16 +283,27 @@ class SuratKeluar extends BaseController
     public function searchSiswa()
     {
         $q        = $this->request->getGet('q') ?? '';
-        $students = (new StudentModel())->like('name', $q)->orLike('nisn', $q)->limit(10)->findAll();
+        $students = (new StudentModel())
+            ->select('students.*, classes.name AS class_name')
+            ->join('student_records', 'student_records.student_id = students.id AND student_records.status = "aktif"', 'left')
+            ->join('classes', 'classes.id = student_records.class_id', 'left')
+            ->groupStart()
+                ->like('students.name', $q)
+                ->orLike('students.nisn', $q)
+            ->groupEnd()
+            ->limit(10)
+            ->findAll();
 
         $result = array_map(fn($s) => [
-            'id'    => $s['id'],
-            'text'  => $s['name'] . ' — NISN: ' . $s['nisn'],
-            'nisn'  => $s['nisn'],
-            'nik'   => $s['nik'] ?? '',
-            'ttl'   => ($s['place_of_birth'] ?? '') . ', ' . ($s['date_of_birth'] ?? ''),
-            'kelas' => $s['class_name'] ?? '',
-            'name'  => $s['name'],
+            'id'         => $s['id'],
+            'text'       => $s['name'] . ' — NISN: ' . $s['nisn'] . ' (Kelas: ' . ($s['class_name'] ?? '-') . ')',
+            'nisn'       => $s['nisn'],
+            'nik'        => $s['nik'] ?? '',
+            'ttl'        => ($s['birth_place'] ?? '') . ', ' . ($s['birth_date'] ?? ''),
+            'birth_date' => $s['birth_date'] ?? '',
+            'kelas'      => $s['class_name'] ?? '',
+            'name'       => $s['name'],
+            'alamat'     => $s['address'] ?? '',
         ], $students);
 
         return $this->response->setJSON($result);
@@ -311,8 +322,10 @@ class SuratKeluar extends BaseController
             'text'    => $t['name'] . ' — NIP: ' . ($t['nip'] ?? '-'),
             'nip'     => $t['nip'] ?? '',
             'nik'     => $t['nik'] ?? '',
-            'jabatan' => $t['jabatan'] ?? 'Guru',
+            'jabatan' => $t['functional_position'] ?: 'Guru',
             'name'    => $t['name'],
+            'phone'   => $t['phone'] ?? '',
+            'address' => $t['address'] ?? '',
         ], $teachers);
 
         return $this->response->setJSON($result);
@@ -332,7 +345,7 @@ class SuratKeluar extends BaseController
                 'semester'            => $post['semester'] ?? '',
             ],
             'keterangan_mengajar' => [
-                'nik'                => $post['nik'] ?? '',
+                'nik'                => $post['nik_guru'] ?? $post['nik'] ?? '',
                 'satuan_pendidikan'  => $post['satuan_pendidikan'] ?? '',
                 'alamat_satuan'      => $post['alamat_satuan'] ?? '',
                 'alamat_tinggal'     => $post['alamat_tinggal'] ?? '',
@@ -406,11 +419,10 @@ class SuratKeluar extends BaseController
 
             // Generate QR PNG data URL (base64) agar bisa embed di PDF tanpa remote fetch
             $verifyUrl = base_url('verify/' . $qrCodeId);
-            $qrCode    = new QrCode($verifyUrl);
-            $qrCode->setSize(160);
+            $qrCode    = new QrCode($verifyUrl, size: 160, margin: 0);
             $writer    = new PngWriter();
             $result    = $writer->write($qrCode);
-            $qrDataUrl = 'data:image/png;base64,' . base64_encode($result->getString());
+            $qrDataUrl = $result->getDataUri();
 
             $activeYear = $settings->getValue('active_school_year') ?? (date('Y') . '/' . (date('Y') + 1));
 
