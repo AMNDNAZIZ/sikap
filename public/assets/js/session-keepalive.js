@@ -11,7 +11,7 @@
     // Configuration
     const PING_INTERVAL = 5 * 60 * 1000; // 5 minutes
     const IDLE_TIMEOUT = 10 * 60 * 1000; // 10 minutes of inactivity before stopping pings
-    const PING_URL = window.location.origin + window.location.pathname.split('/').slice(0, -1).join('/') + '/ping-session';
+    const PING_URL = window.sessionKeepAliveUrl || (window.location.origin + window.location.pathname.split('/').slice(0, -1).join('/') + '/ping-session');
     
     let lastActivity = Date.now();
     let pingTimer = null;

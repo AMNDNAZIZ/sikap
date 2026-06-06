@@ -14,9 +14,11 @@
         "ext-intl": "*",
         "ext-mbstring": "*",
         "dompdf/dompdf": "^3.1",
+        "endroid/qr-code": "^6.0",
         "laminas/laminas-escaper": "^2.17",
         "phpoffice/phpspreadsheet": "^5.1",
-        "psr/log": "^3.0"
+        "psr/log": "^3.0",
+        "ramsey/uuid": "^4.9"
     },
     "require-dev": {
         "codeigniter/coding-standard": "^1.7",

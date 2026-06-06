@@ -78,6 +78,7 @@ class StudentModel extends Model
             ->join('users', 'users.id = students.user_id', 'left')
             ->where('student_records.class_id', $classId)
             ->where('student_records.status', 'aktif')
+            ->groupBy('students.id')
             ->orderBy('students.name', 'ASC')
             ->findAll();
     }

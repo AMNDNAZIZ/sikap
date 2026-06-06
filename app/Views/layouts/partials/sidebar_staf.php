@@ -23,7 +23,8 @@
     $inSiswa     = (url_is('admin/students*') && !url_is('admin/student-map*')) || url_is('admin/classes*') ||
                    url_is('admin/active-classes*') || url_is('admin/placement*') || url_is('admin/promotions*') ||
                    url_is('admin/student-records*');
-    $inTataUsaha = url_is('admin/tata-usaha*');
+    $inSuratMenyurat = url_is('admin/surat-keluar*') || url_is('admin/surat-masuk*') || url_is('admin/agenda-surat*');
+    $inTataUsaha = url_is('admin/tata-usaha*') || $inSuratMenyurat;
     ?>
 
     <!-- ══ SETUP ══ -->
@@ -101,6 +102,9 @@
       <div class="collapse <?= $inTataUsaha ? 'show' : '' ?>" id="menuTataUsaha">
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/tata-usaha/cetak-daftar-hadir*') ? 'active' : '' ?>" href="<?= base_url('admin/tata-usaha/cetak-daftar-hadir') ?>">🖨️ <span class="label">Cetak Daftar Hadir</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/surat-keluar*') ? 'active' : '' ?>" href="<?= base_url('admin/surat-keluar') ?>">📤 <span class="label">Surat Keluar</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/surat-masuk*') ? 'active' : '' ?>" href="<?= base_url('admin/surat-masuk') ?>">📥 <span class="label">Surat Masuk</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/agenda-surat*') ? 'active' : '' ?>" href="<?= base_url('admin/agenda-surat') ?>">📓 <span class="label">Buku Agenda Surat</span></a></li>
         </ul>
       </div>
     </li>

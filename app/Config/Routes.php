@@ -521,6 +521,36 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->post('cetak-daftar-hadir/generate', 'TataUsaha::generatePDF');
     });
 
+    // ==================== SURAT MENYURAT ====================
+    // Surat Keluar
+    $routes->group('surat-keluar', $auth127, function($routes) {
+        $routes->get('/', 'SuratKeluar::index');
+        $routes->get('create', 'SuratKeluar::create');
+        $routes->post('store', 'SuratKeluar::store');
+        $routes->get('detail/(:num)', 'SuratKeluar::detail/$1');
+        $routes->get('download/(:num)', 'SuratKeluar::downloadPdf/$1');
+        $routes->post('revoke/(:num)', 'SuratKeluar::revoke/$1');
+        // AJAX autocomplete
+        $routes->get('search-siswa', 'SuratKeluar::searchSiswa');
+        $routes->get('search-guru', 'SuratKeluar::searchGuru');
+    });
+
+    // Surat Masuk
+    $routes->group('surat-masuk', $auth127, function($routes) {
+        $routes->get('/', 'SuratMasuk::index');
+        $routes->get('create', 'SuratMasuk::create');
+        $routes->post('store', 'SuratMasuk::store');
+        $routes->get('detail/(:num)', 'SuratMasuk::detail/$1');
+        $routes->get('edit/(:num)', 'SuratMasuk::edit/$1');
+        $routes->post('update/(:num)', 'SuratMasuk::update/$1');
+        $routes->get('delete/(:num)', 'SuratMasuk::delete/$1');
+        $routes->get('scan/(:num)', 'SuratMasuk::viewScan/$1');
+    });
+
+    // Buku Agenda
+    $routes->get('agenda-surat', 'AgendaSurat::index', $auth127);
+    $routes->get('agenda-surat/export-excel', 'AgendaSurat::exportExcel', $auth127);
+
 });
 
 // ==================== SISWA & ORANG TUA ROUTES ====================
@@ -579,6 +609,9 @@ $routes->group('profile', ['filter' => 'auth'], function ($routes) {
     $routes->get('preview-document/(:num)', 'Profile::previewDocument/$1');
 });
 
+
+// ==================== VERIFY QR (PUBLIK — tanpa auth) ====================
+$routes->get('verify/(:segment)', 'Verify::index/$1');
 
 // ==================== API ROUTES ====================
 // API untuk Bridge Sync dari Dapodik Lokal ke Online

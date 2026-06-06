@@ -23,6 +23,8 @@ phpunit.xml
 *.njsproj
 *.sln
 *.sw?
+.clinerules
+.cursorrules
 
 # OS specific
 .DS_Store
@@ -30,3 +32,6 @@ Thumbs.db
 
 #PRD dokumen
 /prd/
+/.antigravitycli/
+/ai-context/
+/docs/
