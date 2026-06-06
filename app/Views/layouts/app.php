@@ -544,6 +544,7 @@
 
   <!-- Session Keep-Alive Script -->
   <?php if (session()->get('logged_in')): ?>
+  <script>window.sessionKeepAliveUrl = "<?= base_url('auth/ping-session') ?>";</script>
   <script src="<?= base_url('assets/js/session-keepalive.js') ?>"></script>
   <?php endif; ?>
 

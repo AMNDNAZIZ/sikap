@@ -13,7 +13,6 @@ use App\Models\SettingsModel;
 use App\Libraries\PdfGenerator;
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\PngWriter;
-use Ramsey\Uuid\Uuid;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -127,7 +126,7 @@ class SuratKeluar extends BaseController
         $letterNo = OutgoingLetterModel::buildLetterNumber($seq, $year, $padding);
 
         // UUID
-        $qrCodeId = Uuid::uuid4()->toString();
+        $qrCodeId = $this->generateUuid4();
 
         // Kumpulkan letter_data spesifik per jenis surat
         $letterData = $this->extractLetterData($letterType);
@@ -478,5 +477,13 @@ class SuratKeluar extends BaseController
             log_message('error', '[SuratKeluar::generatePdf] ' . $e->getMessage());
             return null;
         }
+    }
+
+    private function generateUuid4(): string
+    {
+        $data = random_bytes(16);
+        $data[6] = chr(ord($data[6]) & 0x0f | 0x40); // set version to 4
+        $data[8] = chr(ord($data[8]) & 0x3f | 0x80); // set bits 6-7 to 10
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
 }

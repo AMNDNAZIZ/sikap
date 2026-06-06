@@ -435,6 +435,7 @@ let selectedType = null;
 
 // Saat pilih jenis surat
 $('input[name="letter_type"]').on('change', function() {
+  const isInitialLoad = (selectedType === null);
   selectedType = this.value;
   $('#section-common').show();
   $('#section-recipient').show();
@@ -443,25 +444,27 @@ $('input[name="letter_type"]').on('change', function() {
   $('#selected-type-badge').show();
   $('#selected-type-label').text(LETTER_TYPES[selectedType]);
 
-  // Reset fields on change to avoid stale data
-  $('#recipient_name').val('');
-  $('#recipient_ref_id').val('');
-  $('#f_nisn').val('');
-  $('#f_nik').val('');
-  $('#f_ttl').val('');
-  $('#f_kelas').val('');
-  $('#f_alamat').val('');
-  $('#f_nip').val('');
-  $('#f_jabatan').val('');
-  $('#recipient_search_siswa').val('');
-  $('#recipient_search_guru').val('');
-  $('#siswa-autocomplete-result').empty().hide();
-  $('#guru-autocomplete-result').empty().hide();
-  $('#siswa-detail-preview').empty();
-  $('#guru-detail-preview').empty();
-  $('input[name="nik_guru"]').val('');
-  $('input[name="nip"]').val('');
-  $('input[name="jabatan"]').val('');
+  if (!isInitialLoad) {
+    // Reset fields on change to avoid stale data
+    $('#recipient_name').val('');
+    $('#recipient_ref_id').val('');
+    $('#f_nisn').val('');
+    $('#f_nik').val('');
+    $('#f_ttl').val('');
+    $('#f_kelas').val('');
+    $('#f_alamat').val('');
+    $('#f_nip').val('');
+    $('#f_jabatan').val('');
+    $('#recipient_search_siswa').val('');
+    $('#recipient_search_guru').val('');
+    $('#siswa-autocomplete-result').empty().hide();
+    $('#guru-autocomplete-result').empty().hide();
+    $('#siswa-detail-preview').empty();
+    $('#guru-detail-preview').empty();
+    $('input[name="nik_guru"]').val('');
+    $('input[name="nip"]').val('');
+    $('input[name="jabatan"]').val('');
+  }
 
   // Tampilkan field penerima yang sesuai
   const rtype = RECIPIENT_MAP[selectedType] || 'siswa';
@@ -482,13 +485,20 @@ $('input[name="letter_type"]').on('change', function() {
     $('#guru-detail-fields').hide();
   }
 
-  // Set recipient_name untuk internal
+  // Set recipient_name untuk internal / multi
   if (rtype === 'internal') {
     $('#recipient_name').val('Guru & Tenaga Kependidikan SDN Mangga Besar 11 Pagi');
+  } else if (rtype === 'multi') {
+    $('#recipient_name').val('Daftar Terlampir');
   }
 
   // Tampilkan section dinamis
   $('.dynamic-section').hide();
+  $('.dynamic-section').find('.autocomplete-rec-name').prop('required', false);
+
+  if (selectedType === 'keterangan_lomba') {
+    $(`.dynamic-section[data-type="keterangan_lomba"]`).find('.autocomplete-rec-name').prop('required', true);
+  }
   $(`.dynamic-section[data-type="${selectedType}"]`).show();
 });
 
@@ -726,5 +736,8 @@ $(document).on('click', '.btn-remove-row', function() {
     rowCount = $('#recipient-rows tr').length;
   }
 });
+
+// Trigger change on page load if a type is already pre-selected
+$('input[name="letter_type"]:checked').trigger('change');
 </script>
 <?= $this->endSection() ?>
