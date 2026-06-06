@@ -1,15 +1,17 @@
 name: 🚀 Deploy ke cPanel
 
 on:
-  push:
+  pull_request:
+    types:
+      - closed       # trigger saat PR di-close/merge
     branches:
-      - main        # deploy saat push ke branch main
-      # - production # uncomment jika pakai branch production
+      - main          # hanya PR yang target ke main
 
 jobs:
   deploy:
     name: 🔄 Deploy via FTP
     runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true  # hanya jalan jika PR benar-benar di-merge
 
     steps:
       # 1. Checkout repository
