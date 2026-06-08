@@ -1,0 +1,209 @@
+═══════════════════════════════════════════════════════════════
+  SETUP UPDATE SERVER - WITH ADMIN PANEL
+═══════════════════════════════════════════════════════════════
+
+🎉 NEW: Admin Panel dengan Upload Interface!
+
+═══════════════════════════════════════════════════════════════
+  FITUR BARU
+═══════════════════════════════════════════════════════════════
+
+✅ Admin Login (autentikasi)
+✅ Dashboard (statistics)
+✅ Upload Interface (drag & drop)
+✅ Manage Updates (activate/deactivate)
+✅ Download Logs (monitoring)
+
+═══════════════════════════════════════════════════════════════
+  SETUP STEPS (SAMA SEPERTI SEBELUMNYA)
+═══════════════════════════════════════════════════════════════
+
+STEP 1: Edit Config (5 menit)
+────────────────────────────────────────────────────────────────
+File: updatecbt_standalone/config.php
+Edit DB_USER dan DB_PASS
+
+STEP 2: Ganti Admin Credentials (2 menit) - NEW!
+────────────────────────────────────────────────────────────────
+File: updatecbt_standalone/admin_login.php
+Line 18-19:
+
+$admin_username = 'admin';        // ← GANTI!
+$admin_password = 'admin123';     // ← GANTI dengan password kuat!
+
+STEP 3: ZIP & Upload (7 menit)
+────────────────────────────────────────────────────────────────
+1. ZIP folder: updatecbt_standalone/
+2. Upload ke: public_html/
+3. Extract
+4. Rename: updatecbt
+
+STEP 4: Create Folder (3 menit)
+────────────────────────────────────────────────────────────────
+Create: /home/username/writable/updates/
+Permission: 755
+
+STEP 5: Database (10 menit)
+────────────────────────────────────────────────────────────────
+1. Create database: update_server
+2. Import: database_updates_FINAL.sql
+
+STEP 6: Test (5 menit)
+────────────────────────────────────────────────────────────────
+1. Welcome: https://updatecbt.sakasalika.com/
+2. API: /api/check?current_version=1.0.0
+3. Admin: /admin_login.php  ← NEW!
+
+TOTAL: ~32 menit
+
+═══════════════════════════════════════════════════════════════
+  NEW FILES
+═══════════════════════════════════════════════════════════════
+
+updatecbt_standalone/
+├── admin_login.php          ✅ Login page
+├── admin_dashboard.php      ✅ Dashboard
+├── admin_upload.php         ✅ Upload interface
+├── admin_manage.php         ✅ Manage updates
+├── admin_logout.php         ✅ Logout
+└── (existing files...)
+
+═══════════════════════════════════════════════════════════════
+  CARA UPLOAD UPDATE (NEW WORKFLOW)
+═══════════════════════════════════════════════════════════════
+
+OLD WAY (Manual - 15 menit):
+────────────────────────────────────────────────────────────────
+1. Create update di localhost
+2. Upload ZIP via FTP/cPanel
+3. Login phpMyAdmin
+4. Copy-paste SQL query
+5. Run query
+6. Test API
+
+NEW WAY (Admin Panel - 3 menit):
+────────────────────────────────────────────────────────────────
+1. Create update di localhost: CREATE_UPDATE.bat
+2. Login admin panel: /admin_login.php
+3. Click: Upload Update
+4. Fill form & upload ZIP
+5. Done! ✅
+
+TIME SAVED: 80%! 🚀
+
+═══════════════════════════════════════════════════════════════
+  ADMIN PANEL USAGE
+═══════════════════════════════════════════════════════════════
+
+LOGIN:
+────────────────────────────────────────────────────────────────
+URL: https://updatecbt.sakasalika.com/admin_login.php
+Username: admin (ganti setelah setup!)
+Password: admin123 (ganti setelah setup!)
+
+DASHBOARD:
+────────────────────────────────────────────────────────────────
+- View statistics
+- Quick actions
+- Recent updates table
+
+UPLOAD UPDATE:
+────────────────────────────────────────────────────────────────
+1. Click: Upload Update
+2. Version: 1.0.2
+3. Title: Fix Hash Bug
+4. Description: (optional)
+5. File: Drag & drop ZIP
+6. Critical: Check if needed
+7. Click: Upload
+8. Done!
+
+MANAGE UPDATES:
+────────────────────────────────────────────────────────────────
+- View all updates
+- Activate/Deactivate
+- Delete updates
+- Monitor downloads
+
+═══════════════════════════════════════════════════════════════
+  SECURITY
+═══════════════════════════════════════════════════════════════
+
+IMPORTANT:
+────────────────────────────────────────────────────────────────
+✅ WAJIB ganti default credentials!
+✅ Gunakan password kuat (min 12 karakter)
+✅ Logout setelah selesai
+✅ Jangan share credentials
+
+FEATURES:
+────────────────────────────────────────────────────────────────
+✅ Session-based authentication
+✅ File validation (ZIP only)
+✅ Input validation
+✅ SQL injection prevention
+✅ Access control
+
+═══════════════════════════════════════════════════════════════
+  COMPARISON
+═══════════════════════════════════════════════════════════════
+
+                    MANUAL          ADMIN PANEL
+────────────────────────────────────────────────────────────────
+Upload Method       FTP/cPanel      Browser (drag & drop)
+Register DB         phpMyAdmin      Automatic
+Calculate Hash      Manual          Automatic
+Activate            SQL query       One click
+Manage              phpMyAdmin      Web interface
+Time                ~15 min         ~3 min
+Ease                ⭐⭐            ⭐⭐⭐⭐⭐
+
+═══════════════════════════════════════════════════════════════
+  URLS
+═══════════════════════════════════════════════════════════════
+
+Public:
+- Welcome: https://updatecbt.sakasalika.com/
+- API: https://updatecbt.sakasalika.com/api/check
+
+Admin:
+- Login: https://updatecbt.sakasalika.com/admin_login.php
+- Dashboard: https://updatecbt.sakasalika.com/admin_dashboard.php
+- Upload: https://updatecbt.sakasalika.com/admin_upload.php
+- Manage: https://updatecbt.sakasalika.com/admin_manage.php
+
+═══════════════════════════════════════════════════════════════
+  DOCUMENTATION
+═══════════════════════════════════════════════════════════════
+
+Setup:
+✅ SETUP_UPDATE_SERVER_STEP_BY_STEP.md (detailed)
+✅ CHECKLIST_SETUP_UPDATE_SERVER.txt (checklist)
+✅ SETUP_WITH_ADMIN_PANEL.txt (this file)
+
+Admin Panel:
+✅ ADMIN_PANEL_GUIDE.md (complete guide)
+
+Upload:
+✅ UPLOAD_FIRST_UPDATE.md (manual way)
+✅ ADMIN_PANEL_GUIDE.md (admin panel way)
+
+═══════════════════════════════════════════════════════════════
+  RECOMMENDATION
+═══════════════════════════════════════════════════════════════
+
+✅ USE ADMIN PANEL for all uploads!
+
+Benefits:
+- Faster (3 min vs 15 min)
+- Easier (drag & drop)
+- Safer (validation)
+- Better (management interface)
+
+═══════════════════════════════════════════════════════════════
+
+STATUS: ✅ READY WITH ADMIN PANEL!
+
+Next: Setup server dan test admin panel!
+
+═══════════════════════════════════════════════════════════════

@@ -1,0 +1,24 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Deny access to PHP files
+    <FilesMatch "\.php$">
+        Order Deny,Allow
+        Deny from all
+    </FilesMatch>
+    
+    # Allow only safe file types
+    <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|mp4|mp3|wav|pdf|doc|docx|xls|xlsx|ppt|pptx|zip)$">
+        Order Allow,Deny
+        Allow from all
+    </FilesMatch>
+</IfModule>
+
+# Disable directory listing
+Options -Indexes
+
+# Prevent access to hidden files
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

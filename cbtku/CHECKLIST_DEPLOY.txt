@@ -1,0 +1,105 @@
+╔══════════════════════════════════════════════════════════════╗
+║  CHECKLIST DEPLOYMENT - UPDATE SERVER STANDALONE             ║
+║  https://updatecbt.sakasalika.com/                           ║
+╚══════════════════════════════════════════════════════════════╝
+
+PERSIAPAN
+─────────────────────────────────────────────────────────────────
+[ ] Zip folder: updatecbt_standalone.zip
+[ ] Siapkan username database hosting
+[ ] Siapkan password database hosting
+
+
+STEP 1: HAPUS FOLDER LAMA (30 detik)
+─────────────────────────────────────────────────────────────────
+[ ] Login cPanel
+[ ] Buka File Manager
+[ ] Masuk ke: public_html/public/
+[ ] Hapus folder: updatecbt/ (yang lama)
+
+
+STEP 2: UPLOAD FOLDER BARU (1 menit)
+─────────────────────────────────────────────────────────────────
+[ ] Upload: updatecbt_standalone.zip ke public/
+[ ] Extract file ZIP
+[ ] Hapus file ZIP setelah extract
+
+
+STEP 3: RENAME FOLDER (10 detik)
+─────────────────────────────────────────────────────────────────
+[ ] Rename: updatecbt_standalone → updatecbt
+
+
+STEP 4: EDIT KONFIGURASI (1 menit)
+─────────────────────────────────────────────────────────────────
+[ ] Buka: public/updatecbt/config.php
+[ ] Edit: DB_USER (username database)
+[ ] Edit: DB_PASS (password database)
+[ ] Save file
+
+
+STEP 5: CREATE DATABASE (2 menit)
+─────────────────────────────────────────────────────────────────
+[ ] cPanel → MySQL Databases
+[ ] Create database: update_server
+[ ] Create user (jika belum ada)
+[ ] Add user to database (ALL PRIVILEGES)
+[ ] phpMyAdmin → Import: updatecbt/setup_database.sql
+
+
+STEP 6: CREATE FOLDER UPDATES (30 detik)
+─────────────────────────────────────────────────────────────────
+[ ] Masuk ke: public_html/ (root)
+[ ] Buat folder: writable/
+[ ] Buat folder: writable/updates/
+[ ] Set permission: 755
+
+
+STEP 7: TEST SERVER (30 detik)
+─────────────────────────────────────────────────────────────────
+[ ] Akses: https://updatecbt.sakasalika.com/
+[ ] Expected: Welcome page + "Server is Running"
+[ ] Akses: https://updatecbt.sakasalika.com/api/check?current_version=1.0.0
+[ ] Expected: JSON response
+
+
+VERIFICATION
+─────────────────────────────────────────────────────────────────
+[ ] Tidak ada error 500
+[ ] Database status: Connected
+[ ] API check mengembalikan JSON
+[ ] Folder writable/updates/ ada dan writable
+
+
+TROUBLESHOOTING
+─────────────────────────────────────────────────────────────────
+Error 500:
+  → Check config.php (DB_USER, DB_PASS)
+  → Check database sudah dibuat
+  → Check error.log
+
+404 Not Found:
+  → Check .htaccess ada
+  → Check mod_rewrite enabled
+
+Database connection failed:
+  → Verify kredensial di config.php
+  → Check user punya akses ke database
+
+Permission denied:
+  → chmod 755 writable/updates/
+
+
+NEXT STEPS (Setelah server berjalan)
+─────────────────────────────────────────────────────────────────
+[ ] Generate update package di localhost
+[ ] Upload file ZIP ke writable/updates/
+[ ] Update database (file_size, file_hash, is_active)
+[ ] Implement client side (copy method dari UpdaterEnhancement.php)
+[ ] Test dari client
+
+
+═══════════════════════════════════════════════════════════════
+ESTIMASI WAKTU: 5-7 menit
+STATUS: Ready to Deploy ✓
+═══════════════════════════════════════════════════════════════

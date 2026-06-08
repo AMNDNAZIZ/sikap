@@ -1,0 +1,56 @@
+========================================
+QUICK FIX: Protocol Detection
+========================================
+
+MASALAH BARU:
+1. Gambar tidak tampil di "Lihat Soal"
+2. Upload berhasil tapi save gagal
+3. Gambar tidak tampil di Edit
+4. Upload gagal di Edit
+
+ROOT CAUSE:
+Mixed Content - Browser pakai HTTPS tapi base URL HTTP
+  https://localhost vs http://localhost
+
+SOLUSI:
+Auto-detect protocol di uploadImage() dan processEmbeddedImages()
+
+CODE CHANGES:
+app/Controllers/Admin/CbtBankSoal.php
+
+1. uploadImage() - Line ~1068
+   Tambah protocol detection sebelum generate URL
+
+2. processEmbeddedImages() - Line ~868
+   Tambah protocol detection untuk base URL
+
+LOGIC:
+```php
+$protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+$currentBaseUrl = base_url();
+
+// Replace protocol if needed
+if (strpos($currentBaseUrl, 'http://') === 0 && $protocol === 'https') {
+    $currentBaseUrl = str_replace('http://', 'https://', $currentBaseUrl);
+}
+
+$fileUrl = rtrim($currentBaseUrl, '/') . '/uploads/soal_images/' . $newName;
+```
+
+TESTING:
+1. php check_upload_config.php
+2. Buka test_upload_debug.html
+3. Test upload gambar
+4. Check protocol di browser console
+5. Test full flow: upload → save → display
+
+ALTERNATIF:
+Jika masih gagal, update .env:
+  app.baseURL = 'https://localhost/siakad/'
+
+FILES:
+- app/Controllers/Admin/CbtBankSoal.php ✓
+- test_upload_debug.html (new)
+- TROUBLESHOOTING_UPLOAD_GAMBAR.md (new)
+
+========================================

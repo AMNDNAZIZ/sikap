@@ -1,0 +1,4 @@
+Catatan Rahasia Jangan Sampai Terupload atau terkompilasi kedalam file zip
+http://localhost/siakad/maintenance/debug-token
+http://localhost/siakad/maintenance/reset-hashes/[TOKEN]
+Token Default e94ed7dcaa4dda331bae05294466a99c3eb0dbe774925bd5f409829250a23df2

@@ -1,0 +1,47 @@
+========================================
+QUICK FIX: Save Soal dengan Gambar
+========================================
+
+MASALAH:
+Upload berhasil (ceklis hijau) tapi save gagal
+
+ROOT CAUSE:
+Base URL salah di processEmbeddedImages()
+  base_url(UPLOAD_PATH . 'soal_images/')
+  → Menghasilkan URL ganda/invalid
+
+SOLUSI:
+Fix line 862 di CbtBankSoal.php
+  SALAH: base_url(UPLOAD_PATH . 'soal_images/')
+  BENAR: base_url('uploads/soal_images/')
+
+TAMBAHAN:
+- Try-catch di saveParsedSoal() untuk error detail
+- Error log untuk debugging
+
+FILES MODIFIED:
+- app/Controllers/Admin/CbtBankSoal.php
+  * processEmbeddedImages() - Fix base URL
+  * saveParsedSoal() - Add try-catch
+
+STATUS:
+✓ Upload gambar berhasil
+✓ Save soal berhasil
+✓ URL gambar valid
+✓ Error handling lengkap
+
+TEST:
+1. Paste gambar dari Word
+2. Gambar muncul (ceklis hijau)
+3. Klik "Simpan Semua Soal"
+4. Success message muncul
+5. Redirect ke detail bank soal
+6. Gambar tampil di soal tersimpan
+
+SUMMARY ALL FIXES:
+1. Path ganda UPLOAD_PATH ✓
+2. CSRF token missing ✓
+3. Base URL error ✓
+4. Error handling ✓
+
+========================================

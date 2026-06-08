@@ -1,0 +1,49 @@
+========================================
+QUICK FIX: CSP Blocking CDN
+========================================
+
+MASALAH:
+CSP memblokir cdnjs.cloudflare.com dan source maps
+→ Font Awesome tidak tampil
+→ Upload gambar gagal (403)
+
+ROOT CAUSE:
+ContentSecurityPolicy.php tidak include:
+- cdnjs.cloudflare.com
+- CDN di connectSrc
+
+SOLUSI:
+app/Config/ContentSecurityPolicy.php
+
+1. Tambah ke scriptSrc dan styleSrc:
+   'cdnjs.cloudflare.com'
+
+2. Ubah connectSrc dari 'self' menjadi array:
+   [
+     'self',
+     'cdn.jsdelivr.net',
+     'cdnjs.cloudflare.com',
+   ]
+
+3. Regenerate security hash:
+   php generate_security_hash.php
+
+TESTING:
+1. Clear browser cache (Ctrl+Shift+Delete)
+2. Hard refresh (Ctrl+F5)
+3. Check console - no CSP errors
+4. Test upload gambar
+
+FILES MODIFIED:
+- app/Config/ContentSecurityPolicy.php ✓
+- app/Config/.security_hash (regenerated) ✓
+
+STATUS:
+✓ CSP fixed
+✓ CDN allowed
+✓ Upload should work now
+
+NEXT:
+Clear cache → Refresh → Test upload
+
+========================================

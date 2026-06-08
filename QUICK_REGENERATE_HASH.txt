@@ -1,0 +1,74 @@
+╔══════════════════════════════════════════════════════════════╗
+║         QUICK GUIDE: Regenerate Hash Setelah Fix           ║
+╚══════════════════════════════════════════════════════════════╝
+
+MENGAPA PERLU?
+Setelah fix CBT 403, file Security.php dan Filters.php berubah.
+Sistem anti-tampering akan blokir akses dengan error:
+"File sistem telah dimodifikasi"
+
+SOLUSI: REGENERATE HASH
+
+CARA 1: Via CLI (FASTEST)
+--------------------------
+php regenerate_hash_simple.php
+
+CARA 2: Via Browser
+-------------------
+http://localhost/siakad/regenerate_hash_simple.php
+
+EXPECTED OUTPUT:
+================
+✓ Helpers/license_helper.php
+✓ Libraries/LicenseGuard.php
+✓ Libraries/SecurityGuard.php
+✓ Libraries/SecureConfig.php
+✓ Filters/LicenseFilter.php
+✓ Models/LicenseModel.php
+✓ Config/Filters.php ← Modified for CBT fix
+✓ Config/Security.php ← Modified for CBT fix
+✅ Security hash saved: 8 files
+
+✓ Libraries/LicenseGuard.php
+✓ Filters/LicenseFilter.php
+✓ Models/LicenseModel.php
+✅ License hash saved: 3 files
+
+✅ All hashes regenerated successfully!
+
+VERIFICATION:
+=============
+1. Akses: http://localhost/siakad
+2. Verifikasi tidak ada error anti-tampering
+3. Login dan test CBT
+4. Verifikasi tidak ada error 403
+
+FILES MODIFIED:
+===============
+📝 app/Config/Security.php ($regenerate: true → false)
+📝 app/Config/Filters.php (exclude refreshCsrf)
+📝 app/Views/siswa/cbt/ujian.php (CSRF token fixes)
+
+HASH FILES UPDATED:
+===================
+📄 app/Config/.security_hash (8 files)
+📄 app/Config/.lic_hash (3 files)
+
+TROUBLESHOOTING:
+================
+❌ Failed to save hash
+   → Check write permissions: chmod 755 app/Config/
+
+❌ Still blocked after regenerate
+   → Clear cache: php spark cache:clear
+   → Restart web server
+   → Regenerate ulang
+
+PRODUCTION DEPLOYMENT:
+======================
+1. Upload modified files
+2. Run: php regenerate_hash_simple.php
+3. Test akses aplikasi
+4. Delete: rm regenerate_hash_simple.php (security)
+
+STATUS: ✅ READY

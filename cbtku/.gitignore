@@ -1,0 +1,245 @@
+# ============================================
+# CBT Application - .gitignore
+# ============================================
+
+# ============================================
+# DEVELOPER TOOLS (LOCALHOST ONLY)
+# ============================================
+# These files should NEVER be uploaded to production
+
+# Environment Marker
+.dev_environment
+_dev_tools_guard.php
+
+# Update Package Creator
+create_update_package.ps1
+create_patch.ps1
+create_patch.sh
+updates/
+
+# License Hash Tools (Developer Only)
+generate_license_hash.php
+verify_license_hash.php
+calculate_hash.php
+regenerate_hash.php
+regenerate_hash_custom.php
+generate_hash_after_fix.php
+
+# Diagnostic & Debug Tools
+diagnostic.php
+debug_*.php
+fix_paths_diagnostic.php
+show_error_log.php
+view_error_log.php
+view_error_simple.php
+enable_errors.php
+check_*.php
+test_*.php
+test_*.html
+verify_*.php
+
+# Fix Scripts (One-time use)
+fix_*.php
+fix_*.bat
+fix_license.bat
+
+# Deployment Preparation Scripts
+prepare_*.php
+prepare_*.bat
+prepare_*.sh
+cleanup_*.ps1
+cleanup_*.sh
+
+# Database Scripts (Developer Only)
+database_migration_*.sql
+database_updates_*.sql
+update_server_database.sql
+license_server_*.sql
+create_views_*.sql
+check_table_structure.sql
+insert_sample_update.sql
+verify_*.sql
+
+# ============================================
+# DOCUMENTATION (LOCALHOST ONLY)
+# ============================================
+# Keep documentation in localhost, not in production
+
+# Analysis & Planning
+ANALISIS_*.md
+AUDIT_*.md
+CHECKLIST_*.md
+CONTEXT_*.md
+CONTOH_*.md
+DAFTAR_*.md
+DIAGRAM_*.txt
+JAWABAN_*.txt
+JAWABAN_*.md
+KOREKSI_*.md
+LANGKAH_*.txt
+LAPORAN_*.md
+PANDUAN_*.md
+PENJELASAN_*.md
+PERBANDINGAN_*.md
+RINGKASAN_*.md
+STATUS_*.md
+SUMMARY*.md
+WORKFLOW_*.md
+
+# Implementation Logs
+ACTION_ITEMS_*.md
+ANTICHEAT_*.md
+BEFORE_AFTER_*.md
+CHANGELOG_*.md
+CLEANUP_*.txt
+CLEANUP_*.md
+COMPLETE_*.md
+COMPLETE_*.txt
+DATA_CLEANUP_*.md
+DEPLOY_*.txt
+DEPLOY_*.md
+DEPLOYMENT_*.md
+FILES_*.md
+FILES_*.txt
+FINAL_*.txt
+FINAL_*.md
+FITUR_*.md
+FIX_*.md
+FIX_*.txt
+FOLDER_*.md
+FORMAT_*.md
+FULLSCREEN_*.md
+GANTI_*.md
+GENERATE_*.md
+HAPUS_*.md
+HASH_*.md
+HASH_*.txt
+HASIL_*.md
+IMPLEMENTASI_*.md
+LICENSE_*.md
+LICENSE_*.txt
+MATHJAX_*.md
+ONLINE_UPDATE_*.md
+OPTIMASI_*.md
+PRODUCTION_*.md
+PRODUCTION_*.txt
+PROGRESS_*.md
+PROJECT_*.md
+QUICK_*.txt
+QUICK_*.md
+REACTIVATION_*.txt
+README_*.md
+README_*.txt
+READY_*.txt
+READY_*.md
+REDESIGN_*.md
+RESPONSIVE_*.md
+SAFARI_*.md
+SESSION_*.md
+SETUP_*.md
+SIDEBAR_*.md
+SISTEM_*.md
+SOLUSI_*.md
+SUBDOMAIN_*.md
+TASK_*.md
+TEST_*.md
+TROUBLESHOOT_*.md
+TROUBLESHOOTING_*.md
+UPDATE_*.md
+UPDATER_*.md
+UPLOAD_*.md
+UPLOAD_*.txt
+VALIDASI_*.md
+VERIFIKASI_*.md
+
+# Quick References
+QUICK_REFERENCE*.txt
+QUICK_GUIDE*.txt
+ALL_FILES_SUMMARY.txt
+
+# ============================================
+# FOLDERS (LOCALHOST ONLY)
+# ============================================
+cbtku-production/
+updatecbt/
+updatecbt_standalone/
+docs/
+scripts/
+server-config/
+
+# ============================================
+# ENVIRONMENT & CONFIG
+# ============================================
+.env
+.env.local
+.env.production
+.env.update_server.example
+.ftpquota
+
+# ============================================
+# WRITABLE FOLDERS
+# ============================================
+writable/cache/*
+!writable/cache/index.html
+writable/logs/*
+!writable/logs/index.html
+writable/session/*
+!writable/session/index.html
+writable/uploads/*
+!writable/uploads/index.html
+writable/backups/*
+!writable/backups/index.html
+writable/updates/downloads/*
+!writable/updates/downloads/index.html
+
+# ============================================
+# VENDOR & DEPENDENCIES
+# ============================================
+vendor/
+node_modules/
+composer.lock
+
+# ============================================
+# BUILD & TEMP FILES
+# ============================================
+*.zip
+*.backup
+*.bak
+*.tmp
+*.temp
+*~
+
+# ============================================
+# OS FILES
+# ============================================
+.DS_Store
+Thumbs.db
+desktop.ini
+.ftpquota
+
+# ============================================
+# IDE FILES
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# ============================================
+# TESTING
+# ============================================
+tests/
+phpunit.xml
+.phpunit.result.cache
+
+# ============================================
+# IMPORTANT: DO NOT IGNORE
+# ============================================
+!.htaccess
+!.gitignore
+!app/Config/.lic_hash
+!app/Config/.lic_checksum
+!app/Config/.lic_marker
+!.lic_marker

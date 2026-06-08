@@ -1,0 +1,128 @@
+CARA UPLOAD PERUBAHAN KE HOSTING (YANG BENAR)
+==============================================
+
+Terima kasih atas koreksinya! Anda benar sekali.
+
+═══════════════════════════════════════════════════════════
+
+✅ JAWABAN YANG BENAR:
+
+Hash BISA auto-regenerate dengan 2 cara:
+
+1. Via Updater Module (upload ZIP patch)
+2. Via "Periksa Pembaruan" di halaman aktivasi
+
+Jadi TIDAK PERLU upload file hash secara manual!
+
+═══════════════════════════════════════════════════════════
+
+🚀 CARA TERMUDAH (RECOMMENDED):
+
+OPSI A: Via Updater Module
+---------------------------
+1. Buat ZIP berisi 8 file yang berubah:
+   - app/Controllers/Admin/DataCleanup.php
+   - app/Controllers/Admin/CbtBankSoal.php
+   - app/Views/admin/data_cleanup/index.php
+   - app/Config/Filters.php
+   - app/Config/Routes.php
+   - app/Views/layouts/partials/sidebar_admin.php
+
+2. Login ke hosting sebagai admin
+
+3. Buka menu: Admin > System > Updater
+
+4. Upload ZIP di "Terapkan Patch File"
+
+5. Klik "Terapkan Patch"
+
+6. Updater akan:
+   ✅ Extract files
+   ✅ Detect Filters.php berubah (protected file)
+   ✅ AUTO-REGENERATE hash
+   ✅ Update checksum
+   ✅ Create backup
+
+7. Done! Aplikasi langsung jalan normal
+
+═══════════════════════════════════════════════════════════
+
+OPSI B: Manual Upload + Periksa Pembaruan
+------------------------------------------
+1. Upload 8 file yang berubah via FTP/cPanel
+   (TANPA file hash)
+
+2. Akses aplikasi
+   → Akan redirect ke halaman aktivasi
+   → Karena hash Filters.php tidak match
+
+3. Klik tombol "Periksa Pembaruan"
+
+4. Jika lisensi terdaftar di server:
+   ✅ Server return success
+   ✅ Aplikasi AUTO-REGENERATE hash
+   ✅ Aplikasi langsung jalan normal
+
+5. Jika lisensi TIDAK terdaftar:
+   ❌ Aplikasi tetap minta aktivasi
+   ❌ Harus input license key baru
+
+═══════════════════════════════════════════════════════════
+
+OPSI C: Manual Upload dengan File Hash (Backup Plan)
+-----------------------------------------------------
+Jika Opsi A & B tidak bisa (offline/no internet):
+
+1. Upload 8 file aplikasi
+2. Upload 3 file hash:
+   - app/Config/.lic_hash
+   - app/Config/.lic_hash.backup.20260307065125
+   - app/Config/.lic_checksum
+
+3. Done! Langsung jalan
+
+═══════════════════════════════════════════════════════════
+
+📋 DAFTAR FILE YANG BERUBAH:
+
+1. app/Controllers/Admin/DataCleanup.php (NEW - Data Cleanup)
+2. app/Controllers/Admin/CbtBankSoal.php (MODIFIED - csrfRefresh)
+3. app/Views/admin/data_cleanup/index.php (NEW - Data Cleanup UI)
+4. app/Config/Filters.php (MODIFIED - CSRF exceptions)
+5. app/Config/Routes.php (MODIFIED - new routes)
+6. app/Views/layouts/partials/sidebar_admin.php (MODIFIED - menu)
+
+File hash (opsional jika pakai Opsi A atau B):
+7. app/Config/.lic_hash
+8. app/Config/.lic_hash.backup.20260307065125
+9. app/Config/.lic_checksum
+
+═══════════════════════════════════════════════════════════
+
+🎯 REKOMENDASI:
+
+Production Hosting → OPSI A (Updater Module)
+- Paling aman
+- Ada backup otomatis
+- Ada rollback
+- Hash auto-regenerate
+
+Development/Testing → OPSI B (Manual + Periksa Pembaruan)
+- Cepat
+- Simple
+- Hash auto-regenerate
+
+Offline/No Internet → OPSI C (Manual dengan Hash)
+- Tidak butuh koneksi server
+- Langsung jalan
+
+═══════════════════════════════════════════════════════════
+
+✅ KESIMPULAN:
+
+Sistem lisensi Anda sudah sangat baik!
+- Auto-regenerate hash via updater ✅
+- Auto-regenerate hash via check renewal ✅
+- Tidak perlu manual update hash ✅
+
+Terima kasih atas koreksinya! 🙏

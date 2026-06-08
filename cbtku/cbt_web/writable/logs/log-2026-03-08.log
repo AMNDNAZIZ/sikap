@@ -1,0 +1,55 @@
+CRITICAL - 2026-03-08 04:10:51 --> ErrorException: Trying to access array offset on value of type null
+[Method: GET, Route: siswa/cbt/mulai/26]
+in APPPATH/Filters/Auth.php on line 61.
+ 1 APPPATH/Filters/Auth.php(61): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Trying to access array offset on value of type null', '/home/cbtsmpis/new.cbtsmpistora.sch.id/app/Filters/Auth.php', 61)
+ 2 SYSTEMPATH/Filters/Filters.php(241): App\Filters\Auth->before(Object(CodeIgniter\HTTP\IncomingRequest), [...])
+ 3 SYSTEMPATH/Filters/Filters.php(221): CodeIgniter\Filters\Filters->runBefore([...])
+ 4 SYSTEMPATH/CodeIgniter.php(479): CodeIgniter\Filters\Filters->run('siswa/cbt/mulai/26', 'before')
+ 5 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 6 SYSTEMPATH/Boot.php(363): CodeIgniter\CodeIgniter->run()
+ 7 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 8 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-03-08 04:11:33 --> ErrorException: Trying to access array offset on value of type null
+[Method: GET, Route: siswa/cbt/mulai/26]
+in APPPATH/Filters/Auth.php on line 61.
+ 1 APPPATH/Filters/Auth.php(61): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Trying to access array offset on value of type null', '/home/cbtsmpis/new.cbtsmpistora.sch.id/app/Filters/Auth.php', 61)
+ 2 SYSTEMPATH/Filters/Filters.php(241): App\Filters\Auth->before(Object(CodeIgniter\HTTP\IncomingRequest), [...])
+ 3 SYSTEMPATH/Filters/Filters.php(221): CodeIgniter\Filters\Filters->runBefore([...])
+ 4 SYSTEMPATH/CodeIgniter.php(479): CodeIgniter\Filters\Filters->run('siswa/cbt/mulai/26', 'before')
+ 5 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 6 SYSTEMPATH/Boot.php(363): CodeIgniter\CodeIgniter->run()
+ 7 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 8 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-03-08 20:15:11 --> ErrorException: Trying to access array offset on value of type null
+[Method: GET, Route: siswa/cbt/mulai/18]
+in APPPATH/Filters/Auth.php on line 61.
+ 1 APPPATH/Filters/Auth.php(61): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Trying to access array offset on value of type null', '/home/cbtsmpis/new.cbtsmpistora.sch.id/app/Filters/Auth.php', 61)
+ 2 SYSTEMPATH/Filters/Filters.php(241): App\Filters\Auth->before(Object(CodeIgniter\HTTP\IncomingRequest), [...])
+ 3 SYSTEMPATH/Filters/Filters.php(221): CodeIgniter\Filters\Filters->runBefore([...])
+ 4 SYSTEMPATH/CodeIgniter.php(479): CodeIgniter\Filters\Filters->run('siswa/cbt/mulai/18', 'before')
+ 5 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 6 SYSTEMPATH/Boot.php(363): CodeIgniter\CodeIgniter->run()
+ 7 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 8 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-03-08 20:16:28 --> ErrorException: Trying to access array offset on value of type null
+[Method: GET, Route: siswa/cbt/mulai/18]
+in APPPATH/Filters/Auth.php on line 61.
+ 1 APPPATH/Filters/Auth.php(61): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Trying to access array offset on value of type null', '/home/cbtsmpis/new.cbtsmpistora.sch.id/app/Filters/Auth.php', 61)
+ 2 SYSTEMPATH/Filters/Filters.php(241): App\Filters\Auth->before(Object(CodeIgniter\HTTP\IncomingRequest), [...])
+ 3 SYSTEMPATH/Filters/Filters.php(221): CodeIgniter\Filters\Filters->runBefore([...])
+ 4 SYSTEMPATH/CodeIgniter.php(479): CodeIgniter\Filters\Filters->run('siswa/cbt/mulai/18', 'before')
+ 5 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 6 SYSTEMPATH/Boot.php(363): CodeIgniter\CodeIgniter->run()
+ 7 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 8 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2026-03-08 21:53:13 --> ErrorException: Trying to access array offset on value of type null
+[Method: GET, Route: siswa/cbt/mulai/15]
+in APPPATH/Filters/Auth.php on line 61.
+ 1 APPPATH/Filters/Auth.php(61): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Trying to access array offset on value of type null', '/home/cbtsmpis/new.cbtsmpistora.sch.id/app/Filters/Auth.php', 61)
+ 2 SYSTEMPATH/Filters/Filters.php(241): App\Filters\Auth->before(Object(CodeIgniter\HTTP\IncomingRequest), [...])
+ 3 SYSTEMPATH/Filters/Filters.php(221): CodeIgniter\Filters\Filters->runBefore([...])
+ 4 SYSTEMPATH/CodeIgniter.php(479): CodeIgniter\Filters\Filters->run('siswa/cbt/mulai/15', 'before')
+ 5 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 6 SYSTEMPATH/Boot.php(363): CodeIgniter\CodeIgniter->run()
+ 7 SYSTEMPATH/Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 8 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))

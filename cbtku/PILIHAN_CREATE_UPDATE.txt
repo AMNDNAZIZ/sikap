@@ -1,0 +1,249 @@
+═══════════════════════════════════════════════════════════════
+  PILIHAN: CARA CREATE UPDATE PACKAGE
+═══════════════════════════════════════════════════════════════
+
+Ada 2 cara: SIMPLE (auto) dan MANUAL (kontrol penuh)
+
+═══════════════════════════════════════════════════════════════
+  OPTION 1: SIMPLE - ONE CLICK (RECOMMENDED)
+═══════════════════════════════════════════════════════════════
+
+File: CREATE_UPDATE.bat (Windows)
+      create_update_simple.ps1 (PowerShell)
+
+CARA PAKAI:
+────────────────────────────────────────────────────────────────
+Windows: Double-click CREATE_UPDATE.bat
+PowerShell: .\create_update_simple.ps1
+
+FITUR AUTO:
+────────────────────────────────────────────────────────────────
+✅ Auto-detect version dari Constants.php
+✅ Auto-increment version (1.0.1 → 1.0.2)
+✅ Auto-detect changed files dari git
+✅ Auto-regenerate license hash (jika perlu)
+✅ Auto-update Constants.php
+
+INPUT YANG DIMINTA:
+────────────────────────────────────────────────────────────────
+1. Update title
+2. Description (optional)
+3. Critical? (y/n)
+4. Confirm (y/n)
+
+WAKTU:
+────────────────────────────────────────────────────────────────
+~2 menit
+
+REQUIREMENTS:
+────────────────────────────────────────────────────────────────
+✅ Git installed
+✅ .dev_environment file
+✅ Files sudah di-save
+
+PROS:
+────────────────────────────────────────────────────────────────
+✅ Super cepat
+✅ Minimal input
+✅ Auto-detect semua
+✅ One click
+✅ Perfect untuk daily use
+
+CONS:
+────────────────────────────────────────────────────────────────
+⚠️  Requires git
+⚠️  Less control over file selection
+
+BEST FOR:
+────────────────────────────────────────────────────────────────
+✅ Bug fixes
+✅ Small updates
+✅ Daily development
+✅ Quick iterations
+
+═══════════════════════════════════════════════════════════════
+  OPTION 2: MANUAL - FULL CONTROL
+═══════════════════════════════════════════════════════════════
+
+File: create_update_package_v2.ps1
+
+CARA PAKAI:
+────────────────────────────────────────────────────────────────
+PowerShell -ExecutionPolicy Bypass -File .\create_update_package_v2.ps1
+
+FITUR:
+────────────────────────────────────────────────────────────────
+✅ Manual version input
+✅ Manual file selection
+✅ Safety checks
+✅ Full control
+
+INPUT YANG DIMINTA:
+────────────────────────────────────────────────────────────────
+1. Version number (e.g., 1.0.2)
+2. Update title
+3. Description (optional)
+4. Critical? (y/n)
+5. File paths (one by one)
+   - app/Controllers/Activate.php
+   - app/Controllers/Admin/License.php
+   - app/Config/.lic_hash
+   - [Enter]
+   - [Enter]
+
+WAKTU:
+────────────────────────────────────────────────────────────────
+~5 menit
+
+REQUIREMENTS:
+────────────────────────────────────────────────────────────────
+✅ .dev_environment file
+❌ Git not required
+
+PROS:
+────────────────────────────────────────────────────────────────
+✅ Full control
+✅ Manual file selection
+✅ No git required
+✅ Can include specific files only
+✅ Good for learning
+
+CONS:
+────────────────────────────────────────────────────────────────
+⚠️  More steps
+⚠️  Manual input
+⚠️  Slower
+
+BEST FOR:
+────────────────────────────────────────────────────────────────
+✅ Complex updates
+✅ Selective file inclusion
+✅ When git not available
+✅ First-time users (learning)
+✅ Special cases
+
+═══════════════════════════════════════════════════════════════
+  COMPARISON
+═══════════════════════════════════════════════════════════════
+
+                    SIMPLE          MANUAL
+────────────────────────────────────────────────────────────────
+Ease of Use         ⭐⭐⭐⭐⭐        ⭐⭐⭐
+Speed               ⭐⭐⭐⭐⭐        ⭐⭐⭐
+Auto-detect         ✅              ❌
+Control             ⭐⭐⭐           ⭐⭐⭐⭐⭐
+Git Required        ✅              ❌
+Time                ~2 min          ~5 min
+Steps               3               7
+Input Fields        4               5+
+Best for            Daily use       Complex updates
+
+═══════════════════════════════════════════════════════════════
+  RECOMMENDATION
+═══════════════════════════════════════════════════════════════
+
+UNTUK KEBANYAKAN KASUS:
+────────────────────────────────────────────────────────────────
+✅ USE: CREATE_UPDATE.bat (Simple)
+
+Karena:
+- Lebih cepat
+- Lebih mudah
+- Auto-detect semua
+- Perfect untuk 90% kasus
+
+UNTUK KASUS KHUSUS:
+────────────────────────────────────────────────────────────────
+✅ USE: create_update_package_v2.ps1 (Manual)
+
+Karena:
+- Perlu kontrol penuh
+- Selective file inclusion
+- Git tidak tersedia
+- Update kompleks
+
+═══════════════════════════════════════════════════════════════
+  QUICK START
+═══════════════════════════════════════════════════════════════
+
+SIMPLE (Recommended):
+────────────────────────────────────────────────────────────────
+1. Edit files
+2. Save files
+3. Double-click: CREATE_UPDATE.bat
+4. Answer 4 questions
+5. Done!
+
+MANUAL (Full Control):
+────────────────────────────────────────────────────────────────
+1. Edit files
+2. Save files
+3. Run: .\create_update_package_v2.ps1
+4. Input version
+5. Input title
+6. Input description
+7. Input files (one by one)
+8. Done!
+
+═══════════════════════════════════════════════════════════════
+  EXAMPLE OUTPUT (BOTH)
+═══════════════════════════════════════════════════════════════
+
+updates/
+├── v1.0.2/
+│   ├── files/
+│   ├── CHANGELOG.md
+│   ├── manifest.json
+│   └── INSTALL.txt
+├── update_v1.0.2.zip         ← Upload ini ke server
+└── update_v1.0.2.txt         ← SQL query ada di sini
+
+═══════════════════════════════════════════════════════════════
+  FILES REFERENCE
+═══════════════════════════════════════════════════════════════
+
+SIMPLE VERSION:
+────────────────────────────────────────────────────────────────
+✅ CREATE_UPDATE.bat              (Double-click ini!)
+✅ create_update_simple.ps1       (Script utama)
+✅ SIMPLE_UPDATE_GUIDE.md         (Dokumentasi)
+
+MANUAL VERSION:
+────────────────────────────────────────────────────────────────
+✅ create_update_package_v2.ps1   (Script utama)
+✅ TUTORIAL_CREATE_UPDATE_PACKAGE.md (Tutorial lengkap)
+✅ DEMO_CREATE_UPDATE_PACKAGE.txt (Demo)
+
+REFERENCE:
+────────────────────────────────────────────────────────────────
+✅ PILIHAN_CREATE_UPDATE.txt      (File ini)
+✅ QUICK_REFERENCE_CREATE_UPDATE.txt
+✅ DEVELOPER_TOOLS_COMPLETE.txt
+
+═══════════════════════════════════════════════════════════════
+  TRY IT NOW!
+═══════════════════════════════════════════════════════════════
+
+Untuk test, coba SIMPLE version dulu:
+
+1. Make sure git installed:
+   git --version
+
+2. Make sure .dev_environment exists:
+   dir .dev_environment
+
+3. Edit satu file (contoh: app/Config/Constants.php)
+   - Ubah sesuatu
+   - Save
+
+4. Double-click: CREATE_UPDATE.bat
+
+5. Follow prompts
+
+6. Check output: updates/update_v1.0.2.zip
+
+═══════════════════════════════════════════════════════════════
+
+RECOMMENDATION: Start with SIMPLE, use MANUAL when needed!
+
+═══════════════════════════════════════════════════════════════

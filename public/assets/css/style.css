@@ -1,0 +1,185 @@
+/* ---------- RESET & TEMA UMUM ---------- */
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:'Poppins',sans-serif;
+  background:linear-gradient(to bottom right,#E0F2FE,#F0FFF4);
+  color:#1E293B;
+  scroll-behavior:smooth;
+}
+a{text-decoration:none;color:inherit;}
+img{max-width:100%;display:block;border-radius:8px;}
+
+
+/* ---------- HEADER ---------- */
+/* ===== HEADER ===== */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(90deg, #2563EB, #3B82F6);
+  color: white;
+  padding: 1rem 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.logo h1 {
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+/* Desktop Menu */
+nav ul {
+  list-style: none;
+  display: flex;
+  gap: 1rem;
+}
+
+nav ul li a {
+  color: white;
+  padding: 0.6rem 0.9rem;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+nav ul li a:hover {
+  background-color: #FACC15;
+  color: #1E293B;
+}
+
+/* ===== MOBILE MENU ===== */
+.menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.8rem;
+  cursor: pointer;
+}
+
+/* Responsif */
+@media (max-width: 768px) {
+  nav ul {
+    flex-direction: column;
+    position: absolute;
+    top: 70px;
+    right: 0;
+    width: 100%;
+    background: #2563EB;
+    display: none;
+    text-align: center;
+    padding: 1rem 0;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  }
+
+  nav ul.active {
+    display: flex;
+    animation: slideDown 0.3s ease forwards;
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .menu-toggle {
+    display: block;
+  }
+}
+
+
+/* ---------- HERO / BANNER ---------- */
+.banner{position:relative;height:420px;overflow:hidden;}
+.slide{
+  position:absolute;width:100%;height:100%;background-size:cover;
+  background-position:center;opacity:0;transition:opacity 1s ease;
+}
+.slide.active{opacity:1;}
+.slide-info{
+  position:absolute;bottom:0;width:100%;background:rgba(59,130,246,0.85);
+  color:#fff;text-align:center;padding:1rem 1.5rem;
+  border-top-left-radius:12px;border-top-right-radius:12px;
+}
+.slide-info h2{font-size:1.6rem;margin-bottom:0.4rem;}
+.slide-info p{font-size:1rem;}
+.banner button{
+  position:absolute;top:50%;transform:translateY(-50%);
+  background:rgba(255,255,255,0.7);border:none;color:#1E3A8A;
+  font-size:1.5rem;padding:0.7rem;border-radius:50%;cursor:pointer;
+  transition:all .3s;
+}
+.banner .prev{left:15px;}
+.banner .next{right:15px;}
+.banner button:hover{background:#FACC15;}
+
+/* ---------- SECTION STYLES ---------- */
+main{padding:2rem;}
+.section{
+  background:#fff;margin-bottom:2rem;padding:2rem;border-radius:12px;
+  box-shadow:0 3px 10px rgba(0,0,0,0.05);
+}
+.section h2{text-align:center;color:#2563EB;margin-bottom:1rem;}
+
+/* ---------- ABOUT ---------- */
+.about-grid{
+  display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:2rem;
+}
+.about-grid img{border-radius:12px;}
+@media(max-width:768px){.about-grid{grid-template-columns:1fr;}}
+
+/* ---------- NEWS ---------- */
+.news-list{display:grid;gap:1rem;}
+.news-item{
+  border-left:5px solid #2563EB;background:#F8FAFC;padding:1rem;
+  transition:transform .3s;
+}
+.news-item:hover{transform:scale(1.02);}
+
+/* ---------- GURU ---------- */
+.teacher-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:1.5rem;
+}
+.teacher-card{
+  background:#F0F9FF;text-align:center;padding:1rem;border-radius:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);transition:transform .3s;
+}
+.teacher-card:hover{transform:translateY(-5px);}
+.teacher-card img{width:100px;height:100px;border-radius:50%;margin:auto;margin-bottom:1rem;}
+.teacher-card h3{color:#2563EB;margin-bottom:0.3rem;}
+.teacher-card p{font-size:0.9rem;color:#475569;}
+
+/* ---------- TESTIMONI ---------- */
+.testimoni-container{
+  position:relative;overflow:hidden;height:200px;
+}
+.testimoni{
+  position:absolute;width:100%;opacity:0;transition:opacity 1s ease;
+  text-align:center;padding:1rem;font-style:italic;
+}
+.testimoni.active{opacity:1;}
+.testimoni p{margin-bottom:0.5rem;}
+.testimoni span{color:#2563EB;font-weight:600;}
+
+/* ---------- GALERI ---------- */
+.gallery-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:1rem;
+}
+.gallery-grid img:hover{transform:scale(1.05);transition:transform .4s;}
+
+/* ---------- KONTAK ---------- */
+.contact-info{text-align:center;}
+iframe{width:100%;height:300px;border:0;border-radius:8px;}
+
+/* ---------- FOOTER ---------- */
+footer{
+  background:linear-gradient(90deg,#2563EB,#3B82F6);
+  color:white;text-align:center;padding:1.5rem;
+}
+footer .social a{
+  color:white;margin:0 0.5rem;font-size:1.3rem;transition:color .3s;
+}
+footer .social a:hover{color:#FACC15;}

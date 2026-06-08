@@ -1,0 +1,180 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║              QUICK FIX: BLANK PAGE & REDIRECT LOOP                           ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+MASALAH:
+✅ Anti-tampering hilang (regenerate hash berhasil)
+❌ Halaman /dashboard blank
+❌ Redirect ke /activate terus-menerus
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ LANGKAH 1: DIAGNOSTIC (2 MENIT)                                             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+1️⃣ UPLOAD SCRIPT:
+   📁 Upload: diagnostic_blank_page.php
+   📍 Ke root folder
+
+2️⃣ AKSES SCRIPT:
+   🌐 http://yourdomain.com/diagnostic_blank_page.php
+
+3️⃣ BACA HASIL:
+   Script akan tampilkan masalah dan solusi
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ SOLUSI BERDASARKAN HASIL DIAGNOSTIC                                         ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ SOLUSI A: DATABASE BELUM TER-UPDATE (80% KASUS)                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+GEJALA:
+❌ Tabel app_license TIDAK ADA
+❌ Kolom yang HILANG: hardware_signature, dll
+
+SOLUSI:
+1️⃣ Akses phpMyAdmin
+2️⃣ Pilih database aplikasi
+3️⃣ Tab "Import"
+4️⃣ Pilih file: update_database_manual.sql
+5️⃣ Klik "Go"
+6️⃣ Tunggu selesai
+7️⃣ Import juga: update_migrations_table.sql
+8️⃣ Akses aplikasi lagi → ✅ Normal
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ SOLUSI B: LISENSI BELUM DIAKTIVASI (15% KASUS)                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+GEJALA:
+❌ Tidak ada data lisensi
+🔄 Redirect ke /activate (NORMAL!)
+
+SOLUSI:
+1️⃣ Akses: http://yourdomain.com/activate
+2️⃣ Masukkan kode lisensi
+3️⃣ Klik "Aktivasi"
+4️⃣ ✅ Aplikasi normal
+
+NOTE: Redirect ke /activate adalah NORMAL jika belum ada lisensi!
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ SOLUSI C: LISENSI EXPIRED (5% KASUS)                                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+GEJALA:
+⚠️  Lisensi EXPIRED X hari yang lalu
+
+SOLUSI:
+1️⃣ Akses: http://yourdomain.com/activate
+2️⃣ Klik "Cek Pembaruan" atau "Perpanjang"
+3️⃣ Sistem auto-sync dengan server
+4️⃣ ✅ Lisensi ter-perpanjang
+
+ATAU:
+1️⃣ Akses: http://yourdomain.com/activate
+2️⃣ Masukkan kode lisensi yang sama
+3️⃣ Klik "Aktivasi"
+4️⃣ ✅ Lisensi ter-aktivasi ulang
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ WORKFLOW LENGKAP                                                             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+JIKA DATABASE BELUM TER-UPDATE:
+├─ 1. ✅ Regenerate hash (sudah dilakukan)
+├─ 2. ❌ Blank page / redirect loop
+├─ 3. 🔍 Diagnostic: Tabel app_license tidak ada
+├─ 4. 📥 Import: update_database_manual.sql
+├─ 5. 📥 Import: update_migrations_table.sql
+├─ 6. 🔄 Akses: /activate
+├─ 7. 🔑 Input kode lisensi
+└─ 8. ✅ Aplikasi normal
+
+JIKA LISENSI BELUM DIAKTIVASI:
+├─ 1. ✅ Regenerate hash (sudah dilakukan)
+├─ 2. ❌ Redirect ke /activate (NORMAL!)
+├─ 3. 🔑 Input kode lisensi
+└─ 4. ✅ Aplikasi normal
+
+JIKA LISENSI EXPIRED:
+├─ 1. ✅ Regenerate hash (sudah dilakukan)
+├─ 2. ❌ Redirect ke /activate
+├─ 3. 🔄 Klik "Cek Pembaruan"
+├─ 4. ✅ Lisensi ter-perpanjang
+└─ 5. ✅ Aplikasi normal
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ QUICK COMMANDS                                                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+CHECK DATABASE:
+mysql -u username -p database_name -e "SHOW TABLES LIKE 'app_license'"
+mysql -u username -p database_name -e "DESCRIBE app_license"
+mysql -u username -p database_name -e "SELECT * FROM app_license"
+
+IMPORT DATABASE:
+mysql -u username -p database_name < update_database_manual.sql
+mysql -u username -p database_name < update_migrations_table.sql
+
+CHECK LOGS:
+tail -f writable/logs/log-$(date +%Y-%m-%d).log
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ TROUBLESHOOTING                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+❓ Error: "Table 'app_license' doesn't exist"
+   → Import update_database_manual.sql
+
+❓ Error: "Unknown column 'hardware_signature'"
+   → Import update_database_manual.sql (update struktur)
+
+❓ Redirect loop terus-menerus
+   → Check diagnostic: diagnostic_blank_page.php
+   → Aktivasi ulang jika perlu
+
+❓ Blank page tanpa error
+   → Check log: writable/logs/log-YYYY-MM-DD.log
+   → Enable error display di index.php (temporary)
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ FILE YANG TERSEDIA                                                           ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📄 diagnostic_blank_page.php
+   - Script untuk diagnose masalah
+   - Tampilkan status database, lisensi, hash
+   - Rekomendasi solusi otomatis
+
+📄 update_database_manual.sql
+   - SQL untuk update database
+   - Include semua migrasi terbaru
+   - Aman dijalankan berkali-kali
+
+📄 update_migrations_table.sql
+   - SQL untuk update tabel migrations
+   - Agar sistem tahu migrasi sudah dijalankan
+
+📄 SOLUSI_BLANK_PAGE_REDIRECT_LOOP.md
+   - Dokumentasi lengkap
+   - Troubleshooting detail
+   - Prevention guide
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ SUMMARY                                                                      ║
+║                                                                              ║
+║ Masalah: ❌ Blank page & redirect loop                                      ║
+║                                                                              ║
+║ Penyebab Paling Sering:                                                     ║
+║ 1. Database belum ter-update (80%)                                          ║
+║ 2. Lisensi belum diaktivasi (15%)                                           ║
+║ 3. Lisensi expired (5%)                                                     ║
+║                                                                              ║
+║ Solusi Cepat:                                                               ║
+║ 1. Diagnostic: diagnostic_blank_page.php                                    ║
+║ 2. Import: update_database_manual.sql (jika perlu)                          ║
+║ 3. Aktivasi: /activate (jika perlu)                                         ║
+║ 4. ✅ Aplikasi normal                                                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝

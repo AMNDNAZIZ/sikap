@@ -1,0 +1,103 @@
+RINGKASAN: FIX LOOP DASHBOARD ↔ ACTIVATE
+==========================================
+
+🔄 MASALAH:
+Dashboard → Redirect ke /activate
+Activate → Redirect ke dashboard
+LOOP TERUS MENERUS!
+
+═══════════════════════════════════════════════════════════
+
+🎯 ROOT CAUSE:
+Hash lisensi tidak match (hash mismatch)
+→ LicenseFilter detect tampering
+→ Redirect ke /activate
+→ Loop!
+
+═══════════════════════════════════════════════════════════
+
+✅ SOLUSI TERCEPAT (3 CARA):
+
+1. ⭐ KLIK "PERIKSA PEMBARUAN" (5 menit)
+   - Akses: https://yourdomain.com/activate
+   - Klik tombol "Periksa Pembaruan"
+   - Sistem auto-regenerate hash
+   - Loop hilang!
+   
+   Syarat:
+   - Lisensi terdaftar di server
+   - Ada koneksi internet
+   - Domain diizinkan
+
+2. UPLOAD HASH MANUAL (10 menit)
+   - Download dari localhost:
+     * app/Config/.lic_hash
+     * app/Config/.lic_checksum
+   - Upload ke server via FTP/cPanel
+   - Clear cache: php spark cache:clear
+   - Loop hilang!
+
+3. SSH COMMAND (2 menit)
+   ssh user@server
+   cd /path/to/app
+   php spark license:fix-checksum
+   php spark cache:clear
+   
+   Loop hilang!
+
+═══════════════════════════════════════════════════════════
+
+📁 FILE YANG HARUS DIUPDATE:
+
+1. app/Config/.lic_hash
+2. app/Config/.lic_checksum
+3. app/Config/.lic_hash.backup.YYYYMMDDHHMMSS
+
+═══════════════════════════════════════════════════════════
+
+🔍 CARA CEK HASH MISMATCH:
+
+Di Server:
+sha1sum app/Config/Filters.php
+# Output: baaad8105bced876dcdac008b03615ce21b800b7
+
+Di .lic_hash:
+cat app/Config/.lic_hash | grep Filters
+# Output: "Config\/Filters.php": "baaad8105bced876dcdac008b03615ce21b800b7"
+
+Harus MATCH! Jika tidak → Loop!
+
+═══════════════════════════════════════════════════════════
+
+⚠️ PENYEBAB UMUM:
+
+1. Upload Filters.php tanpa upload .lic_hash
+2. Edit file di server tanpa update hash
+3. Lupa clear cache setelah upload
+4. Permission file hash salah (harus 644)
+
+═══════════════════════════════════════════════════════════
+
+✅ VERIFIKASI SETELAH FIX:
+
+curl -I https://yourdomain.com/dashboard
+# Expected: 200 OK (bukan 302 redirect)
+
+tail -f writable/logs/log-*.log
+# Tidak ada: "License hash mismatch"
+
+Akses dashboard di browser
+# Harus load normal, tidak redirect
+
+═══════════════════════════════════════════════════════════
+
+📚 DOKUMENTASI LENGKAP:
+FIX_LICENSE_LOOP_DASHBOARD_ACTIVATE.md
+
+═══════════════════════════════════════════════════════════
+
+🎯 KESIMPULAN:
+
+Loop terjadi karena hash mismatch.
+Solusi: Regenerate hash dengan salah satu dari 3 cara di atas.
+Paling mudah: Klik "Periksa Pembaruan" di halaman activate.

@@ -1,0 +1,51 @@
+═══════════════════════════════════════════════════════════════
+  SETUP POWERSHELL EXECUTION POLICY
+═══════════════════════════════════════════════════════════════
+
+Error yang muncul:
+────────────────────────────────────────────────────────────────
+"File cannot be loaded because running scripts is disabled on 
+this system."
+
+Solusi:
+────────────────────────────────────────────────────────────────
+
+OPTION 1: Set Execution Policy (Recommended)
+────────────────────────────────────────────────────────────────
+1. Buka PowerShell sebagai Administrator
+
+2. Check current policy:
+   Get-ExecutionPolicy
+
+3. Set policy to RemoteSigned:
+   Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+4. Confirm dengan 'Y'
+
+5. Verify:
+   Get-ExecutionPolicy
+   
+   Expected: RemoteSigned
+
+6. Close PowerShell dan buka lagi (normal, tidak perlu admin)
+
+7. Test script:
+   .\create_update_package.ps1 -Help
+
+
+OPTION 2: Bypass untuk satu kali run
+────────────────────────────────────────────────────────────────
+PowerShell -ExecutionPolicy Bypass -File .\create_update_package.ps1 -Help
+
+
+OPTION 3: Unblock file
+────────────────────────────────────────────────────────────────
+Unblock-File -Path .\create_update_package.ps1
+
+
+═══════════════════════════════════════════════════════════════
+
+Setelah setup, test dengan:
+.\create_update_package.ps1 -Help
+
+═══════════════════════════════════════════════════════════════

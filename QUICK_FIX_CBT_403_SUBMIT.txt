@@ -1,0 +1,64 @@
+╔══════════════════════════════════════════════════════════════╗
+║      QUICK FIX: CBT 403 Error Saat Selesaikan Ujian        ║
+╚══════════════════════════════════════════════════════════════╝
+
+MASALAH:
+❌ Error 403 Forbidden saat klik "Selesaikan Ujian"
+❌ Console error: POST .../siswa/cbt/saveAnswer 403 (Forbidden)
+❌ Ujian tidak bisa diakhiri
+
+ROOT CAUSE:
+🔴 CSRF token TIDAK dikirim saat submit ujian
+🔴 Token expired karena regenerate = true
+🔴 Tidak ada retry mechanism untuk submit
+
+SOLUSI YANG DITERAPKAN:
+✅ Kirim CSRF token pada submitExam()
+✅ Auto-retry jika 403 (refresh token + retry)
+✅ Gunakan window.csrfToken yang di-refresh
+
+FILES MODIFIED:
+📝 app/Views/siswa/cbt/ujian.php
+   - Tambah CSRF token di submitExam()
+   - Tambah auto-retry mechanism
+
+TESTING:
+1. Login sebagai siswa
+2. Mulai ujian CBT
+3. Jawab semua soal
+4. Klik "Selesaikan Ujian"
+5. Buka Console (F12) → Cek logs:
+   [Submit] CSRF token may be expired, refreshing...
+   [CSRF] Token refreshed, retrying submit...
+6. Verifikasi redirect ke halaman hasil
+
+EXPECTED BEHAVIOR:
+✅ Ujian bisa diselesaikan tanpa error 403
+✅ Auto-refresh token jika expired
+✅ Retry submit dengan token baru
+✅ Redirect ke halaman hasil
+
+MONITORING:
+📊 Browser Console:
+   - Normal: Tidak ada error
+   - Token expired: Auto-refresh + retry
+   
+📊 Network Tab:
+   - POST /submit/123 → 403 (jika token expired)
+   - POST /refreshCsrf → 200 OK
+   - POST /submit/123 → 200 OK (retry)
+
+📊 Server Logs (writable/logs/):
+   [CBT::refreshCsrf] Token refreshed for student X
+   [CBT::submit] Test: X, Student: Y, Score: Z
+
+ROLLBACK (jika ada masalah):
+Revert app/Views/siswa/cbt/ujian.php ke versi sebelumnya
+
+NOTES:
+⚠️ CSRF expires = 6 jam (21600 detik)
+⚠️ Auto-refresh setiap 60 menit
+⚠️ Retry hanya 1x (avoid infinite loop)
+✅ Backward compatible
+
+STATUS: ✅ FIXED

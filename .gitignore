@@ -1,0 +1,40 @@
+# CodeIgniter 4
+/vendor/
+/writable/cache/*
+/writable/logs/*
+/writable/session/*
+/writable/uploads/*
+!/writable/cache/index.html
+!/writable/logs/index.html
+!/writable/session/index.html
+!/writable/uploads/index.html
+
+# Environment files
+.env
+.env.backup
+
+# License Security Files (CRITICAL - DO NOT COMMIT!)
+/writable/.install_id
+/writable/.production_mode
+
+# Emergency tools (NEVER commit these!)
+/generate_hash.php
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Temporary files
+*.tmp
+*.temp

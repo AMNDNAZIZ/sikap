@@ -1,0 +1,58 @@
+<IfModule mod_rewrite.c>
+    Options -Indexes
+    RewriteEngine On
+    RewriteBase /cbtku/
+
+    # Allow direct access to public folder assets
+    RewriteCond %{REQUEST_URI} ^/cbtku/public/(assets|uploads|js|icons|tinymce)/ [NC]
+    RewriteRule ^(.*)$ $1 [L]
+
+    # Redirect root assets to public folder
+    RewriteRule ^assets/(.*)$ public/assets/$1 [L,NC]
+    RewriteRule ^js/(.*)$ public/js/$1 [L,NC]
+    RewriteRule ^icons/(.*)$ public/icons/$1 [L,NC]
+    RewriteRule ^uploads/(.*)$ public/uploads/$1 [L,NC]
+    RewriteRule ^tinymce/(.*)$ public/tinymce/$1 [L,NC]
+
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php/$1 [L]
+</IfModule>
+
+<FilesMatch "(\.env|\.htaccess|composer\.(json|lock)|phpunit\.xml|\.gitignore)">
+    Require all denied
+</FilesMatch>
+
+# 🔒 SECURITY HEADERS
+<IfModule mod_headers.c>
+    # Prevent MIME type sniffing
+    Header set X-Content-Type-Options "nosniff"
+    
+    # Prevent clickjacking
+    Header set X-Frame-Options "SAMEORIGIN"
+    
+    # Enable XSS filter
+    Header set X-XSS-Protection "1; mode=block"
+    
+    # Control referrer information
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # Permissions policy
+    Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    
+    # Remove server signature
+    Header unset Server
+    Header unset X-Powered-By
+</IfModule>
+
+# 🔒 Protect sensitive directories
+<IfModule mod_rewrite.c>
+    RewriteRule ^(writable|app|system)/ - [F,L]
+</IfModule>
+
+# php -- BEGIN cPanel-generated handler, do not edit
+# Set the "ea-php82" package as the default "PHP" programming language.
+<IfModule mime_module>
+  AddHandler application/x-httpd-ea-php82___lsphp .php .php8 .phtml
+</IfModule>
+# php -- END cPanel-generated handler, do not edit

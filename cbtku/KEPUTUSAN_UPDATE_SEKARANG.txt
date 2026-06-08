@@ -1,0 +1,281 @@
+================================================================================
+KEPUTUSAN: UPDATE SAAT SISWA SEDANG UJIAN?
+================================================================================
+
+SITUASI: Siswa sedang ujian sekarang
+MASALAH: Ada error "gagal menyimpan" jawaban
+FIX: Sudah siap (3 files)
+
+================================================================================
+PERTANYAAN KUNCI
+================================================================================
+
+1. Berapa banyak siswa yang sedang ujian sekarang?
+   [ ] 1-10 siswa (sedikit)
+   [ ] 11-50 siswa (sedang)
+   [ ] 50+ siswa (banyak)
+
+2. Berapa persen siswa yang mengalami "gagal menyimpan"?
+   [ ] <5% (jarang)
+   [ ] 5-10% (kadang)
+   [ ] >10% (sering)
+
+3. Berapa lama lagi ujian selesai?
+   [ ] <30 menit (sebentar lagi)
+   [ ] 30-60 menit (setengah jam)
+   [ ] >60 menit (masih lama)
+
+4. Apakah sudah test fix di localhost?
+   [ ] Sudah test, works
+   [ ] Belum test
+   [ ] Tidak yakin
+
+================================================================================
+REKOMENDASI BERDASARKAN JAWABAN
+================================================================================
+
+SCENARIO 1: TUNGGU SAJA (RECOMMENDED) ✅
+-----------------------------------------
+Jika:
+- Siswa sedikit (<10)
+- Error jarang (<5%)
+- Ujian sebentar lagi (<30 menit)
+
+Action: TUNGGU UJIAN SELESAI
+Timeline:
+  Sekarang: Monitor saja, jangan update
+  Ujian selesai: Update semua files
+  Test: 5-10 menit
+  Ujian berikutnya: Sudah fix
+
+Risk: ZERO
+Effort: LOW
+
+---
+
+SCENARIO 2: UPDATE SESSION.PHP SAJA (SAFE) ✅
+----------------------------------------------
+Jika:
+- Siswa sedang (11-50)
+- Error kadang (5-10%)
+- Ujian masih lama (>60 menit)
+- Ingin extend session timeout
+
+Action: UPDATE SESSION.PHP SAJA
+Steps:
+  1. Backup: cp app/Config/Session.php app/Config/Session.php.backup
+  2. Edit: public int $expiration = 14400;
+  3. Clear cache: rm -rf writable/cache/*
+  4. Done!
+
+Impact:
+  - Siswa aktif: TIDAK terpengaruh
+  - Session baru: Timeout 4 jam
+  - Logging: Belum ada (tunggu ujian selesai)
+
+Risk: ZERO untuk siswa aktif
+Effort: LOW (2 menit)
+
+---
+
+SCENARIO 3: UPDATE SEMUA (CAREFUL) ⚠️
+--------------------------------------
+Jika:
+- Siswa banyak (>50)
+- Error sering (>10%)
+- Ujian masih lama (>60 menit)
+- Sudah test di localhost
+- Masalah critical
+
+Action: UPDATE SEMUA FILES
+Steps:
+  1. Backup semua files
+  2. Update Session.php → Monitor 5 menit
+  3. Update Cbt.php → Monitor 10 menit
+  4. Update ujian.php → Monitor
+  5. Siap rollback jika error
+
+Monitor:
+  Terminal 1: tail -f writable/logs/log-*.php | grep ERROR
+  Terminal 2: tail -f /var/log/php-fpm/error.log
+  Browser: Admin panel (check siswa aktif)
+
+Risk: MEDIUM (bisa rollback)
+Effort: HIGH (monitoring ketat)
+
+---
+
+SCENARIO 4: JANGAN UPDATE (WAIT) ❌
+------------------------------------
+Jika:
+- Belum test di localhost
+- Tidak yakin code benar
+- Error jarang (<5%)
+- Ujian sebentar lagi (<30 menit)
+
+Action: JANGAN UPDATE SEKARANG
+Reason: Risk > Benefit
+
+Wait until:
+  - Ujian selesai
+  - Test di localhost
+  - Yakin code benar
+
+================================================================================
+DECISION MATRIX
+================================================================================
+
+                    │ Error <5%  │ Error 5-10% │ Error >10%
+────────────────────┼────────────┼─────────────┼────────────
+Ujian <30 min       │ TUNGGU ✅  │ TUNGGU ✅   │ SESSION ✅
+Ujian 30-60 min     │ TUNGGU ✅  │ SESSION ✅  │ SEMUA ⚠️
+Ujian >60 min       │ SESSION ✅ │ SEMUA ⚠️    │ SEMUA ⚠️
+
+Legend:
+✅ = Safe, recommended
+⚠️ = Careful, monitor ketat
+❌ = Don't do it
+
+================================================================================
+QUICK COMMANDS
+================================================================================
+
+OPTION A: TUNGGU (Do Nothing)
+------------------------------
+# Just monitor
+tail -f writable/logs/log-$(date +%Y-%m-%d).php | grep "saveAnswersBulk"
+
+---
+
+OPTION B: UPDATE SESSION.PHP SAJA
+----------------------------------
+# Backup
+cp app/Config/Session.php app/Config/Session.php.backup
+
+# Edit file (change 7200 to 14400)
+nano app/Config/Session.php
+# atau
+vim app/Config/Session.php
+
+# Clear cache
+rm -rf writable/cache/*
+
+# Verify
+grep "expiration" app/Config/Session.php
+# Should show: public int $expiration = 14400;
+
+---
+
+OPTION C: UPDATE SEMUA
+-----------------------
+# Backup all
+cp app/Config/Session.php app/Config/Session.php.backup
+cp app/Controllers/Siswa/Cbt.php app/Controllers/Siswa/Cbt.php.backup
+cp app/Views/siswa/cbt/ujian.php app/Views/siswa/cbt/ujian.php.backup
+
+# Update files (already done by Kiro)
+# Files are ready in workspace
+
+# Clear cache
+rm -rf writable/cache/*
+
+# Monitor
+tail -f writable/logs/log-$(date +%Y-%m-%d).php | grep -E "ERROR|saveAnswersBulk"
+
+# If error, rollback:
+cp app/Config/Session.php.backup app/Config/Session.php
+cp app/Controllers/Siswa/Cbt.php.backup app/Controllers/Siswa/Cbt.php
+cp app/Views/siswa/cbt/ujian.php.backup app/Views/siswa/cbt/ujian.php
+rm -rf writable/cache/*
+
+================================================================================
+RISK ASSESSMENT
+================================================================================
+
+File: Session.php
+Risk: ✅ LOW (siswa aktif tidak terpengaruh)
+Impact: Session baru dapat timeout 4 jam
+Rollback: Easy (30 detik)
+
+File: Cbt.php
+Risk: ⚠️ MEDIUM-HIGH (affect request berikutnya)
+Impact: Logging langsung ada, tapi bisa error jika syntax salah
+Rollback: Easy (30 detik)
+
+File: ujian.php
+Risk: ✅ LOW (siswa yang sudah load tidak terpengaruh)
+Impact: Siswa yang refresh dapat versi baru
+Rollback: Easy (30 detik)
+
+================================================================================
+MY RECOMMENDATION
+================================================================================
+
+Based on typical scenario:
+
+IF error rate < 10% AND ujian < 60 menit:
+  → TUNGGU UJIAN SELESAI ✅
+  → Paling aman, zero risk
+  → Update setelah ujian dengan tenang
+
+IF error rate > 10% OR ujian > 60 menit:
+  → UPDATE SESSION.PHP SAJA ✅
+  → Extend timeout untuk ujian berikutnya
+  → Update sisanya setelah ujian selesai
+
+IF error rate > 20% AND critical:
+  → UPDATE SEMUA ⚠️
+  → Monitor ketat
+  → Siap rollback
+
+================================================================================
+CHECKLIST SEBELUM UPDATE
+================================================================================
+
+Pre-Update:
+[ ] Backup semua files
+[ ] Test di localhost (jika belum)
+[ ] Inform pengawas ujian
+[ ] Siapkan terminal untuk monitoring
+[ ] Siapkan rollback command
+
+During Update:
+[ ] Update satu file per waktu
+[ ] Monitor logs setelah setiap update
+[ ] Tunggu 5-10 menit sebelum update file berikutnya
+[ ] Check tidak ada error
+
+Post-Update:
+[ ] Monitor logs 30 menit
+[ ] Check siswa bisa save jawaban
+[ ] Verify tidak ada error
+[ ] Keep backup files
+
+================================================================================
+FINAL DECISION
+================================================================================
+
+Pilih salah satu:
+
+[ ] OPTION A: TUNGGU UJIAN SELESAI
+    Reason: _________________________________
+    Timeline: Update setelah _____ menit
+
+[ ] OPTION B: UPDATE SESSION.PHP SAJA
+    Reason: _________________________________
+    Timeline: Update sekarang, sisanya nanti
+
+[ ] OPTION C: UPDATE SEMUA SEKARANG
+    Reason: _________________________________
+    Risk accepted: Yes, will monitor closely
+
+[ ] OPTION D: JANGAN UPDATE
+    Reason: _________________________________
+    Alternative: _________________________________
+
+================================================================================
+
+REMEMBER: Keamanan ujian siswa adalah prioritas utama!
+Jika ragu, TUNGGU UJIAN SELESAI adalah pilihan paling aman.
+
+================================================================================

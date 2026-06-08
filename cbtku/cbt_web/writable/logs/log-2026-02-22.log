@@ -1,0 +1,158 @@
+ERROR - 2026-02-22 23:19:36 --> mysqli_sql_exception: Unknown column 'b.name' in 'field list' in C:\xampp\htdocs\cbtku\system\Database\MySQLi\Connection.php:327
+Stack trace:
+#0 C:\xampp\htdocs\cbtku\system\Database\MySQLi\Connection.php(327): mysqli->query('\r\n            C...', 0)
+#1 C:\xampp\htdocs\cbtku\system\Database\BaseConnection.php(729): CodeIgniter\Database\MySQLi\Connection->execute('\r\n            C...')
+#2 C:\xampp\htdocs\cbtku\system\Database\BaseConnection.php(646): CodeIgniter\Database\BaseConnection->simpleQuery('\r\n            C...')
+#3 C:\xampp\htdocs\cbtku\app\Database\Migrations\2026-02-22-000001_create_cbt_bank_stats_view.php(44): CodeIgniter\Database\BaseConnection->query('\r\n            C...')
+#4 C:\xampp\htdocs\cbtku\system\Database\MigrationRunner.php(876): App\Database\Migrations\CreateCbtBankStatsView->up()
+#5 C:\xampp\htdocs\cbtku\system\Database\MigrationRunner.php(182): CodeIgniter\Database\MigrationRunner->migrate('up', Object(stdClass))
+#6 C:\xampp\htdocs\cbtku\system\Commands\Database\Migrate.php(85): CodeIgniter\Database\MigrationRunner->latest(NULL)
+#7 C:\xampp\htdocs\cbtku\system\CLI\Commands.php(74): CodeIgniter\Commands\Database\Migrate->run(Array)
+#8 C:\xampp\htdocs\cbtku\system\CLI\Console.php(47): CodeIgniter\CLI\Commands->run('migrate', Array)
+#9 C:\xampp\htdocs\cbtku\system\Boot.php(388): CodeIgniter\CLI\Console->run()
+#10 C:\xampp\htdocs\cbtku\system\Boot.php(133): CodeIgniter\Boot::runCommand(Object(CodeIgniter\CLI\Console))
+#11 C:\xampp\htdocs\cbtku\spark(87): CodeIgniter\Boot::bootSpark(Object(Config\Paths))
+#12 {main}
+INFO - 2026-02-22 23:21:28 --> [Migration] Starting update from old database...
+INFO - 2026-02-22 23:21:28 --> [Migration] Creating license table...
+INFO - 2026-02-22 23:21:28 --> [Migration] License table created successfully
+INFO - 2026-02-22 23:21:28 --> [Migration] Version column already exists, skipping
+INFO - 2026-02-22 23:21:28 --> [Migration] tinymce_api_key already removed, skipping
+INFO - 2026-02-22 23:21:28 --> [Migration] Adding is_active column to users...
+WARNING - 2026-02-22 23:41:39 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:41:39 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:41:39 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:41:39 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:41:39 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:41:49 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:41:49 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:41:49 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:41:49 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+INFO - 2026-02-22 23:41:49 --> CSRF token verified.
+DEBUG - 2026-02-22 23:41:49 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:41:58 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:41:58 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:41:58 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:41:58 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+INFO - 2026-02-22 23:41:58 --> CSRF token verified.
+DEBUG - 2026-02-22 23:41:58 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:45:31 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:45:31 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:45:31 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:45:31 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+INFO - 2026-02-22 23:45:31 --> CSRF token verified.
+DEBUG - 2026-02-22 23:45:31 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:45:36 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:45:36 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:45:36 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:45:36 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:45:36 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:45:37 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:45:37 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:45:37 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:45:37 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:45:37 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:45:40 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:45:40 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:45:40 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:45:40 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:45:40 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:45:41 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:45:41 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:45:41 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:45:41 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:45:41 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+CRITICAL - 2026-02-22 23:49:30 --> ErrorException: file_put_contents(C:\xampp\htdocs\cbtku\app\Config/.lic_hash): Failed to open stream: Permission denied
+[Method: CLI, Route: license:hash]
+in APPPATH\Commands\LicenseHashUpdate.php on line 76.
+ 1 [internal function]: CodeIgniter\Debug\Exceptions->errorHandler(2, 'file_put_contents(C:\\xampp\\htdocs\\cbtku\\app\\Config/.lic_hash): Failed to open stream: Permission denied', 'C:\\xampp\\htdocs\\cbtku\\app\\Commands\\LicenseHashUpdate.php', 76)
+ 2 APPPATH\Commands\LicenseHashUpdate.php(76): file_put_contents('C:\\xampp\\htdocs\\cbtku\\app\\Config/.lic_hash', '{
+    "Filters\\/LicenseFilter.php": "46be930231eedb85b18f8094f65823aac9f2f60b",
+    "Models\\/LicenseModel.php": "f569f7608b91d02bb121ff6a66ac724378b94733",
+    "Controllers\\/Activate.php": "75b6e45c12573a8fe243b9be6f0546cc0075c373",
+    "Controllers\\/BaseController.php": "32fc46a6a0d9c5140a49af9bda5bd592bc7990e9",
+    "Controllers\\/Admin\\/License.php": "4374da4cc0d25817b5c9bc63ff8775d9edb44fca",
+    "Libraries\\/LicenseGuard.php": "a6375be83b08e23b7e5213aa6e2f23b696d61278",
+    "Libraries\\/LicenseProtector.php": "ebfa0b154b0e4471b2caea1ccd05447979385088",
+    "Helpers\\/license_helper.php": "854e47faf74dd49c3ac870139416aa6bf940e38c",
+    "Config\\/Filters.php": "4878ba6c296b3f55493932ac6b2ed556e406c8f4",
+    "Config\\/LService.php": "d29c3c6bcb615aea752643bcc8c1a162f1f3c352",
+    "Config\\/Events.php": "ccdbc49f3677398e7a637d71cfcd41fefbd47dfa"
+}')
+ 3 SYSTEMPATH\CLI\Commands.php(74): App\Commands\LicenseHashUpdate->run([])
+ 4 SYSTEMPATH\CLI\Console.php(47): CodeIgniter\CLI\Commands->run('license:hash', [])
+ 5 SYSTEMPATH\Boot.php(388): CodeIgniter\CLI\Console->run()
+ 6 SYSTEMPATH\Boot.php(133): CodeIgniter\Boot::runCommand(Object(CodeIgniter\CLI\Console))
+ 7 ROOTPATH\spark(87): CodeIgniter\Boot::bootSpark(Object(Config\Paths))
+WARNING - 2026-02-22 23:54:58 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:54:58 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:54:58 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:54:58 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:54:59 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:55:07 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:55:07 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:55:07 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:55:07 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+INFO - 2026-02-22 23:55:07 --> CSRF token verified.
+DEBUG - 2026-02-22 23:55:08 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:55:09 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:55:09 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:55:09 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:55:09 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:55:09 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:55:33 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:55:33 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:55:33 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:55:33 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:55:33 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:55:37 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:55:37 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:55:37 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:55:37 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:55:37 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:55:39 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:55:39 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:55:39 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:55:39 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:55:39 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:55:41 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:55:41 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:55:41 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:55:41 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:55:41 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:55:41 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:55:41 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:55:41 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:55:41 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:55:42 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:55:47 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:55:47 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:55:47 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:55:47 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:55:47 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:56:27 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:56:27 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:56:27 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:56:27 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+INFO - 2026-02-22 23:56:27 --> CSRF token verified.
+DEBUG - 2026-02-22 23:56:27 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:56:27 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:56:27 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:56:27 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:56:27 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:56:27 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:56:34 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:56:34 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:56:34 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:56:34 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:56:34 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:57:08 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:57:08 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:57:08 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:57:08 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:57:08 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.
+WARNING - 2026-02-22 23:57:11 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup
+WARNING - 2026-02-22 23:57:11 --> Failed to create backup file: C:\xampp\htdocs\cbtku\writable\license_backup/.lic_backup_20260222
+WARNING - 2026-02-22 23:57:11 --> Failed to create backup file: C:\xampp\htdocs\cbtku\app\Config/.lic_backup_hidden
+WARNING - 2026-02-22 23:57:11 --> Failed to create checksum file: C:\xampp\htdocs\cbtku\app\Config/.lic_checksum
+DEBUG - 2026-02-22 23:57:11 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\DatabaseHandler' driver.

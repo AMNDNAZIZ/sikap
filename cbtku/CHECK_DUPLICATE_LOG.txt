@@ -1,0 +1,14 @@
+Setelah download Excel yang bermasalah, jalankan command ini:
+
+Get-Content writable/logs/log-2026-02-27.log | Select-String "unduhNilai"
+
+Atau cek semua test yang ada duplicate sessions:
+
+php debug_duplicate_sessions.php
+
+Lalu edit file debug_duplicate_sessions.php, ubah $testId sesuai test yang bermasalah.
+
+Jika tidak ada log duplicate, kemungkinan masalahnya adalah:
+1. Cache browser - coba hard refresh (Ctrl+F5)
+2. File Excel lama masih terbuka
+3. Ada siswa yang pindah kelas setelah mengikuti ujian
