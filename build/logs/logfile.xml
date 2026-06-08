@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuites>
-  <testsuite name="UsernameUniquenessPropertyTest" file="C:\xampp\htdocs\siakad\tests\unit\UsernameUniquenessPropertyTest.php" tests="2" assertions="704" errors="0" failures="0" skipped="0" time="0.151250">
-    <testcase name="testDuplicateUsernameStorageMustFail" file="C:\xampp\htdocs\siakad\tests\unit\UsernameUniquenessPropertyTest.php" line="67" class="UsernameUniquenessPropertyTest" classname="UsernameUniquenessPropertyTest" assertions="402" time="0.149604"/>
-    <testcase name="testDifferentUsernamesBothSucceed" file="C:\xampp\htdocs\siakad\tests\unit\UsernameUniquenessPropertyTest.php" line="116" class="UsernameUniquenessPropertyTest" classname="UsernameUniquenessPropertyTest" assertions="302" time="0.001646"/>
-  </testsuite>
-</testsuites>

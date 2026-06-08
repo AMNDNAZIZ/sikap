@@ -1,4 +1,0 @@
-Username Uniqueness Property
- [x] Duplicate username storage must fail
- [x] Different usernames both succeed
-

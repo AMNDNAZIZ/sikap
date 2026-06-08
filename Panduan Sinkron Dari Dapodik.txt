@@ -1,8 +1,0 @@
-Panduan Sinkron Dari Dapodik
-Buka file siakad_sync_agent.ps1
- (Klik kanan -> Edit).
-Ubah $SIAKAD_URL menjadi alamat website hosting Anda (misal: https://siakad-sekolah.com/api/dapodik/receive).
-Pastikan $DAPODIK_KEY sudah berisi Key Web Service Dapodik Anda.
-Simpan file tersebut.
-Klik kanan pada file tersebut dan pilih Run with PowerShell.
-Dengan sekali klik, data siswa dan guru akan langsung terkirim dari PC lokal ke hosting, dan akun-akun user-nya akan otomatis terbuat di sana.
