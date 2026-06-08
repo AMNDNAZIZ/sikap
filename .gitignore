@@ -38,3 +38,9 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Backup uploads
+public/uploads/backups/
+
+# Docs folder
+docs/
