@@ -1,0 +1,27 @@
+Auth Filter Property
+ [x] Auth filter allow deny property
+ [x] Role 7 allowed when in filter list
+ [x] Role 7 denied when not in filter list
+ [x] Role 6 allowed when in filter list
+ [x] Role 6 denied when not in filter list
+
+Example Database
+ [ ] Model find all
+ [ ] Soft delete leaves row
+
+Example Session
+ [x] Session simple
+
+Health
+ [x] Is defined app path
+ [x] Base url has been set
+
+Route Filter Variables
+ [x] Auth 17 filter is defined
+ [x] Auth 127 filter is defined
+ [x] Auth 1237 filter is defined
+
+Username Uniqueness Property
+ [x] Duplicate username storage must fail
+ [x] Different usernames both succeed
+

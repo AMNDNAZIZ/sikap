@@ -11,6 +11,17 @@ $routes->get('/profil', 'Home::profil');
 $routes->get('/tentang', 'Home::about');
 $routes->get('/login', 'Auth::login');
 
+// Public Guest Book (Buku Tamu)
+$routes->get('buku-tamu', 'BukuTamu::index');
+$routes->get('buku-tamu/umum', 'BukuTamu::formUmum');
+$routes->post('buku-tamu/umum/store', 'BukuTamu::storeUmum');
+$routes->get('buku-tamu/dinas', 'BukuTamu::formDinas');
+$routes->post('buku-tamu/dinas/store', 'BukuTamu::storeDinas');
+$routes->get('buku-tamu/sukses', 'BukuTamu::sukses');
+
+// Public QR Code Verification
+$routes->get('verify/(:any)', 'Verify::index/$1');
+
 $routes->get('activate', 'Activate::index');
 $routes->post('activate/process', 'Activate::process');
 $routes->post('activate/checkRenewal', 'Activate::checkRenewal');
@@ -265,6 +276,42 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('dapodik/fetchTeachers', 'Dapodik::fetchTeachers', $auth127);
     $routes->post('dapodik/syncStudents', 'Dapodik::syncStudents', $auth127);
     $routes->post('dapodik/syncTeachers', 'Dapodik::syncTeachers', $auth127);
+
+    // 5.6 Tata Usaha & Persuratan (Admin, Kepsek, Staf)
+    $routes->get('tata-usaha/cetak-daftar-hadir', 'TataUsaha::cetakDaftarHadir', $auth127);
+    $routes->post('tata-usaha/cetak-daftar-hadir/generate', 'TataUsaha::generatePDF', $auth127);
+
+    // Surat Masuk
+    $routes->get('surat-masuk', 'SuratMasuk::index', $auth127);
+    $routes->get('surat-masuk/create', 'SuratMasuk::create', $auth127);
+    $routes->post('surat-masuk/store', 'SuratMasuk::store', $auth127);
+    $routes->get('surat-masuk/detail/(:num)', 'SuratMasuk::detail/$1', $auth127);
+    $routes->get('surat-masuk/edit/(:num)', 'SuratMasuk::edit/$1', $auth127);
+    $routes->post('surat-masuk/update/(:num)', 'SuratMasuk::update/$1', $auth127);
+    $routes->get('surat-masuk/delete/(:num)', 'SuratMasuk::delete/$1', $auth127);
+    $routes->get('surat-masuk/view-scan/(:num)', 'SuratMasuk::viewScan/$1', $auth127);
+
+    // Surat Keluar
+    $routes->get('surat-keluar', 'SuratKeluar::index', $auth127);
+    $routes->get('surat-keluar/create', 'SuratKeluar::create', $auth127);
+    $routes->post('surat-keluar/store', 'SuratKeluar::store', $auth127);
+    $routes->get('surat-keluar/detail/(:num)', 'SuratKeluar::detail/$1', $auth127);
+    $routes->get('surat-keluar/download-pdf/(:num)', 'SuratKeluar::downloadPdf/$1', $auth127);
+    $routes->get('surat-keluar/download/(:num)', 'SuratKeluar::downloadPdf/$1', $auth127);
+    $routes->post('surat-keluar/revoke/(:num)', 'SuratKeluar::revoke/$1', $auth127);
+    $routes->get('surat-keluar/search-siswa', 'SuratKeluar::searchSiswa', $auth127);
+    $routes->get('surat-keluar/search-guru', 'SuratKeluar::searchGuru', $auth127);
+
+    // Agenda Surat
+    $routes->get('agenda-surat', 'AgendaSurat::index', $auth127);
+    $routes->get('agenda-surat/export', 'AgendaSurat::exportExcel', $auth127);
+
+    // Buku Tamu Admin
+    $routes->get('buku-tamu', 'BukuTamuAdmin::index', $auth127);
+    $routes->get('buku-tamu/export-pdf', 'BukuTamuAdmin::exportPdf', $auth127);
+    $routes->get('buku-tamu/export-excel', 'BukuTamuAdmin::exportExcel', $auth127);
+    $routes->get('buku-tamu/delete/(:num)', 'BukuTamuAdmin::delete/$1', $auth127);
+    $routes->get('buku-tamu/print-qr', 'BukuTamuAdmin::printQr', $auth127);
 
     // 6. Akademik & CBT (Admin, Principal, Guru)
     $routes->get('attendance', 'Attendance::index', $auth123);

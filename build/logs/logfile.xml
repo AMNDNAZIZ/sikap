@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="C:\Users\USER\Documents\GitHub\sikap\phpunit.xml.dist" tests="15" assertions="822" errors="2" failures="0" skipped="0" time="0.609062">
+    <testsuite name="App" tests="15" assertions="822" errors="2" failures="0" skipped="0" time="0.609062">
+      <testsuite name="ExampleDatabaseTest" file="C:\Users\USER\Documents\GitHub\sikap\tests\database\ExampleDatabaseTest.php" tests="2" assertions="0" errors="2" failures="0" skipped="0" time="0.000000">
+        <testcase name="testModelFindAll" file="C:\Users\USER\Documents\GitHub\sikap\tests\database\ExampleDatabaseTest.php" line="17" class="ExampleDatabaseTest" classname="ExampleDatabaseTest" assertions="0" time="0.000000">
+          <error type="CodeIgniter\Exceptions\CriticalError">ExampleDatabaseTest::testModelFindAll&#13;
+CodeIgniter\Exceptions\CriticalError: The required PHP extension "sqlite3" is not loaded. Install and enable it to use "SQLite3" driver.
+&#13;
+C:\Users\USER\Documents\GitHub\sikap\system\Database\Database.php:182
+C:\Users\USER\Documents\GitHub\sikap\system\Database\Database.php:59
+C:\Users\USER\Documents\GitHub\sikap\system\Database\Config.php:82
+C:\Users\USER\Documents\GitHub\sikap\system\Test\DatabaseTestTrait.php:82
+C:\Users\USER\Documents\GitHub\sikap\system\Test\DatabaseTestTrait.php:59
+C:\Users\USER\Documents\GitHub\sikap\system\Test\CIUnitTestCase.php:251</error>
+        </testcase>
+        <testcase name="testSoftDeleteLeavesRow" file="C:\Users\USER\Documents\GitHub\sikap\tests\database\ExampleDatabaseTest.php" line="28" class="ExampleDatabaseTest" classname="ExampleDatabaseTest" assertions="0" time="0.000000">
+          <error type="CodeIgniter\Exceptions\CriticalError">ExampleDatabaseTest::testSoftDeleteLeavesRow&#13;
+CodeIgniter\Exceptions\CriticalError: The required PHP extension "sqlite3" is not loaded. Install and enable it to use "SQLite3" driver.
+&#13;
+C:\Users\USER\Documents\GitHub\sikap\system\Database\Database.php:182
+C:\Users\USER\Documents\GitHub\sikap\system\Database\Database.php:59
+C:\Users\USER\Documents\GitHub\sikap\system\Database\Config.php:82
+C:\Users\USER\Documents\GitHub\sikap\system\Test\DatabaseTestTrait.php:82
+C:\Users\USER\Documents\GitHub\sikap\system\Test\DatabaseTestTrait.php:59
+C:\Users\USER\Documents\GitHub\sikap\system\Test\CIUnitTestCase.php:251</error>
+        </testcase>
+      </testsuite>
+      <testsuite name="ExampleSessionTest" file="C:\Users\USER\Documents\GitHub\sikap\tests\session\ExampleSessionTest.php" tests="1" assertions="1" errors="0" failures="0" skipped="0" time="0.155663">
+        <testcase name="testSessionSimple" file="C:\Users\USER\Documents\GitHub\sikap\tests\session\ExampleSessionTest.php" line="10" class="ExampleSessionTest" classname="ExampleSessionTest" assertions="1" time="0.155663"/>
+      </testsuite>
+      <testsuite name="AuthFilterPropertyTest" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\AuthFilterPropertyTest.php" tests="5" assertions="111" errors="0" failures="0" skipped="0" time="0.360781">
+        <testcase name="testAuthFilterAllowDenyProperty" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\AuthFilterPropertyTest.php" line="29" class="AuthFilterPropertyTest" classname="AuthFilterPropertyTest" assertions="102" time="0.308397"/>
+        <testcase name="testRole7AllowedWhenInFilterList" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\AuthFilterPropertyTest.php" line="68" class="AuthFilterPropertyTest" classname="AuthFilterPropertyTest" assertions="3" time="0.024803"/>
+        <testcase name="testRole7DeniedWhenNotInFilterList" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\AuthFilterPropertyTest.php" line="90" class="AuthFilterPropertyTest" classname="AuthFilterPropertyTest" assertions="4" time="0.024715"/>
+        <testcase name="testRole6AllowedWhenInFilterList" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\AuthFilterPropertyTest.php" line="113" class="AuthFilterPropertyTest" classname="AuthFilterPropertyTest" assertions="1" time="0.001612"/>
+        <testcase name="testRole6DeniedWhenNotInFilterList" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\AuthFilterPropertyTest.php" line="127" class="AuthFilterPropertyTest" classname="AuthFilterPropertyTest" assertions="1" time="0.001255"/>
+      </testsuite>
+      <testsuite name="HealthTest" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\HealthTest.php" tests="2" assertions="3" errors="0" failures="0" skipped="0" time="0.020653">
+        <testcase name="testIsDefinedAppPath" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\HealthTest.php" line="12" class="HealthTest" classname="HealthTest" assertions="1" time="0.001141"/>
+        <testcase name="testBaseUrlHasBeenSet" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\HealthTest.php" line="17" class="HealthTest" classname="HealthTest" assertions="2" time="0.019512"/>
+      </testsuite>
+      <testsuite name="RouteFilterVariablesTest" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\RouteFilterVariablesTest.php" tests="3" assertions="3" errors="0" failures="0" skipped="0" time="0.041702">
+        <testcase name="testAuth17FilterIsDefined" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\RouteFilterVariablesTest.php" line="23" class="RouteFilterVariablesTest" classname="RouteFilterVariablesTest" assertions="1" time="0.038978"/>
+        <testcase name="testAuth127FilterIsDefined" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\RouteFilterVariablesTest.php" line="32" class="RouteFilterVariablesTest" classname="RouteFilterVariablesTest" assertions="1" time="0.001539"/>
+        <testcase name="testAuth1237FilterIsDefined" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\RouteFilterVariablesTest.php" line="41" class="RouteFilterVariablesTest" classname="RouteFilterVariablesTest" assertions="1" time="0.001186"/>
+      </testsuite>
+      <testsuite name="UsernameUniquenessPropertyTest" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\UsernameUniquenessPropertyTest.php" tests="2" assertions="704" errors="0" failures="0" skipped="0" time="0.030262">
+        <testcase name="testDuplicateUsernameStorageMustFail" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\UsernameUniquenessPropertyTest.php" line="67" class="UsernameUniquenessPropertyTest" classname="UsernameUniquenessPropertyTest" assertions="402" time="0.028891"/>
+        <testcase name="testDifferentUsernamesBothSucceed" file="C:\Users\USER\Documents\GitHub\sikap\tests\unit\UsernameUniquenessPropertyTest.php" line="116" class="UsernameUniquenessPropertyTest" classname="UsernameUniquenessPropertyTest" assertions="302" time="0.001371"/>
+      </testsuite>
+    </testsuite>
+  </testsuite>
+</testsuites>

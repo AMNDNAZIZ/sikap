@@ -8,9 +8,16 @@ class Updater extends BaseController
 {
     public function index()
     {
+        $deployStatusPath = FCPATH . 'deploy_status.json';
+        $deployStatus = null;
+        if (is_file($deployStatusPath)) {
+            $deployStatus = json_decode(file_get_contents($deployStatusPath), true);
+        }
+
         $data = [
             'title' => 'System Updater',
-            'migrations' => $this->getMigrationHistory()
+            'migrations' => $this->getMigrationHistory(),
+            'deployStatus' => $deployStatus
         ];
         return view('admin/updater/index', $data);
     }
