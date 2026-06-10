@@ -6,12 +6,13 @@ on:
       - closed       # trigger saat PR di-close/merge
     branches:
       - main          # hanya PR yang target ke main
+  workflow_dispatch:   # izinkan trigger manual dari tab Actions GitHub
 
 jobs:
   deploy:
     name: 🔄 Trigger cPanel Deploy via SSH
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true  # hanya jalan jika PR benar-benar di-merge
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: 🌐 Executing remote SSH commands to deploy
