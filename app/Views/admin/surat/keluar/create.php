@@ -197,6 +197,14 @@
               Penerima otomatis: <strong>Guru &amp; Tenaga Kependidikan SDN Mangga Besar 11 Pagi</strong>
             </p>
           </div>
+
+          <!-- Penerima Eksternal (Surat Custom) -->
+          <div id="recipient-eksternal-section" style="display:none;">
+            <label class="form-label fw-semibold" for="recipient_name_eksternal">Nama Penerima <span class="text-danger">*</span></label>
+            <input type="text" id="recipient_name_eksternal" class="form-control"
+                   placeholder="cth: Kepala Dinas Pendidikan Kota Jakarta" autocomplete="off">
+            <small class="text-muted">Ketik nama penerima surat secara bebas.</small>
+          </div>
         </div>
       </div>
 
@@ -374,6 +382,75 @@
           </div>
         </div>
 
+        <!-- H: Surat Custom / Dinamis -->
+        <div class="card border-0 shadow-sm mb-4 dynamic-section" data-type="surat_custom" style="display:none;">
+          <div class="card-header bg-light fw-semibold py-2"><i class="bi bi-envelope-paper-fill me-2"></i>Isi dan Format Surat Custom</div>
+          <div class="card-body row g-3">
+            
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Gaya Header Kop Surat <span class="text-danger">*</span></label>
+              <div class="d-flex gap-3 mt-1">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="header_style" id="style_tengah" value="tengah" checked>
+                  <label class="form-check-label small" for="style_tengah">
+                    <i class="bi bi-align-center me-1"></i>Tengah (Judul di Tengah)
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="header_style" id="style_kiri_kanan" value="kiri_kanan">
+                  <label class="form-check-label small" for="style_kiri_kanan">
+                    <i class="bi bi-columns-gap me-1"></i>Kiri-Kanan (Nomor & Kepada)
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" for="custom_recipient_type">Tipe Penerima Surat <span class="text-danger">*</span></label>
+              <select id="custom_recipient_type" class="form-select">
+                <option value="siswa">Siswa (Data Siswa)</option>
+                <option value="guru">Guru / Tenaga Kependidikan</option>
+                <option value="eksternal">Eksternal (Ketik Bebas)</option>
+              </select>
+            </div>
+
+            <!-- Placeholders Panel -->
+            <div class="col-12">
+              <div class="card border border-primary border-opacity-25 bg-light-subtle">
+                <div class="card-body py-2 px-3">
+                  <small class="fw-bold text-secondary d-block mb-1"><i class="bi bi-patch-question me-1 text-primary"></i>Klik badge untuk menyisipkan variabel data otomatis (Placeholder):</small>
+                  <div class="d-flex flex-wrap gap-1" id="placeholder-container">
+                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{nama_penerima}" style="font-size:0.75rem;">{nama_penerima}</button>
+                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{nisn}" style="font-size:0.75rem;">{nisn}</button>
+                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{kelas}" style="font-size:0.75rem;">{kelas}</button>
+                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{ttl}" style="font-size:0.75rem;">{ttl}</button>
+                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{nip}" style="font-size:0.75rem;">{nip}</button>
+                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{jabatan}" style="font-size:0.75rem;">{jabatan}</button>
+                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{nomor_surat}" style="font-size:0.75rem;">{nomor_surat}</button>
+                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{tanggal_surat}" style="font-size:0.75rem;">{tanggal_surat}</button>
+                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{tahun_pelajaran}" style="font-size:0.75rem;">{tahun_pelajaran}</button>
+                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{kepala_sekolah}" style="font-size:0.75rem;">{kepala_sekolah}</button>
+                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{nip_kepala_sekolah}" style="font-size:0.75rem;">{nip_kepala_sekolah}</button>
+                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{nama_sekolah}" style="font-size:0.75rem;">{nama_sekolah}</button>
+                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{alamat_sekolah}" style="font-size:0.75rem;">{alamat_sekolah}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CKEditor -->
+            <div class="col-12">
+              <label class="form-label fw-semibold">Isi Surat <span class="text-danger">*</span></label>
+              <!-- Hidden input to hold the actual value on submit -->
+              <input type="hidden" name="body_html" id="body_html_hidden">
+              <div id="editor-surat-custom-container" style="min-height: 300px;">
+                <div id="editor-surat-custom"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
       </div><!-- end #section-dynamic -->
     </div>
 
@@ -400,8 +477,12 @@
             <i class="bi bi-check-circle me-1"></i><span id="selected-type-label"></span>
           </div>
           <hr>
+          <!-- Tombol Preview (hanya untuk surat_custom) -->
+          <button type="button" class="btn btn-outline-info w-100 mb-2" id="btn-preview-surat" style="display:none;">
+            <i class="bi bi-eye me-2"></i>Preview Surat
+          </button>
           <button type="submit" class="btn btn-primary w-100" id="btn-submit-surat" disabled>
-            <i class="bi bi-send me-2"></i>Buat Surat & Generate PDF
+            <i class="bi bi-send me-2"></i>Buat Surat &amp; Generate PDF
           </button>
           <a href="<?= base_url('admin/surat-keluar') ?>" class="btn btn-outline-secondary w-100 mt-2">
             Batal
@@ -412,13 +493,57 @@
   </div>
 </form>
 
+<!-- Modal Preview Surat -->
+<div class="modal fade" id="modal-preview-surat" tabindex="-1" aria-labelledby="modalPreviewLabel">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title" id="modalPreviewLabel">
+          <i class="bi bi-eye me-2 text-info"></i>Preview Surat
+          <span class="badge bg-warning text-dark ms-2 fw-normal" style="font-size:0.7rem;">PREVIEW — Bukan Dokumen Resmi</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0 bg-secondary bg-opacity-10">
+        <!-- Letter paper container -->
+        <div style="max-width:794px; margin:20px auto; background:#fff; box-shadow:0 2px 12px rgba(0,0,0,.15); padding:40px 50px; min-height:400px; font-family:'Times New Roman',Times,serif; font-size:14px; line-height:1.6;" id="preview-letter-paper">
+          <div id="preview-kop-area"></div>
+          <div id="preview-header-area"></div>
+          <div id="preview-body-area"></div>
+          <div id="preview-footer-note" style="margin-top:40px; border-top:1px dashed #ccc; padding-top:12px; color:#888; font-size:12px; font-family:Arial,sans-serif; text-align:center;">
+            <i>⚠️ QR Code verifikasi dan tanda tangan Kepala Sekolah akan muncul di PDF final</i>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Placeholder telah diisi dengan data form saat ini. Nomor surat digenerate otomatis saat submit.</small>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal" id="btn-from-preview-submit">
+            <i class="bi bi-send me-1"></i>Lanjut Generate PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
+<script src="https://cdn.ckeditor.com/ckeditor5/41.1.0/super-build/ckeditor.js"></script>
 <script>
-const LETTER_TYPES = <?= json_encode($letter_types) ?>;
+const LETTER_TYPES    = <?= json_encode($letter_types) ?>;
 const SISWA_SEARCH_URL = '<?= base_url('admin/surat-keluar/search-siswa') ?>';
 const GURU_SEARCH_URL  = '<?= base_url('admin/surat-keluar/search-guru') ?>';
+
+// Data sekolah & KOP untuk preview client-side
+const KOP_BASE64      = <?= json_encode($kop_base64 ?? null) ?>;
+const SCHOOL_NAME     = <?= json_encode($school['name'] ?? '') ?>;
+const SCHOOL_ADDRESS  = <?= json_encode($school['address'] ?? '') ?>;
+const PRINCIPAL_NAME  = <?= json_encode($principal_name ?? '') ?>;
+const PRINCIPAL_NIP   = <?= json_encode($principal_nip ?? '') ?>;
+const ACTIVE_YEAR     = <?= json_encode($active_year ?? '') ?>;
 
 // Mapping: jenis surat → tipe penerima
 const RECIPIENT_MAP = {
@@ -429,7 +554,114 @@ const RECIPIENT_MAP = {
   'keterangan_kjp':          'siswa',
   'surat_tugas':             'guru',
   'undangan':                'internal',
+  'surat_custom':            'custom',
 };
+
+// CKEditor instance
+let editorInstance = null;
+
+function initCKEditor() {
+  if (editorInstance) return;
+  CKEDITOR.ClassicEditor
+    .create(document.querySelector('#editor-surat-custom'), {
+      toolbar: {
+        items: [
+          'undo', 'redo', '|',
+          'heading', '|',
+          'bold', 'italic', 'underline', 'strikethrough', '|',
+          'fontSize', 'fontColor', 'fontBackgroundColor', '|',
+          'insertTable', 'blockQuote', 'horizontalLine', '|',
+          'bulletedList', 'numberedList', 'outdent', 'indent', '|',
+          'alignment', '|',
+          'removeFormat'
+        ],
+        shouldNotGroupWhenFull: true
+      },
+      table: {
+        contentToolbar: [
+          'tableColumn', 'tableRow', 'mergeTableCells', 'tableProperties', 'tableCellProperties'
+        ]
+      },
+      heading: {
+        options: [
+          { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+          { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+          { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+          { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
+        ]
+      },
+      removePlugins: [
+        'AIAssistant', 'AIAssistantUI', 'AIAdapter', 'CKBox', 'CKBoxImageEdit', 'CKBoxImageEditEditing',
+        'CKBoxUtils', 'CloudServices', 'CloudServicesUploadAdapter', 'EasyImage', 'Comments', 'CommentsRepository',
+        'RealTimeCollaborativeComments', 'TrackChanges', 'TrackChangesEditing', 'TrackChangesData',
+        'RealTimeCollaborativeTrackChanges', 'RevisionHistory', 'RealTimeCollaborativeRevisionHistory',
+        'PresenceList', 'RealTimeCollaboration', 'Pagination', 'WProofreader', 'MathType', 'ChemType',
+        'Mentions', 'SlashCommand', 'Template', 'DocumentOutline', 'FormatPainter', 'TableOfContents',
+        'PasteFromOfficeEnhanced', 'CaseChange', 'WideSidebar', 'ExportPdf', 'ExportWord'
+      ],
+      fontSize: {
+        options: [9, 11, 13, 'default', 17, 19, 21, 24],
+        supportAllValues: true
+      },
+      fontFamily: {
+        options: [
+          'default',
+          'Arial, Helvetica, sans-serif',
+          'Times New Roman, Times, serif',
+          'Courier New, Courier, monospace'
+        ],
+        supportAllValues: true
+      },
+      htmlSupport: {
+        allow: [{ name: /.*/, attributes: true, classes: true, styles: true }]
+      }
+    })
+    .then(editor => {
+      editorInstance = editor;
+      editor.editing.view.change(writer => {
+        writer.setStyle('min-height', '320px', editor.editing.view.document.getRoot());
+      });
+    })
+    .catch(error => console.error(error));
+}
+
+// Update recipient section based on selected type
+function updateRecipientSection() {
+  let rtype = RECIPIENT_MAP[selectedType] || 'siswa';
+  if (rtype === 'custom') {
+    rtype = $('#custom_recipient_type').val();
+  }
+
+  $('#recipient-siswa-section').toggle(rtype === 'siswa');
+  $('#recipient-guru-section').toggle(rtype === 'guru');
+  $('#recipient-internal-section').toggle(rtype === 'internal');
+  $('#recipient-eksternal-section').toggle(rtype === 'eksternal');
+
+  if (rtype === 'siswa') {
+    $('#recipient_type').val('siswa');
+    $('#siswa-detail-fields').show();
+    $('#guru-detail-fields').hide();
+  } else if (rtype === 'guru') {
+    $('#recipient_type').val('guru');
+    $('#siswa-detail-fields').hide();
+    $('#guru-detail-fields').show();
+  } else if (rtype === 'eksternal') {
+    $('#recipient_type').val('eksternal');
+    $('#siswa-detail-fields').hide();
+    $('#guru-detail-fields').hide();
+    $('#recipient_name').val($('#recipient_name_eksternal').val());
+  } else if (rtype === 'internal') {
+    $('#recipient_type').val('internal');
+    $('#siswa-detail-fields').hide();
+    $('#guru-detail-fields').hide();
+    $('#recipient_name').val('Guru & Tenaga Kependidikan SDN Mangga Besar 11 Pagi');
+  } else {
+    // multi
+    $('#recipient_type').val('siswa');
+    $('#siswa-detail-fields').hide();
+    $('#guru-detail-fields').hide();
+  }
+}
 
 let selectedType = null;
 
@@ -467,29 +699,16 @@ $('input[name="letter_type"]').on('change', function() {
   }
 
   // Tampilkan field penerima yang sesuai
-  const rtype = RECIPIENT_MAP[selectedType] || 'siswa';
-  $('#recipient-siswa-section').toggle(rtype === 'siswa');
-  $('#recipient-guru-section').toggle(rtype === 'guru');
-  $('#recipient-internal-section').toggle(rtype === 'internal');
-  $('#recipient_type').val(rtype === 'multi' ? 'siswa' : rtype);
+  updateRecipientSection();
 
-  // Show/hide visible details fields
-  if (rtype === 'siswa') {
-    $('#siswa-detail-fields').show();
-    $('#guru-detail-fields').hide();
-  } else if (rtype === 'guru') {
-    $('#siswa-detail-fields').hide();
-    $('#guru-detail-fields').show();
-  } else {
-    $('#siswa-detail-fields').hide();
-    $('#guru-detail-fields').hide();
+  // Set recipient_name untuk multi
+  if (RECIPIENT_MAP[selectedType] === 'multi') {
+    $('#recipient_name').val('Daftar Terlampir');
   }
 
-  // Set recipient_name untuk internal / multi
-  if (rtype === 'internal') {
-    $('#recipient_name').val('Guru & Tenaga Kependidikan SDN Mangga Besar 11 Pagi');
-  } else if (rtype === 'multi') {
-    $('#recipient_name').val('Daftar Terlampir');
+  // Inisialisasi CKEditor jika surat_custom
+  if (selectedType === 'surat_custom') {
+    setTimeout(initCKEditor, 100);
   }
 
   // Tampilkan section dinamis
@@ -739,5 +958,199 @@ $(document).on('click', '.btn-remove-row', function() {
 
 // Trigger change on page load if a type is already pre-selected
 $('input[name="letter_type"]:checked').trigger('change');
+
+// Saat tipe penerima custom diubah (untuk surat_custom)
+$(document).on('change', '#custom_recipient_type', function() {
+  updateRecipientSection();
+});
+
+// Sinkronisasi nama penerima eksternal ke field hidden
+$(document).on('input', '#recipient_name_eksternal', function() {
+  $('#recipient_name').val($(this).val());
+});
+
+// Klik placeholder → sisipkan ke CKEditor 5
+$(document).on('click', '.placeholder-btn', function(e) {
+  e.preventDefault();
+  const placeholder = $(this).data('placeholder');
+  if (editorInstance) {
+    editorInstance.model.change(writer => {
+      const insertPosition = editorInstance.model.document.selection.getFirstPosition();
+      if (insertPosition) {
+        writer.insertText(placeholder, insertPosition);
+      }
+    });
+    editorInstance.editing.view.focus();
+  } else {
+    alert('Editor belum siap. Silakan klik di dalam area editor terlebih dahulu.');
+  }
+});
+
+// Sebelum submit form, sinkronisasi konten CKEditor ke hidden input
+$('#form-surat-keluar').on('submit', function(e) {
+  if (selectedType === 'surat_custom' && editorInstance) {
+    const bodyData = editorInstance.getData();
+    $('#body_html_hidden').val(bodyData);
+    if (!bodyData.trim()) {
+      alert('Isi surat (body) wajib diisi untuk Surat Custom!');
+      e.preventDefault();
+      return false;
+    }
+  }
+});
+
+// ─── Preview Surat ────────────────────────────────────────────────────────────
+
+// Helper: escape HTML untuk teks yang dimasukkan ke dalam HTML
+function escHtml(str) {
+  if (!str) return '-';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Helper: format tanggal ke format Indonesia
+function formatIndoDate(dateStr) {
+  if (!dateStr) return '-';
+  const MONTHS = ['Januari','Februari','Maret','April','Mei','Juni',
+                  'Juli','Agustus','September','Oktober','November','Desember'];
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return dateStr;
+  return d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+// Tampilkan/sembunyikan tombol Preview sesuai tipe surat yang dipilih
+$('input[name="letter_type"]').on('change', function() {
+  $('#btn-preview-surat').toggle(this.value === 'surat_custom');
+});
+
+// Tombol preview diklik
+$('#btn-preview-surat').on('click', function() {
+  if (!editorInstance) {
+    alert('Silakan tulis isi surat terlebih dahulu.');
+    return;
+  }
+
+  // Kumpulkan nilai dari form
+  const bodyHtml     = editorInstance.getData();
+  const headerStyle  = $('input[name="header_style"]:checked').val() || 'tengah';
+  const recipientName = $('#recipient_name').val() || '-';
+  const issuedAt     = $('#issued_at').val();
+  const subject      = $('#subject').val() || '-';
+  const sifat        = $('#sifat').val() || 'Biasa';
+
+  // Data penerima
+  const nisn    = $('#f_nisn').val()    || '-';
+  const kelas   = $('#f_kelas').val()   || '-';
+  const ttl     = $('#f_ttl').val()     || '-';
+  const nip     = $('#f_nip').val()     || '-';
+  const jabatan = $('#f_jabatan').val() || '-';
+  const ekstName = $('#recipient_name_eksternal').val() || recipientName;
+
+  const tanggalSurat = formatIndoDate(issuedAt);
+
+  // Ganti semua placeholder
+  let processedBody = bodyHtml;
+  const map = {
+    '{nama_penerima}':      recipientName || ekstName,
+    '{nisn}':               nisn,
+    '{kelas}':              kelas,
+    '{ttl}':                ttl,
+    '{nip}':                nip,
+    '{jabatan}':            jabatan,
+    '{nomor_surat}':        '<em style="color:#999;">[Auto-Generate]</em>',
+    '{tanggal_surat}':      tanggalSurat,
+    '{tahun_pelajaran}':    ACTIVE_YEAR || '-',
+    '{kepala_sekolah}':     PRINCIPAL_NAME || '-',
+    '{nip_kepala_sekolah}': PRINCIPAL_NIP  || '-',
+    '{nama_sekolah}':       SCHOOL_NAME    || '-',
+    '{alamat_sekolah}':     SCHOOL_ADDRESS || '-',
+  };
+  for (const [key, val] of Object.entries(map)) {
+    processedBody = processedBody.split(key).join(val);
+  }
+
+  // ── Render KOP ──
+  let kopHtml = '';
+  if (KOP_BASE64) {
+    kopHtml = `<div style="width:100%;text-align:center;margin-bottom:4px;">
+                 <img src="${KOP_BASE64}" style="width:100%;height:auto;display:block;">
+               </div>
+               <div style="border-top:2px solid #000;margin-top:5px;margin-bottom:20px;"></div>`;
+  } else {
+    kopHtml = `<div style="border:1px dashed #bbb;padding:15px;text-align:center;color:#aaa;margin-bottom:20px;font-family:Arial,sans-serif;font-size:12px;">
+                 [KOP Surat — ${escHtml(SCHOOL_NAME)}]<br><small>KOP belum di-upload di pengaturan sekolah</small>
+               </div>`;
+  }
+
+  // ── Render Header ──
+  let headerHtml = '';
+  if (headerStyle === 'tengah') {
+    headerHtml = `
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">${escHtml(subject)}</div>
+        <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
+      </div>`;
+  } else {
+    headerHtml = `
+      <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
+        <tr>
+          <td style="width:55%;vertical-align:top;">
+            <table style="width:100%;border-collapse:collapse;">
+              <tr>
+                <td style="width:70px;padding:2px 0;">Nomor</td>
+                <td style="width:14px;text-align:center;padding:2px 0;">:</td>
+                <td style="padding:2px 0;"><em style="color:#999;">[Auto-Generate]</em></td>
+              </tr>
+              <tr>
+                <td style="padding:2px 0;">Sifat</td>
+                <td style="text-align:center;padding:2px 0;">:</td>
+                <td style="padding:2px 0;">${escHtml(sifat)}</td>
+              </tr>
+              <tr>
+                <td style="padding:2px 0;">Hal</td>
+                <td style="text-align:center;padding:2px 0;">:</td>
+                <td style="padding:2px 0;"><strong>${escHtml(subject)}</strong></td>
+              </tr>
+            </table>
+          </td>
+          <td style="width:45%;vertical-align:top;padding-left:20px;">
+            <div style="line-height:1.6;">
+              ${escHtml(tanggalSurat)}<br><br>
+              Kepada<br>
+              Yth. <strong>${escHtml(recipientName || ekstName)}</strong><br>
+              di &nbsp;-&nbsp; <strong>Tempat</strong>
+            </div>
+          </td>
+        </tr>
+      </table>`;
+  }
+
+  // ── Render Body ──
+  const bodyStyle = `
+    <style>
+      #preview-body-area table { width:100% !important; border-collapse:collapse !important; margin:12px 0 !important; }
+      #preview-body-area table th, #preview-body-area table td { border:1px solid #000 !important; padding:6px 8px !important; font-size:14px; }
+      #preview-body-area table th { background:#f2f2f2 !important; font-weight:bold; }
+      #preview-body-area p { margin:8px 0; line-height:1.6; text-align:justify; }
+      #preview-body-area ul, #preview-body-area ol { margin:8px 0; padding-left:20px; }
+      #preview-body-area li { margin-bottom:4px; }
+    </style>`;
+
+  // ── Inject ke modal ──
+  $('#preview-kop-area').html(kopHtml);
+  $('#preview-header-area').html(headerHtml);
+  $('#preview-body-area').html(bodyStyle + processedBody);
+
+  const previewModal = new bootstrap.Modal(document.getElementById('modal-preview-surat'));
+  previewModal.show();
+});
+
+// Tombol "Lanjut Generate PDF" di modal → trigger submit form
+$('#btn-from-preview-submit').on('click', function() {
+  $('#btn-submit-surat').trigger('click');
+});
 </script>
 <?= $this->endSection() ?>

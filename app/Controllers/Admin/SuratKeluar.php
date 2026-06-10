@@ -29,6 +29,7 @@ class SuratKeluar extends BaseController
         'keterangan_kjp'          => 'Ket. KJP / Dokumen Khusus',
         'surat_tugas'             => 'Surat Tugas',
         'undangan'                => 'Surat Undangan',
+        'surat_custom'            => 'Surat Custom / Dinamis',
     ];
 
     public function __construct()
@@ -81,14 +82,21 @@ class SuratKeluar extends BaseController
         $principalName = $settings->getValue('principal_name') ?? ($school['principal_name'] ?? '');
         $principalNip  = $settings->getValue('principal_nip')  ?? ($school['principal_nip']  ?? '');
 
+        // Untuk preview client-side
+        $pdfGen     = new PdfGenerator();
+        $kopBase64  = $pdfGen->getKopBase64();
+        $activeYear = $settings->getValue('active_school_year') ?? (date('Y') . '/' . (date('Y') + 1));
+
         return view('admin/surat/keluar/create', [
-            'title'         => 'Buat Surat Keluar',
-            'letter_types'  => self::LETTER_TYPES,
-            'students'      => $students,
-            'teachers'      => $teachers,
-            'school'        => $school,
+            'title'          => 'Buat Surat Keluar',
+            'letter_types'   => self::LETTER_TYPES,
+            'students'       => $students,
+            'teachers'       => $teachers,
+            'school'         => $school,
             'principal_name' => $principalName,
             'principal_nip'  => $principalNip,
+            'kop_base64'     => $kopBase64,
+            'active_year'    => $activeYear,
         ]);
     }
 
@@ -108,6 +116,11 @@ class SuratKeluar extends BaseController
             'issued_at'      => 'required|valid_date',
             'recipient_name' => 'required|min_length[3]',
         ];
+
+        if ($letterType === 'surat_custom') {
+            $rules['body_html']    = 'required';
+            $rules['header_style'] = 'required|in_list[tengah,kiri_kanan]';
+        }
 
         if (! $this->validate($rules)) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
@@ -205,10 +218,19 @@ class SuratKeluar extends BaseController
 
         $letter = $this->model->decodeJson($letter);
 
+        $processedBody = '';
+        if ($letter['letter_type'] === 'surat_custom') {
+            $school   = (new SchoolModel())->first();
+            $settings = new SettingsModel();
+            $bodyHtml = $letter['letter_data']['body_html'] ?? '';
+            $processedBody = $this->processPlaceholders($bodyHtml, $letter, $school, $settings);
+        }
+
         return view('admin/surat/keluar/detail', [
-            'title'        => 'Detail Surat — ' . $letter['letter_number'],
-            'letter'       => $letter,
-            'letter_types' => self::LETTER_TYPES,
+            'title'          => 'Detail Surat — ' . $letter['letter_number'],
+            'letter'         => $letter,
+            'letter_types'   => self::LETTER_TYPES,
+            'processed_body' => $processedBody,
         ]);
     }
 
@@ -391,6 +413,10 @@ class SuratKeluar extends BaseController
                 'event_venue'  => $post['event_venue'] ?? '',
                 'event_agenda' => $post['event_agenda'] ?? '',
             ],
+            'surat_custom' => [
+                'header_style' => $post['header_style'] ?? 'tengah',
+                'body_html'    => isset($post['body_html']) ? strip_tags($post['body_html'], '<p><a><strong><em><u><s><br><table><thead><tbody><tr><td><th><ul><ol><li><h1><h2><h3><h4><h5><h6><span><div><hr>') : '',
+            ],
             default => [],
         };
     }
@@ -431,6 +457,11 @@ class SuratKeluar extends BaseController
                 'qr_data_url' => $qrDataUrl,
                 'active_year' => $activeYear,
             ];
+
+            if ($letter['letter_type'] === 'surat_custom') {
+                $bodyHtml = $letter['letter_data']['body_html'] ?? '';
+                $viewData['processed_body'] = $this->processPlaceholders($bodyHtml, $letter, $school, $settings);
+            }
 
             // Simpan ke file
             $dir      = WRITEPATH . 'uploads/surat_keluar/' . date('Y') . '/' . date('m') . '/';
@@ -477,6 +508,49 @@ class SuratKeluar extends BaseController
             log_message('error', '[SuratKeluar::generatePdf] ' . $e->getMessage());
             return null;
         }
+    }
+
+    private function processPlaceholders(string $bodyHtml, array $letter, ?array $school, SettingsModel $settings): string
+    {
+        $ld = $letter['letter_data'] ?? [];
+        $recipientDetail = $letter['recipient_detail'] ?? [];
+
+        $activeYear = $settings->getValue('active_school_year') ?? (date('Y') . '/' . (date('Y') + 1));
+        
+        $placeholders = [
+            '{nama_penerima}'      => $letter['recipient_name'] ?? '-',
+            '{nisn}'               => $recipientDetail['nisn'] ?? '-',
+            '{kelas}'              => $recipientDetail['kelas'] ?? '-',
+            '{ttl}'                => $recipientDetail['ttl'] ?? '-',
+            '{nip}'                => $recipientDetail['nip'] ?? '-',
+            '{jabatan}'            => $recipientDetail['jabatan'] ?? '-',
+            '{nomor_surat}'        => $letter['letter_number'] ?? '-',
+            '{tanggal_surat}'      => !empty($letter['issued_at']) ? date('d F Y', strtotime($letter['issued_at'])) : '-',
+            '{tahun_pelajaran}'    => $activeYear,
+            '{kepala_sekolah}'     => $letter['principal_name_snapshot'] ?? '-',
+            '{nip_kepala_sekolah}' => $letter['principal_nip_snapshot'] ?? '-',
+            '{nama_sekolah}'       => $school['name'] ?? '-',
+            '{alamat_sekolah}'     => $school['address'] ?? '-',
+        ];
+
+        // Format Indonesian Date for {tanggal_surat}
+        if (!empty($letter['issued_at'])) {
+            $months = [
+                'January' => 'Januari', 'February' => 'Februari', 'March' => 'Maret',
+                'April' => 'April', 'May' => 'Mei', 'June' => 'Juni',
+                'July' => 'Juli', 'August' => 'Agustus', 'September' => 'September',
+                'October' => 'Oktober', 'November' => 'November', 'December' => 'Desember'
+            ];
+            $engDate = date('d F Y', strtotime($letter['issued_at']));
+            $indDate = strtr($engDate, $months);
+            $placeholders['{tanggal_surat}'] = $indDate;
+        }
+
+        foreach ($placeholders as $placeholder => $value) {
+            $bodyHtml = str_replace($placeholder, $value ?? '-', $bodyHtml);
+        }
+
+        return $bodyHtml;
     }
 
     private function generateUuid4(): string
