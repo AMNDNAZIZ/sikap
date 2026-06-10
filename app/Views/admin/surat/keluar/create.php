@@ -1023,19 +1023,17 @@ function formatIndoDate(dateStr) {
 
 // Tampilkan/sembunyikan tombol Preview sesuai tipe surat yang dipilih
 $('input[name="letter_type"]').on('change', function() {
-  $('#btn-preview-surat').toggle(this.value === 'surat_custom');
+  $('#btn-preview-surat').toggle(!!this.value);
 });
 
 // Tombol preview diklik
 $('#btn-preview-surat').on('click', function() {
-  if (!editorInstance) {
-    alert('Silakan tulis isi surat terlebih dahulu.');
+  if (!selectedType) {
+    alert('Silakan pilih tipe surat terlebih dahulu.');
     return;
   }
 
   // Kumpulkan nilai dari form
-  const bodyHtml     = editorInstance.getData();
-  const headerStyle  = $('input[name="header_style"]:checked').val() || 'tengah';
   const recipientName = $('#recipient_name').val() || '-';
   const issuedAt     = $('#issued_at').val();
   const subject      = $('#subject').val() || '-';
@@ -1047,30 +1045,11 @@ $('#btn-preview-surat').on('click', function() {
   const ttl     = $('#f_ttl').val()     || '-';
   const nip     = $('#f_nip').val()     || '-';
   const jabatan = $('#f_jabatan').val() || '-';
+  const alamat  = $('#f_alamat').val()  || '-';
+  const nik     = $('#f_nik').val()     || '-';
   const ekstName = $('#recipient_name_eksternal').val() || recipientName;
 
   const tanggalSurat = formatIndoDate(issuedAt);
-
-  // Ganti semua placeholder
-  let processedBody = bodyHtml;
-  const map = {
-    '{nama_penerima}':      recipientName || ekstName,
-    '{nisn}':               nisn,
-    '{kelas}':              kelas,
-    '{ttl}':                ttl,
-    '{nip}':                nip,
-    '{jabatan}':            jabatan,
-    '{nomor_surat}':        '<em style="color:#999;">[Auto-Generate]</em>',
-    '{tanggal_surat}':      tanggalSurat,
-    '{tahun_pelajaran}':    ACTIVE_YEAR || '-',
-    '{kepala_sekolah}':     PRINCIPAL_NAME || '-',
-    '{nip_kepala_sekolah}': PRINCIPAL_NIP  || '-',
-    '{nama_sekolah}':       SCHOOL_NAME    || '-',
-    '{alamat_sekolah}':     SCHOOL_ADDRESS || '-',
-  };
-  for (const [key, val] of Object.entries(map)) {
-    processedBody = processedBody.split(key).join(val);
-  }
 
   // ── Render KOP ──
   let kopHtml = '';
@@ -1085,15 +1064,320 @@ $('#btn-preview-surat').on('click', function() {
                </div>`;
   }
 
-  // ── Render Header ──
   let headerHtml = '';
-  if (headerStyle === 'tengah') {
+  let bodyHtml = '';
+
+  if (selectedType === 'surat_custom') {
+    if (!editorInstance) {
+      alert('Silakan tulis isi surat terlebih dahulu.');
+      return;
+    }
+    const rawBodyHtml = editorInstance.getData();
+    const headerStyle  = $('input[name="header_style"]:checked').val() || 'tengah';
+
+    // Ganti semua placeholder
+    let processedBody = rawBodyHtml;
+    const map = {
+      '{nama_penerima}':      recipientName || ekstName,
+      '{nisn}':               nisn,
+      '{kelas}':              kelas,
+      '{ttl}':                ttl,
+      '{nip}':                nip,
+      '{jabatan}':            jabatan,
+      '{nomor_surat}':        '<em style="color:#999;">[Auto-Generate]</em>',
+      '{tanggal_surat}':      tanggalSurat,
+      '{tahun_pelajaran}':    ACTIVE_YEAR || '-',
+      '{kepala_sekolah}':     PRINCIPAL_NAME || '-',
+      '{nip_kepala_sekolah}': PRINCIPAL_NIP  || '-',
+      '{nama_sekolah}':       SCHOOL_NAME    || '-',
+      '{alamat_sekolah}':     SCHOOL_ADDRESS || '-',
+    };
+    for (const [key, val] of Object.entries(map)) {
+      processedBody = processedBody.split(key).join(val);
+    }
+
+    if (headerStyle === 'tengah') {
+      headerHtml = `
+        <div style="text-align:center;margin-bottom:24px;">
+          <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">${escHtml(subject)}</div>
+          <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
+        </div>`;
+    } else {
+      headerHtml = `
+        <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
+          <tr>
+            <td style="width:55%;vertical-align:top;">
+              <table style="width:100%;border-collapse:collapse;">
+                <tr>
+                  <td style="width:70px;padding:2px 0;">Nomor</td>
+                  <td style="width:14px;text-align:center;padding:2px 0;">:</td>
+                  <td style="padding:2px 0;"><em style="color:#999;">[Auto-Generate]</em></td>
+                </tr>
+                <tr>
+                  <td style="padding:2px 0;">Sifat</td>
+                  <td style="text-align:center;padding:2px 0;">:</td>
+                  <td style="padding:2px 0;">${escHtml(sifat)}</td>
+                </tr>
+                <tr>
+                  <td style="padding:2px 0;">Hal</td>
+                  <td style="text-align:center;padding:2px 0;">:</td>
+                  <td style="padding:2px 0;"><strong>${escHtml(subject)}</strong></td>
+                </tr>
+              </table>
+            </td>
+            <td style="width:45%;vertical-align:top;padding-left:20px;">
+              <div style="line-height:1.6;">
+                ${escHtml(tanggalSurat)}<br><br>
+                Kepada<br>
+                Yth. <strong>${escHtml(recipientName || ekstName)}</strong><br>
+                di &nbsp;-&nbsp; <strong>Tempat</strong>
+              </div>
+            </td>
+          </tr>
+        </table>`;
+    }
+    bodyHtml = processedBody;
+
+  } else if (selectedType === 'keterangan_mutasi_masuk') {
     headerHtml = `
       <div style="text-align:center;margin-bottom:24px;">
-        <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">${escHtml(subject)}</div>
+        <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">SURAT KETERANGAN</div>
         <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
       </div>`;
-  } else {
+
+    bodyHtml = `
+      <div style="margin-bottom: 12px;">Yang bertanda tangan di bawah ini :</div>
+      <table style="margin-bottom:12px; width:100%; border-collapse:collapse;" class="data-tabel">
+          <tr><td class="label">Nama</td><td class="colon">:</td><td>${escHtml(PRINCIPAL_NAME)}</td></tr>
+          <tr><td class="label">NIP</td><td class="colon">:</td><td>${escHtml(PRINCIPAL_NIP)}</td></tr>
+          <tr><td class="label">Jabatan</td><td class="colon">:</td><td>Kepala Sekolah</td></tr>
+          <tr><td class="label">Tempat Tugas</td><td class="colon">:</td><td>${escHtml(SCHOOL_NAME)}</td></tr>
+      </table>
+
+      <div style="margin-bottom: 12px; margin-top: 12px;">Dengan ini menerangkan bahwa :</div>
+      <table style="margin-bottom:12px; width:100%; border-collapse:collapse;" class="data-tabel">
+          <tr><td class="label">Nama</td><td class="colon">:</td><td><strong>${escHtml(recipientName)}</strong></td></tr>
+          <tr><td class="label">NISN</td><td class="colon">:</td><td>${escHtml(nisn)}</td></tr>
+          <tr><td class="label">Tempat/Tanggal Lahir</td><td class="colon">:</td><td>${escHtml(ttl)}</td></tr>
+          <tr><td class="label">Sekolah Asal</td><td class="colon">:</td><td>${escHtml($('input[name="sekolah_asal"]').val() || '-')} ${$('input[name="alamat_sekolah_asal"]').val() ? ' – ' + escHtml($('input[name="alamat_sekolah_asal"]').val()) : ''}</td></tr>
+      </table>
+
+      <p style="margin: 12px 0; text-align: justify;">
+          Nama tersebut di atas telah kami nyatakan <strong>DITERIMA</strong> di Kelas
+          <strong>${escHtml($('input[name="kelas_diterima"]').val() || '-')}</strong> Semester <strong>${escHtml($('select[name="semester"]').val() || '-')}</strong>
+          Tahun Pelajaran <strong>${escHtml(ACTIVE_YEAR)}</strong>
+          di ${escHtml(SCHOOL_NAME)}.
+      </p>
+
+      <p style="margin: 12px 0;">Demikian Surat Keterangan ini dibuat untuk dapat dipergunakan sebagaimana mestinya.</p>
+    `;
+
+  } else if (selectedType === 'keterangan_mengajar') {
+    headerHtml = `
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">SURAT KETERANGAN</div>
+        <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
+      </div>`;
+
+    bodyHtml = `
+      <div style="margin-bottom: 12px;">
+          Yang bertanda tangan di bawah ini kepala ${escHtml(SCHOOL_NAME)} menerangkan bahwa :
+      </div>
+
+      <table style="margin-bottom:12px; width:100%; border-collapse:collapse;" class="data-tabel">
+          <tr><td class="label">Nama</td><td class="colon">:</td><td><strong>${escHtml(recipientName)}</strong></td></tr>
+          <tr><td class="label">NIK</td><td class="colon">:</td><td>${escHtml($('input[name="nik_guru"]').val() || '-')}</td></tr>
+          <tr><td class="label">Jabatan</td><td class="colon">:</td><td>${escHtml(jabatan !== '-' ? jabatan : ($('input[name="jabatan"]').val() || 'Guru Kelas'))}</td></tr>
+          <tr><td class="label">Tempat Tugas</td><td class="colon">:</td><td>${escHtml(SCHOOL_NAME)}</td></tr>
+          <tr><td class="label">Pekerjaan</td><td class="colon">:</td><td>Guru</td></tr>
+          <tr><td class="label">No. Telp/HP</td><td class="colon">:</td><td>${escHtml($('input[name="no_hp"]').val() || '-')}</td></tr>
+          <tr>
+              <td class="label" style="vertical-align:top;">Satuan Pendidikan</td>
+              <td class="colon" style="vertical-align:top;">:</td>
+              <td style="padding:0;">
+                  <table style="width:100%; border:none; border-collapse:collapse; margin:0;">
+                      <tr style="border:none;"><td style="width:120px; padding:2px 0; border:none;">a. Nama Satuan</td><td style="width:10px; padding:2px 0; border:none;">:</td><td style="padding:2px 0; border:none;">${escHtml($('input[name="satuan_pendidikan"]').val() || SCHOOL_NAME)}</td></tr>
+                      <tr style="border:none;"><td style="padding:2px 0; border:none;">b. Alamat Satuan</td><td style="padding:2px 0; border:none;">:</td><td style="padding:2px 0; border:none;">${escHtml($('input[name="alamat_satuan"]').val() || SCHOOL_ADDRESS)}</td></tr>
+                  </table>
+              </td>
+          </tr>
+          <tr><td class="label">Alamat Tinggal</td><td class="colon">:</td><td>${escHtml($('input[name="alamat_tinggal"]').val() || '-')}</td></tr>
+      </table>
+
+      <p style="margin: 12px 0; text-align: justify;">
+          Nama tersebut di atas adalah benar <strong>Guru</strong> ${escHtml(SCHOOL_NAME)}
+          yang saat ini mengajar di kelas <strong>${escHtml($('input[name="kelas_mengajar"]').val() || '-')}</strong>
+          pada tahun pelajaran <strong>${escHtml(ACTIVE_YEAR)}</strong>.
+      </p>
+
+      <p style="margin: 12px 0;">Demikian keterangan ini dibuat agar dapat dipergunakan sebagaimana mestinya.</p>
+    `;
+
+  } else if (selectedType === 'keterangan_aktif') {
+    headerHtml = `
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">SURAT KETERANGAN</div>
+        <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
+      </div>`;
+
+    bodyHtml = `
+      <div style="margin-bottom: 12px;">Yang bertanda tangan di bawah ini :</div>
+      <table style="margin-bottom:12px; width:100%; border-collapse:collapse;" class="data-tabel">
+          <tr><td class="label">Nama</td><td class="colon">:</td><td>${escHtml(PRINCIPAL_NAME)}</td></tr>
+          <tr><td class="label">NIP</td><td class="colon">:</td><td>${escHtml(PRINCIPAL_NIP)}</td></tr>
+          <tr><td class="label">Jabatan</td><td class="colon">:</td><td>Kepala Sekolah</td></tr>
+          <tr><td class="label">Unit Kerja</td><td class="colon">:</td><td>${escHtml(SCHOOL_NAME)}</td></tr>
+      </table>
+
+      <div style="margin-bottom: 12px; margin-top: 12px;">Menerangkan bahwa :</div>
+      <table style="margin-bottom:12px; width:100%; border-collapse:collapse;" class="data-tabel">
+          <tr><td class="label">Nama</td><td class="colon">:</td><td><strong>${escHtml(recipientName)}</strong></td></tr>
+          <tr><td class="label">NISN</td><td class="colon">:</td><td>${escHtml(nisn)}</td></tr>
+          <tr><td class="label">Tempat, tanggal lahir</td><td class="colon">:</td><td>${escHtml(ttl)}</td></tr>
+          <tr><td class="label">Asal Sekolah</td><td class="colon">:</td><td>${escHtml(SCHOOL_NAME)}</td></tr>
+          <tr><td class="label">Alamat Sekolah</td><td class="colon">:</td><td>${escHtml(SCHOOL_ADDRESS)}</td></tr>
+      </table>
+
+      <p style="margin: 12px 0; text-align: justify;">
+          adalah benar-benar tercatat sebagai siswa aktif di
+          <strong>${escHtml(SCHOOL_NAME)}</strong>
+          yang saat ini duduk di kelas <strong>${escHtml(kelas)}</strong> pada Tahun Pelajaran <strong>${escHtml(ACTIVE_YEAR)}</strong> dan masih aktif terdaftar sebagai siswa hingga saat ini.
+          ${ $('input[name="keperluan_tambahan"]').val() ? `<br>Surat keterangan ini diberikan untuk keperluan <strong>${escHtml($('input[name="keperluan_tambahan"]').val())}</strong>.` : '' }
+      </p>
+
+      <p style="margin: 12px 0;">Demikian Surat Keterangan ini dibuat untuk dapat dipergunakan sebagaimana mestinya.</p>
+    `;
+
+  } else if (selectedType === 'keterangan_lomba') {
+    headerHtml = `
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">SURAT KETERANGAN</div>
+        <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
+      </div>`;
+
+    let rowsHtml = '';
+    $('#recipient-rows tr').each(function(idx) {
+      if ($(this).attr('id') === 'row-template') return; // Skip template row
+      const name = $(this).find('input[name="rec_name[]"]').val() || '-';
+      const birth = $(this).find('input[name="rec_birth_date[]"]').val() || '-';
+      const kls = $(this).find('input[name="rec_kelas[]"]').val() || '-';
+      const cb = $(this).find('input[name="rec_cabang[]"]').val() || '-';
+      
+      const birthFormatted = birth !== '-' ? formatIndoDate(birth) : '-';
+
+      rowsHtml += `<tr>
+        <td style="text-align: center; padding: 4px 5px;">${idx + 1}.</td>
+        <td style="padding: 4px 5px;"><strong>${escHtml(name)}</strong></td>
+        <td style="text-align: center; padding: 4px 5px;">${escHtml(birthFormatted)}</td>
+        <td style="text-align: center; padding: 4px 5px;">${escHtml(kls)}</td>
+        <td style="padding: 4px 5px;">${escHtml(cb)}</td>
+      </tr>`;
+    });
+
+    bodyHtml = `
+      <div style="margin-bottom: 12px;">
+          Yang bertanda tangan di bawah ini kepala ${escHtml(SCHOOL_NAME)} menerangkan bahwa Daftar Siswa (terlampir) :
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px;" border="1">
+          <thead>
+              <tr style="background:#f0f0f0;">
+                  <th style="width: 35px; text-align: center; padding: 4px 5px;">NO</th>
+                  <th style="text-align: left; padding: 4px 5px;">NAMA</th>
+                  <th style="width: 110px; text-align: center; padding: 4px 5px;">TANGGAL LAHIR</th>
+                  <th style="width: 60px; text-align: center; padding: 4px 5px;">KELAS</th>
+                  <th style="text-align: left; padding: 4px 5px;">CABANG</th>
+              </tr>
+          </thead>
+          <tbody>
+              ${rowsHtml || '<tr><td colspan="5" style="text-align:center;">Belum ada siswa ditambahkan</td></tr>'}
+          </tbody>
+      </table>
+
+      <p style="margin: 12px 0; text-align: justify;">
+          adalah benar-benar tercatat sebagai siswa ${escHtml(SCHOOL_NAME)} pada tahun pelajaran ${escHtml(ACTIVE_YEAR)} untuk mengikuti kegiatan lomba/event <strong>${escHtml($('input[name="event_name"]').val() || '-')}</strong> yang diselenggarakan oleh <strong>${escHtml($('input[name="event_organizer"]').val() || '-')}</strong>.
+      </p>
+
+      <p style="margin: 12px 0;">Demikian keterangan ini dibuat agar dapat dipergunakan sebagaimana mestinya.</p>
+    `;
+
+  } else if (selectedType === 'keterangan_kjp') {
+    headerHtml = `
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">SURAT KETERANGAN</div>
+        <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
+      </div>`;
+
+    bodyHtml = `
+      <div style="margin-bottom: 12px;">Yang bertanda tangan di bawah ini :</div>
+      <table style="margin-bottom:12px; width:100%; border-collapse:collapse;" class="data-tabel">
+          <tr><td class="label">Nama</td><td class="colon">:</td><td>${escHtml(PRINCIPAL_NAME)}</td></tr>
+          <tr><td class="label">NIP</td><td class="colon">:</td><td>${escHtml(PRINCIPAL_NIP)}</td></tr>
+          <tr><td class="label">Jabatan</td><td class="colon">:</td><td>Kepala Sekolah</td></tr>
+          <tr><td class="label">Unit Kerja</td><td class="colon">:</td><td>${escHtml(SCHOOL_NAME)}</td></tr>
+      </table>
+
+      <div style="margin-bottom: 12px; margin-top: 12px;">Menerangkan bahwa :</div>
+      <table style="margin-bottom:12px; width:100%; border-collapse:collapse;" class="data-tabel">
+          <tr><td class="label">Nama</td><td class="colon">:</td><td><strong>${escHtml(recipientName)}</strong></td></tr>
+          <tr><td class="label">NISN</td><td class="colon">:</td><td>${escHtml(nisn)}</td></tr>
+          <tr><td class="label">NIK</td><td class="colon">:</td><td>${escHtml(nik)}</td></tr>
+          <tr><td class="label">Tempat/Tanggal Lahir</td><td class="colon">:</td><td>${escHtml(ttl)}</td></tr>
+          <tr><td class="label">Alamat Domisili</td><td class="colon">:</td><td>${escHtml($('input[name="alamat_domisili"]').val() || '-')}</td></tr>
+      </table>
+
+      <p style="margin: 12px 0; text-align: justify;">
+          adalah benar-benar tercatat sebagai siswa aktif di
+          <strong>${escHtml(SCHOOL_NAME)}</strong>
+          yang saat ini duduk di kelas <strong>${escHtml(kelas)}</strong> pada Tahun Pelajaran <strong>${escHtml(ACTIVE_YEAR)}</strong> dan ingin melakukan <strong>${escHtml($('textarea[name="keperluan_detail"]').val() || '-')}</strong>${ $('input[name="lampiran_keterangan"]').val() ? ` (${escHtml($('input[name="lampiran_keterangan"]').val())})` : '' }.
+      </p>
+
+      <p style="margin: 12px 0;">Demikian Surat Keterangan ini dibuat untuk dapat dipergunakan sebagaimana mestinya.</p>
+    `;
+
+  } else if (selectedType === 'surat_tugas') {
+    headerHtml = `
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">SURAT TUGAS</div>
+        <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
+      </div>`;
+
+    const actDate = $('input[name="activity_date"]').val() ? formatIndoDate($('input[name="activity_date"]').val()) : '-';
+
+    bodyHtml = `
+      ${ $('input[name="ref_letter_number"]').val() ? `
+      <p style="margin: 12px 0; text-align: justify; line-height: 1.6;">
+          Menindaklanjuti surat ${escHtml($('input[name="ref_letter_from"]').val() || '-')} nomor ${escHtml($('input[name="ref_letter_number"]').val())}
+          ${ $('input[name="ref_letter_date"]').val() ? `tanggal ${formatIndoDate($('input[name="ref_letter_date"]').val())}` : '' }
+          perihal ${escHtml($('input[name="ref_letter_subject"]').val() || '-')}. Dengan ini kepala ${escHtml(SCHOOL_NAME)} memberikan tugas kepada :
+      </p>
+      ` : `
+      <p style="margin: 12px 0; text-align: justify; line-height: 1.6;">
+          Dengan ini kepala ${escHtml(SCHOOL_NAME)} memberikan tugas kepada :
+      </p>
+      ` }
+
+      <table style="margin: 12px 0; width:100%; border-collapse:collapse;" class="data-tabel">
+          <tr><td class="label" style="width: 150px;">Nama</td><td class="colon" style="width: 14px;">:</td><td><strong>${escHtml(recipientName)}</strong></td></tr>
+          <tr><td class="label">NIP</td><td class="colon">:</td><td>${escHtml(nip !== '-' ? nip : ($('input[name="nip"]').val() || '-'))}</td></tr>
+          <tr><td class="label">Jabatan</td><td class="colon">:</td><td>${escHtml(jabatan !== '-' ? jabatan : ($('input[name="jabatan"]').val() || 'Guru'))}</td></tr>
+          <tr><td class="label">Tempat Tugas</td><td class="colon">:</td><td>${escHtml(SCHOOL_NAME)}</td></tr>
+          <tr><td class="label">Alamat Tempat Tugas</td><td class="colon">:</td><td>${escHtml(SCHOOL_ADDRESS)}</td></tr>
+      </table>
+
+      <p style="margin: 12px 0;">Untuk mengikuti kegiatan <strong>${escHtml($('input[name="activity_name"]').val() || '-')}</strong> yang akan dilaksanakan pada :</p>
+
+      <table style="margin: 12px 0; width:100%; border-collapse:collapse;" class="data-tabel">
+          <tr><td class="label" style="width: 150px;">Tanggal</td><td class="colon" style="width: 14px;">:</td><td>${escHtml(actDate)}</td></tr>
+          <tr><td class="label">Waktu</td><td class="colon">:</td><td>Pukul ${escHtml($('input[name="activity_time"]').val() || '-')} WIB s.d selesai</td></tr>
+          <tr><td class="label">Tempat</td><td class="colon">:</td><td>${escHtml($('input[name="activity_venue"]').val() || '-')}</td></tr>
+          <tr><td class="label">Alamat</td><td class="colon">:</td><td>${escHtml($('input[name="activity_address"]').val() || '-')}</td></tr>
+      </table>
+
+      <p style="margin: 12px 0;">Demikian surat tugas ini dibuat agar dilaksanakan dengan penuh tanggung jawab.</p>
+    `;
+
+  } else if (selectedType === 'undangan') {
     headerHtml = `
       <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
         <tr>
@@ -1120,15 +1404,66 @@ $('#btn-preview-surat').on('click', function() {
             <div style="line-height:1.6;">
               ${escHtml(tanggalSurat)}<br><br>
               Kepada<br>
-              Yth. <strong>${escHtml(recipientName || ekstName)}</strong><br>
-              di &nbsp;-&nbsp; <strong>Tempat</strong>
+              Yth. <strong>${escHtml(recipientName)}</strong><br>
+              di &nbsp;-&nbsp; <strong>${(recipientName.toLowerCase().includes('guru') || recipientName.toLowerCase().includes('kependidikan') || recipientName.toLowerCase().includes('tendik')) ? 'Jakarta' : 'Tempat'}</strong>
             </div>
           </td>
         </tr>
       </table>`;
+
+    bodyHtml = `
+      <p style="margin: 12px 0;">Dengan hormat,</p>
+      <p style="margin: 12px 0;">
+          Dengan ini kami mengundang ${ recipientName === 'Guru & Tenaga Kependidikan SDN Mangga Besar 11 Pagi' ? 'Bapak/Ibu Guru dan Tenaga Kependidikan ' + SCHOOL_NAME : escHtml(recipientName) } untuk hadir pada :
+      </p>
+
+      <table style="margin: 12px 0 12px 30px; width:auto; border-collapse:collapse;" class="data-tabel">
+          <tr><td class="label" style="width: 120px; padding: 2px 0;">Hari, Tanggal</td><td class="colon" style="width: 14px; text-align: center; padding: 2px 0;">:</td><td>${escHtml($('input[name="event_day"]').val() || '-')}, ${formatIndoDate($('input[name="event_date"]').val())}</td></tr>
+          ${ $('input[name="event_time"]').val() ? `<tr><td class="label" style="padding: 2px 0;">Pukul</td><td class="colon" style="text-align: center; padding: 2px 0;">:</td><td>${escHtml($('input[name="event_time"]').val())} s/d selesai</td></tr>` : '' }
+          <tr><td class="label" style="padding: 2px 0;">Tempat</td><td class="colon" style="text-align: center; padding: 2px 0;">:</td><td>${escHtml($('input[name="event_venue"]').val() || '-')}</td></tr>
+          <tr><td class="label" style="padding: 2px 0;">Acara</td><td class="colon" style="text-align: center; padding: 2px 0;">:</td><td>${escHtml($('input[name="event_agenda"]').val() || '-')}</td></tr>
+      </table>
+
+      <p style="margin: 16px 0 24px 0; text-align: justify;">
+          Demikian undangan ini kami sampaikan, Atas perhatiannya diucapkan terima kasih.
+      </p>
+    `;
   }
 
-  // ── Render Body ──
+  // ── Render TTD & QR Code ──
+  let ttdHtml = '';
+  if (selectedType === 'undangan') {
+    ttdHtml = `
+      <div style="margin-top: 30px;">
+          <div style="float: left; text-align: center; margin-top: 12px; border: 1px dashed #ddd; padding: 8px; color: #aaa; font-size: 11px;">
+              [QR Code]
+          </div>
+          <div style="float: right; width: 220px; text-align: center; font-size: 14px;">
+              Kepala ${escHtml(SCHOOL_NAME)}<br>
+              <div style="margin-top: 52px; border-top: 1px solid #000; width: 100%;"></div>
+              <strong>${escHtml(PRINCIPAL_NAME)}</strong><br>
+              NIP. ${escHtml(PRINCIPAL_NIP)}
+          </div>
+          <div style="clear: both;"></div>
+      </div>`;
+  } else {
+    ttdHtml = `
+      <div style="margin-top: 30px;">
+          <div style="float: left; text-align: center; margin-top: 12px; border: 1px dashed #ddd; padding: 8px; color: #aaa; font-size: 11px;">
+              [QR Code]
+          </div>
+          <div style="float: right; width: 220px; text-align: center; font-size: 14px;">
+              Jakarta, ${escHtml(tanggalSurat)}<br>
+              Kepala ${escHtml(SCHOOL_NAME)}<br>
+              <div style="margin-top: 52px; border-top: 1px solid #000; width: 100%;"></div>
+              <strong>${escHtml(PRINCIPAL_NAME)}</strong><br>
+              NIP. ${escHtml(PRINCIPAL_NIP)}
+          </div>
+          <div style="clear: both;"></div>
+      </div>`;
+  }
+
+  // ── Render Body CSS Styles ──
   const bodyStyle = `
     <style>
       #preview-body-area table { width:100% !important; border-collapse:collapse !important; margin:12px 0 !important; }
@@ -1137,12 +1472,15 @@ $('#btn-preview-surat').on('click', function() {
       #preview-body-area p { margin:8px 0; line-height:1.6; text-align:justify; }
       #preview-body-area ul, #preview-body-area ol { margin:8px 0; padding-left:20px; }
       #preview-body-area li { margin-bottom:4px; }
+      #preview-body-area table.data-tabel, #preview-body-area table.data-tabel td { border: none !important; padding: 2px 0 !important; }
+      #preview-body-area table.data-tabel td.label { width: 160px; }
+      #preview-body-area table.data-tabel td.colon { width: 14px; text-align: center; }
     </style>`;
 
   // ── Inject ke modal ──
   $('#preview-kop-area').html(kopHtml);
   $('#preview-header-area').html(headerHtml);
-  $('#preview-body-area').html(bodyStyle + processedBody);
+  $('#preview-body-area').html(bodyStyle + bodyHtml + ttdHtml);
 
   const previewModal = new bootstrap.Modal(document.getElementById('modal-preview-surat'));
   previewModal.show();
