@@ -9,19 +9,20 @@ on:
 
 jobs:
   deploy:
-    name: 🔄 Trigger cPanel Deploy via Webhook
+    name: 🔄 Trigger cPanel Deploy via SSH
     runs-on: ubuntu-latest
     if: github.event.pull_request.merged == true  # hanya jalan jika PR benar-benar di-merge
 
     steps:
-      # Trigger cPanel Git Webhook to pull and deploy
-      - name: 🌐 Trigger Webhook
-        env:
-          WEBHOOK_URL: ${{ secrets.CPANEL_DEPLOY_WEBHOOK }}
-        run: |
-          if [ -z "$WEBHOOK_URL" ]; then
-            echo "❌ ERROR: CPANEL_DEPLOY_WEBHOOK secret is not set in GitHub repository settings!"
-            echo "Please go to Settings -> Secrets and variables -> Actions and add CPANEL_DEPLOY_WEBHOOK."
-            exit 1
-          fi
-          curl -s -S -X GET "$WEBHOOK_URL"
+      - name: 🌐 Executing remote SSH commands to deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST || 'mabes11.sch.id' }}
+          username: ${{ secrets.SSH_USERNAME || 'mabq7713' }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 2223 }}
+          script: |
+            cd /home/mabq7713/repo_ci4
+            git checkout main
+            git pull origin main
+            /usr/local/cpanel/bin/git-deploy
