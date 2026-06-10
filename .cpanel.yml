@@ -9,3 +9,4 @@ deployment:
     - /bin/cp -R vendor $DEPLOYPATH
     - /bin/cp index.php $DEPLOYPATH
     - /bin/cp spark $DEPLOYPATH
+    - echo '{"deploy_time":"'$(date +'%Y-%m-%d %H:%M:%S %Z')'","commit_hash":"'$(git rev-parse --short HEAD)'","author":"'$(git log -1 --pretty=%an)'","message":"'$(git log -1 --pretty=%s | tr -d '"' | tr -d '\\')'"}' > $DEPLOYPATH/public/deploy_status.json
