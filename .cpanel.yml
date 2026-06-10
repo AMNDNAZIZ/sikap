@@ -2,7 +2,6 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/mabq7713/public_html/
-    - /usr/local/bin/composer install --no-dev --optimize-autoloader --no-interaction
     - /bin/cp -R app $DEPLOYPATH
     - /bin/cp -R public $DEPLOYPATH
     - /bin/cp -R system $DEPLOYPATH
