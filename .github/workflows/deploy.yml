@@ -16,5 +16,12 @@ jobs:
     steps:
       # Trigger cPanel Git Webhook to pull and deploy
       - name: 🌐 Trigger Webhook
+        env:
+          WEBHOOK_URL: ${{ secrets.CPANEL_DEPLOY_WEBHOOK }}
         run: |
-          curl -s -S -X GET "${{ secrets.CPANEL_DEPLOY_WEBHOOK }}"
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "❌ ERROR: CPANEL_DEPLOY_WEBHOOK secret is not set in GitHub repository settings!"
+            echo "Please go to Settings -> Secrets and variables -> Actions and add CPANEL_DEPLOY_WEBHOOK."
+            exit 1
+          fi
+          curl -s -S -X GET "$WEBHOOK_URL"
