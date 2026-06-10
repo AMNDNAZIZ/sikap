@@ -33,6 +33,59 @@ $isLocalhost = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'])
 ?>
 
 <div class="row g-3">
+    <!-- Git Auto Deploy Status -->
+    <div class="col-12">
+        <div class="card shadow-sm border-info">
+            <div class="card-header bg-info text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">🚀 Status Git Auto Deploy</h5>
+                    <span class="badge bg-light text-info">AUTOMATED</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <?php if (isset($deployStatus) && $deployStatus): ?>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="p-3 bg-light rounded text-center h-100">
+                                <span class="d-block text-muted small mb-1">STATUS DEPLOYMENT</span>
+                                <strong class="text-success"><i class="bi bi-check-circle-fill"></i> Aktif & Berjalan</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 bg-light rounded text-center h-100">
+                                <span class="d-block text-muted small mb-1">WAKTU DEPLOY TERAKHIR</span>
+                                <strong><?= esc($deployStatus['deploy_time']) ?></strong>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="p-3 bg-light rounded text-center h-100">
+                                <span class="d-block text-muted small mb-1">COMMIT HASH</span>
+                                <code class="fw-bold fs-6"><?= esc($deployStatus['commit_hash']) ?></code>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded h-100">
+                                <span class="d-block text-muted small mb-1">PESAN COMMIT & AUTHOR</span>
+                                <div class="text-truncate fw-bold" title="<?= esc($deployStatus['message']) ?>">
+                                    <?= esc($deployStatus['message']) ?>
+                                </div>
+                                <small class="text-muted d-block mt-1">Oleh: <?= esc($deployStatus['author']) ?></small>
+                            </div>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <div class="d-flex align-items-center py-2">
+                        <i class="bi bi-info-circle-fill text-info fs-3 me-3"></i>
+                        <div>
+                            <strong>Belum ada riwayat deployment otomatis yang terdeteksi.</strong><br>
+                            <span class="text-muted small">Setelah pull request Anda di-merge ke branch <code>main</code> dan dideploy oleh cPanel, detail komit dan waktu deploy terakhir akan muncul di sini secara otomatis.</span>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
     <!-- Database Backup & Restore (Important!) -->
     <div class="col-12">
         <div class="card shadow-sm border-danger">
