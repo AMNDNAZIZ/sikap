@@ -26,4 +26,4 @@ jobs:
             cd /home/mabq7713/repo_ci4
             git checkout main
             git pull origin main
-            uapi VersionControlDeployment create repository=sikap
+            uapi VersionControlDeployment create repository_root=/home/mabq7713/repo_ci4
