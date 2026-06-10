@@ -93,30 +93,10 @@
     </button>
 
     <ul class="dropdown-menu">
-      <?php
-      $user = session()->get('user') ?? [];
-      $role = $user['role_id'] ?? null;
-      ?>
-
-      <?php if ($role == 1): // ADMIN ?>
-        <?php $cid = (int) $class['id']; ?>
-        <li><a class="dropdown-item"
-            href="<?= base_url("admin/attendance/rekap?class_id={$cid}&periode=semester1") ?>">Semester 1
-            (Juli–Desember)</a></li>
-        <li><a class="dropdown-item"
-            href="<?= base_url("admin/attendance/rekap?class_id={$cid}&periode=semester2") ?>">Semester 2
-            (Januari–Juni)</a></li>
-        <li><a class="dropdown-item" href="<?= base_url("admin/attendance/rekap?class_id={$cid}&periode=tahun") ?>">Satu
-            Tahun (Juli–Juni)</a></li>
-
-      <?php else: // WALI KELAS ?>
-        <li><a class="dropdown-item" href="<?= base_url("admin/attendance/rekap?periode=semester1") ?>">Semester 1
-            (Juli–Desember)</a></li>
-        <li><a class="dropdown-item" href="<?= base_url("admin/attendance/rekap?periode=semester2") ?>">Semester 2
-            (Januari–Juni)</a></li>
-        <li><a class="dropdown-item" href="<?= base_url("admin/attendance/rekap?periode=tahun") ?>">Satu Tahun
-            (Juli–Juni)</a></li>
-      <?php endif; ?>
+      <?php $cid = (int) $class['id']; ?>
+      <li><a class="dropdown-item" href="<?= base_url("admin/attendance/rekap?class_id={$cid}&periode=semester1") ?>">Semester 1 (Juli–Desember)</a></li>
+      <li><a class="dropdown-item" href="<?= base_url("admin/attendance/rekap?class_id={$cid}&periode=semester2") ?>">Semester 2 (Januari–Juni)</a></li>
+      <li><a class="dropdown-item" href="<?= base_url("admin/attendance/rekap?class_id={$cid}&periode=tahun") ?>">Satu Tahun (Juli–Juni)</a></li>
     </ul>
   </div>
 </div>
