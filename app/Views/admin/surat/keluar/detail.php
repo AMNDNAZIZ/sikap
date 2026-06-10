@@ -76,7 +76,22 @@ $isRevoked = $letter['status'] === 'revoked';
     </div>
 
     <!-- Data Spesifik Surat -->
-    <?php if (!empty($ld)): ?>
+    <?php if ($letter['letter_type'] === 'surat_custom' && !empty($processed_body)): ?>
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-light fw-semibold py-2">
+        <i class="bi bi-file-richtext me-2"></i>Preview Isi Surat Custom
+        <span class="badge bg-secondary ms-2 fw-normal" style="font-size:0.75rem;">
+          <?= ($letter['letter_data']['header_style'] ?? 'tengah') === 'tengah' ? '📄 Header Tengah' : '📋 Header Kiri-Kanan' ?>
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="border rounded p-3 bg-white" style="font-family: 'Times New Roman', serif; font-size: 14px; line-height: 1.6;">
+          <?= $processed_body ?>
+        </div>
+        <small class="text-muted mt-2 d-block"><i class="bi bi-info-circle me-1"></i>Placeholder telah digantikan dengan data penerima asli. Tampilan final ada di PDF.</small>
+      </div>
+    </div>
+    <?php elseif (!empty($ld)): ?>
     <div class="card border-0 shadow-sm mb-4">
       <div class="card-header bg-light fw-semibold py-2"><i class="bi bi-card-list me-2"></i>Detail Isi Surat</div>
       <div class="card-body">
