@@ -35,9 +35,9 @@
     </tr>
   </thead>
   <tbody>
-    <?php foreach ($rekapSiswa as $i => $r): ?>
+    <?php $no = 1; foreach ($rekapSiswa as $r): ?>
       <tr>
-        <td><?= $i+1 ?></td>
+        <td><?= $no++ ?></td>
         <td><?= esc($r['student']['nis'] ?? '-') ?></td>
         <td><?= esc($r['student']['name']) ?></td>
         <td><?= esc($r['student']['gender']) ?></td>
