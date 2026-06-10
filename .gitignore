@@ -1,13 +1,18 @@
 # CodeIgniter 4
 /vendor/
 /writable/cache/*
+/writable/debugbar/*
 /writable/logs/*
 /writable/session/*
 /writable/uploads/*
+/writable/backups/*
+/writable/exports/*
 !/writable/cache/index.html
+!/writable/debugbar/index.html
 !/writable/logs/index.html
 !/writable/session/index.html
 !/writable/uploads/index.html
+
 
 # Environment files
 .env
@@ -44,3 +49,16 @@ public/uploads/backups/
 
 # Docs folder
 docs/
+
+# Database dumps
+*.sql
+
+# Local production / development directories
+/prd/
+/docs/
+/.antigravitycli/
+/.cursorrules
+/.clinerules
+/.kiro/
+.kiro
+/.agents

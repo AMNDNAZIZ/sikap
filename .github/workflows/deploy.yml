@@ -9,66 +9,12 @@ on:
 
 jobs:
   deploy:
-    name: 🔄 Deploy via FTP
+    name: 🔄 Trigger cPanel Deploy via Webhook
     runs-on: ubuntu-latest
     if: github.event.pull_request.merged == true  # hanya jalan jika PR benar-benar di-merge
 
     steps:
-      # 1. Checkout repository
-      - name: 📦 Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # 2. Setup PHP
-      - name: 🐘 Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          extensions: intl, mbstring
-
-      # 3. Cache Composer dependencies
-      - name: 💾 Cache Composer packages
-        uses: actions/cache@v4
-        with:
-          path: vendor
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-composer-
-
-      # 4. Install Composer dependencies (production only)
-      - name: 📚 Install dependencies
-        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
-
-      # 5. Deploy via FTP
-      - name: 🚀 Deploy ke cPanel via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/.github/**
-            **/node_modules/**
-            **/.env
-            **/writable/logs/**
-            **/writable/cache/**
-            **/writable/session/**
-            **/writable/debugbar/**
-            **/writable/uploads/**
-            **/sikap.sql
-            **/phpunit.xml
-            **/.cursorrules
-            **/.clinerules
-            **/ai-context/**
-            **/docs/**
-            **/prd/**
-            **/.antigravitycli/**
-            **/cgi-bin/**
-            **/.well-known/**
-            **/.ftpquota
-            **/error_log
-            **/.user.ini
+      # Trigger cPanel Git Webhook to pull and deploy
+      - name: 🌐 Trigger Webhook
+        run: |
+          curl -s -S -X GET "${{ secrets.CPANEL_DEPLOY_WEBHOOK }}"
