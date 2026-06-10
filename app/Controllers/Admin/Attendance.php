@@ -721,15 +721,15 @@ class Attendance extends BaseController
         $periode = $this->request->getGet('periode');
         $activeYear = $this->yearModel->getActiveYear() ?: [];
 
-        if (!$this->canAccessAttendance($classId)) {
-            return redirect()->to('/dashboard')->with('error', 'Akses ditolak.');
-        }
-
         // =================================
-        // VALIDASI WAJIB
+        // VALIDASI WAJIB (sebelum cek akses)
         // =================================
         if (!$classId || !$periode) {
-            return redirect()->to('/admin/attendance')->with('error', 'Pilih periode rekap.');
+            return redirect()->to('/admin/attendance')->with('error', 'Pilih kelas dan periode rekap.');
+        }
+
+        if (!$this->canAccessAttendance($classId)) {
+            return redirect()->to('/dashboard')->with('error', 'Akses ditolak.');
         }
 
         // Dapatkan detail kelas
@@ -853,15 +853,15 @@ class Attendance extends BaseController
         $periode = $this->request->getGet('periode');
         $classId = $this->request->getGet('class_id');
 
-        if (!$this->canAccessAttendance($classId)) {
-            return redirect()->to('/dashboard')->with('error', 'Akses ditolak.');
-        }
-
         // =========================
         // 4. Validasi parameter
         // =========================
         if (!$classId || !$periode) {
             return redirect()->back()->with('error', 'Parameter tidak lengkap.');
+        }
+
+        if (!$this->canAccessAttendance($classId)) {
+            return redirect()->to('/dashboard')->with('error', 'Akses ditolak.');
         }
 
         // =========================
@@ -899,15 +899,15 @@ class Attendance extends BaseController
         $periode = $this->request->getGet('periode');
         $classId = $this->request->getGet('class_id');
 
-        if (!$this->canAccessAttendance($classId)) {
-            return redirect()->to('/dashboard')->with('error', 'Akses ditolak.');
-        }
-
         // =========================
         // 4. Validasi
         // =========================
         if (!$classId || !$periode) {
             return redirect()->back()->with('error', 'Parameter tidak lengkap.');
+        }
+
+        if (!$this->canAccessAttendance($classId)) {
+            return redirect()->to('/dashboard')->with('error', 'Akses ditolak.');
         }
 
         // =========================
