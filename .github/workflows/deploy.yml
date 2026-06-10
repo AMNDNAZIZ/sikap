@@ -20,6 +20,7 @@ jobs:
           host: ${{ secrets.SSH_HOST || 'mabes11.sch.id' }}
           username: ${{ secrets.SSH_USERNAME || 'mabq7713' }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: ${{ secrets.SSH_PORT || 2223 }}
           script: |
             cd /home/mabq7713/repo_ci4
