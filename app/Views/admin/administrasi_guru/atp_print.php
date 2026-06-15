@@ -170,11 +170,6 @@
                                 <!-- Kolom Elemen CP -->
                                 <td class="align-top" style="font-size:9.5pt;">
                                     <strong><?= esc($el['elemen']) ?></strong>
-                                    <?php if (!empty($el['cp_deskripsi'])): ?>
-                                        <div class="small text-justify" style="margin-top:3px; color:#333;">
-                                            <?= nl2br(esc($el['cp_deskripsi'])) ?>
-                                        </div>
-                                    <?php endif; ?>
                                 </td>
 
                                 <!-- Kolom TP -->
