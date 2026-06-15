@@ -12,6 +12,12 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 <?php endif; ?>
+<?php if (session()->getFlashdata('error')): ?>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <?= session()->getFlashdata('error') ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+<?php endif; ?>
 
 <div class="card shadow mb-4">
     <div class="card-body">
@@ -53,7 +59,7 @@
                 <div>
                     <h5 class="alert-heading mb-2">Mata Pelajaran Belum Di-mapping</h5>
                     <p class="mb-2">
-                        Mata pelajaran <strong>"<?= esc($subject_name) ?>"</strong> belum dihubungkan dengan Mapel Master (CP). 
+                        Mata pelajaran <strong>"<?= esc($subject_name) ?>"</strong> belum dihubungkan dengan Mapel Master (CP).
                         Alur Tujuan Pembelajaran (ATP) tidak dapat ditampilkan karena belum ada pemetaan kurikulum.
                     </p>
                     <hr>
@@ -76,8 +82,8 @@
                 <div>
                     <h5 class="alert-heading mb-2">Mapping Tidak Sesuai dengan Level Sekolah</h5>
                     <p class="mb-2">
-                        Mata pelajaran <strong>"<?= esc($subject_name) ?>"</strong> di-mapping ke Mapel Master dengan jenjang 
-                        <strong><?= esc($old_jenjang) ?></strong>, tetapi level sekolah saat ini adalah 
+                        Mata pelajaran <strong>"<?= esc($subject_name) ?>"</strong> di-mapping ke Mapel Master dengan jenjang
+                        <strong><?= esc($old_jenjang) ?></strong>, tetapi level sekolah saat ini adalah
                         <strong><?= esc($current_jenjang) ?></strong>.
                     </p>
                     <hr>
@@ -100,7 +106,7 @@
                 <div>
                     <h5 class="alert-heading mb-2">Belum Ada Data ATP</h5>
                     <p class="mb-2">
-                        Mata pelajaran <strong>"<?= esc($subject_name) ?>"</strong> sudah di-mapping, 
+                        Mata pelajaran <strong>"<?= esc($subject_name) ?>"</strong> sudah di-mapping,
                         tetapi belum ada Alur Tujuan Pembelajaran (ATP) yang disusun.
                     </p>
                     <hr>
@@ -112,103 +118,72 @@
             </div>
         </div>
     <?php endif; ?>
-    
-    <!-- Form dan Daftar ATP - Tampilkan selalu jika sudah mapping -->
+
     <?php if (!$subject_not_mapped && !$mapping_mismatch): ?>
     <div class="row">
         <?php if (!$readonly): ?>
-        <!-- Form Analisis Terpadu -->
+        <!-- ===== FORM INPUT ATP ===== -->
         <div class="col-md-4">
             <div class="card shadow mb-4 border-left-success">
                 <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-success">Analisis CP -> TP -> ATP</h6>
+                    <h6 class="m-0 font-weight-bold text-success" id="form_title">Tambah ATP Baru</h6>
                 </div>
-                <!-- [Rest of the form as is...] -->
                 <div class="card-body">
                     <form action="<?= base_url('admin/administrasi-guru/atp/store') ?>" method="post" id="atpForm">
                         <?= csrf_field() ?>
                         <input type="hidden" name="class_id" value="<?= $selected_class ?>">
                         <input type="hidden" name="subject_id" value="<?= $selected_subject ?>">
                         <input type="hidden" name="id" id="atp_id">
-                        
-                        <div class="mb-3" <?= $auto_fase ? 'style="display:none;"' : '' ?>>
-                            <label class="form-label font-weight-bold">1. Pilih Fase:</label>
-                            <select id="filter_fase" class="form-select border-primary" <?= $auto_fase ? 'disabled' : '' ?>>
-                                <option value="">-- Semua Fase --</option>
-                                <?php foreach ($available_phases as $fase): ?>
-                                    <option value="<?= $fase ?>" <?= $auto_fase == $fase ? 'selected' : '' ?>>Fase <?= $fase ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                            <input type="hidden" id="hidden_fase" value="<?= $auto_fase ?>">
-                            <small class="text-muted">Pilih fase terlebih dahulu untuk menyaring elemen.</small>
+
+                        <!-- 1. Lingkup Materi -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">1. Lingkup Materi:</label>
+                            <input type="text" name="lingkup_materi" id="lingkup_materi" class="form-control"
+                                   placeholder="Contoh: Bilangan Cacah sampai 1.000" required>
                         </div>
 
+                        <!-- 2. Elemen CP (dinamis) -->
                         <div class="mb-3">
-                            <label class="form-label font-weight-bold">2. Pilih CP (Elemen):</label>
-                            <select name="cp_master_id" id="cp_master_id" class="form-select" required disabled>
-                                <option value="">-- Pilih Elemen CP --</option>
-                                <?php foreach ($cp_master_list as $cp): ?>
-                                    <option value="<?= $cp['id'] ?>" 
-                                            data-fase="<?= $cp['fase'] ?>" 
-                                            data-desc="<?= esc($cp['deskripsi'], 'attr') ?>"
-                                            class="cp-option">
-                                        [<?= esc($cp['elemen']) ?>] Fase <?= $cp['fase'] ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <div id="cp_preview" class="small text-muted mt-1 p-2 bg-light rounded border" style="display:none; max-height: 100px; overflow-y: auto;"></div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label font-weight-bold">3. Lingkup Materi:</label>
-                            <input type="text" name="lingkup_materi" class="form-control" placeholder="E.g: Bilangan Cacah sampai 1.000" required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label font-weight-bold">4. Tujuan Pembelajaran (TP):</label>
-                            <div id="tp_container">
-                                <div class="tp-row bg-light p-2 border rounded mb-2">
-                                    <div class="row g-2">
-                                        <div class="col-3">
-                                            <input type="text" name="tp_kode[]" class="form-control form-control-sm" placeholder="1.1" required>
-                                        </div>
-                                        <div class="col-9">
-                                            <textarea name="tp_deskripsi[]" class="form-control form-control-sm" rows="2" placeholder="Deskripsi TP..." required></textarea>
-                                        </div>
-                                    </div>
-                                </div>
+                            <label class="form-label fw-bold">2. Elemen CP:</label>
+                            <div id="elemen_container">
+                                <!-- Template elemen akan di-inject via JS -->
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-primary w-100 mt-1" id="add_tp">
-                                <i class="bi bi-plus-circle"></i> Tambah TP
+                            <button type="button" class="btn btn-sm btn-outline-success w-100 mt-2" id="btn_add_elemen">
+                                <i class="bi bi-plus-circle"></i> Tambah Elemen CP
                             </button>
                         </div>
 
+                        <!-- 3. Kelas, Semester, Alokasi -->
                         <div class="row">
                             <div class="col-4 mb-3">
-                                <label class="form-label font-weight-bold">Tingkat/Kelas:</label>
-                                <input type="text" name="kelas" class="form-control" placeholder="E.g: 1" required>
+                                <label class="form-label fw-bold">Kelas:</label>
+                                <input type="text" name="kelas" id="kelas_input" class="form-control"
+                                       placeholder="Contoh: 7" required>
                             </div>
                             <div class="col-4 mb-3">
-                                <label class="form-label font-weight-bold">Semester:</label>
-                                <select name="semester" class="form-select" required>
+                                <label class="form-label fw-bold">Semester:</label>
+                                <select name="semester" id="semester_input" class="form-select" required>
                                     <option value="1">1 (Ganjil)</option>
                                     <option value="2">2 (Genap)</option>
                                 </select>
                             </div>
                             <div class="col-4 mb-3">
-                                <label class="form-label font-weight-bold">Alokasi (JP):</label>
-                                <input type="number" name="alokasi_waktu" class="form-control" placeholder="4" required>
+                                <label class="form-label fw-bold">Alokasi (JP):</label>
+                                <input type="number" name="alokasi_waktu" id="alokasi_input" class="form-control"
+                                       placeholder="4" required>
                             </div>
                         </div>
 
+                        <!-- 4. No. Urut -->
                         <div class="mb-3">
-                            <label class="form-label font-weight-bold">No. Urut:</label>
-                            <input type="number" name="urutan" class="form-control" value="<?= count($atp_list) + 1 ?>" required>
+                            <label class="form-label fw-bold">No. Urut:</label>
+                            <input type="number" name="urutan" id="urutan_input" class="form-control"
+                                   value="<?= count($atp_list) + 1 ?>" required>
                         </div>
 
                         <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-success flex-grow-1" id="submit_btn">Simpan Analisis</button>
-                            <button type="button" class="btn btn-secondary" id="cancel_edit" style="display:none;">Batal Edit</button>
+                            <button type="submit" class="btn btn-success flex-grow-1" id="submit_btn">Simpan ATP</button>
+                            <button type="button" class="btn btn-secondary" id="cancel_edit" style="display:none;">Batal</button>
                         </div>
                     </form>
                 </div>
@@ -216,73 +191,97 @@
         </div>
         <?php endif; ?>
 
-        <!-- Daftar ATP -->
+        <!-- ===== TABEL DAFTAR ATP ===== -->
         <div class="<?= $readonly ? 'col-md-12' : 'col-md-8' ?>">
             <div class="card shadow mb-4">
                 <div class="card-header py-3 d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold text-primary">Alur Tujuan Pembelajaran</h6>
-                    <a href="<?= base_url('admin/administrasi-guru/atp/print/' . $selected_class . '/' . $selected_subject) ?>" target="_blank" class="btn btn-sm btn-outline-danger">
+                    <a href="<?= base_url('admin/administrasi-guru/atp/print/' . $selected_class . '/' . $selected_subject) ?>"
+                       target="_blank" class="btn btn-sm btn-outline-danger">
                         <i class="bi bi-file-earmark-pdf"></i> Cetak ATP
                     </a>
                 </div>
-                <div class="card-body">
-                        <table class="table table-bordered table-hover align-middle">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle mb-0">
                             <thead class="table-info">
                                 <tr class="text-center">
                                     <th width="40">No</th>
-                                    <th>Elemen CP</th>
-                                    <th>Capaian Pembelajaran (CP)</th>
                                     <th>Lingkup Materi</th>
+                                    <th>Elemen CP</th>
                                     <th>Tujuan Pembelajaran (TP)</th>
                                     <th width="60">Smtr</th>
-                                    <th width="100">Alokasi Waktu</th>
-                                    <th width="50">Aksi</th>
+                                    <th width="80">Alokasi</th>
+                                    <th width="80">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php if (empty($atp_list)): ?>
-                                    <tr><td colspan="7" class="text-center">Belum ada alur yang disusun.</td></tr>
+                                    <tr><td colspan="7" class="text-center py-3">Belum ada alur yang disusun.</td></tr>
                                 <?php else: ?>
                                     <?php $no = 1; foreach ($atp_list as $atp): ?>
-                                        <?php 
-                                        $tps = $atp['tps'] ?? [];
-                                        $rowCount = count($tps) ?: 1;
+                                        <?php
+                                        $elemenList = $atp['elemen_list'] ?? [];
+                                        // Fallback data lama: buat pseudo elemen dari cp_master_id di header ATP
+                                        if (empty($elemenList)) {
+                                            $pseudoElemen = [
+                                                'id'          => 0,
+                                                'cp_master_id'=> $atp['cp_master_id'] ?? '',
+                                                'elemen'      => $atp['elemen'] ?? '-',
+                                                'cp_deskripsi'=> $atp['cp_deskripsi'] ?? '',
+                                                'fase'        => '',
+                                                'tps'         => $atp['tps'] ?? [],
+                                            ];
+                                            $elemenList = [$pseudoElemen];
+                                        }
+                                        $jumlahElemen = count($elemenList) ?: 1;
+                                        $firstElemen  = $elemenList[0];
+                                        // Siapkan data edit
+                                        $editData = [
+                                            "id"             => $atp["id"],
+                                            "lingkup_materi" => $atp["lingkup_materi"],
+                                            "urutan"         => $atp["urutan"],
+                                            "semester"       => $atp["semester"],
+                                            "alokasi_waktu"  => $atp["alokasi_waktu"],
+                                            "kelas"          => !empty($atp['tps']) ? ($atp['tps'][0]['kelas'] ?? '') : '',
+                                            "elemen_list"    => array_map(fn($el) => [
+                                                "cp_master_id" => $el["cp_master_id"],
+                                                "elemen"       => $el["elemen"],
+                                                "fase"         => $el["fase"] ?? '',
+                                                "tps"          => $el["tps"] ?? [],
+                                            ], $elemenList),
+                                        ];
                                         ?>
                                         <tr>
-                                            <td rowspan="<?= $rowCount ?>" class="text-center fw-bold"><?= $no++ ?></td>
-                                            <td rowspan="<?= $rowCount ?>" class="fw-bold text-success"><?= esc($atp['elemen']) ?></td>
-                                            <td rowspan="<?= $rowCount ?>">
-                                                <small class="text-muted"><?= nl2br(esc($atp['cp_deskripsi'])) ?></small>
+                                            <td rowspan="<?= $jumlahElemen ?>" class="text-center fw-bold align-middle"><?= $no++ ?></td>
+                                            <td rowspan="<?= $jumlahElemen ?>" class="align-middle"><?= esc($atp['lingkup_materi']) ?></td>
+
+                                            <!-- Elemen pertama -->
+                                            <td class="fw-bold text-success align-top" style="min-width:120px;">
+                                                <?= esc($firstElemen['elemen']) ?>
+                                                <?php if (!empty($firstElemen['cp_deskripsi'])): ?>
+                                                    <br><small class="text-muted fw-normal"><?= nl2br(esc(mb_strimwidth($firstElemen['cp_deskripsi'], 0, 120, '...'))) ?></small>
+                                                <?php endif; ?>
                                             </td>
-                                            <td rowspan="<?= $rowCount ?>" class="text-center"><?= esc($atp['lingkup_materi']) ?></td>
-                                            
-                                            <?php if (!empty($tps)): ?>
-                                                <td class="p-0" <?= $rowCount > 1 ? 'style="border-bottom:none;"' : '' ?>>
-                                                    <div class="p-2">
-                                                        <strong><?= esc($tps[0]['kode_tp']) ?></strong> <?= esc($tps[0]['deskripsi']) ?>
-                                                    </div>
-                                                </td>
-                                            <?php else: ?>
-                                                <td>-</td>
-                                            <?php endif; ?>
-                                            
-                                            <td rowspan="<?= $rowCount ?>" class="text-center font-weight-bold"><?= $atp['semester'] ?></td>
-                                            <td rowspan="<?= $rowCount ?>" class="text-center fw-bold"><?= esc($atp['alokasi_waktu']) ?> JP</td>
-                                            <td rowspan="<?= $rowCount ?>" class="text-center">
+                                            <td class="align-top" style="min-width:180px;">
+                                                <?php if (!empty($firstElemen['tps'])): ?>
+                                                    <ul class="mb-0 ps-3">
+                                                        <?php foreach ($firstElemen['tps'] as $tp): ?>
+                                                            <li><strong><?= esc($tp['kode_tp']) ?></strong> <?= esc($tp['deskripsi']) ?></li>
+                                                        <?php endforeach; ?>
+                                                    </ul>
+                                                <?php else: ?>
+                                                    <span class="text-muted">-</span>
+                                                <?php endif; ?>
+                                            </td>
+
+                                            <td rowspan="<?= $jumlahElemen ?>" class="text-center align-middle fw-bold"><?= $atp['semester'] ?></td>
+                                            <td rowspan="<?= $jumlahElemen ?>" class="text-center align-middle fw-bold"><?= esc($atp['alokasi_waktu']) ?> JP</td>
+                                            <td rowspan="<?= $jumlahElemen ?>" class="text-center align-middle">
                                                 <div class="d-flex flex-column gap-1">
                                                     <?php if (!$readonly): ?>
-                                                    <button class="btn btn-sm btn-outline-primary" 
-                                                            onclick='editAtp(<?= json_encode([
-                                                                "id" => $atp["id"],
-                                                                "cp_master_id" => $atp["cp_master_id"],
-                                                                "lingkup_materi" => $atp["lingkup_materi"],
-                                                                "urutan" => $atp["urutan"],
-                                                                "semester" => $atp["semester"],
-                                                                "alokasi_waktu" => $atp["alokasi_waktu"],
-                                                                "kelas" => !empty($tps) ? $tps[0]["kelas"] : "",
-                                                                "fase" => !empty($cp_master_list) ? (array_values(array_filter($cp_master_list, fn($c) => $c["id"] == $atp["cp_master_id"]))[0]["fase"] ?? "") : "",
-                                                                "tps" => $tps
-                                                            ]) ?>)'>
+                                                    <button class="btn btn-sm btn-outline-primary"
+                                                            onclick='editAtp(<?= json_encode($editData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)'>
                                                         <i class="bi bi-pencil"></i>
                                                     </button>
                                                     <button class="btn btn-sm btn-outline-danger" onclick="confirmDeleteAtp(<?= $atp['id'] ?>)">
@@ -294,13 +293,26 @@
                                                 </div>
                                             </td>
                                         </tr>
-                                        
-                                        <?php for ($i = 1; $i < $rowCount; $i++): ?>
-                                            <tr style="border-top:none;">
-                                                <td class="p-0" style="border-top:none; <?= ($i < $rowCount - 1) ? 'border-bottom:none;' : '' ?>">
-                                                    <div class="p-2">
-                                                        <strong><?= esc($tps[$i]['kode_tp']) ?></strong> <?= esc($tps[$i]['deskripsi']) ?>
-                                                    </div>
+
+                                        <?php for ($i = 1; $i < $jumlahElemen; $i++): ?>
+                                            <?php $el = $elemenList[$i]; ?>
+                                            <tr>
+                                                <td class="fw-bold text-success align-top" style="min-width:120px;">
+                                                    <?= esc($el['elemen']) ?>
+                                                    <?php if (!empty($el['cp_deskripsi'])): ?>
+                                                        <br><small class="text-muted fw-normal"><?= nl2br(esc(mb_strimwidth($el['cp_deskripsi'], 0, 120, '...'))) ?></small>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="align-top" style="min-width:180px;">
+                                                    <?php if (!empty($el['tps'])): ?>
+                                                        <ul class="mb-0 ps-3">
+                                                            <?php foreach ($el['tps'] as $tp): ?>
+                                                                <li><strong><?= esc($tp['kode_tp']) ?></strong> <?= esc($tp['deskripsi']) ?></li>
+                                                            <?php endforeach; ?>
+                                                        </ul>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">-</span>
+                                                    <?php endif; ?>
                                                 </td>
                                             </tr>
                                         <?php endfor; ?>
@@ -312,8 +324,8 @@
                 </div>
             </div>
         </div>
-    </div>
-    <?php endif; // End of !$subject_not_mapped && !$mapping_mismatch ?>
+    </div><!-- /.row -->
+    <?php endif; ?>
 <?php else: ?>
     <div class="text-center py-5">
         <div class="mb-3">
@@ -323,131 +335,258 @@
     </div>
 <?php endif; ?>
 
+<!-- ===== TEMPLATE ELEMEN CP (hidden) ===== -->
+<template id="tpl_elemen">
+    <div class="elemen-block border rounded p-2 mb-3 bg-white">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-bold text-success elemen-label">Elemen CP #<span class="elemen-num">1</span></span>
+            <button type="button" class="btn btn-sm btn-outline-danger btn-remove-elemen">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="mb-2">
+            <label class="form-label form-label-sm mb-1">Pilih CP (Elemen):</label>
+            <select name="elemen_cp[]" class="form-select form-select-sm cp-select" required>
+                <option value="">-- Pilih Elemen CP --</option>
+                <?php foreach ($cp_master_list as $cp): ?>
+                    <option value="<?= $cp['id'] ?>"
+                            data-fase="<?= esc($cp['fase']) ?>"
+                            data-elemen="<?= esc($cp['elemen'], 'attr') ?>"
+                            data-desc="<?= esc($cp['deskripsi'], 'attr') ?>">
+                        [<?= esc($cp['elemen']) ?>] Fase <?= esc($cp['fase']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <div class="cp-preview small text-muted mt-1 p-2 bg-light rounded border" style="display:none; max-height:80px; overflow-y:auto;"></div>
+        </div>
+        <div class="tp-wrapper">
+            <label class="form-label form-label-sm mb-1 fw-semibold">Tujuan Pembelajaran:</label>
+            <div class="tp-list">
+                <!-- TP rows injected here -->
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-primary w-100 mt-1 btn-add-tp">
+                <i class="bi bi-plus-circle"></i> Tambah TP
+            </button>
+        </div>
+    </div>
+</template>
+
+<!-- ===== TEMPLATE BARIS TP (hidden) ===== -->
+<template id="tpl_tp_row">
+    <div class="tp-row bg-light p-2 border rounded mb-2">
+        <div class="d-flex justify-content-end mb-1">
+            <button type="button" class="btn-close btn-sm btn-remove-tp" style="font-size:0.7rem;"></button>
+        </div>
+        <div class="row g-2">
+            <div class="col-3">
+                <input type="text" class="form-control form-control-sm tp-kode-input" placeholder="1.1" required>
+            </div>
+            <div class="col-9">
+                <textarea class="form-control form-control-sm tp-deskripsi-input" rows="2" placeholder="Deskripsi TP..." required></textarea>
+            </div>
+        </div>
+    </div>
+</template>
+
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
 <script>
-$(document).ready(function() {
-    // Phase filtering logic
-    $('#filter_fase').on('change', function() {
-        const selectedFase = $(this).val();
-        const cpSelect = $('#cp_master_id');
-        
-        // Reset CP selection
-        cpSelect.val('').trigger('change');
-        
-        if (selectedFase) {
-            cpSelect.prop('disabled', false);
-            $('.cp-option').hide();
-            $(`.cp-option[data-fase="${selectedFase}"]`).show();
-        } else {
-            cpSelect.prop('disabled', true);
-            $('.cp-option').hide();
-        }
-    });
+$(document).ready(function () {
 
-    // Auto-trigger phase filter if auto_fase is set
-    const initialFase = $('#hidden_fase').val();
-    if (initialFase) {
-        $('#filter_fase').trigger('change');
-    }
-
-    $('#cp_master_id').on('change', function() {
-        const desc = $(this).find('option:selected').data('desc');
-        if (desc) {
-            $('#cp_preview').html(desc).show();
-        } else {
-            $('#cp_preview').hide();
-        }
-    });
-
-    // Dynamic TP rows
-    $('#add_tp').on('click', function() {
-        const row = `
-            <div class="tp-row bg-light p-2 border rounded mb-2">
-                <div class="d-flex justify-content-between mb-1">
-                    <span class="small fw-bold">TP Lainnya</span>
-                    <button type="button" class="btn-close btn-sm remove-tp" style="font-size: 0.7rem;"></button>
-                </div>
-                <div class="row g-2">
-                    <div class="col-3">
-                        <input type="text" name="tp_kode[]" class="form-control form-control-sm" placeholder="1.2" required>
-                    </div>
-                    <div class="col-9">
-                        <textarea name="tp_deskripsi[]" class="form-control form-control-sm" rows="2" placeholder="Deskripsi TP..." required></textarea>
-                    </div>
-                </div>
-            </div>`;
-        $('#tp_container').append(row);
-    });
-
-    $(document).on('click', '.remove-tp', function() {
-        $(this).closest('.tp-row').remove();
-    });
-
-    $('#cancel_edit').on('click', function() {
-        $('#atpForm')[0].reset();
-        $('#atp_id').val('');
-        $('#tp_container').empty();
-        // Add one empty row
-        $('#add_tp').trigger('click');
-        $('#submit_btn').text('Simpan Analisis');
-        $(this).hide();
-        $('#cp_preview').hide();
-        $('#cp_master_id').prop('disabled', true);
-    });
-});
-
-function editAtp(data) {
-    // 1. Populate basic fields
-    $('#atp_id').val(data.id);
-    $('#filter_fase').val(data.fase).trigger('change');
-    
-    // 2. Set CP Master (must be done after phase filter re-enables it)
-    setTimeout(() => {
-        $('#cp_master_id').val(data.cp_master_id).trigger('change');
-    }, 100);
-
-    $('input[name="lingkup_materi"]').val(data.lingkup_materi);
-    $('input[name="kelas"]').val(data.kelas);
-    $('select[name="semester"]').val(data.semester);
-    $('input[name="alokasi_waktu"]').val(data.alokasi_waktu);
-    $('input[name="urutan"]').val(data.urutan);
-
-    // 3. Populate TPs
-    $('#tp_container').empty();
-    if (data.tps && data.tps.length > 0) {
-        data.tps.forEach((tp, index) => {
-            const isFirst = index === 0;
-            const row = `
-                <div class="tp-row bg-light p-2 border rounded mb-2">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="small fw-bold">${isFirst ? 'TP Utama' : 'TP Lainnya'}</span>
-                        ${!isFirst ? '<button type="button" class="btn-close btn-sm remove-tp" style="font-size: 0.7rem;"></button>' : ''}
-                    </div>
-                    <div class="row g-2">
-                        <div class="col-3">
-                            <input type="text" name="tp_kode[]" class="form-control form-control-sm" value="${tp.kode_tp}" required>
-                        </div>
-                        <div class="col-9">
-                            <textarea name="tp_deskripsi[]" class="form-control form-control-sm" rows="2" required>${tp.deskripsi}</textarea>
-                        </div>
-                    </div>
-                </div>`;
-            $('#tp_container').append(row);
+    // ─── RENDER NAMA field TP berdasarkan indeks elemen ─────────────────────
+    function reindexElemen() {
+        $('#elemen_container .elemen-block').each(function (ei) {
+            $(this).find('.elemen-num').text(ei + 1);
+            // Set name elemen_cp[]
+            $(this).find('.cp-select').attr('name', 'elemen_cp[]');
+            // Set name tp_kode[ei][] dan tp_deskripsi[ei][]
+            $(this).find('.tp-kode-input').each(function () {
+                $(this).attr('name', 'tp_kode[' + ei + '][]');
+            });
+            $(this).find('.tp-deskripsi-input').each(function () {
+                $(this).attr('name', 'tp_deskripsi[' + ei + '][]');
+            });
         });
     }
 
-    // 4. UI changes
-    $('#submit_btn').text('Update Analisis');
+    // ─── BUAT SATU BARIS TP ────────────────────────────────────────────────
+    function createTpRow(kode, deskripsi) {
+        const tplNode = document.getElementById('tpl_tp_row').content.cloneNode(true);
+        const $row    = $(tplNode);
+        if (kode)      $row.find('.tp-kode-input').val(kode);
+        if (deskripsi) $row.find('.tp-deskripsi-input').val(deskripsi);
+        return $row;
+    }
+
+    // ─── BUAT SATU BLOK ELEMEN CP ─────────────────────────────────────────
+    function createElemenBlock(cpMasterId, tps) {
+        const tplNode = document.getElementById('tpl_elemen').content.cloneNode(true);
+        const $block  = $(tplNode);
+
+        // Pilih CP jika ada
+        if (cpMasterId) {
+            $block.find('.cp-select').val(cpMasterId);
+            const desc = $block.find('.cp-select option[value="' + cpMasterId + '"]').data('desc');
+            if (desc) {
+                $block.find('.cp-preview').html(desc).show();
+            }
+        }
+
+        // Tambah TP rows
+        const $tpList = $block.find('.tp-list');
+        if (tps && tps.length > 0) {
+            tps.forEach(function (tp) {
+                $tpList.append(createTpRow(tp.kode_tp || tp.kode, tp.deskripsi));
+            });
+        } else {
+            $tpList.append(createTpRow());
+        }
+
+        return $block;
+    }
+
+    // ─── TAMBAH ELEMEN BARU ───────────────────────────────────────────────
+    $('#btn_add_elemen').on('click', function () {
+        const $block = createElemenBlock(null, null);
+        $('#elemen_container').append($block);
+        reindexElemen();
+    });
+
+    // ─── HAPUS ELEMEN ─────────────────────────────────────────────────────
+    $(document).on('click', '.btn-remove-elemen', function () {
+        if ($('#elemen_container .elemen-block').length <= 1) {
+            alert('Minimal harus ada satu elemen CP.');
+            return;
+        }
+        $(this).closest('.elemen-block').remove();
+        reindexElemen();
+    });
+
+    // ─── TAMBAH TP ────────────────────────────────────────────────────────
+    $(document).on('click', '.btn-add-tp', function () {
+        const $tpList = $(this).closest('.elemen-block').find('.tp-list');
+        $tpList.append(createTpRow());
+        reindexElemen();
+    });
+
+    // ─── HAPUS TP ─────────────────────────────────────────────────────────
+    $(document).on('click', '.btn-remove-tp', function () {
+        const $tpList = $(this).closest('.tp-list');
+        if ($tpList.find('.tp-row').length <= 1) {
+            alert('Minimal harus ada satu TP per elemen.');
+            return;
+        }
+        $(this).closest('.tp-row').remove();
+        reindexElemen();
+    });
+
+    // ─── PREVIEW DESKRIPSI CP ─────────────────────────────────────────────
+    $(document).on('change', '.cp-select', function () {
+        const $preview = $(this).closest('.elemen-block').find('.cp-preview');
+        const desc = $(this).find('option:selected').data('desc');
+        if (desc) {
+            $preview.html(desc).show();
+        } else {
+            $preview.hide();
+        }
+    });
+
+    // ─── BATAL EDIT ───────────────────────────────────────────────────────
+    $('#cancel_edit').on('click', function () {
+        resetForm();
+    });
+
+    function resetForm() {
+        $('#atpForm')[0].reset();
+        $('#atp_id').val('');
+        $('#form_title').text('Tambah ATP Baru');
+        $('#submit_btn').text('Simpan ATP');
+        $('#cancel_edit').hide();
+        // Reset elemen container — satu elemen kosong
+        $('#elemen_container').empty();
+        const $block = createElemenBlock(null, null);
+        $('#elemen_container').append($block);
+        reindexElemen();
+    }
+
+    // ─── INISIALISASI: satu elemen kosong ─────────────────────────────────
+    (function init() {
+        const $block = createElemenBlock(null, null);
+        $('#elemen_container').append($block);
+        reindexElemen();
+    })();
+});
+
+// ─── FUNGSI EDIT ATP ──────────────────────────────────────────────────────────
+function editAtp(data) {
+    $('#atp_id').val(data.id);
+    $('#lingkup_materi').val(data.lingkup_materi);
+    $('#kelas_input').val(data.kelas);
+    $('#semester_input').val(data.semester);
+    $('#alokasi_input').val(data.alokasi_waktu);
+    $('#urutan_input').val(data.urutan);
+    $('#form_title').text('Edit ATP #' + data.id);
+    $('#submit_btn').text('Update ATP');
     $('#cancel_edit').show();
-    
-    // Scroll to form
-    window.scrollTo({ top: $('#atpForm').offset().top - 100, behavior: 'smooth' });
+
+    // Bersihkan lalu isi ulang elemen
+    $('#elemen_container').empty();
+    const elemenList = data.elemen_list || [];
+    if (elemenList.length === 0) {
+        // fallback: satu elemen kosong
+        const tplNode = document.getElementById('tpl_elemen').content.cloneNode(true);
+        $('#elemen_container').append($(tplNode));
+    } else {
+        elemenList.forEach(function (el) {
+            const tplNode = document.getElementById('tpl_elemen').content.cloneNode(true);
+            const $block  = $(tplNode);
+
+            if (el.cp_master_id) {
+                $block.find('.cp-select').val(el.cp_master_id);
+                const desc = $block.find('.cp-select option[value="' + el.cp_master_id + '"]').data('desc');
+                if (desc) $block.find('.cp-preview').html(desc).show();
+            }
+
+            const $tpList = $block.find('.tp-list');
+            const tps = el.tps || [];
+            if (tps.length > 0) {
+                tps.forEach(function (tp) {
+                    const tplTp = document.getElementById('tpl_tp_row').content.cloneNode(true);
+                    const $row  = $(tplTp);
+                    $row.find('.tp-kode-input').val(tp.kode_tp || '');
+                    $row.find('.tp-deskripsi-input').val(tp.deskripsi || '');
+                    $tpList.append($row);
+                });
+            } else {
+                const tplTp = document.getElementById('tpl_tp_row').content.cloneNode(true);
+                $tpList.append($(tplTp));
+            }
+
+            $('#elemen_container').append($block);
+        });
+    }
+
+    // Re-index setelah DOM update
+    (function reindex() {
+        $('#elemen_container .elemen-block').each(function (ei) {
+            $(this).find('.elemen-num').text(ei + 1);
+            $(this).find('.cp-select').attr('name', 'elemen_cp[]');
+            $(this).find('.tp-kode-input').each(function () {
+                $(this).attr('name', 'tp_kode[' + ei + '][]');
+            });
+            $(this).find('.tp-deskripsi-input').each(function () {
+                $(this).attr('name', 'tp_deskripsi[' + ei + '][]');
+            });
+        });
+    })();
+
+    // Scroll ke form
+    window.scrollTo({ top: $('#atpForm').offset().top - 80, behavior: 'smooth' });
 }
 
 function confirmDeleteAtp(id) {
-    if (confirm('Hapus alur ini?')) {
+    if (confirm('Hapus alur ini beserta semua Elemen CP dan TP-nya?')) {
         window.location.href = "<?= base_url('admin/administrasi-guru/atp/delete/') ?>" + id;
     }
 }
