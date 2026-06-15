@@ -71,8 +71,6 @@
         .align-top    { vertical-align: top; }
         .align-middle { vertical-align: middle; }
         .small        { font-size: 9pt; }
-        .tp-list      { margin: 0; padding-left: 16px; }
-        .tp-list li   { margin-bottom: 3px; }
 
         .footer-table {
             width: 100%;
@@ -182,14 +180,12 @@
                                 <!-- Kolom TP -->
                                 <td class="align-top" style="font-size:10pt;">
                                     <?php if (!empty($tps)): ?>
-                                        <ol class="tp-list">
-                                            <?php foreach ($tps as $tp): ?>
-                                                <li>
-                                                    <strong><?= esc($tp['kode_tp']) ?></strong>
-                                                    <?= esc($tp['deskripsi']) ?>
-                                                </li>
-                                            <?php endforeach; ?>
-                                        </ol>
+                                        <?php foreach ($tps as $tp): ?>
+                                            <div style="margin-bottom:3px;">
+                                                <strong><?= esc($tp['kode_tp']) ?></strong>
+                                                <?= esc($tp['deskripsi']) ?>
+                                            </div>
+                                        <?php endforeach; ?>
                                     <?php else: ?>
                                         <span style="color:#999;">-</span>
                                     <?php endif; ?>
