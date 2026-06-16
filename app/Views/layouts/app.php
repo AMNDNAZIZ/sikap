@@ -564,14 +564,14 @@
 
       <?php if ($isClassChatRole): ?>
       // Badge obrolan kelas (mentionBadge) — hanya mention dari room kelas
-      var prevClassCount = 0;
+      var prevClassCount = -1; // -1 = belum diinisialisasi
       function updateClassMentionBadge() {
         $.getJSON("<?= base_url('admin/chat/mentions') ?>", function(res) {
           var badge = document.getElementById('mentionBadge');
           if (!badge) return;
           var count = res.count || 0;
-          // Mainkan suara jika ada mention baru (dan bukan halaman staff-chat)
-          if (count > prevClassCount && prevClassCount >= 0 && !window.location.href.includes('staff-chat')) {
+          // Bunyikan suara hanya jika count naik SETELAH inisialisasi pertama
+          if (prevClassCount >= 0 && count > prevClassCount && !window.location.href.includes('staff-chat')) {
             playNotifSound();
           }
           prevClassCount = count;
@@ -585,14 +585,14 @@
 
       <?php if ($isStaffRole): ?>
       // Badge obrolan staff (staffMentionBadge) — hanya mention dari staff room
-      var prevStaffCount = 0;
+      var prevStaffCount = -1; // -1 = belum diinisialisasi
       function updateStaffMentionBadge() {
         $.getJSON("<?= base_url('admin/staff-chat/mentions') ?>", function(res) {
           var badge = document.getElementById('staffMentionBadge');
           if (!badge) return;
           var count = res.count || 0;
-          // Mainkan suara jika ada mention baru (dan bukan halaman staff-chat)
-          if (count > prevStaffCount && prevStaffCount >= 0 && !window.location.href.includes('staff-chat')) {
+          // Bunyikan suara hanya jika count naik SETELAH inisialisasi pertama
+          if (prevStaffCount >= 0 && count > prevStaffCount && !window.location.href.includes('staff-chat')) {
             playNotifSound();
           }
           prevStaffCount = count;
