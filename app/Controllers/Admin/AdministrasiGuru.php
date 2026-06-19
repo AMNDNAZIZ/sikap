@@ -469,7 +469,7 @@ class AdministrasiGuru extends BaseController
 
         $this->db->transStart();
 
-        // 1. Simpan/update ATP header
+        // 1. Simpan/update ATP header (tp_id nullable, diisi setelah TP tersimpan)
         $atpData = [
             'class_id'       => $classId,
             'subject_id'     => $subjectId,
@@ -490,21 +490,26 @@ class AdministrasiGuru extends BaseController
             $this->atpElemenModel->where('atp_id', $atpId)->delete();
             $msg = 'ATP berhasil diperbarui.';
         } else {
-            $this->atpModel->insert($atpData);
+            // Insert dengan tp_id = 0 sementara (akan diupdate setelah TP disimpan)
+            $this->atpModel->insert(array_merge($atpData, ['tp_id' => 0]));
             $atpId = $this->atpModel->getInsertID();
             $msg = 'ATP berhasil disimpan.';
         }
 
         // 2. Simpan elemen-elemen CP
-        $elemenCps     = $this->request->getPost('elemen_cp') ?? [];
-        $tpKodesAll    = $this->request->getPost('tp_kode') ?? [];
+        $elemenCps      = $this->request->getPost('elemen_cp') ?? [];
+        $tpKodesAll     = $this->request->getPost('tp_kode') ?? [];
         $tpDeskripsiAll = $this->request->getPost('tp_deskripsi') ?? [];
-        $firstTpId     = null;
+        $firstTpId      = null;
+
+        // Normalisasi index — JS reindexElemen() memakai indeks berurutan
+        $elemenCps = array_values($elemenCps);
 
         foreach ($elemenCps as $idx => $cpMasterId) {
             if (empty($cpMasterId)) continue;
 
             $cp = $this->cpMasterModel->find($cpMasterId);
+            if (!$cp) continue;
 
             $this->atpElemenModel->insert([
                 'atp_id'       => $atpId,
@@ -514,11 +519,13 @@ class AdministrasiGuru extends BaseController
             $atpElemenId = $this->atpElemenModel->getInsertID();
 
             // 3. Simpan TP untuk elemen ini
-            $tpKodes     = $tpKodesAll[$idx] ?? [];
-            $tpDeskripsis = $tpDeskripsiAll[$idx] ?? [];
+            $tpKodes      = isset($tpKodesAll[$idx]) ? array_values((array)$tpKodesAll[$idx]) : [];
+            $tpDeskripsis = isset($tpDeskripsiAll[$idx]) ? array_values((array)$tpDeskripsiAll[$idx]) : [];
 
             foreach ($tpKodes as $tpIdx => $kode) {
-                if (empty($kode) || empty($tpDeskripsis[$tpIdx])) continue;
+                $kode     = trim($kode ?? '');
+                $deskripsi = trim($tpDeskripsis[$tpIdx] ?? '');
+                if (empty($kode) || empty($deskripsi)) continue;
 
                 $this->tpModel->insert([
                     'subject_id'     => $subjectId,
@@ -528,7 +535,7 @@ class AdministrasiGuru extends BaseController
                     'elemen'         => $cp['elemen'] ?? '',
                     'lingkup_materi' => $lingkupMateri,
                     'kode_tp'        => $kode,
-                    'deskripsi'      => $tpDeskripsis[$tpIdx],
+                    'deskripsi'      => $deskripsi,
                     'fase'           => $cp['fase'] ?? '',
                     'kelas'          => $kelas,
                 ]);
@@ -539,13 +546,16 @@ class AdministrasiGuru extends BaseController
             }
         }
 
-        // Backward compat: simpan tp_id pertama di header ATP
-        if ($firstTpId) {
-            $this->atpModel->update($atpId, ['tp_id' => $firstTpId]);
-        }
+        // Update tp_id di header ATP (backward compat)
+        $this->atpModel->update($atpId, ['tp_id' => $firstTpId ?? 0]);
 
         $this->db->transComplete();
-        
+
+        if (!$this->db->transStatus()) {
+            log_message('error', '[atpStore] Transaksi gagal. atpId=' . ($atpId ?? 'null') . ' error=' . $this->db->error()['message']);
+            return redirect()->back()->withInput()->with('error', 'Gagal menyimpan ATP. Silakan coba lagi.');
+        }
+
         return redirect()->to(base_url('admin/administrasi-guru/atp?class_id=' . $classId . '&subject_id=' . $subjectId))->with('success', $msg);
     }
 
