@@ -129,6 +129,42 @@
                     <h6 class="m-0 font-weight-bold text-success" id="form_title">Tambah ATP Baru</h6>
                 </div>
                 <div class="card-body">
+
+                    <?php if ($is_multi_guru && !$has_own_atp && !empty($classes_with_atp)): ?>
+                    <!-- Notif: kelas ini belum punya ATP, ada kelas lain yang bisa dipakai -->
+                    <div class="alert alert-info py-2 mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        <strong>Kelas ini belum punya ATP.</strong><br>
+                        Anda bisa membuat baru, atau tampilkan ATP dari kelas lain se-level:
+                        <div class="mt-2 d-flex gap-2 flex-wrap">
+                            <?php foreach ($classes_with_atp as $cwc): ?>
+                                <a href="<?= base_url("admin/administrasi-guru/atp?class_id={$selected_class}&subject_id={$selected_subject}&source_class_id={$cwc['id']}") ?>"
+                                   class="btn btn-sm <?= $source_class_id == $cwc['id'] ? 'btn-info' : 'btn-outline-info' ?>">
+                                    <i class="bi bi-copy"></i> Gunakan ATP <?= esc($cwc['name']) ?>
+                                </a>
+                            <?php endforeach; ?>
+                            <?php if ($source_class_id): ?>
+                                <a href="<?= base_url("admin/administrasi-guru/atp?class_id={$selected_class}&subject_id={$selected_subject}") ?>"
+                                   class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-x"></i> Buat Sendiri
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php elseif ($is_multi_guru && !$has_own_atp && empty($classes_with_atp)): ?>
+                    <div class="alert alert-warning py-2 mb-3">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Belum ada kelas lain se-level yang memiliki ATP untuk mapel ini.
+                    </div>
+                    <?php elseif ($source_class_id): ?>
+                    <div class="alert alert-success py-2 mb-3">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Menampilkan ATP dari kelas <strong><?= esc($source_class_name) ?></strong>.
+                        Saat dicetak, tanda tangan akan menyesuaikan kelas ini.
+                        <a href="<?= base_url("admin/administrasi-guru/atp?class_id={$selected_class}&subject_id={$selected_subject}") ?>"
+                           class="text-muted small ms-1">Batalkan</a>
+                    </div>
+                    <?php endif; ?>
                     <form action="<?= base_url('admin/administrasi-guru/atp/store') ?>" method="post" id="atpForm">
                         <?= csrf_field() ?>
                         <input type="hidden" name="class_id" value="<?= $selected_class ?>">

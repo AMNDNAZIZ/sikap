@@ -384,30 +384,73 @@ class AdministrasiGuru extends BaseController
                     sort($phases);
                     $data['available_phases'] = $phases;
 
+                    // Cek apakah ada >1 guru di level ini untuk mapel ini
+                    $classInfo    = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+                    $classLevel   = (int)($classInfo['level'] ?? 0);
+                    $teacherCount = $this->db->table('teaching_assignments ta')
+                        ->distinct()->select('ta.teacher_id')
+                        ->join('classes c', 'c.id = ta.class_id')
+                        ->where('ta.subject_id', $subjectId)
+                        ->where('c.level', $classLevel)
+                        ->get()->getResultArray();
+                    $isMultiGuru = count($teacherCount) > 1;
+
+                    // Cek apakah kelas ini punya ATP sendiri
+                    $ownAtpCount = $this->atpModel
+                        ->where('subject_id', $subjectId)
+                        ->where('class_id', $classId)
+                        ->countAllResults();
+
+                    // Jika multi-guru dan kelas ini belum punya ATP,
+                    // cek apakah ada kelas lain se-level yang sudah punya ATP
+                    $data['is_multi_guru']     = $isMultiGuru;
+                    $data['has_own_atp']       = $ownAtpCount > 0;
+                    $data['source_class_id']   = null;
+                    $data['source_class_name'] = null;
+                    $data['classes_with_atp']  = [];
+
+                    // Parameter: gunakan ATP dari kelas lain
+                    $sourceClassId = $this->request->getGet('source_class_id');
+
+                    if ($isMultiGuru) {
+                        // Cari kelas se-level yang sudah punya ATP untuk mapel ini
+                        $classesWithAtp = $this->db->table('classes c')
+                            ->select('c.id, c.name')
+                            ->join('alur_tujuan_pembelajaran atp', 'atp.class_id = c.id')
+                            ->where('c.level', $classLevel)
+                            ->where('atp.subject_id', $subjectId)
+                            ->where('c.id !=', $classId)
+                            ->groupBy('c.id')
+                            ->get()->getResultArray();
+                        $data['classes_with_atp'] = $classesWithAtp;
+
+                        if ($sourceClassId && !$ownAtpCount) {
+                            // Tampilkan ATP dari kelas sumber, tapi simpan info kelas asli
+                            $sourceClass = $this->db->table('classes')->where('id', $sourceClassId)->get()->getRowArray();
+                            $data['source_class_id']   = $sourceClassId;
+                            $data['source_class_name'] = $sourceClass['name'] ?? '';
+                            $effectiveClassId = $sourceClassId;
+                        } else {
+                            $effectiveClassId = $classId;
+                        }
+                    } else {
+                        $effectiveClassId = $classId;
+                    }
+
                     $atpQuery = $this->atpModel
                         ->select('alur_tujuan_pembelajaran.*')
                         ->where('alur_tujuan_pembelajaran.subject_id', $subjectId);
 
                     if ($classId) {
-                        $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
-                        if ($classInfo) {
+                        if ($isMultiGuru) {
+                            // Multi-guru: filter spesifik per kelas efektif
                             $atpQuery->join('classes c_atp', 'c_atp.id = alur_tujuan_pembelajaran.class_id', 'left')
-                                     ->where('c_atp.level', $classInfo['level']);
-
-                            // Cek apakah ada >1 guru di level ini untuk mapel ini
-                            $teacherCount = $this->db->table('teaching_assignments ta')
-                                ->distinct()->select('ta.teacher_id')
-                                ->join('classes c', 'c.id = ta.class_id')
-                                ->where('ta.subject_id', $subjectId)
-                                ->where('c.level', $classInfo['level'])
-                                ->get()->getResultArray();
-
-                            if (count($teacherCount) > 1) {
-                                // Multi-guru: filter ATP spesifik per class_id yang dipilih
-                                // Berlaku untuk semua role (admin, guru, kepsek)
-                                $atpQuery->where('alur_tujuan_pembelajaran.class_id', $classId);
-                            }
-                            // Jika 1 guru: tampilkan semua ATP se-level (tidak perlu filter)
+                                     ->where('c_atp.level', $classLevel)
+                                     ->where('alur_tujuan_pembelajaran.class_id', $effectiveClassId);
+                        } else {
+                            // 1 guru: tampilkan semua ATP se-level
+                            $atpQuery->join('classes c_atp', 'c_atp.id = alur_tujuan_pembelajaran.class_id', 'left')
+                                     ->where('c_atp.level', $classLevel);
                         }
                     }
                     
@@ -1175,14 +1218,38 @@ class AdministrasiGuru extends BaseController
             ->where('ta.subject_id', $subjectId)
             ->where('c.level', $level)
             ->get()->getResultArray();
+        $isMultiGuru = count($teacherCount) > 1;
 
-        if (count($teacherCount) > 1) {
-            // Multi-guru di level ini:
-            // Filter ATP hanya milik kelas yang dicetak (class_id spesifik)
-            // Ini memastikan cetak 8A = ATP guru 8A, cetak 8B = ATP guru 8B
-            $atpResult = $this->loadAtpWithElemen((int)$subjectId, $level, null, [(int)$classId]);
+        if ($isMultiGuru) {
+            // Cek apakah kelas ini punya ATP sendiri
+            $ownAtpCount = $this->atpModel
+                ->where('subject_id', $subjectId)
+                ->where('class_id', $classId)
+                ->countAllResults();
+
+            if ($ownAtpCount > 0) {
+                // Punya ATP sendiri → cetak ATP milik kelas ini
+                $atpResult = $this->loadAtpWithElemen((int)$subjectId, $level, null, [(int)$classId]);
+            } else {
+                // Tidak punya ATP → cari ATP dari kelas lain se-level yang ada
+                // (kelas manapun yang punya ATP untuk mapel ini di level yang sama)
+                $sourceClass = $this->db->table('classes c')
+                    ->select('c.id')
+                    ->join('alur_tujuan_pembelajaran atp', 'atp.class_id = c.id')
+                    ->where('c.level', $level)
+                    ->where('atp.subject_id', $subjectId)
+                    ->where('c.id !=', $classId)
+                    ->groupBy('c.id')
+                    ->get()->getRowArray();
+
+                if ($sourceClass) {
+                    $atpResult = $this->loadAtpWithElemen((int)$subjectId, $level, null, [(int)$sourceClass['id']]);
+                } else {
+                    $atpResult = ['list' => [], 'all_tps' => []];
+                }
+            }
         } else {
-            // 1 guru di level ini: tampilkan semua ATP se-level (berlaku untuk semua kelas)
+            // 1 guru di level ini: tampilkan semua ATP se-level
             $atpResult = $this->loadAtpWithElemen((int)$subjectId, $level);
         }
 
