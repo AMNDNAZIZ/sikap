@@ -383,14 +383,41 @@ class AdministrasiGuru extends BaseController
                     $phases = array_unique(array_column($cpList, 'fase'));
                     sort($phases);
                     $data['available_phases'] = $phases;
+
                     $atpQuery = $this->atpModel
                         ->select('alur_tujuan_pembelajaran.*')
                         ->where('alur_tujuan_pembelajaran.subject_id', $subjectId);
+
                     if ($classId) {
                         $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
                         if ($classInfo) {
                             $atpQuery->join('classes c_atp', 'c_atp.id = alur_tujuan_pembelajaran.class_id', 'left')
                                      ->where('c_atp.level', $classInfo['level']);
+
+                            // Jika guru (role 3): cek apakah ada >1 guru mengajar
+                            // mapel+level yang sama. Jika ya, filter ATP per teacher_id.
+                            if ($filters['role_id'] == 3) {
+                                $teacherIds = $this->db->table('teaching_assignments ta')
+                                    ->select('DISTINCT ta.teacher_id')
+                                    ->join('classes c', 'c.id = ta.class_id')
+                                    ->where('ta.subject_id', $subjectId)
+                                    ->where('c.level', $classInfo['level'])
+                                    ->get()->getResultArray();
+
+                                if (count($teacherIds) > 1) {
+                                    // Lebih dari 1 guru di level ini → filter ATP milik guru ini saja
+                                    $myClassIds = $this->db->table('teaching_assignments')
+                                        ->select('class_id')
+                                        ->where('teacher_id', $filters['role_id'] == 3 ? session()->get('user')['related_id'] : null)
+                                        ->where('subject_id', $subjectId)
+                                        ->get()->getResultArray();
+                                    $myClassIds = array_column($myClassIds, 'class_id');
+                                    if (!empty($myClassIds)) {
+                                        $atpQuery->whereIn('alur_tujuan_pembelajaran.class_id', $myClassIds);
+                                    }
+                                }
+                                // Jika hanya 1 guru di level ini → tampilkan semua ATP level tsb (tidak perlu filter)
+                            }
                         }
                     }
                     
@@ -786,7 +813,9 @@ class AdministrasiGuru extends BaseController
                     $protaResult = null;
                     if ($classId) {
                         $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
-                        $protaResult = $this->loadAtpWithElemen($subjectId, (int)($classInfo['level'] ?? 0));
+                        $level = (int)($classInfo['level'] ?? 0);
+                        $teacherFilter = $this->getTeacherClassFilter((int)$subjectId, $level);
+                        $protaResult = $this->loadAtpWithElemen($subjectId, $level, null, $teacherFilter);
                     } else {
                         $protaResult = $this->loadAtpWithElemen($subjectId);
                     }
@@ -1199,8 +1228,17 @@ class AdministrasiGuru extends BaseController
         $data['fase']  = !empty($allTps) ? ($allTps[0]['fase']  ?? '-') : '-';
         $data['kelas'] = !empty($allTps) ? ($allTps[0]['kelas'] ?? '-') : '-';
 
-        // Guru pengampu
-        $assignment = $this->teachingAssignmentModel->where('subject_id', $subjectId)->first();
+        // Guru pengampu — ambil berdasarkan class_id yang dicetak
+        $assignment = $this->teachingAssignmentModel
+            ->where('subject_id', $subjectId)
+            ->where('class_id', $classId)
+            ->first();
+        // Fallback: jika tidak ditemukan per kelas, ambil yang pertama di subject
+        if (!$assignment) {
+            $assignment = $this->teachingAssignmentModel
+                ->where('subject_id', $subjectId)
+                ->first();
+        }
         $data['teacher'] = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
 
         return view('admin/administrasi_guru/atp_print', $data);
@@ -1219,9 +1257,10 @@ class AdministrasiGuru extends BaseController
         $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
 
         // ATPs for this subject and semester
-        $classInfo   = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
-        $atpResult   = $this->loadAtpWithElemen((int)$subjectId, (int)($classInfo['level'] ?? 0), (int)$semester);
-        $atpList     = $atpResult['list'];
+        $level         = (int)($classInfo['level'] ?? 0);
+        $teacherFilter = $this->getTeacherClassFilter((int)$subjectId, $level);
+        $atpResult     = $this->loadAtpWithElemen((int)$subjectId, $level, (int)$semester, $teacherFilter);
+        $atpList       = $atpResult['list'];
 
         foreach ($atpList as &$atp) {
             // Get existing distributions
@@ -1305,17 +1344,24 @@ class AdministrasiGuru extends BaseController
         $data['subject'] = $subject;
         $data['school'] = $this->schoolModel->getProfile();
 
-        // Get Teacher
-        $assignment = $this->teachingAssignmentModel->where('class_id', $classId)->where('subject_id', $subjectId)->first();
-        $data['teacher'] = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
-        
         $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
 
+        // Get Teacher — spesifik untuk kelas yang dicetak
+        $assignment = $this->teachingAssignmentModel
+            ->where('class_id', $classId)
+            ->where('subject_id', $subjectId)
+            ->first();
+        if (!$assignment) {
+            $assignment = $this->teachingAssignmentModel->where('subject_id', $subjectId)->first();
+        }
+        $data['teacher'] = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
+
         // Get ATPs grouped by semester
-        $classInfo   = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
-        $protaResult = $this->loadAtpWithElemen((int)$subjectId, (int)($classInfo['level'] ?? 0));
-        $prota       = $protaResult['list'];
-        $allTps      = $protaResult['all_tps'];
+        $level         = (int)($classInfo['level'] ?? 0);
+        $teacherFilter = $this->getTeacherClassFilter((int)$subjectId, $level);
+        $protaResult   = $this->loadAtpWithElemen((int)$subjectId, $level, null, $teacherFilter);
+        $prota         = $protaResult['list'];
+        $allTps        = $protaResult['all_tps'];
 
         $data['fase']  = !empty($allTps) ? ($allTps[0]['fase']  ?? '-') : '-';
         $data['kelas'] = !empty($allTps) ? ($allTps[0]['kelas'] ?? '-') : '-';
@@ -1333,17 +1379,24 @@ class AdministrasiGuru extends BaseController
         $data['semester'] = $semester;
         $data['school'] = $this->schoolModel->getProfile();
 
-        // Get Teacher
-        $assignment = $this->teachingAssignmentModel->where('class_id', $classId)->where('subject_id', $subjectId)->first();
-        $data['teacher'] = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
-
         $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
 
+        // Get Teacher — spesifik untuk kelas yang dicetak
+        $assignment = $this->teachingAssignmentModel
+            ->where('class_id', $classId)
+            ->where('subject_id', $subjectId)
+            ->first();
+        if (!$assignment) {
+            $assignment = $this->teachingAssignmentModel->where('subject_id', $subjectId)->first();
+        }
+        $data['teacher'] = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
+
         // ATPs for this subject and semester
-        $classInfo   = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
-        $atpResult   = $this->loadAtpWithElemen((int)$subjectId, (int)($classInfo['level'] ?? 0), (int)$semester);
-        $atpList     = $atpResult['list'];
-        $allTps      = $atpResult['all_tps'];
+        $level         = (int)($classInfo['level'] ?? 0);
+        $teacherFilter = $this->getTeacherClassFilter((int)$subjectId, $level);
+        $atpResult     = $this->loadAtpWithElemen((int)$subjectId, $level, (int)$semester, $teacherFilter);
+        $atpList       = $atpResult['list'];
+        $allTps        = $atpResult['all_tps'];
 
         foreach ($atpList as &$atp) {
             $dist = $this->prosemModel->where('atp_id', $atp['id'])->findAll();
@@ -1373,11 +1426,44 @@ class AdministrasiGuru extends BaseController
     }
 
     /**
+     * Cek apakah ada >1 guru untuk subject+level yang sama.
+     * Jika ya, kembalikan class_ids milik guru ini saja.
+     * Jika tidak, kembalikan null (tampilkan semua ATP se-level).
+     */
+    private function getTeacherClassFilter(int $subjectId, int $classLevel): ?array
+    {
+        $user = session()->get('user');
+        if (!$user || $user['role_id'] != 3) {
+            return null; // Admin/Kepsek: tampilkan semua
+        }
+
+        $teacherIds = $this->db->table('teaching_assignments ta')
+            ->select('DISTINCT ta.teacher_id')
+            ->join('classes c', 'c.id = ta.class_id')
+            ->where('ta.subject_id', $subjectId)
+            ->where('c.level', $classLevel)
+            ->get()->getResultArray();
+
+        if (count($teacherIds) <= 1) {
+            return null; // Hanya 1 guru di level ini → tampilkan semua
+        }
+
+        // >1 guru di level ini → filter ATP milik guru ini saja
+        $myClassIds = $this->db->table('teaching_assignments')
+            ->select('class_id')
+            ->where('teacher_id', $user['related_id'])
+            ->where('subject_id', $subjectId)
+            ->get()->getResultArray();
+
+        return array_column($myClassIds, 'class_id') ?: [0]; // [0] agar tidak tampilkan data orang lain
+    }
+
+    /**
      * Helper: Query ATP list tanpa JOIN cp_master di header,
      * lalu load elemen_list (atp_elemen + cp_master + TP) untuk setiap ATP.
      * Backward compatible untuk data lama (tanpa atp_elemen).
      */
-    private function loadAtpWithElemen(int $subjectId, ?int $classLevel = null, ?int $semester = null): array
+    private function loadAtpWithElemen(int $subjectId, ?int $classLevel = null, ?int $semester = null, ?array $teacherClassIds = null): array
     {
         $query = $this->atpModel
             ->select('alur_tujuan_pembelajaran.*')
@@ -1386,6 +1472,11 @@ class AdministrasiGuru extends BaseController
         if ($classLevel !== null) {
             $query->join('classes c_atp', 'c_atp.id = alur_tujuan_pembelajaran.class_id', 'left')
                   ->where('c_atp.level', $classLevel);
+        }
+
+        // Filter per kelas guru jika ada >1 guru di level yang sama
+        if (!empty($teacherClassIds)) {
+            $query->whereIn('alur_tujuan_pembelajaran.class_id', $teacherClassIds);
         }
 
         if ($semester !== null) {
