@@ -398,7 +398,7 @@ class AdministrasiGuru extends BaseController
                             // mapel+level yang sama. Jika ya, filter ATP per teacher_id.
                             if ($filters['role_id'] == 3) {
                                 $teacherIds = $this->db->table('teaching_assignments ta')
-                                    ->select('DISTINCT ta.teacher_id')
+                                    ->distinct()->select('ta.teacher_id')
                                     ->join('classes c', 'c.id = ta.class_id')
                                     ->where('ta.subject_id', $subjectId)
                                     ->where('c.level', $classInfo['level'])
@@ -1182,7 +1182,7 @@ class AdministrasiGuru extends BaseController
         // Jika >1 guru per level, filter ATP hanya milik guru yang mengajar kelas ini
         $teacherFilter = null;
         $teacherIds = $this->db->table('teaching_assignments ta')
-            ->select('DISTINCT ta.teacher_id')
+            ->distinct()->select('ta.teacher_id')
             ->join('classes c', 'c.id = ta.class_id')
             ->where('ta.subject_id', $subjectId)
             ->where('c.level', $level)
@@ -1403,7 +1403,7 @@ class AdministrasiGuru extends BaseController
     private function getTeacherClassFilter(int $subjectId, int $classLevel, ?int $overrideTeacherId = null): ?array
     {
         $teacherIds = $this->db->table('teaching_assignments ta')
-            ->select('DISTINCT ta.teacher_id')
+            ->distinct()->select('ta.teacher_id')
             ->join('classes c', 'c.id = ta.class_id')
             ->where('ta.subject_id', $subjectId)
             ->where('c.level', $classLevel)
