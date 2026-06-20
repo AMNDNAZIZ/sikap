@@ -128,6 +128,5 @@ class Filters extends BaseFilters
      */
     public array $filters = [
         'readonly' => ['before' => ['admin/*']],
-        'ratelimit' => ['before' => ['auth/login', 'auth/do_login']], // Rate limit login attempts
     ];
 }
