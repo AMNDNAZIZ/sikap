@@ -438,7 +438,7 @@ class AdministrasiGuru extends BaseController
                     }
 
                     $atpQuery = $this->atpModel
-                        ->select('DISTINCT alur_tujuan_pembelajaran.*')
+                        ->select('alur_tujuan_pembelajaran.*')
                         ->where('alur_tujuan_pembelajaran.subject_id', $subjectId);
 
                     if ($classId) {
