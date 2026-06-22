@@ -120,6 +120,26 @@
     <?php endif; ?>
 
     <?php if (!$subject_not_mapped && !$mapping_mismatch): ?>
+
+    <?php if (!empty($atp_list)): ?>
+    <!-- Info: ATP sudah ada, tampilkan tahun pembuatan jika data lama -->
+    <?php
+    $atpCreatedAt = $atp_list[0]['created_at'] ?? null;
+    $atpYear = $atpCreatedAt ? date('Y', strtotime($atpCreatedAt)) : null;
+    $currentYear = date('Y');
+    ?>
+    <?php if ($atpYear && $atpYear < $currentYear): ?>
+    <div class="alert alert-success border-left-success d-flex align-items-center mb-3 py-2">
+        <i class="bi bi-calendar-check-fill me-2 text-success fs-5"></i>
+        <div>
+            <strong>ATP tersedia dari tahun <?= $atpYear ?>.</strong>
+            ATP ini masih berlaku untuk tahun ajaran saat ini selama kurikulum tidak berubah.
+            Anda dapat langsung menggunakannya atau memperbarui jika diperlukan.
+        </div>
+    </div>
+    <?php endif; ?>
+    <?php endif; ?>
+
     <div class="row">
         <?php if (!$readonly): ?>
         <!-- ===== FORM INPUT ATP ===== -->
