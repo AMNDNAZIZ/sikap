@@ -311,28 +311,27 @@
                                         <tr>
                                             <td class="text-center fw-bold align-middle"><?= $no++ ?></td>
                                             <td class="align-middle fw-bold"><?= esc($atp['lingkup_materi']) ?></td>
-                                            <!-- Elemen CP + TP dalam satu cell, nested per elemen -->
-                                            <td colspan="2" class="p-0">
-                                                <table class="table table-sm mb-0">
-                                                    <?php foreach ($elemenList as $ei => $el): ?>
-                                                    <tr class="<?= $ei > 0 ? 'border-top' : '' ?>">
-                                                        <td class="fw-bold text-success align-top" style="min-width:120px; width:35%;">
-                                                            <?= esc($el['elemen']) ?>
-                                                        </td>
-                                                        <td class="align-top">
-                                                            <?php if (!empty($el['tps'])): ?>
-                                                                <ul class="mb-0 ps-3">
-                                                                    <?php foreach ($el['tps'] as $tp): ?>
-                                                                        <li><strong><?= esc($tp['kode_tp']) ?></strong> <?= esc($tp['deskripsi']) ?></li>
-                                                                    <?php endforeach; ?>
-                                                                </ul>
-                                                            <?php else: ?>
-                                                                <span class="text-muted">-</span>
-                                                            <?php endif; ?>
-                                                        </td>
-                                                    </tr>
-                                                    <?php endforeach; ?>
-                                                </table>
+                                            <!-- Elemen CP -->
+                                            <td class="align-top p-2">
+                                                <?php foreach ($elemenList as $el): ?>
+                                                    <div class="fw-bold text-success mb-2"><?= esc($el['elemen']) ?></div>
+                                                <?php endforeach; ?>
+                                            </td>
+                                            <!-- TP per elemen -->
+                                            <td class="align-top p-2">
+                                                <?php foreach ($elemenList as $el): ?>
+                                                    <div class="mb-2">
+                                                        <?php if (!empty($el['tps'])): ?>
+                                                            <ul class="mb-0 ps-3">
+                                                                <?php foreach ($el['tps'] as $tp): ?>
+                                                                    <li><strong><?= esc($tp['kode_tp']) ?></strong> <?= esc($tp['deskripsi']) ?></li>
+                                                                <?php endforeach; ?>
+                                                            </ul>
+                                                        <?php else: ?>
+                                                            <span class="text-muted">-</span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php endforeach; ?>
                                             </td>
                                             <td class="text-center fw-bold align-middle"><?= $atp['semester'] ?></td>
                                             <td class="text-center fw-bold align-middle"><?= esc($atp['alokasi_waktu']) ?> JP</td>
@@ -342,8 +341,7 @@
                                                     <button class="btn btn-sm btn-outline-primary"
                                                             onclick='editAtp(<?= json_encode($editData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)'>
                                                         <i class="bi bi-pencil"></i>
-                                                    </button>
-                                                    <button class="btn btn-sm btn-outline-danger" onclick="confirmDeleteAtp(<?= $atp['id'] ?>)">
+                                                    </button>                                                    <button class="btn btn-sm btn-outline-danger" onclick="confirmDeleteAtp(<?= $atp['id'] ?>)">
                                                         <i class="bi bi-trash"></i>
                                                     </button>
                                                     <?php else: ?>
