@@ -311,25 +311,24 @@
                                         <tr>
                                             <td class="text-center fw-bold align-middle"><?= $no++ ?></td>
                                             <td class="align-middle fw-bold"><?= esc($atp['lingkup_materi']) ?></td>
-                                            <!-- Elemen CP -->
-                                            <td class="align-top p-2">
-                                                <?php foreach ($elemenList as $el): ?>
-                                                    <div class="fw-bold text-success mb-2"><?= esc($el['elemen']) ?></div>
-                                                <?php endforeach; ?>
-                                            </td>
-                                            <!-- TP per elemen -->
-                                            <td class="align-top p-2">
-                                                <?php foreach ($elemenList as $el): ?>
-                                                    <div class="mb-2">
-                                                        <?php if (!empty($el['tps'])): ?>
-                                                            <ul class="mb-0 ps-3">
-                                                                <?php foreach ($el['tps'] as $tp): ?>
-                                                                    <li><strong><?= esc($tp['kode_tp']) ?></strong> <?= esc($tp['deskripsi']) ?></li>
-                                                                <?php endforeach; ?>
-                                                            </ul>
-                                                        <?php else: ?>
-                                                            <span class="text-muted">-</span>
-                                                        <?php endif; ?>
+                                            <!-- Elemen CP + TP berpasangan dalam satu cell -->
+                                            <td colspan="2" class="p-0" style="vertical-align:top;">
+                                                <?php foreach ($elemenList as $ei => $el): ?>
+                                                    <div class="d-flex<?= $ei > 0 ? ' border-top' : '' ?>" style="min-height:2rem;">
+                                                        <div class="fw-bold text-success p-2" style="width:35%; min-width:110px; border-right:1px solid #dee2e6;">
+                                                            <?= esc($el['elemen']) ?>
+                                                        </div>
+                                                        <div class="p-2 flex-grow-1">
+                                                            <?php if (!empty($el['tps'])): ?>
+                                                                <ul class="mb-0 ps-3">
+                                                                    <?php foreach ($el['tps'] as $tp): ?>
+                                                                        <li><strong><?= esc($tp['kode_tp']) ?></strong> <?= esc($tp['deskripsi']) ?></li>
+                                                                    <?php endforeach; ?>
+                                                                </ul>
+                                                            <?php else: ?>
+                                                                <span class="text-muted">-</span>
+                                                            <?php endif; ?>
+                                                        </div>
                                                     </div>
                                                 <?php endforeach; ?>
                                             </td>
