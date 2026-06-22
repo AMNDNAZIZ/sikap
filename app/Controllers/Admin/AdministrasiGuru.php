@@ -1544,7 +1544,10 @@ class AdministrasiGuru extends BaseController
                 $legacyTps = $this->tpModel->where('atp_id', $atp['id'])->findAll();
                 $grouped   = [];
                 foreach ($legacyTps as $tp) {
-                    $grouped[$tp['cp_master_id']][] = $tp;
+                    $cpId = $tp['cp_master_id'] ?? null;
+                    if ($cpId) {
+                        $grouped[$cpId][] = $tp;
+                    }
                 }
                 foreach ($grouped as $cpId => $tps) {
                     $cp = $this->cpMasterModel->find($cpId);
@@ -1556,6 +1559,17 @@ class AdministrasiGuru extends BaseController
                         'tps'          => $tps,
                     ];
                     $allTps = array_merge($allTps, $tps);
+                }
+                // Jika tidak ada cp_master_id sama sekali, buat pseudo elemen
+                if (empty($atp['elemen_list']) && !empty($legacyTps)) {
+                    $atp['elemen_list'][] = [
+                        'cp_master_id' => null,
+                        'elemen'       => '-',
+                        'cp_deskripsi' => '-',
+                        'fase'         => '-',
+                        'tps'          => $legacyTps,
+                    ];
+                    $allTps = array_merge($allTps, $legacyTps);
                 }
             }
 

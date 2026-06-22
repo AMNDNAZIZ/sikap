@@ -143,7 +143,7 @@
                             <td class="text-center fw-bold"><?= $no++ ?></td>
                             <td class="fw-bold text-success">
                                 <?php foreach ($atp['elemen_list'] ?? [] as $el): ?>
-                                    <div><?= esc($el['elemen']) ?></div>
+                                    <div><?= esc($el['elemen'] ?? '-') ?></div>
                                 <?php endforeach; ?>
                                 <?php if (empty($atp['elemen_list'])): ?>-<?php endif; ?>
                             </td>
