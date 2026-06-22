@@ -431,43 +431,7 @@
 $(document).ready(function () {
 
     // ─── RENDER NAMA field TP berdasarkan indeks elemen ─────────────────────
-    // reindexElemen didefinisikan sebagai fungsi global di bawah    // ─── BUAT SATU BARIS TP ────────────────────────────────────────────────
-    function createTpRow(kode, deskripsi) {
-        const tplNode = document.getElementById('tpl_tp_row').content.cloneNode(true);
-        const $row    = $(tplNode);
-        if (kode)      $row.find('.tp-kode-input').val(kode);
-        if (deskripsi) $row.find('.tp-deskripsi-input').val(deskripsi);
-        return $row;
-    }
-
-    // ─── BUAT SATU BLOK ELEMEN CP ─────────────────────────────────────────
-    function createElemenBlock(cpMasterId, tps) {
-        const tplNode = document.getElementById('tpl_elemen').content.cloneNode(true);
-        const $block  = $(tplNode);
-
-        // Pilih CP jika ada
-        if (cpMasterId) {
-            $block.find('.cp-select').val(cpMasterId);
-            const desc = $block.find('.cp-select option[value="' + cpMasterId + '"]').data('desc');
-            if (desc) {
-                $block.find('.cp-preview').html(desc).show();
-            }
-        }
-
-        // Tambah TP rows
-        const $tpList = $block.find('.tp-list');
-        if (tps && tps.length > 0) {
-            tps.forEach(function (tp) {
-                $tpList.append(createTpRow(tp.kode_tp || tp.kode, tp.deskripsi));
-            });
-        } else {
-            $tpList.append(createTpRow());
-        }
-
-        return $block;
-    }
-
-    // ─── TAMBAH ELEMEN BARU ───────────────────────────────────────────────
+    // reindexElemen, createTpRow, createElemenBlock didefinisikan sebagai fungsi global di bawah    // ─── TAMBAH ELEMEN BARU ───────────────────────────────────────────────
     $('#btn_add_elemen').on('click', function () {
         const $block = createElemenBlock(null, null);
         $('#elemen_container').append($block);
@@ -538,6 +502,42 @@ $(document).ready(function () {
         reindexElemen();
     })();
 });
+
+// ─── FUNGSI GLOBAL — bisa dipanggil dari mana saja ──────────────────────────
+
+function createTpRow(kode, deskripsi) {
+    const tplNode = document.getElementById('tpl_tp_row').content.cloneNode(true);
+    const $row    = $(tplNode);
+    if (kode)      $row.find('.tp-kode-input').val(kode);
+    if (deskripsi) $row.find('.tp-deskripsi-input').val(deskripsi);
+    return $row;
+}
+
+function createElemenBlock(cpMasterId, tps) {
+    const tplNode = document.getElementById('tpl_elemen').content.cloneNode(true);
+    const $block  = $(tplNode);
+
+    // Pilih CP jika ada
+    if (cpMasterId) {
+        $block.find('.cp-select').val(cpMasterId);
+        const desc = $block.find('.cp-select option[value="' + cpMasterId + '"]').data('desc');
+        if (desc) {
+            $block.find('.cp-preview').html(desc).show();
+        }
+    }
+
+    // Tambah TP rows
+    const $tpList = $block.find('.tp-list');
+    if (tps && tps.length > 0) {
+        tps.forEach(function (tp) {
+            $tpList.append(createTpRow(tp.kode_tp || tp.kode, tp.deskripsi));
+        });
+    } else {
+        $tpList.append(createTpRow());
+    }
+
+    return $block;
+}
 
 // ─── FUNGSI EDIT ATP ──────────────────────────────────────────────────────────
 function editAtp(data) {
