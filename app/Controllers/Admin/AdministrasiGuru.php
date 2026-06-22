@@ -438,7 +438,7 @@ class AdministrasiGuru extends BaseController
                     }
 
                     $atpQuery = $this->atpModel
-                        ->select('alur_tujuan_pembelajaran.*')
+                        ->select('DISTINCT alur_tujuan_pembelajaran.*')
                         ->where('alur_tujuan_pembelajaran.subject_id', $subjectId);
 
                     if ($classId) {
@@ -453,8 +453,9 @@ class AdministrasiGuru extends BaseController
                                      ->where('c_atp.level', $classLevel);
                         }
                     }
-                    
+
                     $atpList = $atpQuery
+                        ->groupBy('alur_tujuan_pembelajaran.id')
                         ->orderBy('alur_tujuan_pembelajaran.semester', 'ASC')
                         ->orderBy('alur_tujuan_pembelajaran.urutan', 'ASC')
                         ->findAll();
@@ -1513,6 +1514,7 @@ class AdministrasiGuru extends BaseController
         }
 
         $atpList = $query
+            ->groupBy('alur_tujuan_pembelajaran.id')
             ->orderBy('alur_tujuan_pembelajaran.semester', 'ASC')
             ->orderBy('alur_tujuan_pembelajaran.urutan', 'ASC')
             ->findAll();
