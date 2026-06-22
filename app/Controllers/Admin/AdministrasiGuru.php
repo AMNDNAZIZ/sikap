@@ -467,10 +467,11 @@ class AdministrasiGuru extends BaseController
                             ->where('ae.atp_id', $atp['id'])
                             ->orderBy('ae.urutan', 'ASC')
                             ->get()->getResultArray();
-                        // Untuk tiap elemen, load TP-nya
+                        // Untuk tiap elemen, load TP-nya (PENTING: unset referensi setelah loop)
                         foreach ($elemenList as &$el) {
                             $el['tps'] = $this->tpModel->where('atp_elemen_id', $el['id'])->findAll();
                         }
+                        unset($el); // WAJIB: mencegah bug referensi PHP
                         $atp['elemen_list'] = $elemenList;
                         // Backward compat: gabung semua TP dari semua elemen
                         $atp['tps'] = [];
@@ -482,6 +483,7 @@ class AdministrasiGuru extends BaseController
                             $atp['tps'] = $this->tpModel->where('atp_id', $atp['id'])->findAll();
                         }
                     }
+                    unset($atp); // WAJIB: mencegah bug referensi PHP pada loop $atpList
                     $data['atp_list'] = $atpList;
                 }
             }
