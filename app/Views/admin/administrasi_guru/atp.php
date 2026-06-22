@@ -309,31 +309,34 @@
                                         ];
                                         ?>
                                         <tr>
-                                            <td rowspan="<?= $jumlahElemen ?>" class="text-center fw-bold align-middle"><?= $no++ ?></td>
-                                            <td rowspan="<?= $jumlahElemen ?>" class="align-middle"><?= esc($atp['lingkup_materi']) ?></td>
-
-                                            <!-- Elemen pertama -->
-                                            <td class="fw-bold text-success align-top" style="min-width:120px;">
-                                                <?= esc($firstElemen['elemen']) ?>
-                                                <?php if (!empty($firstElemen['cp_deskripsi'])): ?>
-                                                    <br><small class="text-muted fw-normal"><?= nl2br(esc(mb_strimwidth($firstElemen['cp_deskripsi'], 0, 120, '...'))) ?></small>
-                                                <?php endif; ?>
+                                            <td class="text-center fw-bold align-middle"><?= $no++ ?></td>
+                                            <td class="align-middle fw-bold"><?= esc($atp['lingkup_materi']) ?></td>
+                                            <!-- Elemen CP + TP dalam satu cell, nested per elemen -->
+                                            <td colspan="2" class="p-0">
+                                                <table class="table table-sm mb-0">
+                                                    <?php foreach ($elemenList as $ei => $el): ?>
+                                                    <tr class="<?= $ei > 0 ? 'border-top' : '' ?>">
+                                                        <td class="fw-bold text-success align-top" style="min-width:120px; width:35%;">
+                                                            <?= esc($el['elemen']) ?>
+                                                        </td>
+                                                        <td class="align-top">
+                                                            <?php if (!empty($el['tps'])): ?>
+                                                                <ul class="mb-0 ps-3">
+                                                                    <?php foreach ($el['tps'] as $tp): ?>
+                                                                        <li><strong><?= esc($tp['kode_tp']) ?></strong> <?= esc($tp['deskripsi']) ?></li>
+                                                                    <?php endforeach; ?>
+                                                                </ul>
+                                                            <?php else: ?>
+                                                                <span class="text-muted">-</span>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                    </tr>
+                                                    <?php endforeach; ?>
+                                                </table>
                                             </td>
-                                            <td class="align-top" style="min-width:180px;">
-                                                <?php if (!empty($firstElemen['tps'])): ?>
-                                                    <ul class="mb-0 ps-3">
-                                                        <?php foreach ($firstElemen['tps'] as $tp): ?>
-                                                            <li><strong><?= esc($tp['kode_tp']) ?></strong> <?= esc($tp['deskripsi']) ?></li>
-                                                        <?php endforeach; ?>
-                                                    </ul>
-                                                <?php else: ?>
-                                                    <span class="text-muted">-</span>
-                                                <?php endif; ?>
-                                            </td>
-
-                                            <td rowspan="<?= $jumlahElemen ?>" class="text-center align-middle fw-bold"><?= $atp['semester'] ?></td>
-                                            <td rowspan="<?= $jumlahElemen ?>" class="text-center align-middle fw-bold"><?= esc($atp['alokasi_waktu']) ?> JP</td>
-                                            <td rowspan="<?= $jumlahElemen ?>" class="text-center align-middle">
+                                            <td class="text-center fw-bold align-middle"><?= $atp['semester'] ?></td>
+                                            <td class="text-center fw-bold align-middle"><?= esc($atp['alokasi_waktu']) ?> JP</td>
+                                            <td class="text-center align-middle">
                                                 <div class="d-flex flex-column gap-1">
                                                     <?php if (!$readonly): ?>
                                                     <button class="btn btn-sm btn-outline-primary"
@@ -349,29 +352,6 @@
                                                 </div>
                                             </td>
                                         </tr>
-
-                                        <?php for ($i = 1; $i < $jumlahElemen; $i++): ?>
-                                            <?php $el = $elemenList[$i]; ?>
-                                            <tr>
-                                                <td class="fw-bold text-success align-top" style="min-width:120px;">
-                                                    <?= esc($el['elemen']) ?>
-                                                    <?php if (!empty($el['cp_deskripsi'])): ?>
-                                                        <br><small class="text-muted fw-normal"><?= nl2br(esc(mb_strimwidth($el['cp_deskripsi'], 0, 120, '...'))) ?></small>
-                                                    <?php endif; ?>
-                                                </td>
-                                                <td class="align-top" style="min-width:180px;">
-                                                    <?php if (!empty($el['tps'])): ?>
-                                                        <ul class="mb-0 ps-3">
-                                                            <?php foreach ($el['tps'] as $tp): ?>
-                                                                <li><strong><?= esc($tp['kode_tp']) ?></strong> <?= esc($tp['deskripsi']) ?></li>
-                                                            <?php endforeach; ?>
-                                                        </ul>
-                                                    <?php else: ?>
-                                                        <span class="text-muted">-</span>
-                                                    <?php endif; ?>
-                                                </td>
-                                            </tr>
-                                        <?php endfor; ?>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </tbody>
@@ -451,22 +431,7 @@
 $(document).ready(function () {
 
     // ─── RENDER NAMA field TP berdasarkan indeks elemen ─────────────────────
-    function reindexElemen() {
-        $('#elemen_container .elemen-block').each(function (ei) {
-            $(this).find('.elemen-num').text(ei + 1);
-            // Set name elemen_cp[]
-            $(this).find('.cp-select').attr('name', 'elemen_cp[]');
-            // Set name tp_kode[ei][] dan tp_deskripsi[ei][]
-            $(this).find('.tp-kode-input').each(function () {
-                $(this).attr('name', 'tp_kode[' + ei + '][]');
-            });
-            $(this).find('.tp-deskripsi-input').each(function () {
-                $(this).attr('name', 'tp_deskripsi[' + ei + '][]');
-            });
-        });
-    }
-
-    // ─── BUAT SATU BARIS TP ────────────────────────────────────────────────
+    // reindexElemen didefinisikan sebagai fungsi global di bawah    // ─── BUAT SATU BARIS TP ────────────────────────────────────────────────
     function createTpRow(kode, deskripsi) {
         const tplNode = document.getElementById('tpl_tp_row').content.cloneNode(true);
         const $row    = $(tplNode);
@@ -586,59 +551,52 @@ function editAtp(data) {
     $('#submit_btn').text('Update ATP');
     $('#cancel_edit').show();
 
-    // Bersihkan lalu isi ulang elemen
+    // Bersihkan elemen container
     $('#elemen_container').empty();
+
     const elemenList = data.elemen_list || [];
+
     if (elemenList.length === 0) {
-        // fallback: satu elemen kosong
-        const tplNode = document.getElementById('tpl_elemen').content.cloneNode(true);
-        $('#elemen_container').append($(tplNode));
+        // Fallback: satu elemen kosong
+        const $block = createElemenBlock(null, null);
+        $('#elemen_container').append($block);
     } else {
         elemenList.forEach(function (el) {
-            const tplNode = document.getElementById('tpl_elemen').content.cloneNode(true);
-            const $block  = $(tplNode);
+            // Gunakan createElemenBlock supaya block sudah sepenuhnya siap sebelum di-append
+            const $block = createElemenBlock(el.cp_master_id || null, el.tps || []);
+            $('#elemen_container').append($block);
 
+            // Set nilai select SETELAH block masuk ke DOM agar .val() bekerja
+            // (createElemenBlock sudah handle ini, tapi set ulang untuk memastikan)
             if (el.cp_master_id) {
                 $block.find('.cp-select').val(el.cp_master_id);
                 const desc = $block.find('.cp-select option[value="' + el.cp_master_id + '"]').data('desc');
-                if (desc) $block.find('.cp-preview').html(desc).show();
+                if (desc) {
+                    $block.find('.cp-preview').html(desc).show();
+                }
             }
-
-            const $tpList = $block.find('.tp-list');
-            const tps = el.tps || [];
-            if (tps.length > 0) {
-                tps.forEach(function (tp) {
-                    const tplTp = document.getElementById('tpl_tp_row').content.cloneNode(true);
-                    const $row  = $(tplTp);
-                    $row.find('.tp-kode-input').val(tp.kode_tp || '');
-                    $row.find('.tp-deskripsi-input').val(tp.deskripsi || '');
-                    $tpList.append($row);
-                });
-            } else {
-                const tplTp = document.getElementById('tpl_tp_row').content.cloneNode(true);
-                $tpList.append($(tplTp));
-            }
-
-            $('#elemen_container').append($block);
         });
     }
 
-    // Re-index setelah DOM update
-    (function reindex() {
-        $('#elemen_container .elemen-block').each(function (ei) {
-            $(this).find('.elemen-num').text(ei + 1);
-            $(this).find('.cp-select').attr('name', 'elemen_cp[]');
-            $(this).find('.tp-kode-input').each(function () {
-                $(this).attr('name', 'tp_kode[' + ei + '][]');
-            });
-            $(this).find('.tp-deskripsi-input').each(function () {
-                $(this).attr('name', 'tp_deskripsi[' + ei + '][]');
-            });
-        });
-    })();
+    // Re-index nama field setelah semua elemen ditambahkan
+    reindexElemen();
 
     // Scroll ke form
-    window.scrollTo({ top: $('#atpForm').offset().top - 80, behavior: 'smooth' });
+    $('html, body').animate({ scrollTop: $('#atpForm').offset().top - 80 }, 400);
+}
+
+// Ekspor reindexElemen ke scope global agar bisa dipanggil dari editAtp
+function reindexElemen() {
+    $('#elemen_container .elemen-block').each(function (ei) {
+        $(this).find('.elemen-num').text(ei + 1);
+        $(this).find('.cp-select').attr('name', 'elemen_cp[]');
+        $(this).find('.tp-kode-input').each(function () {
+            $(this).attr('name', 'tp_kode[' + ei + '][]');
+        });
+        $(this).find('.tp-deskripsi-input').each(function () {
+            $(this).attr('name', 'tp_deskripsi[' + ei + '][]');
+        });
+    });
 }
 
 function confirmDeleteAtp(id) {
