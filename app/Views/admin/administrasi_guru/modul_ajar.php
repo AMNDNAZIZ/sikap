@@ -194,6 +194,19 @@
                                                     <i class="bi bi-magic"></i> Generate Modul (AI)
                                                 </button>
                                             </form>
+                                            <?php if (!empty($atp['modul_source'])): ?>
+                                            <form action="<?= base_url('admin/administrasi-guru/modul-ajar/copy') ?>" method="post" class="mt-1">
+                                                <?= csrf_field() ?>
+                                                <input type="hidden" name="source_modul_id" value="<?= $atp['modul_source']['id'] ?>">
+                                                <input type="hidden" name="target_class_id" value="<?= $selected_class ?>">
+                                                <input type="hidden" name="subject_id" value="<?= $selected_subject ?>">
+                                                <input type="hidden" name="atp_id" value="<?= $atp['id'] ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-success w-100"
+                                                    onclick="return confirm('Salin modul dari <?= esc($atp['modul_source']['class_name']) ?>?')">
+                                                    <i class="bi bi-copy"></i> Salin dari <?= esc($atp['modul_source']['class_name']) ?>
+                                                </button>
+                                            </form>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     <?php else: ?>
                                         <span class="text-muted small">Hubungi Guru Mapel</span>

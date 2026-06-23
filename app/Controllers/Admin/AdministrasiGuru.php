@@ -937,13 +937,31 @@ class AdministrasiGuru extends BaseController
                     $data['atp_list'] = [];
                 } else {
                     $classInfo   = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
-                    $atpResult   = $this->loadAtpWithElemen((int)$subjectId, (int)($classInfo['level'] ?? 0));
+                    $classLevel  = (int)($classInfo['level'] ?? 0);
+                    $atpResult   = $this->loadAtpWithElemen((int)$subjectId, $classLevel);
                     $atpList     = $atpResult['list'];
 
                     $modulModel = new \App\Models\ModulAjarModel();
                     foreach ($atpList as &$atp) {
-                        $modul = $modulModel->where('atp_id', $atp['id'])->first();
+                        // Modul milik kelas ini
+                        $modul = $modulModel
+                            ->where('atp_id', $atp['id'])
+                            ->where('class_id', $classId)
+                            ->first();
                         $atp['modul'] = $modul;
+
+                        // Jika kelas ini belum punya modul, cari modul dari kelas lain se-level
+                        $atp['modul_source'] = null;
+                        if (!$modul) {
+                            $modulSource = $this->db->table('modul_ajar ma')
+                                ->select('ma.id, ma.class_id, c.name as class_name, ma.teacher_id')
+                                ->join('classes c', 'c.id = ma.class_id')
+                                ->where('ma.atp_id', $atp['id'])
+                                ->where('c.level', $classLevel)
+                                ->where('ma.class_id !=', $classId)
+                                ->get()->getRowArray();
+                            $atp['modul_source'] = $modulSource;
+                        }
                     }
                     unset($atp);
                     $data['atp_list'] = $atpList;
@@ -1678,5 +1696,65 @@ class AdministrasiGuru extends BaseController
         $modulModel->delete($id);
 
         return redirect()->to(base_url("admin/administrasi-guru/modul-ajar?class_id=$classId&subject_id=$subjectId"))->with('success', 'Modul Ajar berhasil dihapus. Silakan generate ulang jika diperlukan.');
+    }
+
+    /**
+     * Salin modul dari kelas lain se-level ke kelas ini.
+     * Konten sama, teacher_id disesuaikan dengan guru kelas tujuan.
+     */
+    public function copyModulAjar()
+    {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'], [1, 3])) {
+            return redirect()->back()->with('error', 'Anda tidak diizinkan menyalin Modul Ajar.');
+        }
+
+        $sourceModulId = $this->request->getPost('source_modul_id');
+        $targetClassId = $this->request->getPost('target_class_id');
+        $subjectId     = $this->request->getPost('subject_id');
+        $atpId         = $this->request->getPost('atp_id');
+
+        $modulModel = new \App\Models\ModulAjarModel();
+        $sourceModul = $modulModel->find($sourceModulId);
+
+        if (!$sourceModul) {
+            return redirect()->back()->with('error', 'Modul sumber tidak ditemukan.');
+        }
+
+        // Cari teacher_id yang mengajar di kelas tujuan
+        $assignment = $this->teachingAssignmentModel
+            ->where('class_id', $targetClassId)
+            ->where('subject_id', $subjectId)
+            ->first();
+
+        // Jika guru login (role 3), gunakan teacher_id sendiri
+        if ($user['role_id'] == 3) {
+            $targetTeacherId = $user['related_id'];
+        } elseif ($assignment) {
+            $targetTeacherId = $assignment['teacher_id'];
+        } else {
+            $targetTeacherId = $sourceModul['teacher_id']; // fallback
+        }
+
+        // Cek apakah modul sudah ada untuk kelas tujuan + ATP ini
+        $existing = $modulModel
+            ->where('atp_id', $atpId)
+            ->where('class_id', $targetClassId)
+            ->first();
+
+        if ($existing) {
+            return redirect()->back()->with('error', 'Modul untuk kelas ini sudah ada. Hapus dulu jika ingin menyalin ulang.');
+        }
+
+        $modulModel->insert([
+            'atp_id'     => $atpId,
+            'subject_id' => $subjectId,
+            'class_id'   => $targetClassId,
+            'teacher_id' => $targetTeacherId,
+            'content'    => $sourceModul['content'],
+        ]);
+
+        return redirect()->to(base_url("admin/administrasi-guru/modul-ajar?class_id=$targetClassId&subject_id=$subjectId"))
+            ->with('success', 'Modul berhasil disalin. Anda dapat mengeditnya jika diperlukan.');
     }
 }

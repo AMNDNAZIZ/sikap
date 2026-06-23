@@ -221,6 +221,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->post('modul-ajar/update', 'AdministrasiGuru::updateModulAjar');
         $routes->get('modul-ajar/print/(:num)/(:num)', 'AdministrasiGuru::printModulAjar/$1/$2');
         $routes->get('modul-ajar/delete/(:num)/(:num)/(:num)', 'AdministrasiGuru::deleteModulAjar/$1/$2/$3');
+        $routes->post('modul-ajar/copy', 'AdministrasiGuru::copyModulAjar');
     });
 
     // 5.9 Kokurikuler (Kurikulum Merdeka) - Admin, Kepsek & Guru Kelas
