@@ -233,7 +233,7 @@ class LicenseGuard
      * ===============================
      */
 
-    private static function checkIntegrity()
+    public static function checkIntegrity()
     {
         $hashFile = APPPATH . 'Config/.lic_hash';
 
@@ -353,9 +353,80 @@ class LicenseGuard
         // Daftarkan sebagai shutdown function agar tidak mengganggu
         // session initialization dan header management CI4
         register_shutdown_function(function () {
-            $licResult = self::generateLicenseHash();
-            $secResult = \App\Libraries\SecurityGuard::regenerateHashes();
-            log_message('info', 'All hashes regenerated (shutdown). lic_hash=' . ($licResult ? 'OK' : 'FAIL') . ', security_hash=' . ($secResult ? 'OK' : 'FAIL'));
+            self::regenerateAllHashesSync();
         });
+    }
+
+    /**
+     * Regenerate semua hash file secara sinkron (untuk CLI/migration/setup).
+     */
+    public static function regenerateAllHashesSync(): array
+    {
+        $licResult = self::generateLicenseHash();
+        $secResult = \App\Libraries\SecurityGuard::regenerateHashes();
+        log_message('info', 'All hashes regenerated (sync). lic_hash=' . ($licResult ? 'OK' : 'FAIL') . ', security_hash=' . ($secResult ? 'OK' : 'FAIL'));
+        return [
+            'lic_hash' => $licResult,
+            'security_hash' => $secResult
+        ];
+    }
+
+    /**
+     * Pengecekan menyeluruh terhadap lisensi dan integritas file tanpa melakukan redirect/blocking.
+     * Digunakan oleh halaman aktivasi untuk menghindari redirect loop.
+     */
+    public static function isFullyValid(): bool
+    {
+        // 1. Cek validitas filter dan integritas file kritikal
+        $securityCheck = \App\Libraries\SecurityGuard::performSecurityCheck();
+        if (!$securityCheck['status']) {
+            log_message('warning', 'isFullyValid failed: security check failed - ' . ($securityCheck['message'] ?? $securityCheck['error']));
+            return false;
+        }
+
+        // 2. Cek integritas file lisensi
+        if (!self::checkIntegrity()) {
+            log_message('warning', 'isFullyValid failed: file integrity check failed');
+            return false;
+        }
+
+        $model = new LicenseModel();
+        $license = $model->first();
+
+        // 3. Pastikan data lisensi ada
+        if (!$license) {
+            log_message('warning', 'isFullyValid failed: no license found');
+            return false;
+        }
+
+        // 4. Validasi machine binding & domain jika bukan local/development
+        helper('license');
+        if (!is_local_environment()) {
+            $machineId = generate_machine_id();
+            $hardwareSignature = generate_hardware_signature();
+
+            $machineMatch = ($license['machine_id'] === $machineId);
+            $hardwareMatch = empty($license['hardware_signature']) || ($license['hardware_signature'] === $hardwareSignature);
+
+            if (!$machineMatch || !$hardwareMatch) {
+                log_message('warning', 'isFullyValid failed: machine/hardware signature mismatch');
+                return false;
+            }
+
+            // Validasi domain
+            $currentDomain = $_SERVER['HTTP_HOST'] ?? '';
+            if (!empty($license['domain']) && $license['domain'] !== $currentDomain) {
+                log_message('warning', 'isFullyValid failed: domain mismatch (expected ' . $license['domain'] . ', got ' . $currentDomain . ')');
+                return false;
+            }
+        }
+
+        // 5. Validasi expiry
+        if (!empty($license['expires_at']) && strtotime($license['expires_at']) < time()) {
+            log_message('warning', 'isFullyValid failed: license expired');
+            return false;
+        }
+
+        return true;
     }
 }
