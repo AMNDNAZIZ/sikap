@@ -11,7 +11,7 @@ class Activate extends BaseController
         $model = new LicenseModel();
         $license = $model->getActiveLicense();
 
-        if ($model->isValidLicense($license)) {
+        if ($model->isValidLicense($license) && \App\Libraries\LicenseGuard::isFullyValid()) {
             return redirect()->to(base_url('dashboard'));
         }
 
