@@ -13,6 +13,7 @@ use App\Models\SettingsModel;
 use App\Libraries\PdfGenerator;
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\PngWriter;
+use setasign\Fpdi\Fpdi;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -30,6 +31,7 @@ class SuratKeluar extends BaseController
         'surat_tugas'             => 'Surat Tugas',
         'undangan'                => 'Surat Undangan',
         'surat_custom'            => 'Surat Custom / Dinamis',
+        'surat_eksternal'         => 'Upload Surat Eksternal',
     ];
 
     public function __construct()
@@ -417,6 +419,13 @@ class SuratKeluar extends BaseController
                 'header_style' => $post['header_style'] ?? 'tengah',
                 'body_html'    => isset($post['body_html']) ? strip_tags($post['body_html'], '<p><a><strong><em><u><s><br><table><thead><tbody><tr><td><th><ul><ol><li><h1><h2><h3><h4><h5><h6><span><div><hr>') : '',
             ],
+            'surat_eksternal' => [
+                'original_filename' => $post['original_filename'] ?? '',
+                'original_path'     => '',
+                'final_path'        => '',
+                'nomor_manual'      => $post['nomor_surat_manual'] ?? '',
+                'catatan'           => $post['catatan_eksternal'] ?? '',
+            ],
             default => [],
         };
     }
@@ -493,6 +502,10 @@ class SuratKeluar extends BaseController
             $options->set('isRemoteEnabled', false);
             $options->set('defaultFont', 'DejaVu Sans');
             $dompdf = new \Dompdf\Dompdf($options);
+            $dompdf->set_option('margin_left', 10);
+            $dompdf->set_option('margin_right', 10);
+            $dompdf->set_option('margin_top', 10);
+            $dompdf->set_option('margin_bottom', 10);
             $dompdf->loadHtml($html);
             $dompdf->setPaper('A4', 'portrait');
             $dompdf->render();
@@ -551,6 +564,226 @@ class SuratKeluar extends BaseController
         }
 
         return $bodyHtml;
+    }
+
+    private function overlayQrOnPdf(string $originalPdfPath, string $qrPngPath, string $outputPath): bool
+    {
+        try {
+            $pdf = new Fpdi();
+            $pageCount = $pdf->setSourceFile($originalPdfPath);
+
+            $qrSizeMm = 18;
+            $marginMm = 10;
+
+            for ($i = 1; $i <= $pageCount; $i++) {
+                $tplId = $pdf->importPage($i);
+                $size  = $pdf->getTemplateSize($tplId);
+                $orientation = ($size['width'] > $size['height']) ? 'L' : 'P';
+                $pdf->AddPage($orientation, [$size['width'], $size['height']]);
+                $pdf->useTemplate($tplId);
+
+                if ($i === 1) {
+                    $x = $marginMm;
+                    $y = $size['height'] - $qrSizeMm - $marginMm - 5;
+                    $pdf->Image($qrPngPath, $x, $y, $qrSizeMm, $qrSizeMm, 'PNG');
+                    $pdf->SetFont('Helvetica', '', 6);
+                    $pdf->SetXY($x - 2, $y + $qrSizeMm + 0.5);
+                    $pdf->Cell($qrSizeMm + 4, 3, 'Scan untuk verifikasi', 0, 0, 'C');
+                }
+            }
+
+            $pdf->Output('F', $outputPath);
+            return true;
+        } catch (\Throwable $e) {
+            log_message('error', '[SuratKeluar::overlayQrOnPdf] ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function createEksternal()
+    {
+        $settings = new SettingsModel();
+        $school   = (new SchoolModel())->first();
+
+        $principalName = $settings->getValue('principal_name') ?? ($school['principal_name'] ?? '');
+        $principalNip  = $settings->getValue('principal_nip')  ?? ($school['principal_nip']  ?? '');
+        $activeYear    = $settings->getValue('active_school_year') ?? (date('Y') . '/' . (date('Y') + 1));
+
+        $year  = (int) date('Y');
+        $seq   = $this->model->getNextSequenceNumber($year);
+        $padding  = (int) ($settings->getValue('letter_number_padding') ?? 3);
+        $previewNo = OutgoingLetterModel::buildLetterNumber($seq, $year, $padding);
+
+        return view('admin/surat/keluar/create_eksternal', [
+            'title'          => 'Upload Surat Eksternal',
+            'school'         => $school,
+            'principal_name' => $principalName,
+            'principal_nip'  => $principalNip,
+            'active_year'    => $activeYear,
+            'preview_number' => $previewNo,
+        ]);
+    }
+
+    public function storeEksternal()
+    {
+        $session = session();
+        $userId  = $session->get('user')['id'] ?? null;
+
+        $rules = [
+            'pdf_file'       => 'uploaded[pdf_file]|max_size[pdf_file,5120]|ext_in[pdf_file,pdf]',
+            'subject'        => 'required|min_length[5]',
+            'issued_at'      => 'required|valid_date',
+            'recipient_name' => 'required|min_length[3]',
+            'recipient_type' => 'required|in_list[siswa,guru,eksternal,internal]',
+            'sifat'          => 'required|in_list[Biasa,Penting,Segera,Rahasia]',
+        ];
+
+        if (! $this->validate($rules)) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        $file = $this->request->getFile('pdf_file');
+        if (! $file || ! $file->isValid() || $file->hasMoved()) {
+            return redirect()->back()->withInput()->with('error', 'File PDF tidak valid.');
+        }
+
+        $mimeType = $file->getMimeType();
+        if ($mimeType !== 'application/pdf') {
+            return redirect()->back()->withInput()->with('error', 'File harus berformat PDF.');
+        }
+
+        $nomorManual = trim($this->request->getPost('nomor_surat_manual') ?? '');
+        if ($nomorManual !== '') {
+            $existing = $this->model->where('letter_number', $nomorManual)->first();
+            if ($existing) {
+                return redirect()->back()->withInput()->with('error', 'Nomor surat <strong>' . esc($nomorManual) . '</strong> sudah digunakan. Gunakan nomor lain atau kosongkan untuk auto-generate.');
+            }
+        }
+
+        $school   = (new SchoolModel())->first();
+        $settings = new SettingsModel();
+
+        $principalName = $settings->getValue('principal_name') ?? ($school['principal_name'] ?? '-');
+        $principalNip  = $settings->getValue('principal_nip')  ?? ($school['principal_nip']  ?? '-');
+
+        $issuedAt = $this->request->getPost('issued_at');
+        $year     = (int) date('Y', strtotime($issuedAt));
+
+        if ($nomorManual !== '') {
+            $letterNo = $nomorManual;
+            $seq      = 0;
+        } else {
+            $seq      = $this->model->getNextSequenceNumber($year);
+            $padding  = (int) ($settings->getValue('letter_number_padding') ?? 3);
+            $letterNo = OutgoingLetterModel::buildLetterNumber($seq, $year, $padding);
+        }
+
+        $qrCodeId = $this->generateUuid4();
+
+        $letterData = [
+            'original_filename' => $file->getClientName(),
+            'original_path'     => '',
+            'final_path'        => '',
+            'nomor_manual'      => $nomorManual,
+            'catatan'           => trim($this->request->getPost('catatan_eksternal') ?? ''),
+        ];
+
+        $insertData = [
+            'qr_code_id'              => $qrCodeId,
+            'sequence_number'         => $seq,
+            'letter_number'           => $letterNo,
+            'issued_at'               => $issuedAt,
+            'letter_type'             => 'surat_eksternal',
+            'subject'                 => $this->request->getPost('subject'),
+            'sifat'                   => $this->request->getPost('sifat'),
+            'recipient_type'          => $this->request->getPost('recipient_type'),
+            'recipient_ref_id'        => $this->request->getPost('recipient_ref_id') ?: null,
+            'recipient_name'          => $this->request->getPost('recipient_name'),
+            'recipient_detail'        => json_encode($this->extractRecipientDetail()),
+            'is_multi_recipient'      => 0,
+            'recipients'              => null,
+            'letter_data'             => json_encode($letterData),
+            'is_external'             => 1,
+            'principal_name_snapshot' => $principalName,
+            'principal_nip_snapshot'  => $principalNip,
+            'status'                  => 'active',
+            'created_by'              => $userId,
+        ];
+
+        $letterId = $this->model->insert($insertData);
+        if (! $letterId) {
+            return redirect()->back()->withInput()->with('error', 'Gagal menyimpan surat. Silakan coba lagi.');
+        }
+
+        $dir = WRITEPATH . 'uploads/surat_keluar/' . date('Y') . '/' . date('m') . '/';
+        if (! is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+
+        $originalFilename = $letterId . '_original_' . time() . '.pdf';
+        $file->move($dir, $originalFilename);
+        $originalRelPath = 'surat_keluar/' . date('Y') . '/' . date('m') . '/' . $originalFilename;
+
+        $verifyUrl  = base_url('verify/' . $qrCodeId);
+        $qrCode     = new QrCode($verifyUrl, size: 160, margin: 0);
+        $writer     = new PngWriter();
+        $qrResult   = $writer->write($qrCode);
+
+        $tmpDir = WRITEPATH . 'tmp/';
+        if (! is_dir($tmpDir)) {
+            mkdir($tmpDir, 0775, true);
+        }
+        $qrPngPath = $tmpDir . 'qr_' . $letterId . '_' . time() . '.png';
+        $qrResult->saveToFile($qrPngPath);
+
+        $finalFilename = $letterId . '_final_' . time() . '.pdf';
+        $finalFullPath = $dir . $finalFilename;
+        $finalRelPath  = 'surat_keluar/' . date('Y') . '/' . date('m') . '/' . $finalFilename;
+
+        $originalFullPath = $dir . $originalFilename;
+        $overlaySuccess   = $this->overlayQrOnPdf($originalFullPath, $qrPngPath, $finalFullPath);
+
+        if (file_exists($qrPngPath)) {
+            unlink($qrPngPath);
+        }
+
+        $letterData['original_path'] = $originalRelPath;
+        $letterData['final_path']    = $finalRelPath;
+
+        $updateData = ['letter_data' => json_encode($letterData)];
+
+        if ($overlaySuccess && file_exists($finalFullPath)) {
+            $updateData['pdf_path']        = $finalRelPath;
+            $updateData['pdf_url']         = base_url('uploads/' . $finalRelPath);
+            $updateData['file_size_bytes'] = filesize($finalFullPath);
+        } else {
+            $updateData['pdf_path']        = $originalRelPath;
+            $updateData['pdf_url']         = base_url('uploads/' . $originalRelPath);
+            $updateData['file_size_bytes'] = filesize($originalFullPath);
+        }
+
+        $this->model->update($letterId, $updateData);
+
+        return redirect()->to(base_url('admin/surat-keluar/detail/' . $letterId))
+                         ->with('success', 'Surat eksternal <strong>' . esc($letterNo) . '</strong> berhasil diupload!');
+    }
+
+    public function viewPdf(int $id)
+    {
+        $letter = $this->model->find($id);
+        if (! $letter) {
+            return redirect()->back()->with('error', 'Surat tidak ditemukan.');
+        }
+
+        if (! empty($letter['pdf_path']) && file_exists(WRITEPATH . 'uploads/' . $letter['pdf_path'])) {
+            $path = WRITEPATH . 'uploads/' . $letter['pdf_path'];
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: inline; filename="surat_' . $letter['id'] . '.pdf"');
+            readfile($path);
+            exit;
+        }
+
+        return redirect()->back()->with('error', 'File PDF tidak ditemukan.');
     }
 
     private function generateUuid4(): string

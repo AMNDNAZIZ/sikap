@@ -375,29 +375,51 @@ class Students extends BaseController
             ]);
         }
 
-        // update kelas
-        if (!empty($post['class_id'])) {
-            $year = $this->yearModel->where('is_active', 1)->first();
+        // update kelas & status
+        $year = $this->yearModel->where('is_active', 1)->first();
 
-            if ($year) {
-                $record = $this->recordModel
-                    ->where('student_id', $id)
-                    ->where('academic_year_id', $year['id'])
-                    ->first();
+        if ($year) {
+            $newClassId = $post['class_id'] ?? null;
+            $newStatus = $post['status'] ?? null;
 
-                if ($record) {
-                    $this->recordModel->update($record['id'], [
-                        'class_id' => $post['class_id'],
-                        'status' => $record['status'] ?? 'aktif'
-                    ]);
-                } else {
-                    $this->recordModel->insert([
-                        'student_id' => $id,
-                        'academic_year_id' => $year['id'],
-                        'class_id' => $post['class_id'],
-                        'status' => 'aktif'
-                    ]);
+            $record = $this->recordModel
+                ->where('student_id', $id)
+                ->where('academic_year_id', $year['id'])
+                ->first();
+
+            if ($record) {
+                $updateData = [];
+                if (!empty($newClassId)) {
+                    $updateData['class_id'] = $newClassId;
                 }
+                if ($newStatus && $newStatus !== $record['status']) {
+                    $updateData['status'] = $newStatus;
+                    if ($newStatus === 'lulus') {
+                        $updateData['graduation_date'] = date('Y-m-d');
+                    }
+                }
+                if (!empty($updateData)) {
+                    $this->recordModel->update($record['id'], $updateData);
+                }
+
+                // deactivate user account for non-active statuses
+                if ($newStatus && in_array($newStatus, ['lulus', 'dropout', 'nonaktif'])) {
+                    if (!empty($student['user_id'])) {
+                        $this->userModel->update($student['user_id'], ['is_active' => 0]);
+                    }
+                } elseif ($newStatus === 'aktif' && in_array($record['status'], ['lulus', 'dropout', 'nonaktif'])) {
+                    // reactivate if changed back to aktif
+                    if (!empty($student['user_id'])) {
+                        $this->userModel->update($student['user_id'], ['is_active' => 1]);
+                    }
+                }
+            } elseif (!empty($newClassId)) {
+                $this->recordModel->insert([
+                    'student_id' => $id,
+                    'academic_year_id' => $year['id'],
+                    'class_id' => $newClassId,
+                    'status' => 'aktif'
+                ]);
             }
         }
 

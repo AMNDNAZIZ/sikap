@@ -50,6 +50,11 @@ class Auth extends BaseController
             ->first();
 
         if ($user && password_verify($password, $user['password'])) {
+            // ✅ Check if account is deactivated
+            if (isset($user['is_active']) && $user['is_active'] == 0) {
+                return redirect()->back()->with('error', 'Akun Anda telah dinonaktifkan. Hubungi administrator sekolah.');
+            }
+
             // ✅ Clear login attempts on successful login
             cache()->delete($cacheKey);
             cache()->delete($lockoutKey);

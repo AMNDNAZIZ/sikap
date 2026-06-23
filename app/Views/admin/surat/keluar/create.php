@@ -38,9 +38,14 @@
     <h2 class="h4 fw-bold mb-0"><i class="bi bi-envelope-plus me-2 text-primary"></i>Buat Surat Keluar</h2>
     <small class="text-muted">Pilih jenis surat dan isi field yang diperlukan</small>
   </div>
-  <a href="<?= base_url('admin/surat-keluar') ?>" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-arrow-left me-1"></i>Kembali
-  </a>
+  <div class="d-flex gap-2">
+    <a href="<?= base_url('admin/surat-keluar/create-eksternal') ?>" class="btn btn-outline-info btn-sm">
+      <i class="bi bi-upload me-1"></i>Upload PDF Eksternal
+    </a>
+    <a href="<?= base_url('admin/surat-keluar') ?>" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Kembali
+    </a>
+  </div>
 </div>
 
 <?php if (session()->getFlashdata('errors') || isset($errors)): ?>
@@ -1055,7 +1060,7 @@ $('#btn-preview-surat').on('click', function() {
   let kopHtml = '';
   if (KOP_BASE64) {
     kopHtml = `<div style="width:100%;text-align:center;margin-bottom:4px;">
-                 <img src="${KOP_BASE64}" style="width:100%;height:auto;display:block;">
+                 <img src="${KOP_BASE64}" style="width:100%;height:auto;display:block;margin:0 auto;">
                </div>
                <div style="border-top:2px solid #000;margin-top:5px;margin-bottom:20px;"></div>`;
   } else {

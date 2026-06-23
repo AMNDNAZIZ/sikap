@@ -7,7 +7,7 @@ use App\Models\StudentModel;
 use App\Models\TeacherModel;
 use App\Models\UserModel;
 use App\Models\AcademicYearModel;
-use App\Models\StudentAcademicRecordModel;
+use App\Models\StudentRecordModel;
 use App\Models\ClassModel;
 
 class DapodikApi extends BaseController
@@ -25,7 +25,7 @@ class DapodikApi extends BaseController
         $this->teacherModel = new TeacherModel();
         $this->userModel = new UserModel();
         $this->yearModel = new AcademicYearModel();
-        $this->recordModel = new StudentAcademicRecordModel();
+        $this->recordModel = new StudentRecordModel();
         $this->classModel = new ClassModel();
     }
 
