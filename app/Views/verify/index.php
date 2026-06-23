@@ -66,6 +66,11 @@
           Surat ini diterbitkan secara resmi oleh <strong>SDN Mangga Besar 11 Pagi</strong>
           dan dapat dipertanggungjawabkan keasliannya.
         </p>
+        <?php if (($letter['letter_type'] ?? '') === 'surat_eksternal'): ?>
+        <p class="text-muted small fst-italic">
+          <i class="bi bi-info-circle me-1"></i>Surat ini diunggah dari dokumen eksternal dan telah diverifikasi oleh sistem SIKAP.
+        </p>
+        <?php endif; ?>
 
       <?php elseif ($status === 'revoked'): ?>
         <div class="badge bg-danger badge-status mb-4 d-inline-block">

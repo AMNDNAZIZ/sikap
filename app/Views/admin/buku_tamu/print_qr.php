@@ -16,21 +16,24 @@
     }
     body { background: #f8fafc; font-family: 'Segoe UI', sans-serif; }
     .qr-card {
-      max-width: 420px;
+      max-width: 580px; /* Diperbesar agar muat komponen yang lebih besar */
       margin: 40px auto;
       background: white;
       border-radius: 20px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-      padding: 2rem;
+      padding: 2.5rem;
       text-align: center;
     }
-    .school-logo { width: 70px; height: 70px; object-fit: contain; }
+    .qr-card h1 {
+      font-size: 1.875rem !important; /* Diperbesar 50% dari 1.25rem */
+    }
+    .school-logo { width: 105px; height: 105px; object-fit: contain; } /* Diperbesar 150% dari 70px */
     .qr-wrapper {
       background: white;
-      border: 3px solid #1a6fc4;
-      border-radius: 16px;
-      padding: 1rem;
-      margin: 1.5rem auto;
+      border: 4px solid #1a6fc4;
+      border-radius: 20px;
+      padding: 1.2rem;
+      margin: 2rem auto;
       display: inline-block;
       line-height: 0; /* remove gap below canvas */
     }
@@ -41,12 +44,12 @@
       background: #f0f7ff;
       border: 1px solid #bfdbfe;
       border-radius: 8px;
-      padding: 0.5rem 1rem;
-      font-size: 0.85rem;
+      padding: 0.75rem 1.25rem;
+      font-size: 1.275rem; /* Diperbesar 50% dari 0.85rem */
       word-break: break-all;
       color: #1e40af;
     }
-    .instruction { font-size: 0.9rem; color: #555; line-height: 1.6; }
+    .instruction { font-size: 1.35rem; color: #555; line-height: 1.6; } /* Diperbesar 50% dari 0.9rem */
   </style>
 </head>
 <body>
@@ -58,7 +61,7 @@
       <img src="<?= base_url('uploads/logo/' . $school['logo']) ?>" alt="Logo" class="school-logo mb-2">
     <?php endif; ?>
     <h1 class="h5 fw-bold text-primary mb-0"><?= esc($school['name'] ?? 'Buku Tamu Digital') ?></h1>
-    <p class="text-muted mb-3" style="font-size:0.85rem;">Scan untuk mengisi buku tamu</p>
+    <p class="text-muted mb-3" style="font-size:1.275rem;">Scan untuk mengisi buku tamu</p>
 
     <!-- QR Code — di-render oleh qrcodejs di browser -->
     <div class="qr-wrapper">
@@ -89,8 +92,8 @@
     // qrcodejs API: new QRCode(element, options)
     new QRCode(document.getElementById('qrcode'), {
       text:         <?= json_encode($url) ?>,
-      width:        220,
-      height:       220,
+      width:        308,
+      height:       308,
       colorDark:    '#000000',
       colorLight:   '#ffffff',
       correctLevel: QRCode.CorrectLevel.H

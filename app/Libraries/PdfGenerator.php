@@ -80,6 +80,10 @@ class PdfGenerator
         $options->set('defaultFont', 'DejaVu Sans');
 
         $dompdf = new Dompdf($options);
+        $dompdf->set_option('margin_left', 10);
+        $dompdf->set_option('margin_right', 10);
+        $dompdf->set_option('margin_top', 10);
+        $dompdf->set_option('margin_bottom', 10);
         $dompdf->loadHtml($html);
         $dompdf->setPaper($paper, $orientation);
         $dompdf->render();

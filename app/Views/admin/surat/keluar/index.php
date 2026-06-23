@@ -6,9 +6,18 @@
     <h2 class="h4 fw-bold mb-0"><i class="bi bi-envelope-paper me-2 text-primary"></i>Surat Keluar</h2>
     <small class="text-muted">Kelola pembuatan dan arsip surat keluar sekolah</small>
   </div>
-  <a href="<?= base_url('admin/surat-keluar/create') ?>" class="btn btn-primary btn-sm" id="btn-buat-surat">
-    <i class="bi bi-plus-circle me-1"></i>Buat Surat Baru
-  </a>
+  <div class="btn-group">
+    <a href="<?= base_url('admin/surat-keluar/create') ?>" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-circle me-1"></i>Buat Surat Baru
+    </a>
+    <button type="button" class="btn btn-primary btn-sm dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+      <span class="visually-hidden">Toggle Dropdown</span>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li><a class="dropdown-item" href="<?= base_url('admin/surat-keluar/create') ?>"><i class="bi bi-pencil-square me-2"></i>Buat via Sistem</a></li>
+      <li><a class="dropdown-item" href="<?= base_url('admin/surat-keluar/create-eksternal') ?>"><i class="bi bi-upload me-2"></i>Upload Surat Eksternal</a></li>
+    </ul>
+  </div>
 </div>
 
 <?php if (session()->getFlashdata('success')): ?>
@@ -134,7 +143,13 @@
                 <td><?= ($filter['page'] - 1) * $filter['limit'] + $i + 1 ?></td>
                 <td class="fw-semibold font-monospace"><?= esc($l['letter_number']) ?></td>
                 <td><?= date('d/m/Y', strtotime($l['issued_at'])) ?></td>
-                <td><span class="badge bg-secondary"><?= esc($letter_types[$l['letter_type']] ?? $l['letter_type']) ?></span></td>
+                <td>
+                  <?php if ($l['letter_type'] === 'surat_eksternal'): ?>
+                    <span class="badge bg-info"><i class="bi bi-upload me-1"></i>Eksternal</span>
+                  <?php else: ?>
+                    <span class="badge bg-secondary"><?= esc($letter_types[$l['letter_type']] ?? $l['letter_type']) ?></span>
+                  <?php endif; ?>
+                </td>
                 <td><?= esc($l['recipient_name']) ?></td>
                 <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
                     title="<?= esc($l['subject']) ?>"><?= esc($l['subject']) ?></td>

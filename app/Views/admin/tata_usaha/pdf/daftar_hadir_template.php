@@ -4,20 +4,20 @@
     <meta charset="UTF-8">
     <title>Daftar Hadir</title>
     <style>
-        body        { font-family: Arial, sans-serif; font-size: 11px; color: #000; margin: 0; }
-        h3          { text-align: center; font-size: 13px; margin: 4px 0 2px 0; text-transform: uppercase; font-weight: bold; }
-        .sub-title  { text-align: center; font-size: 10px; color: #444; margin-bottom: 10px; }
+        body        { font-family: Arial, sans-serif; font-size: 14px; color: #000; margin: 0; }
+        h3          { text-align: center; font-size: 18px; margin: 2px 0 1px 0; text-transform: uppercase; font-weight: bold; }
+        .sub-title  { text-align: center; font-size: 16px; color: #444; margin-bottom: 6px; }
 
-        table { border-collapse: collapse; width: 100%; font-size: 10px; }
-        th, td { border: 1px solid #000; padding: 4px 5px; }
+        table { border-collapse: collapse; width: 100%; font-size: 13px; }
+        th, td { border: 1px solid #000; padding: 2px 4px; }
         th { background-color: #f0f0f0; font-weight: bold; text-align: center; }
         td { text-align: left; }
         td.center { text-align: center; }
-        td.ttd     { height: 45px; min-width: 70px; }
+        td.ttd     { height: 28px; min-width: 70px; }
 
         /* Tanda tangan kepala sekolah — pojok kanan bawah */
-        .ttd-wrapper { margin-top: 24px; width: 220px; float: right; text-align: center; page-break-inside: avoid; }
-        .ttd-wrapper .ttd-line { margin-top: 56px; border-top: 1px solid #000; width: 100%; display: block; }
+        .ttd-wrapper { margin-top: 12px; width: 220px; float: right; text-align: center; page-break-inside: avoid; font-size: 14px; }
+        .ttd-wrapper .ttd-line { margin-top: 40px; border-top: 1px solid #000; width: 100%; display: block; }
         .ttd-clearfix { clear: both; }
 
         /* Pemisah antar kelas */
@@ -57,15 +57,15 @@ foreach ($siswaPerKelas as $kelasIdx => $kelasData):
 <div class="kelas-section">
 
     <?php if (!empty($kop_base64)): ?>
-        <div style="width:100%; text-align:center; margin-bottom:4px;">
+        <div style="width:auto; margin:0 -30px 4px -30px; text-align:center;">
             <img src="<?= $kop_base64 ?>" style="width:100%; height:auto; display:block; margin:0 auto;" />
         </div>
-        <div style="border-top:2px solid #000; margin-top:5px; margin-bottom:12px;"></div>
+        <div style="border-top:2px solid #000; margin:5px -30px 12px -30px;"></div>
     <?php endif; ?>
 
     <h3>Daftar Hadir Kegiatan</h3>
     <?php if (!empty($namaKegiatan)): ?>
-        <h3 style="font-size:12px; margin: 0 0 2px 0;"><?= esc(strtoupper($namaKegiatan)) ?></h3>
+        <h3 style="font-size:18px; margin: 0 0 2px 0;"><?= esc(strtoupper($namaKegiatan)) ?></h3>
     <?php endif; ?>
     <div class="sub-title">
         Kelas: <strong><?= esc($namaKelas) ?></strong>

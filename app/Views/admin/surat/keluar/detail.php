@@ -76,7 +76,46 @@ $isRevoked = $letter['status'] === 'revoked';
     </div>
 
     <!-- Data Spesifik Surat -->
-    <?php if ($letter['letter_type'] === 'surat_custom' && !empty($processed_body)): ?>
+    <?php if ($letter['letter_type'] === 'surat_eksternal'): ?>
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-info bg-opacity-10 fw-semibold py-2">
+        <i class="bi bi-file-earmark-pdf me-2"></i>Surat Eksternal / Upload
+        <span class="badge bg-info ms-2">PDF Upload</span>
+      </div>
+      <div class="card-body">
+        <?php
+        $origFilename = $letter['letter_data']['original_filename'] ?? '-';
+        $fileSize     = !empty($letter['file_size_bytes']) ? round($letter['file_size_bytes'] / 1024) . ' KB' : '-';
+        $nomorManual  = $letter['letter_data']['nomor_manual'] ?? '';
+        $catatan      = $letter['letter_data']['catatan'] ?? '';
+        ?>
+        <table class="table table-sm table-borderless mb-3">
+          <tr><th width="160" class="text-muted">File Asli</th><td><i class="bi bi-file-earmark-pdf text-danger me-1"></i><?= esc($origFilename) ?></td></tr>
+          <tr><th class="text-muted">Ukuran PDF</th><td><?= $fileSize ?></td></tr>
+          <?php if ($nomorManual): ?>
+          <tr><th class="text-muted">Nomor Manual</th><td class="font-monospace"><?= esc($nomorManual) ?></td></tr>
+          <?php endif; ?>
+          <?php if ($catatan): ?>
+          <tr><th class="text-muted">Catatan</th><td><?= esc($catatan) ?></td></tr>
+          <?php endif; ?>
+        </table>
+
+        <?php if (!empty($letter['pdf_path'])): ?>
+        <div class="border rounded overflow-hidden">
+          <iframe src="<?= base_url('admin/surat-keluar/view-pdf/' . $letter['id']) ?>"
+                  width="100%" height="500" style="border:none;" loading="lazy"></iframe>
+        </div>
+        <small class="text-muted mt-2 d-block">
+          <i class="bi bi-info-circle me-1"></i>Preview PDF final dengan QR Code verifikasi di pojok kiri bawah.
+        </small>
+        <?php else: ?>
+        <div class="alert alert-warning py-2 small mb-0">
+          <i class="bi bi-exclamation-triangle me-1"></i>File PDF belum berhasil digenerate. Silakan coba download ulang.
+        </div>
+        <?php endif; ?>
+      </div>
+    </div>
+    <?php elseif ($letter['letter_type'] === 'surat_custom' && !empty($processed_body)): ?>
     <div class="card border-0 shadow-sm mb-4">
       <div class="card-header bg-light fw-semibold py-2">
         <i class="bi bi-file-richtext me-2"></i>Preview Isi Surat Custom

@@ -129,7 +129,6 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('students/update/(:num)', 'Students::update/$1', $auth127);
     $routes->post('students/delete/(:num)', 'Students::delete/$1', $auth127);
     $routes->get('students/show/(:num)', 'Students::show/$1', $auth127);
-    $routes->post('students/updateStatus/(:num)', 'Students::updateStatus/$1', $auth127);
     $routes->post('students/import', 'Students::import', $auth127);
     $routes->get('students/download-template', 'Students::downloadTemplate', $auth127);
 
@@ -153,12 +152,22 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('placement/store', 'Placement::store', $auth127);
 
     $routes->get('promotions', 'Promotions::index', $auth127);
-    $routes->post('promotions/promote', 'Promotions::promote', $auth127);
-    $routes->post('promotions/graduate', 'Promotions::graduate', $auth127);
+    $routes->post('promotions/process', 'Promotions::process', $auth127);
 
     $routes->get('student-records', 'StudentRecords::index', $auth127);
     $routes->get('student-records/(:num)', 'StudentRecords::index/$1', $auth127);
-    $routes->post('student-records/update-status/(:num)', 'StudentRecords::updateStatus/$1', $auth127);
+
+    $routes->get('alumni', 'Alumni::index', $auth127);
+    $routes->get('alumni/export-pdf', 'Alumni::exportPdf', $auth127);
+
+    $routes->get('student-mutation', 'StudentMutation::index', $auth127);
+    $routes->get('student-mutation/create', 'StudentMutation::create', $auth127);
+    $routes->post('student-mutation/store', 'StudentMutation::store', $auth127);
+    $routes->get('student-mutation/show/(:num)', 'StudentMutation::show/$1', $auth127);
+    $routes->post('student-mutation/approve/(:num)', 'StudentMutation::approve/$1', $auth127);
+    $routes->post('student-mutation/reject/(:num)', 'StudentMutation::reject/$1', $auth127);
+    $routes->get('student-mutation/print/(:num)', 'StudentMutation::print/$1', $auth127);
+    $routes->post('student-mutation/delete/(:num)', 'StudentMutation::delete/$1', $auth127);
 
     // Wali Kelas Students (Guru only)
     $routes->get('wali-kelas-students', 'WaliKelasStudents::index', ['filter' => 'auth:3']);
@@ -281,6 +290,10 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('tata-usaha/cetak-daftar-hadir', 'TataUsaha::cetakDaftarHadir', $auth127);
     $routes->post('tata-usaha/cetak-daftar-hadir/generate', 'TataUsaha::generatePDF', $auth127);
 
+    // KOP Surat Settings
+    $routes->get('settings/kop-surat', 'SettingsController::kopSurat', $auth127);
+    $routes->post('settings/kop-surat/upload', 'SettingsController::uploadKopSurat', $auth127);
+
     // Surat Masuk
     $routes->get('surat-masuk', 'SuratMasuk::index', $auth127);
     $routes->get('surat-masuk/create', 'SuratMasuk::create', $auth127);
@@ -289,7 +302,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('surat-masuk/edit/(:num)', 'SuratMasuk::edit/$1', $auth127);
     $routes->post('surat-masuk/update/(:num)', 'SuratMasuk::update/$1', $auth127);
     $routes->get('surat-masuk/delete/(:num)', 'SuratMasuk::delete/$1', $auth127);
-    $routes->get('surat-masuk/view-scan/(:num)', 'SuratMasuk::viewScan/$1', $auth127);
+    $routes->get('surat-masuk/scan/(:num)', 'SuratMasuk::viewScan/$1', $auth127);
 
     // Surat Keluar
     $routes->get('surat-keluar', 'SuratKeluar::index', $auth127);
@@ -301,6 +314,9 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('surat-keluar/revoke/(:num)', 'SuratKeluar::revoke/$1', $auth127);
     $routes->get('surat-keluar/search-siswa', 'SuratKeluar::searchSiswa', $auth127);
     $routes->get('surat-keluar/search-guru', 'SuratKeluar::searchGuru', $auth127);
+    $routes->get('surat-keluar/create-eksternal', 'SuratKeluar::createEksternal', $auth127);
+    $routes->post('surat-keluar/store-eksternal', 'SuratKeluar::storeEksternal', $auth127);
+    $routes->get('surat-keluar/view-pdf/(:num)', 'SuratKeluar::viewPdf/$1', $auth127);
 
     // Agenda Surat
     $routes->get('agenda-surat', 'AgendaSurat::index', $auth127);
