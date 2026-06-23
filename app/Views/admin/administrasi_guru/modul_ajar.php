@@ -141,7 +141,12 @@
                     <?php $no = 1; foreach ($atp_list as $atp): ?>
                         <tr>
                             <td class="text-center fw-bold"><?= $no++ ?></td>
-                            <td class="fw-bold text-success"><?= esc($atp['elemen']) ?></td>
+                            <td class="fw-bold text-success">
+                                <?php foreach ($atp['elemen_list'] ?? [] as $el): ?>
+                                    <div><?= esc($el['elemen'] ?? '-') ?></div>
+                                <?php endforeach; ?>
+                                <?php if (empty($atp['elemen_list'])): ?>-<?php endif; ?>
+                            </td>
                             <td>
                                 <strong><?= esc($atp['lingkup_materi']) ?></strong>
                                 <?php if (!empty($atp['tps'])): ?>

@@ -7,7 +7,7 @@
   <div class="alert alert-danger"><?= session()->getFlashdata('error') ?></div>
 <?php endif; ?>
 
-<form method="get" action="<?= base_url('admin/attendance/view') ?>" class="mt-3 row g-3">
+<form method="get" id="form-laporan" action="<?= base_url('admin/attendance/view') ?>" class="mt-3 row g-3">
 
   <?php if (!empty($classes)): ?>
     <div class="col-md-4">
@@ -25,9 +25,9 @@
     <label for="jenis_laporan" class="form-label">Jenis Laporan</label>
     <select name="jenis_laporan" id="jenis_laporan" class="form-select" required>
       <option value="bulan">Bulanan</option>
-      <option value="semester1">Semester 1 (Juli - Desember)</option>
-      <option value="semester2">Semester 2 (Januari - Juni)</option>
-      <option value="tahun">Tahunan (Juli - Juni)</option>
+      <option value="semester1">Rekap Semester 1 (Juli – Desember)</option>
+      <option value="semester2">Rekap Semester 2 (Januari – Juni)</option>
+      <option value="tahun">Rekap Tahunan (Juli – Juni)</option>
     </select>
   </div>
 
@@ -43,14 +43,22 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('form-laporan');
     const jenisSelect = document.getElementById('jenis_laporan');
     const bulanGroup = document.getElementById('bulan-group');
 
     function toggleBulan() {
-      if (jenisSelect.value === 'bulan') {
-        bulanGroup.style.display = 'block';
+      const isRekap = ['semester1', 'semester2', 'tahun'].includes(jenisSelect.value);
+      bulanGroup.style.display = isRekap ? 'none' : 'block';
+
+      // Arahkan form ke endpoint yang sesuai
+      if (jenisSelect.value === 'semester1' || jenisSelect.value === 'semester2') {
+        form.action = '<?= base_url('admin/attendance/rekap') ?>';
+        // Ganti nama field agar sesuai dengan parameter rekap()
+        jenisSelect.name = 'periode';
       } else {
-        bulanGroup.style.display = 'none';
+        form.action = '<?= base_url('admin/attendance/view') ?>';
+        jenisSelect.name = 'jenis_laporan';
       }
     }
 

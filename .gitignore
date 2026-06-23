@@ -5,8 +5,7 @@
 /writable/logs/*
 /writable/session/*
 /writable/uploads/*
-/writable/backups/*
-/writable/exports/*
+/writable/debugbar/*
 !/writable/cache/index.html
 !/writable/debugbar/index.html
 !/writable/logs/index.html

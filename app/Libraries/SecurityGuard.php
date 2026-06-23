@@ -11,6 +11,22 @@ class SecurityGuard
     private static ?bool $verifyCache = null;
 
     /**
+     * Daftar file kritikal yang dijaga integritasnya.
+     * HANYA file lisensi — jangan masukkan file konfigurasi aplikasi biasa.
+     */
+    private static function getCriticalFiles(): array
+    {
+        return [
+            'Helpers/license_helper.php',
+            'Libraries/LicenseGuard.php',
+            'Libraries/SecurityGuard.php',
+            'Libraries/SecureConfig.php',
+            'Filters/LicenseFilter.php',
+            'Models/LicenseModel.php',
+        ];
+    }
+
+    /**
      * Verify that critical files haven't been modified.
      * Hasil di-cache dalam satu request untuk performa.
      */
@@ -21,16 +37,7 @@ class SecurityGuard
             return self::$verifyCache;
         }
 
-        $criticalFiles = [
-            'Helpers/license_helper.php',
-            'Libraries/LicenseGuard.php',
-            'Libraries/SecurityGuard.php',
-            'Libraries/SecureConfig.php',
-            'Filters/LicenseFilter.php',
-            'Models/LicenseModel.php',
-            'Config/Filters.php',
-        ];
-
+        $criticalFiles = self::getCriticalFiles();
         $hashFile = APPPATH . 'Config/.security_hash';
 
         if (!file_exists($hashFile)) {
@@ -87,15 +94,7 @@ class SecurityGuard
      */
     public static function generateSecurityHashes(): bool
     {
-        $criticalFiles = [
-            'Helpers/license_helper.php',
-            'Libraries/LicenseGuard.php',
-            'Libraries/SecurityGuard.php',
-            'Libraries/SecureConfig.php',
-            'Filters/LicenseFilter.php',
-            'Models/LicenseModel.php',
-            'Config/Filters.php',
-        ];
+        $criticalFiles = self::getCriticalFiles();
 
         $hashes = [];
         foreach ($criticalFiles as $file) {

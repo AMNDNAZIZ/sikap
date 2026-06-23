@@ -27,22 +27,6 @@ class Auth extends BaseController
         $login = $this->request->getPost('username');
         $password = $this->request->getPost('password');
 
-        // ✅ Rate limiting - Check login attempts
-        $ip = $this->request->getIPAddress();
-        // Sanitize IP address for cache key (remove invalid characters)
-        $sanitizedIp = str_replace([':', '.', '/'], '_', $ip);
-        $cacheKey = "login_attempts_{$sanitizedIp}";
-        $lockoutKey = "login_lockout_{$sanitizedIp}";
-        
-        $attempts = cache()->get($cacheKey) ?? 0;
-        $lockoutTime = cache()->get($lockoutKey);
-        
-        // Check if IP is locked out
-        if ($lockoutTime && time() < $lockoutTime) {
-            $remainingTime = ceil(($lockoutTime - time()) / 60);
-            return redirect()->back()->with('error', "Terlalu banyak percobaan login. Silakan coba lagi dalam {$remainingTime} menit.");
-        }
-
         $user = $model->groupStart()
             ->where('username', $login)
             ->orWhere('email', $login)
@@ -50,16 +34,12 @@ class Auth extends BaseController
             ->first();
 
         if ($user && password_verify($password, $user['password'])) {
-            // ✅ Check if account is deactivated
+            // Check if account is deactivated
             if (isset($user['is_active']) && $user['is_active'] == 0) {
                 return redirect()->back()->with('error', 'Akun Anda telah dinonaktifkan. Hubungi administrator sekolah.');
             }
 
-            // ✅ Clear login attempts on successful login
-            cache()->delete($cacheKey);
-            cache()->delete($lockoutKey);
-            
-            // ✅ Regenerate session ID to prevent session fixation
+            // Regenerate session ID to prevent session fixation
             $session->regenerate();
             
             $sessionData = [
@@ -89,7 +69,7 @@ class Auth extends BaseController
                         ->getRowArray();
 
                     if ($class) {
-                        $sessionData['class_id'] = $class['id']; // simpan ke session
+                        $sessionData['class_id'] = $class['id'];
                     }
                 }
             }
@@ -101,7 +81,6 @@ class Auth extends BaseController
 
             $session->set('user', $sessionData);
             $session->set('logged_in', true);
-            // ✅ Set last activity timestamp for session timeout
             $session->set('last_activity', time());
 
             // 🔒 Check if user must change password
@@ -113,18 +92,7 @@ class Auth extends BaseController
             return redirect()->to('/dashboard');
         }
 
-        // ✅ Increment login attempts on failed login
-        $attempts++;
-        cache()->save($cacheKey, $attempts, 900); // 15 minutes
-        
-        // ✅ Lock out after 5 failed attempts
-        if ($attempts >= 5) {
-            cache()->save($lockoutKey, time() + 900, 900); // Lock for 15 minutes
-            return redirect()->back()->with('error', 'Terlalu banyak percobaan login gagal. Akun Anda dikunci selama 15 menit.');
-        }
-        
-        $remainingAttempts = 5 - $attempts;
-        return redirect()->back()->with('error', "Username atau password salah. Sisa percobaan: {$remainingAttempts}");
+        return redirect()->back()->with('error', 'Username atau password salah. Silakan coba lagi.');
     }
 
     public function logout()
