@@ -180,11 +180,21 @@ class TeachingJournalController extends BaseController
         $classInfo = $this->classModel->find($classId);
         if (!$classInfo) return $this->response->setJSON([]);
 
-        // Query ATP berdasarkan level kelas (struktur baru — tanpa JOIN cp_master di header)
+        // Query ATP berdasarkan level kelas
+        // Pakai subquery WHERE IN untuk filter level agar tidak ada baris yang hilang
+        $classIdsAtLevel = $this->db->table('classes')
+            ->select('id')
+            ->where('level', $classInfo['level'])
+            ->get()->getResultArray();
+        $classIdsAtLevel = array_column($classIdsAtLevel, 'id');
+
+        if (empty($classIdsAtLevel)) {
+            return $this->response->setJSON([]);
+        }
+
         $atps = $this->db->table('alur_tujuan_pembelajaran atp')
             ->select('atp.id, atp.lingkup_materi, atp.semester, atp.urutan')
-            ->join('classes c_atp', 'c_atp.id = atp.class_id', 'left')
-            ->where('c_atp.level', $classInfo['level'])
+            ->whereIn('atp.class_id', $classIdsAtLevel)
             ->where('atp.subject_id', $subjectId)
             ->groupBy('atp.id')
             ->orderBy('atp.semester', 'ASC')
