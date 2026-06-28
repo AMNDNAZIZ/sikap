@@ -170,7 +170,7 @@ class TeachingJournalController extends BaseController
 
     public function getAtps()
     {
-        $classId = $this->request->getGet('class_id');
+        $classId   = $this->request->getGet('class_id');
         $subjectId = $this->request->getGet('subject_id');
 
         if (!$classId || !$subjectId) {
@@ -180,13 +180,33 @@ class TeachingJournalController extends BaseController
         $classInfo = $this->classModel->find($classId);
         if (!$classInfo) return $this->response->setJSON([]);
 
+        // Query ATP berdasarkan level kelas (struktur baru — tanpa JOIN cp_master di header)
         $atps = $this->atpModel
-            ->select('alur_tujuan_pembelajaran.id, alur_tujuan_pembelajaran.lingkup_materi, cp_master.elemen')
-            ->join('cp_master', 'cp_master.id = alur_tujuan_pembelajaran.cp_master_id')
+            ->select('alur_tujuan_pembelajaran.id, alur_tujuan_pembelajaran.lingkup_materi, alur_tujuan_pembelajaran.semester')
             ->join('classes c_atp', 'c_atp.id = alur_tujuan_pembelajaran.class_id', 'left')
             ->where('c_atp.level', $classInfo['level'])
             ->where('alur_tujuan_pembelajaran.subject_id', $subjectId)
+            ->groupBy('alur_tujuan_pembelajaran.id')
+            ->orderBy('alur_tujuan_pembelajaran.semester', 'ASC')
+            ->orderBy('alur_tujuan_pembelajaran.urutan', 'ASC')
             ->findAll();
+
+        // Untuk setiap ATP, ambil daftar elemen CP dari atp_elemen
+        foreach ($atps as &$atp) {
+            $elemens = $this->db->table('atp_elemen ae')
+                ->select('cp.elemen')
+                ->join('cp_master cp', 'cp.id = ae.cp_master_id')
+                ->where('ae.atp_id', $atp['id'])
+                ->orderBy('ae.urutan', 'ASC')
+                ->get()->getResultArray();
+
+            // Gabungkan nama elemen jadi satu string
+            $elemenNames = array_column($elemens, 'elemen');
+            $atp['elemen'] = !empty($elemenNames)
+                ? implode(', ', $elemenNames)
+                : '-';
+        }
+        unset($atp);
 
         return $this->response->setJSON($atps);
     }

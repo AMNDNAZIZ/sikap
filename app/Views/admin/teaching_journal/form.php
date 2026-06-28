@@ -43,11 +43,12 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label fw-bold">Elemen Modul (ATP)</label>
+                            <label class="form-label fw-bold">Lingkup Materi / ATP</label>
                             <select name="atp_id" id="atp_id" class="form-select" required>
-                                <option value="">-- Pilih Elemen --</option>
+                                <option value="">-- Pilih Materi --</option>
                                 <!-- Will be loaded via AJAX -->
                             </select>
+                            <small class="text-muted">Format: Sem[X] | Lingkup Materi (Elemen CP)</small>
                         </div>
 
                         <div class="col-12">
@@ -84,7 +85,7 @@
                         data.forEach(atp => {
                             const option = document.createElement('option');
                             option.value = atp.id;
-                            option.textContent = `${atp.elemen} - ${atp.lingkup_materi}`;
+                            option.textContent = `Sem${atp.semester} | ${atp.lingkup_materi} (${atp.elemen})`;
                             if (atp.id == currentAtpId) {
                                 option.selected = true;
                             }
