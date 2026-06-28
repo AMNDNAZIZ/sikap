@@ -47,7 +47,7 @@ $monthLabel = date('F Y', strtotime($month . '-01'));
                                 <th>Kelas</th>
                                 <th>Mata Pelajaran</th>
                                 <th>Waktu</th>
-                                <th class="text-center">JP</th>
+                                <th class="text-center">JP ke</th>
                                 <th>Keterangan</th>
                             </tr>
                         </thead>
@@ -65,7 +65,7 @@ $monthLabel = date('F Y', strtotime($month . '-01'));
                                         <?= esc(substr($d['start_time'], 0, 5)) ?> –
                                         <?= esc(substr($d['end_time'], 0, 5)) ?>
                                     </td>
-                                    <td class="text-center"><?= $d['jp'] ?></td>
+                                    <td class="text-center fw-bold">JP <?= esc($d['jp_ke']) ?></td>
                                     <td><?= esc($d['keterangan'] ?? '-') ?></td>
                                 </tr>
                             <?php endforeach; ?>

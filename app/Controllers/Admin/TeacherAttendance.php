@@ -32,16 +32,22 @@ class TeacherAttendance extends BaseController
     // -----------------------------------------------------------------------
 
     /**
-     * Hitung JP dari start_time & end_time.
-     * 1 JP = 45 menit, dibulatkan ke atas.
+     * Hitung JP dari durasi slot secara cerdas.
+     * Kisaran 1 JP = 30-45 menit, 2 JP = 60-90 menit, 3 JP = 91-135 menit.
+     * Untuk 90 menit (ambigu 2 atau 3 JP): pilih yang lebih sedikit (2 JP).
      */
     private function hitungJP(string $start, string $end): int
     {
-        $diffSec = strtotime($end) - strtotime($start);
-        if ($diffSec <= 0) {
-            return 0;
-        }
-        return (int) ceil($diffSec / (45 * 60));
+        $menit = (strtotime($end) - strtotime($start)) / 60;
+        if ($menit <= 0) return 0;
+
+        // Jarak ke setiap kemungkinan JP (pakai rata-rata 37.5 menit/JP)
+        $jp = max(1, min(3, (int) round($menit / 37.5)));
+
+        // Validasi ekstra: 90 menit → pilih 2 JP (lebih sedikit = lebih aman)
+        if ($menit == 90) $jp = 2;
+
+        return $jp;
     }
 
     /**
@@ -115,9 +121,9 @@ class TeacherAttendance extends BaseController
         $start = strtotime($monthStart);
         $end   = strtotime($monthEnd);
 
-        // Ambil semua record TH untuk bulan ini (semua guru)
+        // Ambil semua record TH untuk bulan ini (semua guru), per jp_ke
         $thRecords = $db->table('teacher_attendances ta')
-            ->select('ta.schedule_id, ta.date')
+            ->select('ta.schedule_id, ta.date, ta.jp_ke')
             ->join('schedules s', 's.id = ta.schedule_id')
             ->where('ta.status', 'TH')
             ->where('ta.date >=', $monthStart)
@@ -125,10 +131,10 @@ class TeacherAttendance extends BaseController
             ->get()
             ->getResultArray();
 
-        // Map: schedule_id + date => TH
+        // Map: schedule_id + date + jp_ke => TH
         $thMap = [];
         foreach ($thRecords as $r) {
-            $thMap[$r['schedule_id'] . '_' . $r['date']] = true;
+            $thMap[$r['schedule_id'] . '_' . $r['date'] . '_' . $r['jp_ke']] = true;
         }
 
         // Holidays dalam bulan
@@ -169,9 +175,12 @@ class TeacherAttendance extends BaseController
                     $totalJP  += $jp;
                     $totalSlot++;
 
-                    $key = $s['id'] . '_' . $dateStr;
-                    if (isset($thMap[$key])) {
-                        $jpTH += $jp;
+                    // Hitung TH per JP-ke dalam slot ini
+                    for ($jpKe = 1; $jpKe <= $jp; $jpKe++) {
+                        $key = $s['id'] . '_' . $dateStr . '_' . $jpKe;
+                        if (isset($thMap[$key])) {
+                            $jpTH++;
+                        }
                     }
                 }
             }
@@ -227,9 +236,15 @@ class TeacherAttendance extends BaseController
         // Ambil semua jadwal hari ini di tahun ajaran aktif
         $schedules = $this->scheduleModel->getScheduleForDay($dayOfWeek, [], $activeYear['id']);
 
-        // Tambahkan JP ke tiap jadwal
+        // Tambahkan JP dan baris per-JP ke tiap jadwal
         foreach ($schedules as &$s) {
-            $s['jp'] = $this->hitungJP($s['start_time'], $s['end_time']);
+            $totalJP = $this->hitungJP($s['start_time'], $s['end_time']);
+            $s['jp'] = $totalJP;
+            // Buat baris per JP untuk absensi granular
+            $s['jp_rows'] = [];
+            for ($i = 1; $i <= $totalJP; $i++) {
+                $s['jp_rows'][] = $i;
+            }
         }
         unset($s);
 
@@ -238,16 +253,33 @@ class TeacherAttendance extends BaseController
             ->where('date', $date)
             ->findAll();
 
-        // Map: schedule_id => record
+        // Map: schedule_id_jpke => record
         $attendances = [];
         foreach ($rawAttendances as $a) {
-            $attendances[$a['schedule_id']] = $a;
+            $attendances[$a['schedule_id'] . '_' . $a['jp_ke']] = $a;
         }
+
+        // Kelompokkan jadwal per guru
+        $byTeacher = [];
+        foreach ($schedules as $s) {
+            $tid = $s['teacher_id'];
+            if (!isset($byTeacher[$tid])) {
+                $byTeacher[$tid] = [
+                    'teacher_id'   => $tid,
+                    'teacher_name' => $s['teacher_name'],
+                    'slots'        => [],
+                ];
+            }
+            $byTeacher[$tid]['slots'][] = $s;
+        }
+        // Urutkan per nama guru
+        uasort($byTeacher, fn($a, $b) => strcmp($a['teacher_name'], $b['teacher_name']));
 
         return view('admin/teacher_attendance/index', [
             'title'       => 'Absensi Guru Harian',
             'date'        => $date,
             'schedules'   => $schedules,
+            'byTeacher'   => $byTeacher,
             'attendances' => $attendances,
             'activeYear'  => $activeYear,
             'namaHari'    => $this->namaHari($dayOfWeek),
@@ -263,29 +295,32 @@ class TeacherAttendance extends BaseController
         $user       = session()->get('user');
         $date       = $this->request->getPost('date');
         $scheduleId = (int) $this->request->getPost('schedule_id');
+        $jpKe       = (int) ($this->request->getPost('jp_ke') ?? 1);
         $status     = $this->request->getPost('status'); // 'H' atau 'TH'
         $keterangan = $this->request->getPost('keterangan') ?? '';
 
-        if (!$date || !$scheduleId || !in_array($status, ['H', 'TH'])) {
+        if (!$date || !$scheduleId || !$jpKe || !in_array($status, ['H', 'TH'])) {
             return $this->response->setJSON(['success' => false, 'message' => 'Data tidak lengkap.']);
         }
 
         if ($status === 'H') {
-            // Hapus record jika ada (default = Hadir, tidak perlu disimpan)
+            // Hapus record TH jika ada — default = Hadir
             $this->attendanceModel
                 ->where('schedule_id', $scheduleId)
                 ->where('date', $date)
+                ->where('jp_ke', $jpKe)
                 ->delete();
         } else {
-            // Upsert record TH
             $existing = $this->attendanceModel
                 ->where('schedule_id', $scheduleId)
                 ->where('date', $date)
+                ->where('jp_ke', $jpKe)
                 ->first();
 
             $payload = [
                 'schedule_id' => $scheduleId,
                 'date'        => $date,
+                'jp_ke'       => $jpKe,
                 'status'      => 'TH',
                 'keterangan'  => $keterangan,
                 'recorded_by' => $user['id'] ?? null,
@@ -337,9 +372,8 @@ class TeacherAttendance extends BaseController
 
         $details = $this->attendanceModel->getAbsensiGuruByMonth($teacherId, $month);
 
-        // Tambahkan JP & nama hari ke tiap record
+        // Setiap record = 1 JP tidak hadir, tambahkan nama hari
         foreach ($details as &$d) {
-            $d['jp']       = $this->hitungJP($d['start_time'], $d['end_time']);
             $d['nama_hari'] = $this->namaHari((int) $d['day_of_week']);
         }
         unset($d);
@@ -472,11 +506,13 @@ class TeacherAttendance extends BaseController
         $schedules = $this->scheduleModel->getScheduleForDay($dayOfWeek, ['teacher_id' => $teacherId], $activeYear['id']);
 
         foreach ($schedules as &$s) {
-            $s['jp'] = $this->hitungJP($s['start_time'], $s['end_time']);
+            $totalJP     = $this->hitungJP($s['start_time'], $s['end_time']);
+            $s['jp']     = $totalJP;
+            $s['jp_rows'] = range(1, $totalJP);
         }
         unset($s);
 
-        // Absensi tanggal tersebut untuk guru ini
+        // Absensi tanggal tersebut untuk guru ini — map per schedule_id_jpke
         $db = \Config\Database::connect();
         $rawAtt = $db->table('teacher_attendances ta')
             ->select('ta.*')
@@ -488,7 +524,7 @@ class TeacherAttendance extends BaseController
 
         $attendances = [];
         foreach ($rawAtt as $a) {
-            $attendances[$a['schedule_id']] = $a;
+            $attendances[$a['schedule_id'] . '_' . $a['jp_ke']] = $a;
         }
 
         $teacher = $this->teacherModel->find($teacherId);

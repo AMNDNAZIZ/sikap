@@ -11,6 +11,7 @@ class TeacherAttendanceModel extends Model
 
     protected $allowedFields = [
         'schedule_id',
+        'jp_ke',
         'date',
         'status',
         'keterangan',
@@ -22,8 +23,7 @@ class TeacherAttendanceModel extends Model
     protected $updatedField  = 'updated_at';
 
     /**
-     * Ambil semua record absensi (status=TH) untuk satu guru di bulan tertentu.
-     * Mengembalikan data JOIN ke schedules, subjects, classes.
+     * Ambil semua record TH satu guru di bulan tertentu (per JP).
      */
     public function getAbsensiGuruByMonth(int $teacherId, string $yearMonth): array
     {
@@ -31,7 +31,7 @@ class TeacherAttendanceModel extends Model
         $end   = date('Y-m-t', strtotime($start));
 
         return $this->db->table('teacher_attendances ta')
-            ->select('ta.*, s.day_of_week, s.start_time, s.end_time, sub.name AS subject_name, c.name AS class_name, t.name AS teacher_name, t.nip')
+            ->select('ta.*, ta.jp_ke, s.day_of_week, s.start_time, s.end_time, sub.name AS subject_name, c.name AS class_name, t.name AS teacher_name, t.nip')
             ->join('schedules s', 's.id = ta.schedule_id')
             ->join('subjects sub', 'sub.id = s.subject_id', 'left')
             ->join('classes c', 'c.id = s.class_id', 'left')
@@ -41,6 +41,7 @@ class TeacherAttendanceModel extends Model
             ->where('ta.date >=', $start)
             ->where('ta.date <=', $end)
             ->orderBy('ta.date', 'ASC')
+            ->orderBy('ta.jp_ke', 'ASC')
             ->get()
             ->getResultArray();
     }
