@@ -181,15 +181,15 @@ class TeachingJournalController extends BaseController
         if (!$classInfo) return $this->response->setJSON([]);
 
         // Query ATP berdasarkan level kelas (struktur baru — tanpa JOIN cp_master di header)
-        $atps = $this->atpModel
-            ->select('alur_tujuan_pembelajaran.id, alur_tujuan_pembelajaran.lingkup_materi, alur_tujuan_pembelajaran.semester')
-            ->join('classes c_atp', 'c_atp.id = alur_tujuan_pembelajaran.class_id', 'left')
+        $atps = $this->db->table('alur_tujuan_pembelajaran atp')
+            ->select('atp.id, atp.lingkup_materi, atp.semester, atp.urutan')
+            ->join('classes c_atp', 'c_atp.id = atp.class_id', 'left')
             ->where('c_atp.level', $classInfo['level'])
-            ->where('alur_tujuan_pembelajaran.subject_id', $subjectId)
-            ->groupBy('alur_tujuan_pembelajaran.id')
-            ->orderBy('alur_tujuan_pembelajaran.semester', 'ASC')
-            ->orderBy('alur_tujuan_pembelajaran.urutan', 'ASC')
-            ->findAll();
+            ->where('atp.subject_id', $subjectId)
+            ->groupBy('atp.id')
+            ->orderBy('atp.semester', 'ASC')
+            ->orderBy('atp.urutan', 'ASC')
+            ->get()->getResultArray();
 
         // Untuk setiap ATP, ambil daftar elemen CP dari atp_elemen
         foreach ($atps as &$atp) {
