@@ -223,14 +223,25 @@ class Classes extends BaseController
     public function delete($id)
     {
         $model = new ClassModel();
+        $db = db_connect();
 
         // Cegah hapus kelas jika masih ada ATP
-        $atpCount = db_connect()->table('alur_tujuan_pembelajaran')
+        $atpCount = $db->table('alur_tujuan_pembelajaran')
             ->where('class_id', $id)->countAllResults();
         if ($atpCount > 0) {
             return redirect()->back()->with('error',
                 'Kelas tidak dapat dihapus karena masih memiliki data ATP (' . $atpCount . ' alur). ' .
                 'Hapus ATP terlebih dahulu melalui menu Administrasi Guru.'
+            );
+        }
+
+        // Cegah hapus kelas jika masih ada Modul Ajar
+        $modulCount = $db->table('modul_ajar')
+            ->where('class_id', $id)->countAllResults();
+        if ($modulCount > 0) {
+            return redirect()->back()->with('error',
+                'Kelas tidak dapat dihapus karena masih memiliki ' . $modulCount . ' Modul Ajar. ' .
+                'Hapus Modul Ajar terlebih dahulu melalui menu Administrasi Guru.'
             );
         }
 

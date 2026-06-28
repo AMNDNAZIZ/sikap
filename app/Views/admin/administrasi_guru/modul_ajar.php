@@ -120,8 +120,11 @@
         </div>
     <?php else: ?>
 <div class="card shadow mb-4">
-    <div class="card-header py-3">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
         <h6 class="m-0 font-weight-bold text-primary">Daftar Modul Ajar (Level Kelas)</h6>
+        <span class="badge bg-success-subtle text-success border border-success">
+            <i class="bi bi-arrow-repeat me-1"></i> Modul tidak terikat tahun ajaran — bisa digunakan kembali
+        </span>
     </div>
     <div class="card-body">
         <table class="table table-bordered table-hover align-middle">
