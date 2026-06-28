@@ -562,6 +562,15 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('changelogs/save', 'Changelogs::save');
     $routes->get('changelogs/delete/(:num)', 'Changelogs::delete/$1');
 
+    // ── Absensi Guru ──────────────────────────────────────────────────────────
+    $routes->get('teacher-attendance', 'TeacherAttendance::index', ['filter' => 'auth:1,7']);
+    $routes->post('teacher-attendance/save', 'TeacherAttendance::save', ['filter' => 'auth:1,7']);
+    $routes->get('teacher-attendance/report', 'TeacherAttendance::report', ['filter' => 'auth:1,2,7']);
+    $routes->get('teacher-attendance/report/detail/(:num)', 'TeacherAttendance::reportDetail/$1', ['filter' => 'auth:1,2,7']);
+    $routes->get('teacher-attendance/export-excel', 'TeacherAttendance::exportExcel', ['filter' => 'auth:1,2,7']);
+    $routes->get('teacher-attendance/export-pdf', 'TeacherAttendance::exportPdf', ['filter' => 'auth:1,2,7']);
+    $routes->get('teacher-attendance/my', 'TeacherAttendance::myAttendance', ['filter' => 'auth:3']);
+
 });
 
 // ==================== SISWA & ORANG TUA ROUTES ====================
