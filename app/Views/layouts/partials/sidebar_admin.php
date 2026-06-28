@@ -22,15 +22,16 @@
     $inGuru      = url_is('admin/teachers*') || url_is('admin/teachingassignments*') || url_is('admin/dapodik*');
     $inSiswa     = (url_is('admin/students*') && !url_is('admin/student-map*')) || url_is('admin/classes*') ||
                    url_is('admin/active-classes*') || url_is('admin/placement*') || url_is('admin/promotions*') ||
-                   url_is('admin/student-records*') || url_is('admin/student-map*');
-    $inTataUsaha = url_is('admin/tata-usaha*') || url_is('admin/surat-masuk*') || url_is('admin/surat-keluar*') || url_is('admin/agenda-surat*') || url_is('admin/buku-tamu*');
+                   url_is('admin/student-records*') || url_is('admin/student-map*') ||
+                   url_is('admin/alumni*') || url_is('admin/student-mutation*');
+    $inTataUsaha = url_is('admin/tata-usaha*') || url_is('admin/surat-masuk*') || url_is('admin/surat-keluar*') || url_is('admin/agenda-surat*') || url_is('admin/buku-tamu*') || url_is('admin/settings/kop-surat*');
     $inKurikulum = url_is('admin/administrasi-guru*') && !url_is('admin/administrasi-guru/cp-master*') && !url_is('admin/administrasi-guru/mapping*');
     $inJadwal    = url_is('admin/schedules*') || url_is('admin/agendas*') || url_is('admin/teaching-journal*');
     $inPresensi  = url_is('admin/attendance*') || url_is('admin/teacher-attendance*');
     $inNilai     = url_is('admin/assessments*') || url_is('admin/grades*') || url_is('admin/erapor*');
     $inKokuri    = url_is('admin/kokurikuler*');
     $inCbt       = url_is('admin/cbt*') || url_is('admin/exam-schedule*') || url_is('admin/kartu-peserta*');
-    $inKonseling = url_is('admin/student-notes*') || url_is('admin/behaviors*') || url_is('admin/student-academic-record*');
+    $inKonseling = url_is('admin/student-notes*') || url_is('admin/behaviors*');
     $inKomunikasi= url_is('admin/announcements*') || url_is('admin/chat*') || url_is('admin/staff-chat*');
     $inCms       = url_is('admin/cms*') || url_is('admin/changelogs*');
     $inAkun      = url_is('admin/users*') || url_is('profile*') || url_is('admin/updater*');
@@ -98,6 +99,8 @@
           <li><a class="nav-link <?= url_is('admin/promotions*') ? 'active' : '' ?>" href="<?= base_url('admin/promotions') ?>">🚀 <span class="label">Kenaikan & Kelulusan</span></a></li>
           <li><a class="nav-link <?= url_is('admin/student-records*') ? 'active' : '' ?>" href="<?= base_url('admin/student-records') ?>">📖 <span class="label">Riwayat Siswa</span></a></li>
           <li><a class="nav-link <?= url_is('admin/student-map*') ? 'active' : '' ?>" href="<?= base_url('admin/student-map') ?>">🗺️ <span class="label">Peta Sebaran Siswa</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/alumni*') ? 'active' : '' ?>" href="<?= base_url('admin/alumni') ?>">🎓 <span class="label">Alumni</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/student-mutation*') ? 'active' : '' ?>" href="<?= base_url('admin/student-mutation') ?>">📋 <span class="label">Buku Mutasi</span></a></li>
         </ul>
       </div>
     </li>
@@ -116,6 +119,7 @@
           <li><a class="nav-link <?= url_is('admin/surat-keluar*') ? 'active' : '' ?>" href="<?= base_url('admin/surat-keluar') ?>">📤 <span class="label">Surat Keluar</span></a></li>
           <li><a class="nav-link <?= url_is('admin/agenda-surat*') ? 'active' : '' ?>" href="<?= base_url('admin/agenda-surat') ?>">📓 <span class="label">Agenda Surat</span></a></li>
           <li><a class="nav-link <?= url_is('admin/buku-tamu*') ? 'active' : '' ?>" href="<?= base_url('admin/buku-tamu') ?>">📖 <span class="label">Buku Tamu</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/settings/kop-surat*') ? 'active' : '' ?>" href="<?= base_url('admin/settings/kop-surat') ?>">📄 <span class="label">KOP Surat</span></a></li>
         </ul>
       </div>
     </li>
@@ -252,7 +256,6 @@
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/student-notes*') ? 'active' : '' ?>" href="<?= base_url('admin/student-notes') ?>">🗒️ <span class="label">Catatan Siswa</span></a></li>
           <li><a class="nav-link <?= url_is('admin/behaviors*') ? 'active' : '' ?>" href="<?= base_url('admin/behaviors') ?>">🎭 <span class="label">Kedisiplinan/Perilaku</span></a></li>
-          <li><a class="nav-link <?= url_is('admin/student-academic-record*') ? 'active' : '' ?>" href="<?= base_url('admin/student-academic-record') ?>">📚 <span class="label">Catatan Akademik Siswa</span></a></li>
         </ul>
       </div>
     </li>

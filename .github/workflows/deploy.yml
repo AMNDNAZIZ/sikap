@@ -48,4 +48,10 @@ jobs:
             echo "=== [3/4] Triggering cPanel deployment (copy to public_html) ==="
             uapi VersionControlDeployment create repository_root=/home/mabq7713/repo_ci4
 
-            echo "=== [4/4] Done! ==="
+            echo "=== [4/5] Running database migrations ==="
+            $PHP_BIN /home/mabq7713/public_html/spark migrate
+
+            echo "=== [5/6] Regenerating license and security hashes ==="
+            $PHP_BIN /home/mabq7713/public_html/spark license:rehash
+
+            echo "=== [6/6] Done! ==="

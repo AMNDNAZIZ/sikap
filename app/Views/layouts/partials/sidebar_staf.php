@@ -22,8 +22,9 @@
     $inGuru      = url_is('admin/teachers*') || url_is('admin/teachingassignments*') || url_is('admin/dapodik*');
     $inSiswa     = (url_is('admin/students*') && !url_is('admin/student-map*')) || url_is('admin/classes*') ||
                    url_is('admin/active-classes*') || url_is('admin/placement*') || url_is('admin/promotions*') ||
-                   url_is('admin/student-records*');
-    $inTataUsaha = url_is('admin/tata-usaha*') || url_is('admin/surat-masuk*') || url_is('admin/surat-keluar*') || url_is('admin/agenda-surat*') || url_is('admin/buku-tamu*');
+                   url_is('admin/student-records*') ||
+                   url_is('admin/alumni*') || url_is('admin/student-mutation*');
+    $inTataUsaha = url_is('admin/tata-usaha*') || url_is('admin/surat-masuk*') || url_is('admin/surat-keluar*') || url_is('admin/agenda-surat*') || url_is('admin/buku-tamu*') || url_is('admin/settings/kop-surat*');
     ?>
 
     <!-- ══ SETUP ══ -->
@@ -87,6 +88,8 @@
           <li><a class="nav-link <?= url_is('admin/placement*') ? 'active' : '' ?>" href="<?= base_url('admin/placement') ?>">📌 <span class="label">Penempatan Siswa</span></a></li>
           <li><a class="nav-link <?= url_is('admin/promotions*') ? 'active' : '' ?>" href="<?= base_url('admin/promotions') ?>">🚀 <span class="label">Kenaikan & Kelulusan</span></a></li>
           <li><a class="nav-link <?= url_is('admin/student-records*') ? 'active' : '' ?>" href="<?= base_url('admin/student-records') ?>">📖 <span class="label">Riwayat Siswa</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/alumni*') ? 'active' : '' ?>" href="<?= base_url('admin/alumni') ?>">🎓 <span class="label">Alumni</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/student-mutation*') ? 'active' : '' ?>" href="<?= base_url('admin/student-mutation') ?>">📋 <span class="label">Buku Mutasi</span></a></li>
         </ul>
       </div>
     </li>
@@ -105,6 +108,7 @@
           <li><a class="nav-link <?= url_is('admin/surat-keluar*') ? 'active' : '' ?>" href="<?= base_url('admin/surat-keluar') ?>">📤 <span class="label">Surat Keluar</span></a></li>
           <li><a class="nav-link <?= url_is('admin/agenda-surat*') ? 'active' : '' ?>" href="<?= base_url('admin/agenda-surat') ?>">📓 <span class="label">Agenda Surat</span></a></li>
           <li><a class="nav-link <?= url_is('admin/buku-tamu*') ? 'active' : '' ?>" href="<?= base_url('admin/buku-tamu') ?>">📖 <span class="label">Buku Tamu</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/settings/kop-surat*') ? 'active' : '' ?>" href="<?= base_url('admin/settings/kop-surat') ?>">📄 <span class="label">KOP Surat</span></a></li>
         </ul>
       </div>
     </li>
