@@ -121,7 +121,22 @@ class TeacherAttendance extends BaseController
         $start = strtotime($monthStart);
         $end   = strtotime($monthEnd);
 
-        // Ambil semua record TH untuk bulan ini (semua guru), per jp_ke
+        // Ambil tanggal yang sudah di-absensi (ada session record) dalam bulan ini
+        $sessions = $db->table('teacher_attendance_sessions')
+            ->where('date >=', $monthStart)
+            ->where('date <=', $monthEnd)
+            ->get()->getResultArray();
+        $sessionDates = [];
+        foreach ($sessions as $s) {
+            $sessionDates[$s['date']] = true;
+        }
+
+        // Jika tidak ada session sama sekali, return kosong
+        if (empty($sessionDates)) {
+            return [];
+        }
+
+        // Ambil semua record TH untuk bulan ini
         $thRecords = $db->table('teacher_attendances ta')
             ->select('ta.schedule_id, ta.date, ta.jp_ke')
             ->join('schedules s', 's.id = ta.schedule_id')
@@ -163,6 +178,10 @@ class TeacherAttendance extends BaseController
                     continue;
                 }
                 if (is_weekend($dateStr)) {
+                    continue;
+                }
+                // Hanya hitung hari yang sudah di-absensi admin
+                if (!isset($sessionDates[$dateStr])) {
                     continue;
                 }
 
@@ -213,8 +232,6 @@ class TeacherAttendance extends BaseController
     public function index()
     {
         $date = $this->request->getGet('date') ?? date('Y-m-d');
-
-        // Validasi format tanggal
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             $date = date('Y-m-d');
         }
@@ -222,44 +239,42 @@ class TeacherAttendance extends BaseController
         $activeYear = $this->getActiveYear();
         if (empty($activeYear)) {
             return view('admin/teacher_attendance/index', [
-                'title'       => 'Absensi Guru',
-                'date'        => $date,
-                'schedules'   => [],
-                'attendances' => [],
-                'activeYear'  => null,
-                'error'       => 'Tidak ada tahun ajaran aktif.',
+                'title'      => 'Absensi Guru',
+                'date'       => $date,
+                'byTeacher'  => [],
+                'attendances'=> [],
+                'activeYear' => null,
+                'sessionDone'=> false,
+                'error'      => 'Tidak ada tahun ajaran aktif.',
             ]);
         }
 
-        $dayOfWeek = (int) date('N', strtotime($date)); // 1=Senin..7=Minggu
+        $dayOfWeek = (int) date('N', strtotime($date));
 
-        // Ambil semua jadwal hari ini di tahun ajaran aktif
+        // Cek apakah absensi hari ini sudah di-submit
+        $db = \Config\Database::connect();
+        $session = $db->table('teacher_attendance_sessions')
+            ->where('date', $date)->get()->getRowArray();
+        $sessionDone = !empty($session);
+
+        // Ambil jadwal hari ini
         $schedules = $this->scheduleModel->getScheduleForDay($dayOfWeek, [], $activeYear['id']);
 
-        // Tambahkan JP dan baris per-JP ke tiap jadwal
         foreach ($schedules as &$s) {
-            $totalJP = $this->hitungJP($s['start_time'], $s['end_time']);
-            $s['jp'] = $totalJP;
-            // Buat baris per JP untuk absensi granular
-            $s['jp_rows'] = [];
-            for ($i = 1; $i <= $totalJP; $i++) {
-                $s['jp_rows'][] = $i;
-            }
+            $totalJP      = $this->hitungJP($s['start_time'], $s['end_time']);
+            $s['jp']      = $totalJP;
+            $s['jp_rows'] = range(1, $totalJP);
         }
         unset($s);
 
-        // Ambil record absensi untuk tanggal ini
-        $rawAttendances = $this->attendanceModel
-            ->where('date', $date)
-            ->findAll();
-
-        // Map: schedule_id_jpke => record
+        // Ambil record TH untuk tanggal ini
+        $rawAttendances = $this->attendanceModel->where('date', $date)->findAll();
         $attendances = [];
         foreach ($rawAttendances as $a) {
             $attendances[$a['schedule_id'] . '_' . $a['jp_ke']] = $a;
         }
 
-        // Kelompokkan jadwal per guru
+        // Kelompokkan per guru, urutkan by nama
         $byTeacher = [];
         foreach ($schedules as $s) {
             $tid = $s['teacher_id'];
@@ -272,22 +287,53 @@ class TeacherAttendance extends BaseController
             }
             $byTeacher[$tid]['slots'][] = $s;
         }
-        // Urutkan per nama guru
         uasort($byTeacher, fn($a, $b) => strcmp($a['teacher_name'], $b['teacher_name']));
 
         return view('admin/teacher_attendance/index', [
             'title'       => 'Absensi Guru Harian',
             'date'        => $date,
-            'schedules'   => $schedules,
             'byTeacher'   => $byTeacher,
             'attendances' => $attendances,
             'activeYear'  => $activeYear,
             'namaHari'    => $this->namaHari($dayOfWeek),
+            'sessionDone' => $sessionDone,
         ]);
     }
 
     // -----------------------------------------------------------------------
-    // 2. SAVE — AJAX POST (Admin / Staf)
+    // 1b. SUBMIT SESSION — tandai absensi sudah selesai untuk tanggal ini
+    // -----------------------------------------------------------------------
+
+    public function submitSession()
+    {
+        $user = session()->get('user');
+        $date = $this->request->getPost('date');
+
+        if (!$date || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Tanggal tidak valid.']);
+        }
+
+        $activeYear = $this->getActiveYear();
+        $db = \Config\Database::connect();
+
+        // Upsert session record
+        $existing = $db->table('teacher_attendance_sessions')->where('date', $date)->get()->getRowArray();
+        $payload  = [
+            'date'             => $date,
+            'academic_year_id' => $activeYear['id'] ?? null,
+            'recorded_by'      => $user['id'] ?? null,
+        ];
+        if ($existing) {
+            $db->table('teacher_attendance_sessions')->where('date', $date)->update($payload);
+        } else {
+            $db->table('teacher_attendance_sessions')->insert($payload);
+        }
+
+        return $this->response->setJSON(['success' => true, 'message' => 'Absensi berhasil disimpan.']);
+    }
+
+    // -----------------------------------------------------------------------
+    // 2. SAVE — AJAX POST individual JP (Admin / Staf)
     // -----------------------------------------------------------------------
 
     public function save()
@@ -502,18 +548,45 @@ class TeacherAttendance extends BaseController
 
         $dayOfWeek = (int) date('N', strtotime($date));
 
-        // Jadwal guru ini di hari tersebut
-        $schedules = $this->scheduleModel->getScheduleForDay($dayOfWeek, ['teacher_id' => $teacherId], $activeYear['id']);
+        // Cek apakah admin sudah melakukan absensi untuk tanggal ini
+        $db = \Config\Database::connect();
+        $session = $db->table('teacher_attendance_sessions')->where('date', $date)->get()->getRowArray();
+        $sessionDone = !empty($session);
 
-        foreach ($schedules as &$s) {
-            $totalJP     = $this->hitungJP($s['start_time'], $s['end_time']);
-            $s['jp']     = $totalJP;
-            $s['jp_rows'] = range(1, $totalJP);
+        // Cek apakah hari libur
+        $isHoliday = false;
+        $holidayInfo = $db->table('holidays')->where('date', $date)->get()->getRowArray();
+        if ($holidayInfo) {
+            $isHoliday = true;
         }
-        unset($s);
+
+        // Jadwal guru ini di hari tersebut
+        $schedules = [];
+        if (!$isHoliday) {
+            $schedules = $this->scheduleModel->getScheduleForDay($dayOfWeek, ['teacher_id' => $teacherId], $activeYear['id']);
+            foreach ($schedules as &$s) {
+                $totalJP      = $this->hitungJP($s['start_time'], $s['end_time']);
+                $s['jp']      = $totalJP;
+                $s['jp_rows'] = range(1, $totalJP);
+            }
+            unset($s);
+        }
 
         // Absensi tanggal tersebut untuk guru ini — map per schedule_id_jpke
-        $db = \Config\Database::connect();
+        $rawAtt = $db->table('teacher_attendances ta')
+            ->select('ta.*')
+            ->join('schedules s', 's.id = ta.schedule_id')
+            ->where('ta.date', $date)
+            ->where('s.teacher_id', $teacherId)
+            ->get()
+            ->getResultArray();
+
+        $attendances = [];
+        foreach ($rawAtt as $a) {
+            $attendances[$a['schedule_id'] . '_' . $a['jp_ke']] = $a;
+        }
+
+        // Absensi tanggal tersebut untuk guru ini — map per schedule_id_jpke
         $rawAtt = $db->table('teacher_attendances ta')
             ->select('ta.*')
             ->join('schedules s', 's.id = ta.schedule_id')
@@ -536,6 +609,9 @@ class TeacherAttendance extends BaseController
             'schedules'   => $schedules,
             'attendances' => $attendances,
             'namaHari'    => $this->namaHari($dayOfWeek),
+            'sessionDone' => $sessionDone,
+            'isHoliday'   => $isHoliday,
+            'holidayName' => $holidayInfo['description'] ?? 'Hari Libur',
         ]);
     }
 }

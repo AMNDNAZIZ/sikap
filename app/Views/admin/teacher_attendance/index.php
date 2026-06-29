@@ -34,6 +34,11 @@
     <?php if (!empty($activeYear)): ?>
         &mdash; Tahun Ajaran: <strong><?= esc($activeYear['year']) ?></strong>
     <?php endif; ?>
+    <?php if ($sessionDone ?? false): ?>
+        <span class="badge bg-success ms-2">✅ Absensi sudah disimpan</span>
+    <?php else: ?>
+        <span class="badge bg-warning text-dark ms-2">⏳ Belum disimpan</span>
+    <?php endif; ?>
 </div>
 
 <?php if (empty($byTeacher)): ?>
@@ -65,11 +70,11 @@
                     <?php foreach ($tData['slots'] as $s): ?>
                         <?php foreach ($s['jp_rows'] as $jpKe): ?>
                             <?php
-                            $key    = $s['id'] . '_' . $jpKe;
-                            $att    = $attendances[$key] ?? null;
-                            $isTH   = $att && $att['status'] === 'TH';
-                            $ket    = $att ? ($att['keterangan'] ?? '') : '';
-                            $uid    = 'jp_' . $s['id'] . '_' . $jpKe;
+                            $key  = $s['id'] . '_' . $jpKe;
+                            $att  = $attendances[$key] ?? null;
+                            $isTH = $att && $att['status'] === 'TH';
+                            $ket  = $att ? ($att['keterangan'] ?? '') : '';
+                            $uid  = 'jp_' . $s['id'] . '_' . $jpKe;
                             ?>
                             <tr id="row-<?= $uid ?>" class="<?= $isTH ? 'table-danger' : '' ?>">
                                 <td class="text-center fw-bold text-muted">JP <?= $jpKe ?></td>
@@ -111,13 +116,30 @@
 </div>
 <?php endforeach; ?>
 
+<!-- Tombol Simpan Absensi -->
+<div class="d-flex justify-content-end mt-2 mb-4">
+    <?php if ($sessionDone ?? false): ?>
+        <div class="d-flex align-items-center gap-2">
+            <span class="text-success fw-semibold">✅ Absensi tanggal ini sudah disimpan</span>
+            <button class="btn btn-outline-warning btn-sm" onclick="submitSession(true)">
+                🔄 Simpan Ulang
+            </button>
+        </div>
+    <?php else: ?>
+        <button class="btn btn-success px-4" id="btnSubmit" onclick="submitSession()">
+            💾 Simpan Absensi Hari Ini
+        </button>
+    <?php endif; ?>
+</div>
+
 <?php endif; ?>
 
 <script>
-const SAVE_URL = '<?= base_url('admin/teacher-attendance/save') ?>';
-const DATE     = '<?= esc($date) ?>';
-const CSRF_NAME  = '<?= csrf_token() ?>';
-let   csrfHash = '<?= csrf_hash() ?>';
+const SAVE_URL    = '<?= base_url('admin/teacher-attendance/save') ?>';
+const SESSION_URL = '<?= base_url('admin/teacher-attendance/submit-session') ?>';
+const DATE        = '<?= esc($date) ?>';
+const CSRF_NAME   = '<?= csrf_token() ?>';
+let   csrfHash    = '<?= csrf_hash() ?>';
 
 function uid(schedId, jpKe) { return 'jp_' + schedId + '_' + jpKe; }
 
@@ -127,9 +149,8 @@ function setStatus(schedId, jpKe, status) {
 }
 
 function saveKet(schedId, jpKe) {
-    const row   = document.getElementById('row-' + uid(schedId, jpKe));
-    const isTH  = row.classList.contains('table-danger');
-    if (!isTH) return;
+    const row = document.getElementById('row-' + uid(schedId, jpKe));
+    if (!row.classList.contains('table-danger')) return;
     const ket = document.getElementById('ket-' + uid(schedId, jpKe))?.value ?? '';
     send(schedId, jpKe, 'TH', ket);
 }
@@ -141,7 +162,7 @@ function send(schedId, jpKe, status, ket) {
     body.append('jp_ke',       jpKe);
     body.append('status',      status);
     body.append('keterangan',  ket);
-    body.append(CSRF_NAME, csrfHash);
+    body.append(CSRF_NAME,     csrfHash);
 
     fetch(SAVE_URL, { method: 'POST', body })
         .then(r => r.json())
@@ -156,10 +177,39 @@ function send(schedId, jpKe, status, ket) {
         .catch(() => alert('Error jaringan.'));
 }
 
+function submitSession(isResave = false) {
+    const label = isResave ? 'Simpan ulang absensi hari ini?' : 'Simpan absensi hari ini?\n\nSetelah disimpan, data kehadiran guru akan tercatat.';
+    if (!confirm(label)) return;
+
+    const body = new FormData();
+    body.append('date',    DATE);
+    body.append(CSRF_NAME, csrfHash);
+
+    const btn = document.getElementById('btnSubmit');
+    if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
+
+    fetch(SESSION_URL, { method: 'POST', body })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                csrfHash = res.csrf ?? csrfHash;
+                alert('✅ ' + res.message);
+                location.reload();
+            } else {
+                alert('Gagal: ' + (res.message ?? ''));
+                if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Absensi Hari Ini'; }
+            }
+        })
+        .catch(() => {
+            alert('Error jaringan.');
+            if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan Absensi Hari Ini'; }
+        });
+}
+
 function updateUI(schedId, jpKe, status) {
-    const id  = uid(schedId, jpKe);
-    const row = document.getElementById('row-' + id);
-    const ket = document.getElementById('ket-' + id);
+    const id    = uid(schedId, jpKe);
+    const row   = document.getElementById('row-' + id);
+    const ket   = document.getElementById('ket-' + id);
     const btnH  = row.querySelector('.btn-group .btn:nth-child(1)');
     const btnTH = row.querySelector('.btn-group .btn:nth-child(2)');
 

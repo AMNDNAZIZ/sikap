@@ -10,10 +10,6 @@
     </div>
 </div>
 
-<?php if (!empty($error)): ?>
-    <div class="alert alert-warning"><?= esc($error) ?></div>
-<?php endif; ?>
-
 <!-- Filter tanggal -->
 <div class="card shadow-sm mb-3">
     <div class="card-body py-2">
@@ -34,8 +30,33 @@
     <strong><?= esc($namaHari ?? '-') ?></strong>, <?= date('d F Y', strtotime($date)) ?>
 </div>
 
-<?php if (empty($schedules)): ?>
-    <div class="alert alert-light border text-center text-muted">Tidak ada jadwal untuk hari ini.</div>
+<?php
+$isHoliday   = $isHoliday ?? false;
+$sessionDone = $sessionDone ?? false;
+$holidayName = $holidayName ?? 'Hari Libur';
+?>
+
+<?php if ($isHoliday): ?>
+    <div class="alert alert-secondary d-flex align-items-center gap-2">
+        <i class="bi bi-calendar-x fs-4"></i>
+        <div><strong>Hari Libur</strong> — <?= esc($holidayName) ?></div>
+    </div>
+
+<?php elseif (empty($schedules)): ?>
+    <div class="alert alert-light border d-flex align-items-center gap-2">
+        <i class="bi bi-calendar-minus fs-4 text-muted"></i>
+        <div class="text-muted">Anda tidak mempunyai jadwal mengajar pada hari ini.</div>
+    </div>
+
+<?php elseif (!$sessionDone): ?>
+    <div class="alert alert-warning d-flex align-items-center gap-2">
+        <i class="bi bi-hourglass-split fs-4"></i>
+        <div>
+            <strong>Absensi belum dilakukan.</strong><br>
+            <small>Hubungi admin atau staf untuk melakukan pencatatan absensi hari ini.</small>
+        </div>
+    </div>
+
 <?php else: ?>
 
 <div class="card shadow-sm">

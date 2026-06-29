@@ -581,6 +581,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     // ── Absensi Guru ──────────────────────────────────────────────────────────
     $routes->get('teacher-attendance', 'TeacherAttendance::index', ['filter' => 'auth:1,7']);
     $routes->post('teacher-attendance/save', 'TeacherAttendance::save', ['filter' => 'auth:1,7']);
+    $routes->post('teacher-attendance/submit-session', 'TeacherAttendance::submitSession', ['filter' => 'auth:1,7']);
     $routes->get('teacher-attendance/report', 'TeacherAttendance::report', ['filter' => 'auth:1,2,7']);
     $routes->get('teacher-attendance/report/detail/(:num)', 'TeacherAttendance::reportDetail/$1', ['filter' => 'auth:1,2,7']);
     $routes->get('teacher-attendance/export-excel', 'TeacherAttendance::exportExcel', ['filter' => 'auth:1,2,7']);
