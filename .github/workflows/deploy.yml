@@ -60,11 +60,19 @@ jobs:
             done
 
             echo "=== [4/6] Running database migrations ==="
-            # Jalankan migrate dari repo_ci4 agar .env tersedia
             cd /home/mabq7713/repo_ci4
-            $PHP_BIN spark migrate --no-interaction
+
+            # Pastikan .env tersedia
+            if [ ! -f .env ]; then
+              echo "ERROR: File .env tidak ditemukan di repo_ci4! Migrate dibatalkan."
+              exit 1
+            fi
+            echo "File .env ditemukan, menjalankan migrate..."
+
+            # Jalankan migrate (tanpa --no-interaction, bukan flag valid di CI4)
+            $PHP_BIN spark migrate -f 2>&1
 
             echo "=== [5/6] Regenerating license and security hashes ==="
-            $PHP_BIN spark license:rehash
+            $PHP_BIN spark license:rehash 2>&1
 
             echo "=== [6/6] Done! ==="
