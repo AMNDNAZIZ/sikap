@@ -8,16 +8,19 @@ class CreateAdministrasiGuruTables extends Migration
 {
     public function up()
     {
-        // 1. Update subjects table
-        $this->forge->addColumn('subjects', [
-            'mapel_master_id' => [
-                'type'       => 'INT',
-                'constraint' => 11,
-                'unsigned'   => true,
-                'null'       => true,
-                'after'      => 'id'
-            ],
-        ]);
+        // 1. Update subjects table — only add column if it doesn't already exist
+        $fields = $this->db->getFieldNames('subjects');
+        if (!in_array('mapel_master_id', $fields)) {
+            $this->forge->addColumn('subjects', [
+                'mapel_master_id' => [
+                    'type'       => 'INT',
+                    'constraint' => 11,
+                    'unsigned'   => true,
+                    'null'       => true,
+                    'after'      => 'id'
+                ],
+            ]);
+        }
 
         // 2. Create tujuan_pembelajaran table
         $this->forge->addField([
@@ -62,7 +65,7 @@ class CreateAdministrasiGuruTables extends Migration
             ],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('tujuan_pembelajaran');
+        $this->forge->createTable('tujuan_pembelajaran', true);
 
         // 3. Create alur_tujuan_pembelajaran table
         $this->forge->addField([
@@ -105,7 +108,7 @@ class CreateAdministrasiGuruTables extends Migration
             ],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('alur_tujuan_pembelajaran');
+        $this->forge->createTable('alur_tujuan_pembelajaran', true);
 
         // 4. Create dokumen_administrasi table
         $this->forge->addField([
@@ -158,14 +161,17 @@ class CreateAdministrasiGuruTables extends Migration
             ],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('dokumen_administrasi');
+        $this->forge->createTable('dokumen_administrasi', true);
     }
 
     public function down()
     {
-        $this->forge->dropTable('dokumen_administrasi');
-        $this->forge->dropTable('alur_tujuan_pembelajaran');
-        $this->forge->dropTable('tujuan_pembelajaran');
-        $this->forge->dropColumn('subjects', 'mapel_master_id');
+        $this->forge->dropTable('dokumen_administrasi', true);
+        $this->forge->dropTable('alur_tujuan_pembelajaran', true);
+        $this->forge->dropTable('tujuan_pembelajaran', true);
+        $fields = $this->db->getFieldNames('subjects');
+        if (in_array('mapel_master_id', $fields)) {
+            $this->forge->dropColumn('subjects', 'mapel_master_id');
+        }
     }
 }
