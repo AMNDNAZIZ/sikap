@@ -511,7 +511,7 @@ class Teachers extends BaseController
         try {
             try {
                 $sheetData = $this->readXlsxAsStrings($file->getTempName());
-            } catch (\Exception $ex) {
+            } catch (\Throwable $ex) {
                 $spreadsheet = IOFactory::load($file->getTempName());
                 $sheetData   = $spreadsheet->getActiveSheet()->toArray(null, true, true, false);
             }
@@ -598,7 +598,7 @@ class Teachers extends BaseController
                 ],
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return $this->response->setJSON(['status' => 'error', 'message' => 'Gagal memproses file: ' . $e->getMessage()]);
         }
     }
@@ -627,7 +627,7 @@ class Teachers extends BaseController
         try {
             try {
                 $sheetData = $this->readXlsxAsStrings($file->getTempName());
-            } catch (\Exception $ex) {
+            } catch (\Throwable $ex) {
                 $spreadsheet = IOFactory::load($file->getTempName());
                 $sheetData   = $spreadsheet->getActiveSheet()->toArray(null, true, true, false);
             }
@@ -802,7 +802,7 @@ class Teachers extends BaseController
 
             return redirect()->to('/admin/teachers')->with('success', $message);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             log_message('error', 'importDapodik error: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Gagal memproses file: ' . $e->getMessage());
         }

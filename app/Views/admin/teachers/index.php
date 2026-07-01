@@ -209,8 +209,8 @@ function previewDapodik() {
     document.getElementById('previewLoading').style.display = 'none';
     document.getElementById('btnPreview').disabled = false;
 
-    if (data.status === 'error') {
-      alert('❌ ' + data.message);
+    if (!data || data.status !== 'ok' || !data.summary) {
+      alert('❌ ' + (data && data.message ? data.message : 'Format response tidak valid atau terjadi error di server.'));
       return;
     }
 
