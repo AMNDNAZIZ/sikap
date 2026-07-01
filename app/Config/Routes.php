@@ -110,6 +110,8 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('teachers/store', 'Teachers::store', $auth127);
     $routes->get('teachers/downloadTemplate', 'Teachers::downloadTemplate', $auth127);
     $routes->post('teachers/import', 'Teachers::import', $auth127);
+    $routes->post('teachers/import-dapodik/preview', 'Teachers::importDapodikPreview', $auth127);
+    $routes->post('teachers/import-dapodik', 'Teachers::importDapodik', $auth127);
     $routes->post('teachers/uploadDocument/(:num)', 'Teachers::uploadDocument/$1', $auth127);
     $routes->get('teachers/deleteDocument/(:num)', 'Teachers::deleteDocument/$1', $auth127);
     $routes->get('teachers/downloadDocument/(:num)', 'Teachers::downloadDocument/$1', $auth127);
