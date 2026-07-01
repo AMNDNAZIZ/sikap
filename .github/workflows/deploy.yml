@@ -45,52 +45,13 @@ jobs:
             # Jalankan composer install
             $PHP_BIN /home/mabq7713/composer.phar install --no-dev --optimize-autoloader --no-interaction
 
-            echo "=== [3/6] Triggering cPanel deployment (copy to public_html) ==="
+            echo "=== [3/4] Triggering cPanel deployment (copy to public_html) ==="
             uapi VersionControlDeployment create repository_root=/home/mabq7713/repo_ci4
 
-            # Tunggu cPanel selesai menyalin file (max 60 detik)
-            echo "Waiting for cPanel deployment to complete..."
-            for i in $(seq 1 12); do
-              if [ -f /home/mabq7713/public_html/spark ]; then
-                echo "cPanel deployment complete (waited ${i}x5s)"
-                break
-              fi
-              echo "  ...waiting ($i/12)"
-              sleep 5
-            done
-
-            echo "=== [4/6] Running database migrations ==="
-            cd /home/mabq7713/repo_ci4
-
-            # Pastikan .env tersedia
-            if [ ! -f .env ]; then
-              echo "ERROR: File .env tidak ditemukan di repo_ci4! Migrate dibatalkan."
-              exit 1
-            fi
-            echo "File .env ditemukan, menjalankan migrate..."
-
-            # Debug: tampilkan info environment
-            echo "--- PHP version: $($PHP_BIN -v | head -1)"
-            echo "--- Spark path: $(pwd)/spark"
-            echo "--- CI_ENVIRONMENT: $(grep CI_ENVIRONMENT .env | head -1)"
-
-            # Nonaktifkan set -e sementara agar full error message tertampil
-            set +e
-            MIGRATE_OUTPUT=$($PHP_BIN spark migrate 2>&1)
-            MIGRATE_EXIT=$?
-            set -e
-
-            echo "--- Migrate output: $MIGRATE_OUTPUT"
-            echo "--- Migrate exit code: $MIGRATE_EXIT"
-
-            if [ $MIGRATE_EXIT -ne 0 ]; then
-              echo "ERROR: spark migrate gagal dengan exit code $MIGRATE_EXIT"
-              exit $MIGRATE_EXIT
-            fi
+            echo "=== [4/5] Running database migrations ==="
+            $PHP_BIN /home/mabq7713/public_html/spark migrate
 
             echo "=== [5/6] Regenerating license and security hashes ==="
-            set +e
-            $PHP_BIN spark license:rehash 2>&1
-            set -e
+            $PHP_BIN /home/mabq7713/public_html/spark license:rehash
 
             echo "=== [6/6] Done! ==="
