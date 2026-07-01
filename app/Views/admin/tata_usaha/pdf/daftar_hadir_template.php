@@ -69,7 +69,7 @@ foreach ($siswaPerKelas as $kelasIdx => $kelasData):
     <?php endif; ?>
     <div class="sub-title">
         Kelas: <strong><?= esc($namaKelas) ?></strong>
-        &nbsp;|&nbsp; Tanggal: <?= date('d F Y') ?>
+        &nbsp;|&nbsp; Tanggal: <?= esc($tanggalPdf) ?>
     </div>
 
     <table>
@@ -140,7 +140,7 @@ foreach ($siswaPerKelas as $kelasIdx => $kelasData):
     <!-- Tanda Tangan — pojok kanan bawah -->
     <?php if (!empty($tampilTtd)): ?>
     <div class="ttd-wrapper">
-        <?= esc($sekolah['city_regency'] ?? 'Kota') ?>, <?= date('d F Y') ?><br>
+        <?= esc($sekolah['city_regency'] ?? 'Kota') ?>, <?= esc($tanggalPdf) ?><br>
         Kepala <?= esc($sekolah['name'] ?? 'Sekolah') ?>
         <span class="ttd-line"></span>
         <strong><?= esc($sekolah['headmaster'] ?? '______________________') ?></strong><br>

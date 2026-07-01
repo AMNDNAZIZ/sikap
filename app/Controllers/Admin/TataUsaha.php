@@ -40,6 +40,18 @@ class TataUsaha extends BaseController
         $useKop       = (bool) $this->request->getPost('kop_surat');
         $namaKegiatan = trim($this->request->getPost('nama_kegiatan') ?? '');
         $tampilTtd    = $this->request->getPost('tampil_ttd') == '1';
+        $tanggalRaw   = $this->request->getPost('tanggal');
+        // Format tanggal Bahasa Indonesia untuk PDF (misal: 24 Juni 2026)
+        if (!empty($tanggalRaw)) {
+            $bulanId = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            $ts = strtotime($tanggalRaw);
+            $tanggalPdf = date('d', $ts) . ' ' . $bulanId[(int) date('n', $ts)] . ' ' . date('Y', $ts);
+        } else {
+            $bulanId = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            $tanggalPdf = date('d') . ' ' . $bulanId[(int) date('n')] . ' ' . date('Y');
+        }
         
         // Ukuran kertas custom untuk F4 (215.9 mm x 330.2 mm / 8.5 x 13 in)
         // Jika tidak dikenali, default ke A4
@@ -92,6 +104,7 @@ class TataUsaha extends BaseController
             'namaKegiatan'  => $namaKegiatan,
             'kop_base64'    => $kopBase64,
             'tampilTtd'     => $tampilTtd,
+            'tanggalPdf'    => $tanggalPdf,
         ];
 
         // useKop = false karena kop sudah di-handle langsung di dalam template

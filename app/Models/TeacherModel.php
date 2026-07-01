@@ -30,6 +30,7 @@ class TeacherModel extends Model
         'province',
         'postal_code',
         'employment_status',
+        'jenis_ptk',
         'appointing_agency',
         'appointment_sk',
         'appointment_tmt',
