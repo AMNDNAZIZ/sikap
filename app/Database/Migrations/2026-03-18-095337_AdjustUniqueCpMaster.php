@@ -8,23 +8,53 @@ class AdjustUniqueCpMaster extends Migration
 {
     public function up()
     {
-        // Add a regular index for mapel_master_id first, 
-        // because unique_cp is used by the foreign key fk_cp_mapel
-        $this->forge->addKey('mapel_master_id');
-        $this->forge->processIndexes('cp_master');
+        // 1. Cek index mapel_master_id terlebih dahulu
+        $indexMapel = $this->db->query("
+            SELECT 1 FROM information_schema.statistics 
+            WHERE table_schema = DATABASE() 
+            AND table_name = 'cp_master' 
+            AND index_name = 'mapel_master_id' 
+            LIMIT 1
+        ")->getRow();
 
-        // Drop existing unique key
-        $this->db->query('ALTER TABLE cp_master DROP INDEX unique_cp');
+        if (!$indexMapel) {
+            $this->forge->addKey('mapel_master_id');
+            $this->forge->processIndexes('cp_master');
+        }
+
+        // 2. Cek index unique_cp
+        $indexUnique = $this->db->query("
+            SELECT 1 FROM information_schema.statistics 
+            WHERE table_schema = DATABASE() 
+            AND table_name = 'cp_master' 
+            AND index_name = 'unique_cp' 
+            LIMIT 1
+        ")->getRow();
+
+        if ($indexUnique) {
+            $this->db->query('ALTER TABLE cp_master DROP INDEX unique_cp');
+        }
         
-        // Add new unique key including elemen
+        // 3. Tambahkan unique key baru termasuk elemen
         $this->forge->addUniqueKey(['mapel_master_id', 'fase', 'tahun', 'elemen'], 'unique_cp');
         $this->forge->processIndexes('cp_master');
     }
 
     public function down()
     {
-        // Reverse changes
-        $this->db->query('ALTER TABLE cp_master DROP INDEX unique_cp');
+        // Cek index unique_cp
+        $indexUnique = $this->db->query("
+            SELECT 1 FROM information_schema.statistics 
+            WHERE table_schema = DATABASE() 
+            AND table_name = 'cp_master' 
+            AND index_name = 'unique_cp' 
+            LIMIT 1
+        ")->getRow();
+
+        if ($indexUnique) {
+            $this->db->query('ALTER TABLE cp_master DROP INDEX unique_cp');
+        }
+
         $this->forge->addUniqueKey(['mapel_master_id', 'fase', 'tahun'], 'unique_cp');
         $this->forge->processIndexes('cp_master');
     }
