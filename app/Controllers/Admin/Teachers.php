@@ -491,6 +491,463 @@ class Teachers extends BaseController
     }
 
     /**
+     * Preview data dari file Dapodik sebelum di-import (AJAX/JSON)
+     */
+    public function importDapodikPreview()
+    {
+        require_permission('teachers.create');
+
+        $file = $this->request->getFile('file_excel');
+
+        if (!$file || !$file->isValid()) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'File tidak valid.']);
+        }
+
+        $extension = strtolower($file->getClientExtension());
+        if (!in_array($extension, ['xlsx', 'xls'])) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Format file harus .xlsx atau .xls']);
+        }
+
+        try {
+            try {
+                $sheetData = $this->readXlsxAsStrings($file->getTempName());
+            } catch (\Throwable $ex) {
+                $spreadsheet = IOFactory::load($file->getTempName());
+                $sheetData   = $spreadsheet->getActiveSheet()->toArray(null, true, true, false);
+            }
+
+            // Validasi: pastikan ini file Dapodik
+            $firstCell = trim((string) ($sheetData[0][0] ?? ''));
+            $isDapodikGuru   = stripos($firstCell, 'Daftar Guru') !== false;
+            $isDapodikTendik = stripos($firstCell, 'Daftar Tenaga Kependidikan') !== false;
+
+            if (!$isDapodikGuru && !$isDapodikTendik) {
+                return $this->response->setJSON([
+                    'status'  => 'error',
+                    'message' => 'File bukan format tarikan Dapodik. Baris pertama harus berisi "Daftar Guru" atau "Daftar Tenaga Kependidikan".',
+                ]);
+            }
+
+            $tipePtk     = $isDapodikGuru ? 'guru' : 'tendik';
+            $sekolahNama = trim((string) ($sheetData[1][0] ?? '-'));
+
+            // Header kolom ada di baris index 4 (baris ke-5)
+            $headerRow = array_map('trim', $sheetData[4] ?? []);
+            // Buat mapping: nama_kolom => index
+            $colMap = [];
+            foreach ($headerRow as $idx => $colName) {
+                if ($colName !== '') {
+                    $colMap[strtolower($colName)] = $idx;
+                }
+            }
+
+            $get     = fn($row, $key) => trim((string) ($row[$colMap[strtolower($key)] ?? -1] ?? ''));
+            $preview = [];
+            $totalRows = 0;
+            $willInsert = 0;
+            $willUpdate = 0;
+            $willSkip   = 0;
+
+            for ($i = 5; $i < count($sheetData); $i++) {
+                $row  = $sheetData[$i];
+                $nama = $get($row, 'Nama');
+                if (empty($nama)) continue;
+
+                $totalRows++;
+                $nuptk = $get($row, 'NUPTK');
+                $nip   = $get($row, 'NIP');
+
+                // Deteksi duplikat
+                $existing = null;
+                if (!empty($nuptk)) {
+                    $existing = $this->teacherModel->where('nuptk', $nuptk)->first();
+                }
+                if (!$existing && !empty($nip)) {
+                    $existing = $this->teacherModel->where('nip', $nip)->first();
+                }
+
+                $action = $existing ? 'UPDATE' : 'INSERT';
+                if ($action === 'INSERT') $willInsert++;
+                elseif ($action === 'UPDATE') $willUpdate++;
+
+                // Ambil max 10 baris untuk preview
+                if (count($preview) < 10) {
+                    $preview[] = [
+                        'nama'              => $nama,
+                        'nuptk'             => $nuptk,
+                        'nip'               => $nip,
+                        'jk'                => $get($row, 'JK'),
+                        'status_kepegawaian' => $get($row, 'Status Kepegawaian'),
+                        'jenis_ptk'         => $get($row, 'Jenis PTK'),
+                        'action'            => $action,
+                    ];
+                }
+            }
+
+            return $this->response->setJSON([
+                'status'      => 'ok',
+                'format'      => 'dapodik',
+                'tipe_ptk'    => $tipePtk,
+                'sekolah_nama' => $sekolahNama,
+                'total_rows'  => $totalRows,
+                'preview'     => $preview,
+                'summary'     => [
+                    'akan_insert' => $willInsert,
+                    'akan_update' => $willUpdate,
+                    'akan_skip'   => $willSkip,
+                ],
+            ]);
+
+        } catch (\Throwable $e) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Gagal memproses file: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Eksekusi import dari file tarikan Dapodik
+     */
+    public function importDapodik()
+    {
+        require_permission('teachers.create');
+        helper('security');
+
+        $file = $this->request->getFile('file_excel');
+
+        if (!$file || !$file->isValid()) {
+            return redirect()->back()->with('error', 'File tidak valid.');
+        }
+
+        $extension = strtolower($file->getClientExtension());
+        if (!in_array($extension, ['xlsx', 'xls'])) {
+            return redirect()->back()->with('error', 'Format file harus .xlsx atau .xls');
+        }
+
+        $onDuplicate = $this->request->getPost('on_duplicate') ?? 'skip'; // 'skip' | 'update'
+
+        try {
+            try {
+                $sheetData = $this->readXlsxAsStrings($file->getTempName());
+            } catch (\Throwable $ex) {
+                $spreadsheet = IOFactory::load($file->getTempName());
+                $sheetData   = $spreadsheet->getActiveSheet()->toArray(null, true, true, false);
+            }
+
+            // Validasi format Dapodik
+            $firstCell = trim((string) ($sheetData[0][0] ?? ''));
+            if (stripos($firstCell, 'Daftar Guru') === false && stripos($firstCell, 'Daftar Tenaga Kependidikan') === false) {
+                return redirect()->back()->with('error', 'File bukan format tarikan Dapodik yang valid.');
+            }
+
+            // Header kolom ada di baris index 4
+            $headerRow = array_map('trim', $sheetData[4] ?? []);
+            $colMap    = [];
+            foreach ($headerRow as $idx => $colName) {
+                if ($colName !== '') {
+                    $colMap[strtolower($colName)] = $idx;
+                }
+            }
+
+            $get = fn($row, $key) => trim((string) ($row[$colMap[strtolower($key)] ?? -1] ?? ''));
+
+            $successCount = 0;
+            $updateCount  = 0;
+            $skipCount    = 0;
+            $errorCount   = 0;
+
+            for ($i = 5; $i < count($sheetData); $i++) {
+                $row  = $sheetData[$i];
+                $nama = $get($row, 'Nama');
+                if (empty($nama)) continue;
+
+                $nuptk = $get($row, 'NUPTK') ?: null;
+                $nip   = $get($row, 'NIP') ?: null;
+                $jk    = strtoupper($get($row, 'JK')) === 'P' ? 'P' : 'L';
+
+                // Gabungkan RT & RW
+                $rt   = $get($row, 'RT');
+                $rw   = $get($row, 'RW');
+                $rtRw = ($rt && $rw) ? "$rt/$rw" : ($rt ?: ($rw ?: null));
+
+                // HP prioritas atas Telepon
+                $hp    = $get($row, 'HP');
+                $telp  = $get($row, 'Telepon');
+                $phone = $hp ?: ($telp ?: null);
+
+                // Normalisasi tanggal lahir
+                $tglLahirRaw = $get($row, 'Tanggal Lahir');
+                $birthDate   = $this->normalizeDapodikDate($tglLahirRaw);
+
+                // Normalisasi TMT
+                $tmtRaw         = $get($row, 'TMT Pengangkatan');
+                $appointmentTmt = $this->normalizeDapodikDate($tmtRaw);
+
+                // Email & username
+                $emailDapodik = $get($row, 'Email');
+                $identifier   = $nip ?: $nama;
+                $username     = $nip ? strtolower($nip) : strtolower(str_replace(' ', '', $nama));
+                $email        = !empty($emailDapodik) ? $emailDapodik : ($username . '@guru.local');
+
+                // Cari duplikat
+                $existing = null;
+                if ($nuptk) {
+                    $existing = $this->teacherModel->where('nuptk', $nuptk)->first();
+                }
+                if (!$existing && $nip) {
+                    $existing = $this->teacherModel->where('nip', $nip)->first();
+                }
+
+                $teacherData = [
+                    'name'               => $nama,
+                    'nip'                => $nip,
+                    'nuptk'              => $nuptk,
+                    'nik'                => $get($row, 'NIK') ?: null,
+                    'gender'             => $jk,
+                    'birth_place'        => $get($row, 'Tempat Lahir') ?: null,
+                    'birth_date'         => $birthDate,
+                    'mother_name'        => $get($row, 'Nama Ibu Kandung') ?: null,
+                    'religion'           => $get($row, 'Agama') ?: null,
+                    'marital_status'     => $get($row, 'Status Perkawinan') ?: null,
+                    'phone'              => $phone,
+                    'email'              => $email,
+                    'address'            => $get($row, 'Alamat Jalan') ?: null,
+                    'rt_rw'              => $rtRw,
+                    'village'            => $get($row, 'Desa/Kelurahan') ?: null,
+                    'district'           => $get($row, 'Kecamatan') ?: null,
+                    'postal_code'        => $get($row, 'Kode Pos') ?: null,
+                    'employment_status'  => $get($row, 'Status Kepegawaian') ?: null,
+                    'jenis_ptk'          => $get($row, 'Jenis PTK') ?: null,
+                    'functional_position' => $get($row, 'Tugas Tambahan') ?: null,
+                    'appointment_sk'     => $get($row, 'SK Pengangkatan') ?: null,
+                    'appointment_tmt'    => $appointmentTmt,
+                    'appointing_agency'  => $get($row, 'Lembaga Pengangkatan') ?: null,
+                    'rank_grade'         => $get($row, 'Pangkat Golongan') ?: null,
+                ];
+
+                if ($existing) {
+                    // Data duplikat — putuskan sesuai pilihan on_duplicate
+                    if ($onDuplicate === 'update') {
+                        $this->teacherModel->update($existing['id'], $teacherData);
+                        // Sinkron nama, email, dan username di tabel users jika ada
+                        if (!empty($existing['user_id'])) {
+                            $usernameConflict = $this->userModel
+                                ->where('username', $username)
+                                ->where('id !=', $existing['user_id'])
+                                ->first();
+
+                            $userDataToUpdate = [
+                                'fullname' => $nama,
+                                'email'    => $email,
+                            ];
+
+                            // Update username jika tidak konflik dengan user lain
+                            if (!$usernameConflict) {
+                                $userDataToUpdate['username'] = $username;
+                            }
+
+                            $this->userModel->update($existing['user_id'], $userDataToUpdate);
+                        }
+                        $updateCount++;
+                    } else {
+                        $skipCount++;
+                    }
+                    continue;
+                }
+
+                // Cek keunikan email & username untuk user baru
+                $existingUser = $this->userModel->where('email', $email)->orWhere('username', $username)->first();
+                if ($existingUser) {
+                    // Fallback: gunakan nuptk sebagai username jika tersedia
+                    $username = $nuptk ? strtolower($nuptk) : ($username . '_' . time());
+                    $email    = $username . '@guru.local';
+                    $teacherData['email'] = $email;
+
+                    // Cek lagi
+                    $existingUser2 = $this->userModel->where('email', $email)->orWhere('username', $username)->first();
+                    if ($existingUser2) {
+                        $errorCount++;
+                        continue;
+                    }
+                }
+
+                $defaultPassword = generate_default_password('guru', $identifier);
+
+                $this->userModel->insert([
+                    'username'            => $username,
+                    'password'            => password_hash($defaultPassword, PASSWORD_BCRYPT),
+                    'fullname'            => $nama,
+                    'email'               => $email,
+                    'role_id'             => 3,
+                    'related_type'        => 'teacher',
+                    'must_change_password' => 1,
+                ]);
+                $userId = $this->userModel->getInsertID();
+
+                $teacherData['user_id'] = $userId;
+
+                $this->teacherModel->insert($teacherData);
+                $teacherId = $this->teacherModel->getInsertID();
+
+                if ($teacherId && $userId) {
+                    $this->userModel->update($userId, ['related_id' => $teacherId]);
+                }
+
+                $successCount++;
+            }
+
+            $message = "Import Dapodik selesai: $successCount data baru ditambahkan";
+            if ($updateCount > 0) $message .= ", $updateCount diperbarui";
+            if ($skipCount > 0)   $message .= ", $skipCount dilewati (duplikat)";
+            if ($errorCount > 0)  $message .= ", $errorCount gagal (konflik akun)";
+            $message .= '.';
+
+            return redirect()->to('/admin/teachers')->with('success', $message);
+
+        } catch (\Throwable $e) {
+            log_message('error', 'importDapodik error: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal memproses file: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Normalisasi format tanggal dari Dapodik ke Y-m-d
+     * Mendukung: "YYYY-MM-DD", "DD-MM-YYYY", "DD/MM/YYYY"
+     */
+    private function normalizeDapodikDate(string $raw): ?string
+    {
+        $raw = trim($raw);
+        if (empty($raw)) return null;
+
+        // Sudah dalam format Y-m-d
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+            return $raw;
+        }
+        // Format DD-MM-YYYY atau DD/MM/YYYY
+        if (preg_match('/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/', $raw, $m)) {
+            return "{$m[3]}-{$m[2]}-{$m[1]}";
+        }
+        // Coba parse generik
+        try {
+            $ts = strtotime($raw);
+            if ($ts !== false) {
+                return date('Y-m-d', $ts);
+            }
+        } catch (\Exception $e) {
+            // abaikan
+        }
+        return null;
+    }
+
+    /**
+     * Membaca file XLSX secara manual menggunakan ZipArchive & SimpleXML
+     * untuk menghindari precision loss/floating-point conversion pada angka panjang (NIP, NUPTK, NIK)
+     */
+    private function readXlsxAsStrings(string $filePath): array
+    {
+        $zip = new \ZipArchive();
+        if ($zip->open($filePath) !== true) {
+            throw new \Exception('Gagal membuka file XLSX.');
+        }
+
+        // 1. Read shared strings
+        $sharedStrings = [];
+        $sharedStringsEntry = $zip->getFromName('xl/sharedStrings.xml');
+        if ($sharedStringsEntry !== false) {
+            // Strip default namespace to simplify parsing
+            $sharedStringsEntry = preg_replace('/xmlns="[^"]+"/', '', $sharedStringsEntry);
+            $xml = simplexml_load_string($sharedStringsEntry);
+            if ($xml && isset($xml->si)) {
+                foreach ($xml->si as $si) {
+                    $text = '';
+                    if (isset($si->t)) {
+                        $text = (string)$si->t;
+                    } elseif (isset($si->r)) {
+                        foreach ($si->r as $r) {
+                            if (isset($r->t)) {
+                                $text .= (string)$r->t;
+                            }
+                        }
+                    }
+                    $sharedStrings[] = $text;
+                }
+            }
+        }
+
+        // 2. Read sheet1
+        $sheetEntry = $zip->getFromName('xl/worksheets/sheet1.xml');
+        if ($sheetEntry === false) {
+            $zip->close();
+            throw new \Exception('Gagal membaca data sheet.');
+        }
+
+        // Strip default namespace
+        $sheetEntry = preg_replace('/xmlns="[^"]+"/', '', $sheetEntry);
+        $xml = simplexml_load_string($sheetEntry);
+        if (!$xml) {
+            $zip->close();
+            throw new \Exception('Format XML sheet tidak valid.');
+        }
+        
+        $rows = [];
+        if (isset($xml->sheetData) && isset($xml->sheetData->row)) {
+            foreach ($xml->sheetData->row as $rowXml) {
+                $rowIndex = (int)$rowXml['r'] - 1; // 0-based index
+                $rowData = [];
+                
+                if (isset($rowXml->c)) {
+                    foreach ($rowXml->c as $c) {
+                        $r = (string)$c['r']; // e.g., "A1"
+                        $t = (string)$c['t']; // e.g., "s" for shared string
+                        
+                        // Get column string reference (A, B, C...)
+                        preg_match('/^([A-Z]+)/', $r, $matches);
+                        if (!isset($matches[1])) continue;
+                        $colStr = $matches[1];
+                        
+                        // Convert column letters to 0-based index
+                        $colIndex = 0;
+                        $len = strlen($colStr);
+                        for ($j = 0; $j < $len; $j++) {
+                            $colIndex = $colIndex * 26 + (ord($colStr[$j]) - ord('A') + 1);
+                        }
+                        $colIndex--; // 0-based index
+
+                        $v = isset($c->v) ? (string)$c->v : '';
+                        if ($t === 's' && $v !== '') {
+                            $v = $sharedStrings[(int)$v] ?? '';
+                        }
+                        
+                        $rowData[$colIndex] = $v;
+                    }
+                }
+                
+                if (!empty($rowData)) {
+                    $maxCol = max(array_keys($rowData));
+                    for ($k = 0; $k <= $maxCol; $k++) {
+                        if (!isset($rowData[$k])) {
+                            $rowData[$k] = '';
+                        }
+                    }
+                    ksort($rowData);
+                    $rows[$rowIndex] = $rowData;
+                }
+            }
+        }
+        $zip->close();
+
+        if (!empty($rows)) {
+            $maxRow = max(array_keys($rows));
+            for ($k = 0; $k <= $maxRow; $k++) {
+                if (!isset($rows[$k])) {
+                    $rows[$k] = [];
+                }
+            }
+            ksort($rows);
+        }
+
+        return $rows;
+    }
+
+    /**
      * Upload dokumen guru
      */
     public function uploadDocument($teacherId)

@@ -174,6 +174,14 @@
                 </div>
 
                 <div class="modal-body">
+                    <!-- Tanggal -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="inputTanggal">Tanggal Kegiatan</label>
+                        <input type="date" class="form-control" id="inputTanggal" name="tanggal"
+                               value="<?= date('Y-m-d') ?>">
+                        <div class="form-text">Tanggal yang akan tercantum pada daftar hadir dan tanda tangan.</div>
+                    </div>
+
                     <!-- Nama Kegiatan -->
                     <div class="mb-3">
                         <label class="form-label fw-semibold" for="inputNamaKegiatan">Nama Kegiatan</label>
