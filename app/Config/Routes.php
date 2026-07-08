@@ -144,6 +144,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('classes/edit/(:num)', 'Classes::edit/$1', $auth127);
     $routes->post('classes/update/(:num)', 'Classes::update/$1', $auth127);
     $routes->get('classes/delete/(:num)', 'Classes::delete/$1', $auth127);
+    $routes->get('classes/toggle/(:num)', 'Classes::toggle/$1', $auth127);
 
     $routes->get('active-classes', 'ActiveClasses::index', $auth127);
     $routes->post('active-classes/update/(:num)', 'ActiveClasses::update/$1', $auth127);
@@ -202,6 +203,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     // 5.8 Administrasi Guru (Kurikulum Merdeka)
     $routes->group('administrasi-guru', $auth123, function ($routes) use ($auth123) {
         $routes->get('/', 'AdministrasiGuru::index');
+        $routes->get('monitoring', 'AdministrasiGuru::monitoring');
         $routes->get('mapping', 'AdministrasiGuru::mapping', $auth123);
         $routes->post('mapping/update', 'AdministrasiGuru::updateMapping', $auth123);
         
@@ -217,6 +219,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->get('atp', 'AdministrasiGuru::atp');
         $routes->post('atp/store', 'AdministrasiGuru::atpStore');
         $routes->get('atp/delete/(:num)', 'AdministrasiGuru::atpDelete/$1');
+        $routes->post('atp/copy-from-source', 'AdministrasiGuru::atpCopyFromSource');
         $routes->get('atp/print/(:num)/(:num)', 'AdministrasiGuru::atpPrint/$1/$2');
         $routes->get('prota-prosem', 'AdministrasiGuru::protaProsem');
         $routes->get('prota/print/(:num)/(:num)', 'AdministrasiGuru::protaPrint/$1/$2');

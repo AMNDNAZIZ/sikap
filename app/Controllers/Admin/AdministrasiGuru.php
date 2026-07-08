@@ -56,6 +56,218 @@ class AdministrasiGuru extends BaseController
         return view('admin/administrasi_guru/index', $data);
     }
 
+    public function monitoring()
+    {
+        // 1. Check permission - Only Admin (1) and Kepsek (2)
+        $user = session()->get('user');
+        if (!$user || !in_array($user['role_id'], [1, 2])) {
+            return redirect()->to(base_url('dashboard'))->with('error', 'Anda tidak memiliki akses ke halaman ini.');
+        }
+
+        $data['title'] = 'Monitoring Administrasi Guru';
+
+        // 2. Get active academic year
+        $academicYearModel = new \App\Models\AcademicYearModel();
+        $activeYear = $academicYearModel->getActiveYear();
+        $activeYearId = $activeYear ? $activeYear['id'] : null;
+        $data['active_year'] = $activeYear;
+
+        // 3. Filter inputs
+        $filterTeacher = $this->request->getGet('teacher_id');
+        $filterClass   = $this->request->getGet('class_id');
+        $filterSubject = $this->request->getGet('subject_id');
+
+        $data['filter_teacher'] = $filterTeacher;
+        $data['filter_class']   = $filterClass;
+        $data['filter_subject'] = $filterSubject;
+
+        // 4. Dropdowns data (all teachers, classes, and mapped subjects)
+        $data['teachers'] = $this->teacherModel->orderBy('name', 'ASC')->findAll();
+        $data['classes']  = $this->db->table('classes')->orderBy('name', 'ASC')->get()->getResultArray();
+        $data['subjects'] = $this->subjectModel->where('mapel_master_id !=', null)->orderBy('name', 'ASC')->findAll();
+
+        if (!$activeYearId) {
+            $data['assignments'] = [];
+            $data['pager'] = null;
+            $data['atp_stats'] = ['complete' => 0, 'partial' => 0, 'empty' => 0];
+            $data['promes_stats'] = ['complete' => 0, 'partial' => 0, 'empty' => 0];
+            return view('admin/administrasi_guru/monitoring', $data);
+        }
+
+        // 5. Query ALL assignments (plotting pengajaran) for active academic year
+        $query = $this->teachingAssignmentModel
+            ->select('teaching_assignments.id, teaching_assignments.teacher_id, teaching_assignments.class_id, teaching_assignments.subject_id, teachers.name as teacher_name, classes.name as class_name, classes.level as class_level, subjects.name as subject_name')
+            ->join('teachers', 'teachers.id = teaching_assignments.teacher_id')
+            ->join('classes', 'classes.id = teaching_assignments.class_id')
+            ->join('subjects', 'subjects.id = teaching_assignments.subject_id')
+            ->where('teaching_assignments.academic_year_id', $activeYearId);
+
+        if ($filterTeacher) {
+            $query->where('teaching_assignments.teacher_id', $filterTeacher);
+        }
+        if ($filterClass) {
+            $query->where('teaching_assignments.class_id', $filterClass);
+        }
+        if ($filterSubject) {
+            $query->where('teaching_assignments.subject_id', $filterSubject);
+        }
+
+        $allAssignments = $query->orderBy('teachers.name', 'ASC')
+            ->orderBy('classes.name', 'ASC')
+            ->orderBy('subjects.name', 'ASC')
+            ->findAll(); // Get all matching results to calculate statistics
+
+        // 6. Pre-fetch multi-guru map for fast lookup
+        $multiGuruCounts = $this->db->table('teaching_assignments ta')
+            ->select('ta.subject_id, c.level as class_level, COUNT(DISTINCT ta.teacher_id) as teacher_count')
+            ->join('classes c', 'c.id = ta.class_id')
+            ->where('ta.academic_year_id', $activeYearId)
+            ->groupBy('ta.subject_id, c.level')
+            ->get()->getResultArray();
+
+        $multiGuruMap = [];
+        foreach ($multiGuruCounts as $mg) {
+            $key = $mg['subject_id'] . '_' . $mg['class_level'];
+            $multiGuruMap[$key] = ($mg['teacher_count'] > 1);
+        }
+
+        // Statistics counters
+        $atpStats = ['complete' => 0, 'partial' => 0, 'empty' => 0];
+        $promesStats = ['complete' => 0, 'partial' => 0, 'empty' => 0];
+
+        // 7. Calculate status for all assignments
+        foreach ($allAssignments as &$row) {
+            $classId = $row['class_id'];
+            $subjectId = $row['subject_id'];
+            $classLevel = $row['class_level'];
+
+            $key = $subjectId . '_' . $classLevel;
+            $isMultiGuru = $multiGuruMap[$key] ?? false;
+
+            // Fetch ATPs
+            $atpQuery = $this->db->table('alur_tujuan_pembelajaran');
+            if ($isMultiGuru) {
+                $atpQuery->where('class_id', $classId);
+            } else {
+                $classIdsAtLevelQuery = $this->db->table('classes')
+                    ->select('id')
+                    ->where('level', $classLevel)
+                    ->get()->getResultArray();
+                $classIds = array_column($classIdsAtLevelQuery, 'id') ?: [0];
+                $atpQuery->whereIn('class_id', $classIds);
+            }
+
+            $atpRecords = $atpQuery->where('subject_id', $subjectId)
+                ->get()->getResultArray();
+
+            $atpCount = count($atpRecords);
+            $sem1Count = 0;
+            $sem2Count = 0;
+            $totalAllocatedJp = 0;
+            $atpIds = [];
+            
+            $sem1Allocated = 0;
+            $sem2Allocated = 0;
+            $atpIdsSem1 = [];
+            $atpIdsSem2 = [];
+
+            foreach ($atpRecords as $atp) {
+                $atpIds[] = $atp['id'];
+                $totalAllocatedJp += (int)($atp['alokasi_waktu'] ?? 0);
+                if ($atp['semester'] == 1) {
+                    $sem1Count++;
+                    $sem1Allocated += (int)($atp['alokasi_waktu'] ?? 0);
+                    $atpIdsSem1[] = $atp['id'];
+                } elseif ($atp['semester'] == 2) {
+                    $sem2Count++;
+                    $sem2Allocated += (int)($atp['alokasi_waktu'] ?? 0);
+                    $atpIdsSem2[] = $atp['id'];
+                }
+            }
+
+            // ATP Status Logic
+            if ($atpCount == 0) {
+                $row['atp_status'] = 'empty';
+                $row['atp_info'] = 'Kosong';
+                $atpStats['empty']++;
+            } elseif ($sem1Count >= 2 && $sem2Count >= 2) {
+                $row['atp_status'] = 'complete';
+                $row['atp_info'] = "Selesai (Sem1: {$sem1Count}, Sem2: {$sem2Count})";
+                $atpStats['complete']++;
+            } else {
+                $row['atp_status'] = 'partial';
+                $row['atp_info'] = "Selesai sebagian (Sem1: {$sem1Count}, Sem2: {$sem2Count})";
+                $atpStats['partial']++;
+            }
+
+            // Promes Status Logic
+            $sem1Distributed = 0;
+            $sem2Distributed = 0;
+
+            if (!empty($atpIdsSem1)) {
+                $distQuery1 = $this->db->table('prosem_distributions')
+                    ->selectSum('jp')
+                    ->whereIn('atp_id', $atpIdsSem1)
+                    ->get()->getRowArray();
+                $sem1Distributed = (int)($distQuery1['jp'] ?? 0);
+            }
+            if (!empty($atpIdsSem2)) {
+                $distQuery2 = $this->db->table('prosem_distributions')
+                    ->selectSum('jp')
+                    ->whereIn('atp_id', $atpIdsSem2)
+                    ->get()->getRowArray();
+                $sem2Distributed = (int)($distQuery2['jp'] ?? 0);
+            }
+
+            $totalDistributedJp = $sem1Distributed + $sem2Distributed;
+
+            $isSem1Complete = ($sem1Allocated > 0 && $sem1Distributed >= $sem1Allocated);
+            $isSem2Complete = ($sem2Allocated > 0 && $sem2Distributed >= $sem2Allocated);
+
+            if ($atpCount == 0) {
+                $row['promes_status'] = 'empty';
+                $row['promes_info'] = 'Kosong';
+                $promesStats['empty']++;
+            } elseif ($totalDistributedJp == 0) {
+                $row['promes_status'] = 'empty';
+                $row['promes_info'] = "Belum terdistribusi (0/{$totalAllocatedJp} JP)";
+                $promesStats['empty']++;
+            } elseif ($isSem1Complete && $isSem2Complete) {
+                $row['promes_status'] = 'complete';
+                $row['promes_info'] = "Selesai ({$totalDistributedJp}/{$totalAllocatedJp} JP)";
+                $promesStats['complete']++;
+            } else {
+                $row['promes_status'] = 'partial';
+                $row['promes_info'] = "Selesai sebagian (Sem1: {$sem1Distributed}/{$sem1Allocated}, Sem2: {$sem2Distributed}/{$sem2Allocated} JP)";
+                $promesStats['partial']++;
+            }
+        }
+        unset($row);
+
+        // 8. Manual Pagination
+        $totalItems = count($allAssignments);
+        $perPage = 50;
+        $currentPage = (int)($this->request->getGet('page') ?? 1);
+        if ($currentPage < 1) $currentPage = 1;
+        $offset = ($currentPage - 1) * $perPage;
+
+        $pagedAssignments = array_slice($allAssignments, $offset, $perPage);
+
+        // Load pager service
+        $pager = \Config\Services::pager();
+        $pager->setPath('admin/administrasi-guru/monitoring');
+
+        $data['assignments'] = $pagedAssignments;
+        $data['pager'] = $pager;
+        $data['page'] = $currentPage;
+        $data['perPage'] = $perPage;
+        $data['total'] = $totalItems;
+        $data['atp_stats'] = $atpStats;
+        $data['promes_stats'] = $promesStats;
+
+        return view('admin/administrasi_guru/monitoring', $data);
+    }
+
     public function mapping()
     {
         // ✅ Check permission - Kepsek can view
@@ -626,6 +838,24 @@ class AdministrasiGuru extends BaseController
     {
         $atp = $this->atpModel->find($id);
         if ($atp) {
+            $user = session()->get('user');
+
+            // Cegah guru menghapus ATP milik kelas lain
+            if ($user['role_id'] == 3) {
+                if ((int)$atp['class_id'] !== (int)$atp['class_id']) {
+                    return redirect()->back()->with('error', 'Anda tidak dapat menghapus ATP ini.');
+                }
+                // Pastikan guru hanya hapus ATP milik kelasnya sendiri
+                $isOwner = $this->db->table('teaching_assignments')
+                    ->where('teacher_id', $user['related_id'])
+                    ->where('class_id', $atp['class_id'])
+                    ->where('subject_id', $atp['subject_id'])
+                    ->countAllResults();
+                if (!$isOwner) {
+                    return redirect()->back()->with('error', 'Anda tidak memiliki akses untuk menghapus ATP ini.');
+                }
+            }
+
             // Hapus TP dari tiap elemen lalu hapus elemen
             $oldElemens = $this->atpElemenModel->where('atp_id', $id)->findAll();
             foreach ($oldElemens as $oe) {
@@ -639,6 +869,120 @@ class AdministrasiGuru extends BaseController
             return redirect()->to(base_url('admin/administrasi-guru/atp?class_id=' . $atp['class_id'] . '&subject_id=' . $atp['subject_id']))->with('success', 'Alur berhasil dihapus.');
         }
         return redirect()->back();
+    }
+
+    /**
+     * Salin semua ATP dari kelas sumber ke kelas tujuan (deep copy).
+     * ATP baru disimpan permanen dengan class_id kelas tujuan.
+     * Data asli tidak terpengaruh sama sekali.
+     */
+    public function atpCopyFromSource()
+    {
+        $user        = session()->get('user');
+        $sourceClassId = (int) $this->request->getPost('source_class_id');
+        $targetClassId = (int) $this->request->getPost('target_class_id');
+        $subjectId     = (int) $this->request->getPost('subject_id');
+
+        if (!$sourceClassId || !$targetClassId || !$subjectId) {
+            return redirect()->back()->with('error', 'Parameter tidak lengkap.');
+        }
+
+        // Hak akses: guru hanya bisa menyalin ke kelasnya sendiri
+        if ($user['role_id'] == 3) {
+            $isAssigned = $this->db->table('teaching_assignments')
+                ->where('teacher_id', $user['related_id'])
+                ->where('class_id', $targetClassId)
+                ->where('subject_id', $subjectId)
+                ->countAllResults();
+            if (!$isAssigned) {
+                return redirect()->back()->with('error', 'Anda tidak memiliki akses ke kelas tujuan.');
+            }
+        }
+
+        // Cek kelas tujuan sudah punya ATP — cegah duplikasi
+        $alreadyHasAtp = $this->atpModel
+            ->where('subject_id', $subjectId)
+            ->where('class_id', $targetClassId)
+            ->countAllResults();
+        if ($alreadyHasAtp > 0) {
+            return redirect()->back()->with('error', 'Kelas ini sudah memiliki ATP. Hapus ATP yang ada terlebih dahulu jika ingin menyalin ulang.');
+        }
+
+        // Ambil semua ATP dari kelas sumber
+        $sourceAtps = $this->atpModel
+            ->where('subject_id', $subjectId)
+            ->where('class_id', $sourceClassId)
+            ->orderBy('semester', 'ASC')
+            ->orderBy('urutan', 'ASC')
+            ->findAll();
+
+        if (empty($sourceAtps)) {
+            return redirect()->back()->with('error', 'Tidak ada ATP di kelas sumber untuk disalin.');
+        }
+
+        $this->db->transStart();
+
+        foreach ($sourceAtps as $srcAtp) {
+            // Salin header ATP dengan class_id baru
+            $newAtpData = [
+                'subject_id'     => $subjectId,
+                'class_id'       => $targetClassId,
+                'cp_master_id'   => $srcAtp['cp_master_id'],
+                'lingkup_materi' => $srcAtp['lingkup_materi'],
+                'tp_id'          => 0,
+                'alur_tujuan'    => $srcAtp['alur_tujuan'] ?? null,
+                'urutan'         => $srcAtp['urutan'],
+                'semester'       => $srcAtp['semester'],
+                'alokasi_waktu'  => $srcAtp['alokasi_waktu'],
+            ];
+            $this->atpModel->insert($newAtpData);
+            $newAtpId = $this->atpModel->getInsertID();
+
+            // Salin elemen CP
+            $srcElemens = $this->atpElemenModel->where('atp_id', $srcAtp['id'])->orderBy('urutan', 'ASC')->findAll();
+            $firstTpId  = null;
+
+            foreach ($srcElemens as $srcEl) {
+                $this->atpElemenModel->insert([
+                    'atp_id'       => $newAtpId,
+                    'cp_master_id' => $srcEl['cp_master_id'],
+                    'urutan'       => $srcEl['urutan'],
+                ]);
+                $newElemenId = $this->atpElemenModel->getInsertID();
+
+                // Salin TP untuk elemen ini
+                $srcTps = $this->tpModel->where('atp_elemen_id', $srcEl['id'])->findAll();
+                foreach ($srcTps as $srcTp) {
+                    $this->tpModel->insert([
+                        'subject_id'     => $subjectId,
+                        'cp_master_id'   => $srcTp['cp_master_id'],
+                        'atp_id'         => $newAtpId,
+                        'atp_elemen_id'  => $newElemenId,
+                        'elemen'         => $srcTp['elemen'],
+                        'lingkup_materi' => $srcTp['lingkup_materi'],
+                        'kode_tp'        => $srcTp['kode_tp'],
+                        'deskripsi'      => $srcTp['deskripsi'],
+                        'fase'           => $srcTp['fase'],
+                        'kelas'          => $srcTp['kelas'],
+                    ]);
+                    if ($firstTpId === null) {
+                        $firstTpId = $this->tpModel->getInsertID();
+                    }
+                }
+            }
+
+            // Update tp_id backward compat
+            $this->atpModel->update($newAtpId, ['tp_id' => $firstTpId ?? 0]);
+        }
+
+        $this->db->transComplete();
+
+        if (!$this->db->transStatus()) {
+            return redirect()->back()->with('error', 'Gagal menyalin ATP. Silakan coba lagi.');
+        }
+
+        return redirect()->to(base_url("admin/administrasi-guru/atp?class_id={$targetClassId}&subject_id={$subjectId}"))
+            ->with('success', 'ATP berhasil disalin secara permanen ke kelas ini. Anda dapat mengedit sesuai kebutuhan.');
     }
 
     public function cpMasterIndex()
