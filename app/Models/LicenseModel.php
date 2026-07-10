@@ -149,14 +149,11 @@ class LicenseModel extends Model
             return false;
         }
 
-        // Check Expiry — gunakan timezone Asia/Jakarta agar konsisten dengan DB
+        // Check Expiry — bandingkan langsung tanpa konversi timezone
+        // strtotime() pada string datetime tanpa timezone menggunakan timezone PHP default
         if ($license['expires_at']) {
-            $expiresTs = strtotime($license['expires_at'] . ' Asia/Jakarta');
-            // Fallback: jika strtotime gagal parse timezone, gunakan offset manual
-            if ($expiresTs === false) {
-                $expiresTs = strtotime($license['expires_at']) - (7 * 3600); // konversi UTC+7 ke UTC
-            }
-            if ($expiresTs < time()) {
+            $expiresTs = strtotime($license['expires_at']);
+            if ($expiresTs !== false && $expiresTs < time()) {
                 $error = 'Lisensi Anda telah kedaluwarsa. Silakan lakukan aktivasi ulang.';
                 return false;
             }
