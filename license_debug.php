@@ -21,9 +21,9 @@ if (file_exists(__DIR__ . '/.env')) {
 }
 
 $dbHost = $env['database.default.hostname'] ?? 'localhost';
-$dbUser = $env['database.default.username'] ?? 'root';
-$dbPass = $env['database.default.password'] ?? '';
-$dbName = $env['database.default.database'] ?? '';
+$dbUser = $env['database.default.username'] ?? 'smpi3426_web';
+$dbPass = $env['database.default.password'] ?? 'S@lm4100185';
+$dbName = $env['database.default.database'] ?? 'smpi3426_web';
 
 echo '<pre style="font-family:monospace;font-size:13px;">';
 echo "=== LICENSE FIX ===\n\n";
