@@ -203,8 +203,9 @@ class LicenseFilter implements FilterInterface
 
             // Allow up to 5 failed attempts (approx 5 days of periodic check)
             if ($failCount > 5) {
-                $model->update($id, ['status' => 'suspended']);
-                log_message('critical', 'License suspended after ' . $failCount . ' failed verification attempts');
+                // Jangan suspend otomatis — hanya log warning
+                // Biarkan lisensi tetap active sampai admin/user intervensi
+                log_message('critical', 'License verification failed ' . $failCount . ' times. Admin should check manually.');
             } else {
                 log_message('warning', 'License verification failed. Grace period: attempt ' . $failCount . ' of 5');
             }

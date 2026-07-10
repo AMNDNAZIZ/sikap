@@ -1,13 +1,11 @@
 <?php
 /**
- * License Debug Script
+ * License Debug & Fix Script
  * Jalankan: https://yourdomain.com/license_debug.php?token=DEBUG2026
  * HAPUS SETELAH SELESAI
  */
 if (($_GET['token'] ?? '') !== 'DEBUG2026') { http_response_code(403); die('Forbidden'); }
 
-// Bootstrap minimal CI4
-define('FCPATH', __DIR__ . '/public/');
 $appPath = __DIR__ . '/app/';
 
 // Baca .env
@@ -28,148 +26,99 @@ $dbPass = $env['database.default.password'] ?? '';
 $dbName = $env['database.default.database'] ?? '';
 
 echo '<pre style="font-family:monospace;font-size:13px;">';
-echo "=== LICENSE DIAGNOSTIC ===\n\n";
-echo "Server time    : " . date('Y-m-d H:i:s') . " (" . date_default_timezone_get() . ")\n";
-echo "DB Host        : $dbHost\n";
-echo "DB Name        : $dbName\n\n";
+echo "=== LICENSE FIX ===\n\n";
 
 try {
     $pdo = new PDO("mysql:host=$dbHost;dbname=$dbName;charset=utf8mb4", $dbUser, $dbPass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    echo "✅ DB Connected\n\n";
 } catch (Exception $e) {
     die("❌ DB Error: " . $e->getMessage());
 }
 
-// Ambil lisensi
 $row = $pdo->query("SELECT * FROM app_license LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 if (!$row) { die("❌ Tidak ada data di tabel app_license"); }
 
-echo "=== DATA LISENSI DI DB ===\n";
-echo "id             : " . $row['id'] . "\n";
-echo "status         : " . $row['status'] . "\n";
-echo "expires_at     : " . $row['expires_at'] . "\n";
-echo "last_check     : " . $row['last_check'] . "\n";
-echo "hash (16 char) : " . substr($row['hash'] ?? '', 0, 16) . "...\n";
-echo "machine_id     : " . substr($row['machine_id'] ?? '', 0, 20) . "...(encrypted)\n\n";
+echo "Status saat ini : " . $row['status'] . "\n";
+echo "Expires at      : " . $row['expires_at'] . "\n";
+echo "Server time     : " . date('Y-m-d H:i:s') . "\n\n";
 
-// Cek expiry
 $expiresTs = strtotime($row['expires_at'] ?? '');
-$nowTs     = time();
-echo "=== CEK EXPIRY ===\n";
-echo "expires_at (strtotime) : $expiresTs → " . date('Y-m-d H:i:s', $expiresTs) . "\n";
-echo "time() sekarang        : $nowTs → " . date('Y-m-d H:i:s', $nowTs) . "\n";
-echo "Status expiry          : " . ($expiresTs > $nowTs ? "✅ BELUM EXPIRED" : "❌ EXPIRED") . "\n\n";
+if ($expiresTs < time()) {
+    die("❌ Lisensi memang sudah expired (" . $row['expires_at'] . "). Perlu perpanjang lisensi.");
+}
 
-// Cek hash
+echo "✅ Expiry valid hingga " . $row['expires_at'] . "\n\n";
+
+// ACTION: Ubah status ke active
+if ($row['status'] !== 'active') {
+    $pdo->prepare("UPDATE app_license SET status = 'active', last_check = ? WHERE id = ?")
+        ->execute([date('Y-m-d H:i:s'), $row['id']]);
+    echo "✅ Status diubah dari '{$row['status']}' → 'active'\n\n";
+} else {
+    echo "Status sudah active, tidak perlu diubah.\n\n";
+}
+
+// Jika encryptionKey tersedia, perbaiki hash juga
 $encKey = $env['license.encryptionKey'] ?? '';
 $hashSecret = base64_decode($env['license.hashSecret'] ?? 'U2FLYVNhTGlLYTIwMjZTZWNyZXRLZXlGb3JIYXNoVmVyaWZpY2F0aW9u');
 
 if ($encKey) {
-    // Decrypt machine_id dan license_key
-    function decryptField($value, $key) {
-        if (empty($value)) return $value;
+    function decryptF($value, $key) {
         try {
             $data = base64_decode($value);
             $iv = substr($data, 0, 16);
             $enc = substr($data, 16);
             return openssl_decrypt($enc, 'AES-256-CBC', $key, 0, $iv);
-        } catch (Exception $e) {
-            return $value;
-        }
+        } catch (Exception $e) { return $value; }
     }
 
-    $licKey   = decryptField($row['license_key'], $encKey);
-    $machineId = decryptField($row['machine_id'], $encKey);
+    // Re-read after update
+    $row = $pdo->query("SELECT * FROM app_license LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    $licKey    = decryptF($row['license_key'], $encKey);
+    $machineId = decryptF($row['machine_id'], $encKey);
     $expiresAt = $row['expires_at'];
 
     $expectedHash = hash('sha256', $licKey . $expiresAt . $machineId . $hashSecret);
-    $storedHash   = $row['hash'];
 
-    echo "=== CEK HASH ===\n";
-    echo "license_key (dec, 10) : " . substr($licKey, 0, 10) . "...\n";
-    echo "machine_id  (dec, 16) : " . substr($machineId, 0, 16) . "...\n";
-    echo "expires_at            : $expiresAt\n";
-    echo "expected hash (16)    : " . substr($expectedHash, 0, 16) . "...\n";
-    echo "stored hash   (16)    : " . substr($storedHash, 0, 16) . "...\n";
-    echo "Hash match            : " . ($expectedHash === $storedHash ? "✅ MATCH" : "❌ MISMATCH") . "\n\n";
-
-    // Jika hash mismatch, regenerate
-    if ($expectedHash !== $storedHash) {
-        echo "=== REGENERATE HASH ===\n";
-        $newHash = hash('sha256', $licKey . $expiresAt . $machineId . $hashSecret);
-        $pdo->prepare("UPDATE app_license SET hash = ? WHERE id = ?")->execute([$newHash, $row['id']]);
-        echo "✅ Hash di database sudah diperbarui.\n";
-        echo "   Sekarang coba akses aplikasi kembali.\n\n";
-
-        // Regenerate .lic_hash
-        $licFiles = [
-            $appPath . 'Libraries/LicenseGuard.php',
-            $appPath . 'Filters/LicenseFilter.php',
-            $appPath . 'Models/LicenseModel.php',
-        ];
-        $licHashes = [];
-        foreach ($licFiles as $f) {
-            if (file_exists($f)) $licHashes[str_replace($appPath, '', $f)] = sha1_file($f);
-        }
-        file_put_contents($appPath . 'Config/.lic_hash', json_encode($licHashes, JSON_PRETTY_PRINT));
-        echo "✅ .lic_hash diperbarui\n";
-
-        // Regenerate .security_hash
-        $secFiles = [
-            'Helpers/license_helper.php',
-            'Libraries/LicenseGuard.php',
-            'Libraries/SecurityGuard.php',
-            'Libraries/SecureConfig.php',
-            'Filters/LicenseFilter.php',
-            'Models/LicenseModel.php',
-        ];
-        $secHashes = [];
-        foreach ($secFiles as $f) {
-            $p = $appPath . $f;
-            if (file_exists($p)) $secHashes[$f] = hash_file('sha256', $p);
-        }
-        file_put_contents($appPath . 'Config/.security_hash', json_encode($secHashes, JSON_PRETTY_PRINT));
-        echo "✅ .security_hash diperbarui\n\n";
-        echo "🎉 Semua sudah diperbaiki. Hapus file ini dan coba akses aplikasi.\n";
+    if ($row['hash'] !== $expectedHash) {
+        $pdo->prepare("UPDATE app_license SET hash = ? WHERE id = ?")
+            ->execute([$expectedHash, $row['id']]);
+        echo "✅ Hash DB diperbaiki\n";
     } else {
-        echo "Hash sudah cocok. Masalah mungkin ada di tempat lain.\n";
-        echo "Cek: apakah .security_hash perlu diperbarui?\n";
-
-        // Cek security hash
-        $secHashFile = $appPath . 'Config/.security_hash';
-        if (file_exists($secHashFile)) {
-            $secHashes = json_decode(file_get_contents($secHashFile), true);
-            echo "\n=== CEK SECURITY_HASH ===\n";
-            $secFiles = ['Helpers/license_helper.php','Libraries/LicenseGuard.php','Libraries/SecurityGuard.php','Libraries/SecureConfig.php','Filters/LicenseFilter.php','Models/LicenseModel.php'];
-            $needRegen = false;
-            foreach ($secFiles as $f) {
-                $p = $appPath . $f;
-                if (!file_exists($p)) { echo "❌ MISSING: $f\n"; continue; }
-                $current = hash_file('sha256', $p);
-                $stored  = $secHashes[$f] ?? 'NOT IN HASH';
-                $match   = ($current === $stored);
-                if (!$match) $needRegen = true;
-                echo ($match ? "✅" : "❌") . " $f\n";
-            }
-            if ($needRegen) {
-                echo "\n⚠️  Security hash tidak cocok — regenerating...\n";
-                $newSec = [];
-                foreach ($secFiles as $f) {
-                    $p = $appPath . $f;
-                    if (file_exists($p)) $newSec[$f] = hash_file('sha256', $p);
-                }
-                file_put_contents($secHashFile, json_encode($newSec, JSON_PRETTY_PRINT));
-                echo "✅ .security_hash diperbarui\n";
-            } else {
-                echo "\n✅ Semua security hash cocok.\n";
-            }
-        }
+        echo "✅ Hash DB sudah cocok\n";
     }
 } else {
-    echo "❌ license.encryptionKey tidak ditemukan di .env\n";
-    echo "   Tidak bisa decrypt machine_id untuk verifikasi hash.\n";
+    echo "⚠️  encryptionKey tidak ada di .env — hash tidak bisa diverifikasi.\n";
+    echo "   Tapi status sudah diubah ke 'active', coba akses aplikasi dulu.\n\n";
 }
 
-echo "\n⚠️  HAPUS FILE INI SEKARANG!\n";
+// Regenerate .lic_hash dan .security_hash
+$licFiles = ['Libraries/LicenseGuard.php', 'Filters/LicenseFilter.php', 'Models/LicenseModel.php'];
+$licHashes = [];
+foreach ($licFiles as $f) {
+    $p = $appPath . $f;
+    if (file_exists($p)) $licHashes[$f] = sha1_file($p);
+}
+file_put_contents($appPath . 'Config/.lic_hash', json_encode($licHashes, JSON_PRETTY_PRINT));
+echo "✅ .lic_hash diperbarui (" . count($licHashes) . " files)\n";
+
+$secFiles = ['Helpers/license_helper.php','Libraries/LicenseGuard.php','Libraries/SecurityGuard.php','Libraries/SecureConfig.php','Filters/LicenseFilter.php','Models/LicenseModel.php'];
+$secHashes = [];
+foreach ($secFiles as $f) {
+    $p = $appPath . $f;
+    if (file_exists($p)) $secHashes[$f] = hash_file('sha256', $p);
+}
+file_put_contents($appPath . 'Config/.security_hash', json_encode($secHashes, JSON_PRETTY_PRINT));
+echo "✅ .security_hash diperbarui (" . count($secHashes) . " files)\n\n";
+
+// Reset cache fail count
+$cacheDir = __DIR__ . '/writable/cache/';
+if (is_dir($cacheDir)) {
+    foreach (glob($cacheDir . '*license*') as $f) @unlink($f);
+    foreach (glob($cacheDir . '*fail_count*') as $f) @unlink($f);
+    echo "✅ Cache license dibersihkan\n";
+}
+
+echo "\n🎉 SELESAI. Sekarang coba akses aplikasi.\n";
+echo "⚠️  HAPUS FILE INI SEKARANG!\n";
 echo '</pre>';
