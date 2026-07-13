@@ -121,7 +121,10 @@ class Attendance extends BaseController
             $monthStart = date('Y-m-01', strtotime($month));
             $monthEnd = date('Y-m-t', strtotime($month));
 
-            if ($monthStart < $yearStart || $monthEnd > $yearEnd) {
+            $minMonth = date('Y-m', strtotime($yearStart));
+            $maxMonth = date('Y-m', strtotime($yearEnd));
+
+            if ($month < $minMonth || $month > $maxMonth) {
                 return redirect()->to("/admin/attendance?class_id={$classId}")
                     ->with('error', 'Bulan yang dipilih di luar tahun ajaran aktif ('
                         . date('d M Y', strtotime($yearStart)) . ' - '
@@ -143,7 +146,7 @@ class Attendance extends BaseController
             $dto->modify('+6 days');
             $weekEnd = $dto->format('Y-m-d');
 
-            if ($weekStart < $yearStart || $weekEnd > $yearEnd) {
+            if ($weekStart > $yearEnd || $weekEnd < $yearStart) {
                 return redirect()->to("/admin/attendance?class_id={$classId}")
                     ->with('error', 'Minggu yang dipilih di luar tahun ajaran aktif ('
                         . date('d M Y', strtotime($yearStart)) . ' - '
@@ -192,6 +195,14 @@ class Attendance extends BaseController
             ->findAll();
         foreach ($customHolidays as $h) {
             $holidays[$h['date']] = $h['description'];
+        }
+
+        // Tandai tanggal di luar tahun ajaran aktif sebagai hari libur (non-efektif)
+        for ($d = $start; $d <= $end; $d = strtotime('+1 day', $d)) {
+            $dateStr = date('Y-m-d', $d);
+            if ($dateStr < $yearStart || $dateStr > $yearEnd) {
+                $holidays[$dateStr] = 'Luar Tahun Ajaran';
+            }
         }
 
         // Ambil pengaturan hari pembelajaran (5 atau 6 hari)
@@ -515,6 +526,12 @@ class Attendance extends BaseController
             $attMap[$a['student_id']][$a['date']] = $a['status'];
         }
 
+        // Ambil pengaturan hari pembelajaran & Tahun ajaran aktif
+        $activeYear = $this->yearModel->getActiveYear() ?: [];
+        $schoolDays = $activeYear['school_days'] ?? 5;
+        $yearStart = isset($activeYear['start_date']) ? date('Y-m-d', strtotime($activeYear['start_date'])) : null;
+        $yearEnd = isset($activeYear['end_date']) ? date('Y-m-d', strtotime($activeYear['end_date'])) : null;
+
         // libur
         $holidayRows = $this->holidayModel
             ->where('date >=', $start)
@@ -525,9 +542,15 @@ class Attendance extends BaseController
             $holidays[$h['date']] = $h['description'] ?? '';
         }
 
-        // Ambil pengaturan hari pembelajaran
-        $activeYear = $this->yearModel->getActiveYear() ?: [];
-        $schoolDays = $activeYear['school_days'] ?? 5;
+        // Tandai tanggal di luar tahun ajaran aktif sebagai hari libur (non-efektif)
+        if ($yearStart && $yearEnd) {
+            for ($d = strtotime($start); $d <= strtotime($end); $d = strtotime('+1 day', $d)) {
+                $dateStr = date('Y-m-d', $d);
+                if ($dateStr < $yearStart || $dateStr > $yearEnd) {
+                    $holidays[$dateStr] = 'Luar Tahun Ajaran';
+                }
+            }
+        }
 
         $data = [
             'class' => $class,
@@ -603,6 +626,12 @@ class Attendance extends BaseController
             $attMap[$a['student_id']][$a['date']] = $a['status'];
         }
 
+        // Ambil pengaturan hari pembelajaran & Tahun ajaran aktif
+        $activeYear = $this->yearModel->getActiveYear() ?: [];
+        $schoolDays = $activeYear['school_days'] ?? 5;
+        $yearStart = isset($activeYear['start_date']) ? date('Y-m-d', strtotime($activeYear['start_date'])) : null;
+        $yearEnd = isset($activeYear['end_date']) ? date('Y-m-d', strtotime($activeYear['end_date'])) : null;
+
         // holidays
         $holidayRows = $this->holidayModel
             ->where('date >=', $start)
@@ -612,9 +641,15 @@ class Attendance extends BaseController
         foreach ($holidayRows as $h)
             $holidaySet[$h['date']] = true;
 
-        // Ambil pengaturan hari pembelajaran
-        $activeYear = $this->yearModel->getActiveYear() ?: [];
-        $schoolDays = $activeYear['school_days'] ?? 5;
+        // Tandai tanggal di luar tahun ajaran aktif sebagai hari libur (non-efektif)
+        if ($yearStart && $yearEnd) {
+            for ($d = strtotime($start); $d <= strtotime($end); $d = strtotime('+1 day', $d)) {
+                $dateStr = date('Y-m-d', $d);
+                if ($dateStr < $yearStart || $dateStr > $yearEnd) {
+                    $holidaySet[$dateStr] = true;
+                }
+            }
+        }
 
         // buat excel
         $spreadsheet = new Spreadsheet();
