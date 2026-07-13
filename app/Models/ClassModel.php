@@ -9,5 +9,5 @@ class ClassModel extends Model
     protected $table = 'classes';
     protected $primaryKey = 'id';
     protected $useTimestamps = true;
-    protected $allowedFields = ['name', 'level', 'teacher_id', 'description'];
+    protected $allowedFields = ['name', 'level', 'teacher_id', 'description', 'is_active'];
 }
