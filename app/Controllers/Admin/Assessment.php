@@ -315,7 +315,7 @@ class Assessment extends BaseController
             $method = $p2 ?? 'all';
 
             $material = $db->table('alur_tujuan_pembelajaran atp')
-                ->select('atp.id, atp.lingkup_materi as title, atp.class_id, subjects.name as subject, subjects.id as subject_id')
+                ->select('atp.id, atp.lingkup_materi as title, atp.class_id, atp.semester, subjects.name as subject, subjects.id as subject_id')
                 ->join('subjects', 'subjects.id = atp.subject_id')
                 ->where('atp.id', $id)
                 ->get()

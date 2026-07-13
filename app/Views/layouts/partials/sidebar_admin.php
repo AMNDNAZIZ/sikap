@@ -27,7 +27,7 @@
     $inTataUsaha = url_is('admin/tata-usaha*') || url_is('admin/surat-masuk*') || url_is('admin/surat-keluar*') || url_is('admin/agenda-surat*') || url_is('admin/buku-tamu*') || url_is('admin/settings/kop-surat*');
     $inKurikulum = url_is('admin/administrasi-guru*') && !url_is('admin/administrasi-guru/cp-master*') && !url_is('admin/administrasi-guru/mapping*');
     $inJadwal    = url_is('admin/schedules*') || url_is('admin/agendas*') || url_is('admin/teaching-journal*');
-    $inPresensi  = url_is('admin/attendance*');
+    $inPresensi  = url_is('admin/attendance*') || url_is('admin/teacher-attendance*');
     $inNilai     = url_is('admin/assessments*') || url_is('admin/grades*') || url_is('admin/erapor*');
     $inKokuri    = url_is('admin/kokurikuler*');
     $inCbt       = url_is('admin/cbt*') || url_is('admin/exam-schedule*') || url_is('admin/kartu-peserta*');
@@ -171,9 +171,17 @@
 
     <!-- Presensi -->
     <li class="nav-item">
-      <a class="nav-link <?= $inPresensi ? 'active' : '' ?>" href="<?= base_url('admin/attendance') ?>">
+      <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#menuPresensi"
+        role="button" aria-expanded="<?= $inPresensi ? 'true' : 'false' ?>">
         🕒 <span class="label">Presensi/Absensi</span>
+        <i class="bi bi-chevron-down chevron label ms-auto"></i>
       </a>
+      <div class="collapse <?= $inPresensi ? 'show' : '' ?>" id="menuPresensi">
+        <ul class="nav flex-column ms-3">
+          <li><a class="nav-link <?= url_is('admin/attendance*') ? 'active' : '' ?>" href="<?= base_url('admin/attendance') ?>">🎓 <span class="label">Absensi Siswa</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/teacher-attendance*') ? 'active' : '' ?>" href="<?= base_url('admin/teacher-attendance') ?>">👨‍🏫 <span class="label">Absensi Guru</span></a></li>
+        </ul>
+      </div>
     </li>
 
     <!-- Penilaian & Nilai -->

@@ -52,7 +52,7 @@ function buildTabUrl($type, $entityId, $method, $semester = null) {
             </tr>
             <tr>
               <th>Semester</th>
-              <td><?= esc(ucfirst($material['semester'])) ?></td>
+              <td><?= esc(ucfirst($material['semester'] ?? '-')) ?></td>
             </tr>
             <tr>
               <th>Metode</th>

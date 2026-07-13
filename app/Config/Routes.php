@@ -205,6 +205,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     // 5.8 Administrasi Guru (Kurikulum Merdeka)
     $routes->group('administrasi-guru', $auth123, function ($routes) use ($auth123) {
         $routes->get('/', 'AdministrasiGuru::index');
+        $routes->get('monitoring', 'AdministrasiGuru::monitoring');
         $routes->get('mapping', 'AdministrasiGuru::mapping', $auth123);
         $routes->post('mapping/update', 'AdministrasiGuru::updateMapping', $auth123);
         
@@ -220,6 +221,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->get('atp', 'AdministrasiGuru::atp');
         $routes->post('atp/store', 'AdministrasiGuru::atpStore');
         $routes->get('atp/delete/(:num)', 'AdministrasiGuru::atpDelete/$1');
+        $routes->post('atp/copy-from-source', 'AdministrasiGuru::atpCopyFromSource');
         $routes->get('atp/print/(:num)/(:num)', 'AdministrasiGuru::atpPrint/$1/$2');
         $routes->get('prota-prosem', 'AdministrasiGuru::protaProsem');
         $routes->get('prota/print/(:num)/(:num)', 'AdministrasiGuru::protaPrint/$1/$2');
@@ -233,6 +235,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->post('modul-ajar/update', 'AdministrasiGuru::updateModulAjar');
         $routes->get('modul-ajar/print/(:num)/(:num)', 'AdministrasiGuru::printModulAjar/$1/$2');
         $routes->get('modul-ajar/delete/(:num)/(:num)/(:num)', 'AdministrasiGuru::deleteModulAjar/$1/$2/$3');
+        $routes->post('modul-ajar/copy', 'AdministrasiGuru::copyModulAjar');
     });
 
     // 5.9 Kokurikuler (Kurikulum Merdeka) - Admin, Kepsek & Guru Kelas
@@ -579,6 +582,16 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('changelogs/edit/(:num)', 'Changelogs::edit/$1');
     $routes->post('changelogs/save', 'Changelogs::save');
     $routes->get('changelogs/delete/(:num)', 'Changelogs::delete/$1');
+
+    // ── Absensi Guru ──────────────────────────────────────────────────────────
+    $routes->get('teacher-attendance', 'TeacherAttendance::index', ['filter' => 'auth:1,7']);
+    $routes->post('teacher-attendance/save', 'TeacherAttendance::save', ['filter' => 'auth:1,7']);
+    $routes->post('teacher-attendance/submit-session', 'TeacherAttendance::submitSession', ['filter' => 'auth:1,7']);
+    $routes->get('teacher-attendance/report', 'TeacherAttendance::report', ['filter' => 'auth:1,2,7']);
+    $routes->get('teacher-attendance/report/detail/(:num)', 'TeacherAttendance::reportDetail/$1', ['filter' => 'auth:1,2,7']);
+    $routes->get('teacher-attendance/export-excel', 'TeacherAttendance::exportExcel', ['filter' => 'auth:1,2,7']);
+    $routes->get('teacher-attendance/export-pdf', 'TeacherAttendance::exportPdf', ['filter' => 'auth:1,2,7']);
+    $routes->get('teacher-attendance/my', 'TeacherAttendance::myAttendance', ['filter' => 'auth:3']);
 
 });
 
