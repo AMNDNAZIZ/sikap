@@ -59,14 +59,16 @@
                     <?php if ($c['is_active']): ?>
                       <a href="<?= base_url('admin/classes/toggle-active/' . $c['id']) ?>"
                          class="btn btn-sm btn-outline-secondary"
+                         title="Nonaktifkan <?= esc($c['name']) ?>"
                          onclick="return confirm('Nonaktifkan kelas <?= esc($c['name']) ?>?')">
-                        <i class="bi bi-toggle-on"></i> Nonaktifkan
+                        <i class="bi bi-toggle-on fs-5"></i>
                       </a>
                     <?php else: ?>
                       <a href="<?= base_url('admin/classes/toggle-active/' . $c['id']) ?>"
                          class="btn btn-sm btn-outline-success"
+                         title="Aktifkan <?= esc($c['name']) ?>"
                          onclick="return confirm('Aktifkan kelas <?= esc($c['name']) ?>?')">
-                        <i class="bi bi-toggle-off"></i> Aktifkan
+                        <i class="bi bi-toggle-off fs-5"></i>
                       </a>
                     <?php endif; ?>
                     <a href="<?= base_url('admin/classes/delete/' . $c['id']) ?>" class="btn btn-sm btn-danger"
