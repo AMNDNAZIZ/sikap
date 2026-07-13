@@ -46,15 +46,23 @@ class Attendance extends BaseController
             $teacherId = $user['related_id'] ?? null;
             $db = \Config\Database::connect();
 
+            $activeYear = $this->yearModel->getActiveYear() ?: [];
+            $activeYearId = $activeYear['id'] ?? null;
+
             // Get classes where teacher is Wali Kelas
             $waliClasses = $this->classModel->where('teacher_id', $teacherId)->findAll();
 
-            // Get classes where teacher is Guru Mapel
-            $mapelClasses = $db->table('teaching_assignments ta')
+            // Get classes where teacher is Guru Mapel (hanya untuk tahun ajaran aktif)
+            $mapelQuery = $db->table('teaching_assignments ta')
                 ->select('c.id, c.name')
                 ->join('classes c', 'c.id = ta.class_id')
-                ->where('ta.teacher_id', $teacherId)
-                ->groupBy('c.id')
+                ->where('ta.teacher_id', $teacherId);
+            
+            if ($activeYearId) {
+                $mapelQuery->where('ta.academic_year_id', $activeYearId);
+            }
+
+            $mapelClasses = $mapelQuery->groupBy('c.id')
                 ->get()
                 ->getResultArray();
 
@@ -101,18 +109,25 @@ class Attendance extends BaseController
             return redirect()->to('/dashboard')->with('error', 'Akses ditolak ke kelas ini.');
         }
 
-        // Data kelas dan siswa
-        $class = $this->classModel->find($classId);
-        $students = $this->studentModel
-            ->select('students.*')
-            ->join('student_records sr', 'sr.student_id = students.id')
-            ->where('sr.class_id', $classId)
-            ->findAll();
-
         // Tahun ajaran aktif
         $activeYear = $this->yearModel->getActiveYear() ?: [];
-        $yearStart = date('Y-m-d', strtotime($activeYear['start_date']));
-        $yearEnd = date('Y-m-d', strtotime($activeYear['end_date']));
+        $yearStart = date('Y-m-d', strtotime($activeYear['start_date'] ?? ''));
+        $yearEnd = date('Y-m-d', strtotime($activeYear['end_date'] ?? ''));
+
+        // Data kelas dan siswa
+        $class = $this->classModel->find($classId);
+        
+        $studentQuery = $this->studentModel
+            ->select('students.*')
+            ->join('student_records sr', 'sr.student_id = students.id')
+            ->where('sr.class_id', $classId);
+
+        if (!empty($activeYear['id'])) {
+            $studentQuery->where('sr.academic_year_id', $activeYear['id'])
+                         ->where('sr.status', 'aktif');
+        }
+
+        $students = $studentQuery->findAll();
 
         // =========================
         // Tentukan rentang tanggal
@@ -432,12 +447,19 @@ class Attendance extends BaseController
         $end = $weekDates[6];
 
         $class = $this->classModel->find($classId);
+        $activeYear = $this->yearModel->getActiveYear() ?: [];
 
-        $students = $this->studentModel
+        $studentQuery = $this->studentModel
             ->select('students.*')
             ->join('student_records sr', 'sr.student_id = students.id')
-            ->where('sr.class_id', $classId)
-            ->orderBy('students.name', 'ASC')
+            ->where('sr.class_id', $classId);
+
+        if (!empty($activeYear['id'])) {
+            $studentQuery->where('sr.academic_year_id', $activeYear['id'])
+                         ->where('sr.status', 'aktif');
+        }
+
+        $students = $studentQuery->orderBy('students.name', 'ASC')
             ->findAll();
 
         $attendances = $this->attendanceModel
@@ -498,12 +520,24 @@ class Attendance extends BaseController
             return redirect()->back()->with('error', 'Kelas tidak ditemukan.');
         }
 
-        // siswa via join student_records (jangan pakai where('class_id', ...) di students)
-        $students = $this->studentModel
+        // Ambil pengaturan hari pembelajaran & Tahun ajaran aktif
+        $activeYear = $this->yearModel->getActiveYear() ?: [];
+        $schoolDays = $activeYear['school_days'] ?? 5;
+        $yearStart = isset($activeYear['start_date']) ? date('Y-m-d', strtotime($activeYear['start_date'])) : null;
+        $yearEnd = isset($activeYear['end_date']) ? date('Y-m-d', strtotime($activeYear['end_date'])) : null;
+
+        // siswa via join student_records
+        $studentQuery = $this->studentModel
             ->select('students.*')
             ->join('student_records sr', 'sr.student_id = students.id')
-            ->where('sr.class_id', $classId)
-            ->orderBy('students.name', 'ASC')
+            ->where('sr.class_id', $classId);
+
+        if (!empty($activeYear['id'])) {
+            $studentQuery->where('sr.academic_year_id', $activeYear['id'])
+                         ->where('sr.status', 'aktif');
+        }
+
+        $students = $studentQuery->orderBy('students.name', 'ASC')
             ->findAll();
 
         // daftar tanggal bulan
@@ -601,11 +635,24 @@ class Attendance extends BaseController
             return redirect()->back()->with('error', 'Kelas tidak ditemukan.');
         }
 
-        $students = $this->studentModel
+        // Ambil pengaturan hari pembelajaran & Tahun ajaran aktif
+        $activeYear = $this->yearModel->getActiveYear() ?: [];
+        $schoolDays = $activeYear['school_days'] ?? 5;
+        $yearStart = isset($activeYear['start_date']) ? date('Y-m-d', strtotime($activeYear['start_date'])) : null;
+        $yearEnd = isset($activeYear['end_date']) ? date('Y-m-d', strtotime($activeYear['end_date'])) : null;
+
+        // siswa via join student_records
+        $studentQuery = $this->studentModel
             ->select('students.*')
             ->join('student_records sr', 'sr.student_id = students.id')
-            ->where('sr.class_id', $classId)
-            ->orderBy('students.name', 'ASC')
+            ->where('sr.class_id', $classId);
+
+        if (!empty($activeYear['id'])) {
+            $studentQuery->where('sr.academic_year_id', $activeYear['id'])
+                         ->where('sr.status', 'aktif');
+        }
+
+        $students = $studentQuery->orderBy('students.name', 'ASC')
             ->findAll();
 
         $start = $month . '-01';
@@ -776,11 +823,17 @@ class Attendance extends BaseController
         // =================================
         // AMBIL SISWA DI KELAS
         // =================================
-        $students = $this->studentModel
+        $studentQuery = $this->studentModel
             ->select('students.*')
             ->join('student_records sr', 'sr.student_id = students.id')
-            ->where('sr.class_id', $classId)
-            ->findAll();
+            ->where('sr.class_id', $classId);
+
+        if (!empty($activeYear['id'])) {
+            $studentQuery->where('sr.academic_year_id', $activeYear['id'])
+                         ->where('sr.status', 'aktif');
+        }
+
+        $students = $studentQuery->findAll();
 
         // =================================
         // TENTUKAN RANGE TANGGAL
@@ -1067,11 +1120,17 @@ class Attendance extends BaseController
         // ================================
         // Ambil siswa
         // ================================
-        $students = $this->studentModel
+        $studentQuery = $this->studentModel
             ->select('students.*')
             ->join('student_records sr', 'sr.student_id = students.id')
-            ->where('sr.class_id', $classId)
-            ->orderBy('students.name', 'ASC')
+            ->where('sr.class_id', $classId);
+
+        if (!empty($activeYear['id'])) {
+            $studentQuery->where('sr.academic_year_id', $activeYear['id'])
+                         ->where('sr.status', 'aktif');
+        }
+
+        $students = $studentQuery->orderBy('students.name', 'ASC')
             ->findAll();
 
         // ================================
