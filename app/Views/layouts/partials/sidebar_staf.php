@@ -120,6 +120,21 @@
       </a>
     </li>
 
+    <!-- Absensi Guru -->
+    <li class="nav-item">
+      <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#menuAbsensiGuru"
+        role="button" aria-expanded="<?= url_is('admin/teacher-attendance*') ? 'true' : 'false' ?>">
+        👨‍🏫 <span class="label">Absensi Guru</span>
+        <i class="bi bi-chevron-down chevron label ms-auto"></i>
+      </a>
+      <div class="collapse <?= url_is('admin/teacher-attendance*') ? 'show' : '' ?>" id="menuAbsensiGuru">
+        <ul class="nav flex-column ms-3">
+          <li><a class="nav-link <?= url_is('admin/teacher-attendance') && !url_is('admin/teacher-attendance/report*') ? 'active' : '' ?>" href="<?= base_url('admin/teacher-attendance') ?>">📋 <span class="label">Input Harian</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/teacher-attendance/report*') ? 'active' : '' ?>" href="<?= base_url('admin/teacher-attendance/report') ?>">📊 <span class="label">Laporan Bulanan</span></a></li>
+        </ul>
+      </div>
+    </li>
+
     <!-- Obrolan Staff -->
     <li class="nav-item">
       <a class="nav-link d-flex align-items-center <?= url_is('admin/staff-chat*') ? 'active' : '' ?>"

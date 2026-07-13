@@ -120,8 +120,11 @@
         </div>
     <?php else: ?>
 <div class="card shadow mb-4">
-    <div class="card-header py-3">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
         <h6 class="m-0 font-weight-bold text-primary">Daftar Modul Ajar (Level Kelas)</h6>
+        <span class="badge bg-success-subtle text-success border border-success">
+            <i class="bi bi-arrow-repeat me-1"></i> Modul tidak terikat tahun ajaran — bisa digunakan kembali
+        </span>
     </div>
     <div class="card-body">
         <table class="table table-bordered table-hover align-middle">
@@ -194,6 +197,19 @@
                                                     <i class="bi bi-magic"></i> Generate Modul (AI)
                                                 </button>
                                             </form>
+                                            <?php if (!empty($atp['modul_source'])): ?>
+                                            <form action="<?= base_url('admin/administrasi-guru/modul-ajar/copy') ?>" method="post" class="mt-1">
+                                                <?= csrf_field() ?>
+                                                <input type="hidden" name="source_modul_id" value="<?= $atp['modul_source']['id'] ?>">
+                                                <input type="hidden" name="target_class_id" value="<?= $selected_class ?>">
+                                                <input type="hidden" name="subject_id" value="<?= $selected_subject ?>">
+                                                <input type="hidden" name="atp_id" value="<?= $atp['id'] ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-success w-100"
+                                                    onclick="return confirm('Salin modul dari <?= esc($atp['modul_source']['class_name']) ?>?')">
+                                                    <i class="bi bi-copy"></i> Salin dari <?= esc($atp['modul_source']['class_name']) ?>
+                                                </button>
+                                            </form>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     <?php else: ?>
                                         <span class="text-muted small">Hubungi Guru Mapel</span>

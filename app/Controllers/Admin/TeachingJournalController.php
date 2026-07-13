@@ -170,7 +170,7 @@ class TeachingJournalController extends BaseController
 
     public function getAtps()
     {
-        $classId = $this->request->getGet('class_id');
+        $classId   = $this->request->getGet('class_id');
         $subjectId = $this->request->getGet('subject_id');
 
         if (!$classId || !$subjectId) {
@@ -180,13 +180,43 @@ class TeachingJournalController extends BaseController
         $classInfo = $this->classModel->find($classId);
         if (!$classInfo) return $this->response->setJSON([]);
 
-        $atps = $this->atpModel
-            ->select('alur_tujuan_pembelajaran.id, alur_tujuan_pembelajaran.lingkup_materi, cp_master.elemen')
-            ->join('cp_master', 'cp_master.id = alur_tujuan_pembelajaran.cp_master_id')
-            ->join('classes c_atp', 'c_atp.id = alur_tujuan_pembelajaran.class_id', 'left')
-            ->where('c_atp.level', $classInfo['level'])
-            ->where('alur_tujuan_pembelajaran.subject_id', $subjectId)
-            ->findAll();
+        // Query ATP berdasarkan level kelas
+        // Pakai subquery WHERE IN untuk filter level agar tidak ada baris yang hilang
+        $classIdsAtLevel = $this->db->table('classes')
+            ->select('id')
+            ->where('level', $classInfo['level'])
+            ->get()->getResultArray();
+        $classIdsAtLevel = array_column($classIdsAtLevel, 'id');
+
+        if (empty($classIdsAtLevel)) {
+            return $this->response->setJSON([]);
+        }
+
+        $atps = $this->db->table('alur_tujuan_pembelajaran atp')
+            ->select('atp.id, atp.lingkup_materi, atp.semester, atp.urutan')
+            ->whereIn('atp.class_id', $classIdsAtLevel)
+            ->where('atp.subject_id', $subjectId)
+            ->groupBy('atp.id')
+            ->orderBy('atp.semester', 'ASC')
+            ->orderBy('atp.urutan', 'ASC')
+            ->get()->getResultArray();
+
+        // Untuk setiap ATP, ambil daftar elemen CP dari atp_elemen
+        foreach ($atps as &$atp) {
+            $elemens = $this->db->table('atp_elemen ae')
+                ->select('cp.elemen')
+                ->join('cp_master cp', 'cp.id = ae.cp_master_id')
+                ->where('ae.atp_id', $atp['id'])
+                ->orderBy('ae.urutan', 'ASC')
+                ->get()->getResultArray();
+
+            // Gabungkan nama elemen jadi satu string
+            $elemenNames = array_column($elemens, 'elemen');
+            $atp['elemen'] = !empty($elemenNames)
+                ? implode(', ', $elemenNames)
+                : '-';
+        }
+        unset($atp);
 
         return $this->response->setJSON($atps);
     }
