@@ -21,12 +21,22 @@ class Promotions extends BaseController {
 
     public function index() {
         $activeYear = $this->yearModel->where('is_active',1)->first();
-        $prevYear   = $this->yearModel->where('is_active',0)->orderBy('start_date','DESC')->first();
+
+        if (!$activeYear) {
+            return redirect()->to('/admin/academic-year')->with('error', 'Tidak ada tahun ajaran aktif. Silakan aktifkan tahun ajaran terlebih dahulu.');
+        }
+
+        // Ambil tahun ajaran sebelumnya (non-aktif, start_date sebelum tahun aktif)
+        $prevYear = $this->yearModel
+            ->where('is_active', 0)
+            ->where('start_date <', $activeYear['start_date'])
+            ->orderBy('start_date', 'DESC')
+            ->first();
 
         $students=[];
         if($prevYear){
             $students=$this->recordModel
-                ->select('student_records.*,students.name,classes.name as class_name')
+                ->select('student_records.*,students.name,students.nis,classes.name as class_name')
                 ->join('students','students.id=student_records.student_id')
                 ->join('classes','classes.id=student_records.class_id','left')
                 ->where('student_records.academic_year_id',$prevYear['id'])
@@ -38,7 +48,8 @@ class Promotions extends BaseController {
             'title'=>'Kenaikan & Kelulusan',
             'students'=>$students,
             'activeYear'=>$activeYear,
-            'classes'=>$this->classModel->findAll()
+            'prevYear'=>$prevYear,
+            'classes'=>$this->classModel->where('is_active', 1)->findAll()
         ]);
     }
 

@@ -7,9 +7,20 @@
   <div class="alert alert-success"><?= session()->getFlashdata('success') ?></div>
 <?php endif ?>
 
-<?php if (empty($students)): ?>
-  <div class="alert alert-info">Belum ada data siswa dari tahun ajaran sebelumnya.</div>
+<?php if (session()->getFlashdata('error')): ?>
+  <div class="alert alert-danger"><?= session()->getFlashdata('error') ?></div>
+<?php endif ?>
+
+<?php if (!$prevYear): ?>
+  <div class="alert alert-warning">
+    <strong>Tidak ada data.</strong> Belum ada tahun ajaran sebelumnya yang bisa diproses untuk kenaikan kelas.
+  </div>
+<?php elseif (empty($students)): ?>
+  <div class="alert alert-info">
+    Belum ada data siswa aktif dari tahun ajaran sebelumnya (<strong><?= esc($prevYear['year']) ?></strong>).
+  </div>
 <?php else: ?>
+<p class="text-muted">Memproses siswa dari tahun ajaran: <strong><?= esc($prevYear['year']) ?></strong> → <strong><?= esc($activeYear['year']) ?></strong></p>
 <form method="post" action="<?= base_url('admin/promotions/process') ?>">
   <?= csrf_field() ?>
   <table class="table table-bordered table-striped">
