@@ -146,6 +146,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('classes/edit/(:num)', 'Classes::edit/$1', $auth127);
     $routes->post('classes/update/(:num)', 'Classes::update/$1', $auth127);
     $routes->get('classes/delete/(:num)', 'Classes::delete/$1', $auth127);
+    $routes->get('classes/toggle-active/(:num)', 'Classes::toggleActive/$1', $auth127);
 
     $routes->get('active-classes', 'ActiveClasses::index', $auth127);
     $routes->post('active-classes/update/(:num)', 'ActiveClasses::update/$1', $auth127);

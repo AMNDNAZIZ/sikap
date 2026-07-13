@@ -237,4 +237,20 @@ class Classes extends BaseController
         $model->delete($id);
         return redirect()->to('/admin/classes')->with('success', 'Kelas berhasil dihapus');
     }
+
+    public function toggleActive($id)
+    {
+        $model  = new ClassModel();
+        $class  = $model->find($id);
+
+        if (!$class) {
+            return redirect()->back()->with('error', 'Kelas tidak ditemukan.');
+        }
+
+        $newStatus = $class['is_active'] ? 0 : 1;
+        $model->update($id, ['is_active' => $newStatus]);
+
+        $label = $newStatus ? 'diaktifkan' : 'dinonaktifkan';
+        return redirect()->back()->with('success', "Kelas '{$class['name']}' berhasil {$label}.");
+    }
 }

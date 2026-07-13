@@ -31,23 +31,44 @@
               <th>Nama Kelas</th>
               <th width="100">Tingkat</th>
               <th>Wali Kelas</th>
-              <th width="200">Aksi</th>
+              <th width="100" class="text-center">Status</th>
+              <th width="250">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <?php foreach ($classes as $i => $c): ?>
-              <tr>
+              <tr class="<?= $c['is_active'] ? '' : 'table-secondary text-muted' ?>">
                 <td><?= $i + 1 ?></td>
                 <td><?= esc($c['name']) ?></td>
                 <td class="text-center">
                   <span class="badge bg-info"><?= esc($c['level']) ?></span>
                 </td>
                 <td><?= esc($c['teacher_name'] ?: '-') ?></td>
+                <td class="text-center">
+                  <?php if ($c['is_active']): ?>
+                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Aktif</span>
+                  <?php else: ?>
+                    <span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>Nonaktif</span>
+                  <?php endif; ?>
+                </td>
                 <td>
                   <?php if (session()->get('user')['role_id'] != 2): ?>
                     <a href="<?= base_url('admin/classes/edit/' . $c['id']) ?>" class="btn btn-sm btn-warning">
                       <i class="bi bi-pencil-square"></i> Edit
                     </a>
+                    <?php if ($c['is_active']): ?>
+                      <a href="<?= base_url('admin/classes/toggle-active/' . $c['id']) ?>"
+                         class="btn btn-sm btn-outline-secondary"
+                         onclick="return confirm('Nonaktifkan kelas <?= esc($c['name']) ?>?')">
+                        <i class="bi bi-toggle-on"></i> Nonaktifkan
+                      </a>
+                    <?php else: ?>
+                      <a href="<?= base_url('admin/classes/toggle-active/' . $c['id']) ?>"
+                         class="btn btn-sm btn-outline-success"
+                         onclick="return confirm('Aktifkan kelas <?= esc($c['name']) ?>?')">
+                        <i class="bi bi-toggle-off"></i> Aktifkan
+                      </a>
+                    <?php endif; ?>
                     <a href="<?= base_url('admin/classes/delete/' . $c['id']) ?>" class="btn btn-sm btn-danger"
                       onclick="return confirm('Yakin hapus kelas ini?')">
                       <i class="bi bi-trash"></i> Hapus
