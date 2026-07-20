@@ -1,7 +1,7 @@
 {
-    "version": "1.1.1-stable",
-    "generated": "2026-07-20 17:32:43",
-    "last_update": "2026-07-20 20:02",
+    "version": "1.2.6",
+    "generated": "2026-07-20 17:36:47",
+    "last_update": "2026-07-20 22:30",
     "total_files": 770,
     "files": {
         "app/.htaccess": "0a949a74edc566be1e1944fbfab681a5",
@@ -17,7 +17,7 @@
         "app/Config/Boot/testing.php": "f762cf55203cf351ab14b426cc8f0fa1",
         "app/Config/CURLRequest.php": "25cb8216ca21482e2a741a4125dc43ca",
         "app/Config/Cache.php": "389279d19e9c97f5636c303ae1e20d0f",
-        "app/Config/Constants.php": "156b832f204139e71b717efe091cd6f7",
+        "app/Config/Constants.php": "96483282e440869cebdb588e5fc0b32c",
         "app/Config/ContentSecurityPolicy.php": "1c58ba42d78f45ef1ccc7260fd1fae7e",
         "app/Config/Cookie.php": "8ce8ac7762e4c1b1fb15ef1e7465db42",
         "app/Config/Cors.php": "64ec76507e0b4bfe5c2d0887aad12ea4",
