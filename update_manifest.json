@@ -1,6 +1,7 @@
 {
-    "version": "1.0.0",
-    "generated": "2026-07-20 17:19:01",
+    "version": "1.1.1-stable",
+    "generated": "2026-07-20 17:32:43",
+    "last_update": "2026-07-20 20:02",
     "total_files": 770,
     "files": {
         "app/.htaccess": "0a949a74edc566be1e1944fbfab681a5",
