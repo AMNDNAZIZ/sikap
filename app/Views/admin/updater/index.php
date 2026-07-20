@@ -143,6 +143,33 @@ $isLocalhost = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'])
     </div>
 
     <?php if ($isLocalhost): ?>
+        <!-- Generate Manifest (Localhost Only) -->
+        <div class="col-12">
+            <div class="card shadow-sm border-info">
+                <div class="card-header bg-info bg-opacity-10">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">🌐 Generate Manifest Update Online</h5>
+                        <span class="badge bg-info">DEV ONLY</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-9">
+                            <p class="mb-0">
+                                Generate file <code>update_manifest.json</code> yang berisi daftar file beserta hash.
+                                Setelah digenerate, <strong>push ke GitHub</strong> agar client bisa cek update secara online.
+                            </p>
+                        </div>
+                        <div class="col-md-3 text-end">
+                            <a href="<?= base_url('admin/updater/generate-manifest') ?>" class="btn btn-info">
+                                📋 Generate Manifest
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Step 1: Generator (Localhost Only) -->
         <div class="col-12">
             <div class="card shadow-sm border-warning">
@@ -181,15 +208,42 @@ $isLocalhost = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'])
 
     <!-- Info: Download Update from Google Drive (for other users) -->
     <?php if (!$isLocalhost): ?>
+        <!-- Online Update (Primary method) -->
         <div class="col-12">
-            <div class="alert alert-info d-flex align-items-center" role="alert">
+            <div class="card shadow-sm border-primary">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">🌐 Update Online (Rekomendasi)</h5>
+                        <span class="badge bg-light text-primary">OTOMATIS</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <p class="mb-1">
+                                <strong>Cek dan terapkan update secara online.</strong> Sistem hanya akan mendownload file yang berubah — lebih cepat dan efisien.
+                            </p>
+                            <small class="text-muted">Membutuhkan koneksi internet. File diunduh dari repository resmi.</small>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <a href="<?= base_url('admin/updater/check-online') ?>" class="btn btn-primary btn-lg">
+                                <i class="bi bi-cloud-arrow-down me-1"></i> Cek Update
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="alert alert-secondary d-flex align-items-center" role="alert">
                 <i class="bi bi-cloud-download fs-4 me-3"></i>
                 <div class="flex-grow-1">
-                    <strong>Butuh File Update Terbaru?</strong><br>
-                    <small>Download file update (.zip) dari Google Drive resmi aplikasi SIKAP</small>
+                    <strong>Alternatif: Download Manual</strong><br>
+                    <small>Jika update online gagal, download file update (.zip) dari Google Drive</small>
                 </div>
-                <a href="https://s.id/sikap_app" target="_blank" class="btn btn-info btn-sm ms-3">
-                    <i class="bi bi-google"></i> Buka Google Drive
+                <a href="https://s.id/sikap_app" target="_blank" class="btn btn-outline-secondary btn-sm ms-3">
+                    <i class="bi bi-google"></i> Google Drive
                 </a>
             </div>
         </div>

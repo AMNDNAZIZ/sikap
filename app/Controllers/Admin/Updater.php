@@ -460,11 +460,6 @@ class Updater extends BaseController
     /**
      * Generate Patch ZIP (Localhost Only usage recommended)
      */
-    /**
-     * Get list of allowed tables for backup/restore operations
-     * 
-     * @return array
-     */
     private function getAllowedTables(): array
     {
         return [
@@ -522,6 +517,231 @@ class Updater extends BaseController
     {
         return in_array($table, $this->getAllowedTables(), true);
     }
+
+    // =========================================================================
+    // ONLINE UPDATE SYSTEM (Delta-based)
+    // =========================================================================
+
+    /**
+     * GitHub repository config for online update
+     */
+    private function getUpdateConfig(): array
+    {
+        return [
+            'github_user'   => 'Sakajaya',
+            'github_repo'   => 'sikap-update',
+            'github_branch' => 'main',
+            'manifest_path' => 'update_manifest.json',
+        ];
+    }
+
+    /**
+     * Build raw GitHub URL
+     */
+    private function githubRawUrl(string $path): string
+    {
+        $cfg = $this->getUpdateConfig();
+        return "https://raw.githubusercontent.com/{$cfg['github_user']}/{$cfg['github_repo']}/{$cfg['github_branch']}/{$path}";
+    }
+
+    /**
+     * Generate manifest file (localhost/developer only).
+     * Scans app/ and public/ folders, creates update_manifest.json at ROOTPATH.
+     */
+    public function generateManifest()
+    {
+        $folders = ['app', 'public'];
+        $files = [];
+
+        foreach ($folders as $folder) {
+            $basePath = ROOTPATH . $folder;
+            if (!is_dir($basePath)) continue;
+            $this->scanFilesForManifest($basePath, ROOTPATH, $files);
+        }
+
+        ksort($files);
+
+        $manifest = [
+            'version'     => defined('APP_VERSION') ? APP_VERSION : '1.0.0',
+            'generated'   => date('Y-m-d H:i:s'),
+            'last_update' => defined('LAST_UPDATE') ? LAST_UPDATE : date('Y-m-d H:i'),
+            'total_files' => count($files),
+            'files'       => $files,
+        ];
+
+        $jsonPath = ROOTPATH . 'update_manifest.json';
+        file_put_contents($jsonPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        return redirect()->back()->with('success', 'Manifest berhasil digenerate: ' . count($files) . ' file. Jangan lupa push ke GitHub.');
+    }
+
+    /**
+     * Recursively scan files and build hash map
+     */
+    private function scanFilesForManifest(string $dir, string $rootPath, array &$files)
+    {
+        $handle = opendir($dir);
+        while (false !== ($f = readdir($handle))) {
+            if ($f === '.' || $f === '..') continue;
+            $fullPath = $dir . '/' . $f;
+            $relativePath = str_replace('\\', '/', substr($fullPath, strlen($rootPath)));
+
+            if (strpos($relativePath, '.git') !== false) continue;
+            if (strpos($relativePath, 'node_modules') !== false) continue;
+            if (strpos($relativePath, 'public/uploads/') !== false) continue;
+            if (strpos($relativePath, 'app/Config/.lic_hash') !== false) continue;
+            if (strpos($relativePath, 'app/Config/.security_hash') !== false) continue;
+
+            if (is_file($fullPath)) {
+                $files[$relativePath] = md5_file($fullPath);
+            } elseif (is_dir($fullPath)) {
+                $this->scanFilesForManifest($fullPath, $rootPath, $files);
+            }
+        }
+        closedir($handle);
+    }
+
+    /**
+     * Check for online updates (client/server).
+     * Compares remote manifest with local files.
+     */
+    public function checkOnlineUpdate()
+    {
+        $manifestUrl = $this->githubRawUrl('update_manifest.json');
+
+        $client = \Config\Services::curlrequest();
+        try {
+            $response = $client->get($manifestUrl, [
+                'timeout' => 15,
+                'http_errors' => false,
+            ]);
+        } catch (\Exception $e) {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Gagal menghubungi server update: ' . $e->getMessage());
+        }
+
+        if ($response->getStatusCode() !== 200) {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Manifest tidak ditemukan di server (HTTP ' . $response->getStatusCode() . '). Pastikan update_manifest.json sudah di-push ke GitHub.');
+        }
+
+        $remoteManifest = json_decode($response->getBody(), true);
+        if (!$remoteManifest || empty($remoteManifest['files'])) {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Format manifest tidak valid.');
+        }
+
+        // Compare with local files
+        $changedFiles = [];
+        $newFiles = [];
+
+        foreach ($remoteManifest['files'] as $relativePath => $remoteHash) {
+            $localPath = ROOTPATH . $relativePath;
+            if (!is_file($localPath)) {
+                $newFiles[] = $relativePath;
+            } elseif (md5_file($localPath) !== $remoteHash) {
+                $changedFiles[] = $relativePath;
+            }
+        }
+
+        $totalChanges = count($changedFiles) + count($newFiles);
+
+        // Store in session for apply step
+        session()->set('online_update', [
+            'remote_manifest' => $remoteManifest,
+            'changed_files'   => $changedFiles,
+            'new_files'       => $newFiles,
+        ]);
+
+        return view('admin/updater/online_update', [
+            'title'         => 'Update Online',
+            'remoteVersion' => $remoteManifest['version'] ?? '-',
+            'remoteDate'    => $remoteManifest['generated'] ?? '-',
+            'changedFiles'  => $changedFiles,
+            'newFiles'      => $newFiles,
+            'totalChanges'  => $totalChanges,
+            'localVersion'  => defined('APP_VERSION') ? APP_VERSION : '-',
+        ]);
+    }
+
+    /**
+     * Apply online update — download only changed/new files from GitHub.
+     */
+    public function applyOnlineUpdate()
+    {
+        $updateData = session()->get('online_update');
+        if (!$updateData) {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Tidak ada data update. Silakan cek update terlebih dahulu.');
+        }
+
+        $changedFiles = $updateData['changed_files'] ?? [];
+        $newFiles     = $updateData['new_files'] ?? [];
+        $allFiles     = array_merge($changedFiles, $newFiles);
+
+        if (empty($allFiles)) {
+            session()->remove('online_update');
+            return redirect()->to(base_url('admin/updater'))->with('info', 'Tidak ada file yang perlu diupdate.');
+        }
+
+        try {
+            $this->enableMaintenanceMode();
+            $this->backupCriticalFiles();
+
+            $client = \Config\Services::curlrequest();
+            $successCount = 0;
+            $failedFiles = [];
+
+            foreach ($allFiles as $relativePath) {
+                $rawUrl = $this->githubRawUrl($relativePath);
+
+                try {
+                    $response = $client->get($rawUrl, [
+                        'timeout' => 30,
+                        'http_errors' => false,
+                    ]);
+
+                    if ($response->getStatusCode() === 200) {
+                        $localPath = ROOTPATH . $relativePath;
+                        $dir = dirname($localPath);
+
+                        if (!is_dir($dir)) {
+                            mkdir($dir, 0755, true);
+                        }
+
+                        file_put_contents($localPath, $response->getBody());
+                        $successCount++;
+                    } else {
+                        $failedFiles[] = $relativePath . ' (HTTP ' . $response->getStatusCode() . ')';
+                    }
+                } catch (\Exception $e) {
+                    $failedFiles[] = $relativePath . ' (' . $e->getMessage() . ')';
+                }
+            }
+
+            $migrateResult = $this->autoMigrateAfterUpdate();
+            $this->regenerateSecurityHashes();
+            $this->disableMaintenanceMode();
+            session()->remove('online_update');
+
+            $message = "Update online berhasil! {$successCount}/" . count($allFiles) . " file diperbarui.";
+            if ($migrateResult['executed']) {
+                $message .= ' Database dimigrasi ke versi terbaru.';
+            }
+
+            if (!empty($failedFiles)) {
+                $message .= ' GAGAL: ' . implode(', ', array_slice($failedFiles, 0, 5));
+                return redirect()->to(base_url('admin/updater'))->with('warning', $message);
+            }
+
+            return redirect()->to(base_url('admin/updater'))->with('success', $message);
+
+        } catch (\Exception $e) {
+            $this->disableMaintenanceMode();
+            session()->remove('online_update');
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Update gagal: ' . $e->getMessage());
+        }
+    }
+
+    // =========================================================================
+    // GENERATE PATCH ZIP (Legacy)
+    // =========================================================================
 
     public function generatePatch()
     {
