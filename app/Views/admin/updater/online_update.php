@@ -28,14 +28,26 @@
         </div>
     </div>
 </div>
+<p class="text-muted small mb-4">
+    <i class="bi bi-info-circle me-1"></i>
+    Pengecekan update berdasarkan perbandingan isi file (hash), bukan nomor versi.
+    Jumlah file yang perlu diperbarui bisa berbeda tergantung kondisi aplikasi Anda saat ini.
+</p>
 
 <?php if ($totalChanges === 0): ?>
     <div class="alert alert-success text-center py-4">
         <i class="bi bi-check-circle-fill fs-1 d-block mb-2"></i>
         <h5>Aplikasi sudah versi terbaru!</h5>
-        <p class="mb-0 text-muted">Tidak ada file yang perlu diperbarui.</p>
+        <p class="mb-0 text-muted">Semua file sudah sesuai dengan versi <?= esc($remoteVersion) ?>. Tidak ada yang perlu diperbarui.</p>
     </div>
 <?php else: ?>
+    <?php if ($localVersion === $remoteVersion): ?>
+        <div class="alert alert-warning mb-3">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            <strong>Versi sama (<?= esc($localVersion) ?>)</strong> tetapi <?= $totalChanges ?> file berbeda.
+            Kemungkinan ada file yang diubah manual di server atau update sebelumnya tidak lengkap.
+        </div>
+    <?php endif; ?>
     <!-- Ringkasan -->
     <div class="alert alert-info d-flex align-items-center mb-4">
         <i class="bi bi-info-circle-fill fs-4 me-3"></i>
