@@ -716,6 +716,7 @@ class Updater extends BaseController
             }
 
             $migrateResult = $this->autoMigrateAfterUpdate();
+            $this->syncChangelogsFromData();
             $this->regenerateSecurityHashes();
             $this->disableMaintenanceMode();
             session()->remove('online_update');

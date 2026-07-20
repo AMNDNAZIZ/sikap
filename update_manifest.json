@@ -1,6 +1,6 @@
 {
     "version": "1.2.6",
-    "generated": "2026-07-20 17:36:47",
+    "generated": "2026-07-20 18:03:08",
     "last_update": "2026-07-20 22:30",
     "total_files": 770,
     "files": {
@@ -113,7 +113,7 @@
         "app/Controllers/Admin/Teachers.php": "1d194b2ce76bbf84d2e2867ab16b209f",
         "app/Controllers/Admin/TeachingAssignments.php": "23d2f7f821eae25a6ac671363c508cb8",
         "app/Controllers/Admin/TeachingJournalController.php": "d05d69d778de3e583f27ecc72c9c2ed0",
-        "app/Controllers/Admin/Updater.php": "1782bebf31089b7f362906065a854f39",
+        "app/Controllers/Admin/Updater.php": "fc3471f06e3910a04444d17ae6c77340",
         "app/Controllers/Admin/User.php": "36f2b1620f85059f48e341158d799c58",
         "app/Controllers/Admin/WaliKelasStudents.php": "12cf268351e389b65db3b107d02d2fc1",
         "app/Controllers/Api/DapodikApi.php": "39f03c8ae9a20745e497200ae09cc99e",
