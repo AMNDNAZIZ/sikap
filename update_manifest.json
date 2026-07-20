@@ -1,6 +1,6 @@
 {
     "version": "1.2.6",
-    "generated": "2026-07-20 18:08:22",
+    "generated": "2026-07-21 01:25:41",
     "last_update": "2026-07-20 22:30",
     "total_files": 770,
     "files": {
@@ -185,7 +185,7 @@
         "app/Database/Migrations/2026-07-07-094212_AddIsActiveToClasses.php": "a02059455195585016ddc606d69e08da",
         "app/Database/Migrations/README_MIGRASI.md": "65cfbc2d5cdb88b3f778072ee8e952a6",
         "app/Database/Seeds/TruncateLicense.php": "034b0f4866f073b666a6ff8d21e511cf",
-        "app/Database/changelogs_sync.php": "b9b8fb12a46971a0e3ce063c153cf542",
+        "app/Database/changelogs_sync.php": "8da2b01b0f3dc6dcc5fe12a43210ae47",
         "app/Database/sync_changelogs_to_file.php": "99bf695edb5cc124b22e1eb45920e2aa",
         "app/Filters/Auth.php": "86903c2da8a00ddde6ce96fbb9fd01dc",
         "app/Filters/GzipFilter.php": "7ebe6c4b3d42c6a3161bbcb920311cf0",
