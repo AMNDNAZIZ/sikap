@@ -1,4 +1,4 @@
-# SIAKAD - Sistem Informasi Akademik
+# SIKAP - Sistem Informasi Akademik Pembelajaran
 
 Sistem Informasi Akademik berbasis web untuk mengelola data sekolah, siswa, guru, dan proses pembelajaran.
 
@@ -229,22 +229,47 @@ Pastikan session user memiliki struktur lengkap. Logout dan login kembali.
 
 ## 📝 Changelog
 
-### Version 2.1 (Latest) - Security Update
-- ✅ Anti-Tampering Protection
-- ✅ Encrypted Config Storage
-- ✅ Hardware Signature Binding
-- ✅ Enhanced License Security (6.5/10 → 8.5/10)
-- ✅ Security Tools for Maintenance
-- ✅ Auto-renewal License System
+### Version 1.2.6 (Latest)
+- ✅ Perbaikan filter kelas berdasarkan tahun ajaran aktif pada akun guru
+- ✅ Perbaikan perhitungan absensi pada periode tahun ajaran aktif
+- ✅ Perbaikan logika perhitungan jam pelajaran guru (1 JP = 35-40 menit)
+- ✅ Perbaikan tampilan dashboard guru (JP bukan jam nyata)
+- ✅ Perbaikan tracking nilai siswa yang sudah lulus
+- ✅ Penambahan fitur update online (delta update)
+- ✅ Penambahan hak edit data siswa oleh wali kelas
 
-### Version 2.0
-- ✅ Modul Peta Sebaran Siswa
+### Version 1.2.5
+- ✅ Perbaikan logika penempatan siswa
+- ✅ Perbaikan logika kenaikan dan kelulusan
+- ✅ Perbaikan logika data riwayat siswa
+
+### Version 1.2.4
+- ✅ Fitur Absensi Guru (kehadiran berdasarkan jam tatap muka)
+- ✅ Perbaikan berbagi ATP untuk pelajaran dan level yang sama
+- ✅ Perbaikan rubrik Kokurikuler
+- ✅ Monitoring Administrasi Guru bagi Kepala Sekolah
+
+### Version 1.2.0
+- ✅ Fitur tarik data dari Dapodik
+- ✅ Administrasi Guru digital (CP, TP, ATP, Prota, Prosem, Modul Ajar)
+- ✅ AI Generate Modul Ajar
+- ✅ Jurnal Mengajar
+- ✅ Jadwal Pelajaran
+
+### Version 1.1.4
+- ✅ Optimasi CBT (query, caching, kompresi)
+- ✅ Anti-Tampering Protection
+- ✅ Hardware Signature Binding
+- ✅ CKEditor 5 Migration
+- ✅ CSRF Protection di semua form
+
+### Version 1.1.0
+- ✅ PWA Compliance & Installability
 - ✅ Session Security (Database Handler)
 - ✅ Password Pattern System
 - ✅ XSS & CSRF Protection
-- ✅ CBT Anti-Cheat Improvements
-- ✅ CKEditor 5 Migration
-- ✅ Bug Fixes & Performance Optimization
+- ✅ Modul Peta Sebaran Siswa
+- ✅ License Management
 
 ## 📄 License
 
@@ -263,4 +288,4 @@ Untuk bantuan dan pertanyaan:
 
 ---
 
-**© 2024 SIAKAD. All rights reserved.**
+**© 2026 SIKAP. All rights reserved.**
