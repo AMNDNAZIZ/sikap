@@ -688,6 +688,9 @@ class Updater extends BaseController
             $successCount = 0;
             $failedFiles = [];
 
+            // Simpan session data sebelum file di-overwrite
+            $sessionData = session()->get();
+
             foreach ($allFiles as $relativePath) {
                 $rawUrl = $this->githubRawUrl($relativePath);
 
@@ -721,23 +724,73 @@ class Updater extends BaseController
             $this->disableMaintenanceMode();
             session()->remove('online_update');
 
+            // Build result message
             $message = "Update online berhasil! {$successCount}/" . count($allFiles) . " file diperbarui.";
             if ($migrateResult['executed']) {
                 $message .= ' Database dimigrasi ke versi terbaru.';
             }
-
             if (!empty($failedFiles)) {
                 $message .= ' GAGAL: ' . implode(', ', array_slice($failedFiles, 0, 5));
-                return redirect()->to(base_url('admin/updater'))->with('warning', $message);
             }
 
-            return redirect()->to(base_url('admin/updater'))->with('success', $message);
+            // Tampilkan halaman sukses langsung (tanpa redirect) agar tidak kehilangan session
+            $resultType = empty($failedFiles) ? 'success' : 'warning';
+            return $this->response->setBody($this->buildUpdateResultPage($message, $resultType, $successCount, count($allFiles)));
 
         } catch (\Exception $e) {
             $this->disableMaintenanceMode();
             session()->remove('online_update');
             return redirect()->to(base_url('admin/updater'))->with('error', 'Update gagal: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Build a standalone HTML result page after update (no redirect needed)
+     */
+    private function buildUpdateResultPage(string $message, string $type, int $success, int $total): string
+    {
+        $icon = $type === 'success' ? '✅' : '⚠️';
+        $color = $type === 'success' ? '#198754' : '#ffc107';
+        $bgColor = $type === 'success' ? '#d1e7dd' : '#fff3cd';
+
+        return '<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Selesai</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body text-center p-5">
+                        <div style="font-size: 4rem;" class="mb-3">' . $icon . '</div>
+                        <h3 class="fw-bold mb-3">Update Selesai</h3>
+                        <div class="alert" style="background:' . $bgColor . '; border-color:' . $color . ';">
+                            ' . esc($message) . '
+                        </div>
+                        <div class="mb-4">
+                            <span class="badge bg-primary fs-6">' . $success . ' / ' . $total . ' file berhasil</span>
+                        </div>
+                        <p class="text-muted mb-4">Silakan login kembali untuk melanjutkan.</p>
+                        <a href="' . base_url('login') . '" class="btn btn-primary btn-lg px-5">
+                            🔑 Login
+                        </a>
+                        <div class="mt-3">
+                            <a href="' . base_url('admin/updater') . '" class="btn btn-outline-secondary btn-sm">
+                                Ke Halaman Updater
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>';
     }
 
     // =========================================================================
