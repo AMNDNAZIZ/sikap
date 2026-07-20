@@ -420,16 +420,19 @@ class Dashboard extends BaseController
                 // Get teacher statistics
                 $teacherStats = [
                     'total_sessions_today' => count($personalSchedule),
-                    'total_hours_today' => 0,
+                    'total_jp_today' => 0,
                     'unique_classes' => 0,
                     'unique_subjects' => 0,
                 ];
                 
-                // Calculate total hours
+                // Calculate total JP (jam pelajaran) using range-based logic
                 foreach ($personalSchedule as $item) {
-                    $start = strtotime($item['start_time']);
-                    $end = strtotime($item['end_time']);
-                    $teacherStats['total_hours_today'] += ($end - $start) / 3600;
+                    $menit = (strtotime($item['end_time']) - strtotime($item['start_time'])) / 60;
+                    if ($menit <= 0) continue;
+                    if ($menit <= 55) $jp = 1;
+                    elseif ($menit <= 105) $jp = 2;
+                    else $jp = 3;
+                    $teacherStats['total_jp_today'] += $jp;
                 }
                 
                 // Count unique classes and subjects

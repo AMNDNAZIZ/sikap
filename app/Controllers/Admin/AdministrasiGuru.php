@@ -1969,12 +1969,17 @@ class AdministrasiGuru extends BaseController
             // Admin & Kepsek can see ALL subjects regardless of teaching assignments
             $subjects = $this->subjectModel->where('mapel_master_id !=', null)->findAll();
         } elseif ($roleId == 3) {
-            // Guru: only assigned classes and subjects
+            // Guru: only assigned classes and subjects for active academic year
+            $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
             $assignmentQuery = $this->db->table('teaching_assignments ta')
                 ->select('c.id as class_id, c.name as class_name, c.level, s.id as subject_id, s.name as subject_name')
                 ->join('classes c', 'c.id = ta.class_id')
                 ->join('subjects s', 's.id = ta.subject_id')
                 ->where('ta.teacher_id', $teacherId);
+
+            if (!empty($activeYear['id'])) {
+                $assignmentQuery->where('ta.academic_year_id', $activeYear['id']);
+            }
             
             $assignments = $assignmentQuery->get()->getResultArray();
 

@@ -72,15 +72,21 @@ class Assessment extends BaseController
         } elseif ($roleId == 3) { // guru
             $teacherId = $user['related_id'];
 
-            $assignments = $this->assignmentModel
+            $activeYear = $this->academicYearModel->getActiveYear();
+
+            $query = $this->assignmentModel
                 ->select('teaching_assignments.*, 
                           classes.name as class_name, classes.level as class_level,
                           subjects.name as subject_name')
                 ->join('classes', 'classes.id = teaching_assignments.class_id')
                 ->join('subjects', 'subjects.id = teaching_assignments.subject_id')
-                ->where('teaching_assignments.teacher_id', $teacherId)
-                ->get()
-                ->getResultArray();
+                ->where('teaching_assignments.teacher_id', $teacherId);
+
+            if ($activeYear) {
+                $query->where('teaching_assignments.academic_year_id', $activeYear['id']);
+            }
+
+            $assignments = $query->get()->getResultArray();
 
             return view('admin/assessments/index', [
                 'isAdmin' => false,

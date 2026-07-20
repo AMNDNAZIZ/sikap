@@ -36,6 +36,10 @@ class GradesManageController extends BaseController
                 ->join('users', 'users.id = teachers.user_id')
                 ->get()->getResultArray();
         } elseif ($user['role_id'] == 3) { // guru
+            // Ambil tahun ajaran aktif
+            $activeYear = $db->table('academic_years')->where('is_active', 1)->get()->getRowArray();
+            $activeYearId = $activeYear['id'] ?? 0;
+
             // cek apakah guru ini wali kelas
             $class = $db->table('classes')
                 ->where('teacher_id', $user['teacher_id'])
@@ -48,6 +52,7 @@ class GradesManageController extends BaseController
                     ->join('subjects s', 's.id = ta.subject_id')
                     ->where('ta.teacher_id', $user['teacher_id'])
                     ->where('ta.class_id', $class['id'])
+                    ->where('ta.academic_year_id', $activeYearId)
                     ->select('s.id, s.name')
                     ->get()->getResultArray();
             } else {
@@ -58,6 +63,7 @@ class GradesManageController extends BaseController
                     ->join('classes c', 'c.id = ta.class_id')
                     ->join('subjects s', 's.id = ta.subject_id')
                     ->where('ta.teacher_id', $user['teacher_id'])
+                    ->where('ta.academic_year_id', $activeYearId)
                     ->select('c.id as class_id, c.name as class_name, s.id as subject_id, s.name as subject_name')
                     ->get()->getResultArray();
 

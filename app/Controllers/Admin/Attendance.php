@@ -46,14 +46,19 @@ class Attendance extends BaseController
             $teacherId = $user['related_id'] ?? null;
             $db = \Config\Database::connect();
 
+            // Ambil tahun ajaran aktif
+            $activeYear = $this->yearModel->getActiveYear() ?: [];
+            $activeYearId = $activeYear['id'] ?? 0;
+
             // Get classes where teacher is Wali Kelas
             $waliClasses = $this->classModel->where('teacher_id', $teacherId)->findAll();
 
-            // Get classes where teacher is Guru Mapel
+            // Get classes where teacher is Guru Mapel (tahun ajaran aktif)
             $mapelClasses = $db->table('teaching_assignments ta')
                 ->select('c.id, c.name')
                 ->join('classes c', 'c.id = ta.class_id')
                 ->where('ta.teacher_id', $teacherId)
+                ->where('ta.academic_year_id', $activeYearId)
                 ->groupBy('c.id')
                 ->get()
                 ->getResultArray();

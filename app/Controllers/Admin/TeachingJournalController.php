@@ -251,11 +251,16 @@ class TeachingJournalController extends BaseController
             // Guru Kelas logic: find class where teacher_id = teacherId
             $homeroomClass = $this->classModel->where('teacher_id', $teacherId)->first();
             
+            // Ambil tahun ajaran aktif
+            $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+            $activeYearId = $activeYear['id'] ?? 0;
+
             $assignmentQuery = $this->db->table('teaching_assignments ta')
                 ->select('c.id as class_id, c.name as class_name, c.level, s.id as subject_id, s.name as subject_name')
                 ->join('classes c', 'c.id = ta.class_id')
                 ->join('subjects s', 's.id = ta.subject_id')
-                ->where('ta.teacher_id', $teacherId);
+                ->where('ta.teacher_id', $teacherId)
+                ->where('ta.academic_year_id', $activeYearId);
             
             $assignments = $assignmentQuery->get()->getResultArray();
 

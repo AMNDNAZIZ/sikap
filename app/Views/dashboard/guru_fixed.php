@@ -226,8 +226,8 @@
               <i class="bi bi-clock-history text-success fs-4"></i>
             </div>
             <div class="flex-grow-1">
-              <div class="small text-muted mb-1">Total Jam</div>
-              <div class="h4 mb-0 fw-bold"><?= number_format($teacherStats['total_hours_today'] ?? 0, 1) ?></div>
+              <div class="small text-muted mb-1">Total JP</div>
+              <div class="h4 mb-0 fw-bold"><?= $teacherStats['total_jp_today'] ?? 0 ?></div>
             </div>
           </div>
         </div>

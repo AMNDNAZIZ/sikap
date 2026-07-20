@@ -72,9 +72,18 @@
                                             <?= substr($row['start_time'], 0, 5) ?> - <?= substr($row['end_time'], 0, 5) ?>
                                         </td>
                                         <td class="fw-bold text-dark">
-                                            <a href="<?= base_url('admin/teaching-journal?class_id=' . $row['class_id'] . '&subject_id=' . $row['subject_id']) ?>" class="text-decoration-none text-primary">
-                                                <i class="bi bi-book-half me-1"></i> <?= esc($row['subject_name']) ?>
-                                            </a>
+                                            <?php
+                                            $isMySubject = empty($teacherSubjectIds) || in_array($row['subject_id'], $teacherSubjectIds);
+                                            ?>
+                                            <?php if ($isMySubject): ?>
+                                                <a href="<?= base_url('admin/teaching-journal?class_id=' . $row['class_id'] . '&subject_id=' . $row['subject_id']) ?>" class="text-decoration-none text-primary">
+                                                    <i class="bi bi-book-half me-1"></i> <?= esc($row['subject_name']) ?>
+                                                </a>
+                                            <?php else: ?>
+                                                <span class="text-muted">
+                                                    <i class="bi bi-book-half me-1"></i> <?= esc($row['subject_name']) ?>
+                                                </span>
+                                            <?php endif; ?>
                                         </td>
                                         <td><?= esc($row['teacher_name']) ?></td>
                                         <?php if ($canManage): ?>

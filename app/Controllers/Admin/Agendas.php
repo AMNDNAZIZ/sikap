@@ -99,7 +99,11 @@ class Agendas extends BaseController
             if (!$teacher)
                 return [];
 
-            // Gabungkan kelas wali dan kelas mapel
+            // Ambil tahun ajaran aktif
+            $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+            $activeYearId = $activeYear['id'] ?? 0;
+
+            // Gabungkan kelas wali dan kelas mapel (tahun ajaran aktif)
             $waliClasses = $db->table('classes')
                 ->select('id, name')
                 ->where('teacher_id', $teacher->id)
@@ -109,6 +113,7 @@ class Agendas extends BaseController
                 ->join('classes c', 'c.id = ta.class_id')
                 ->select('c.id, c.name')
                 ->where('ta.teacher_id', $teacher->id)
+                ->where('ta.academic_year_id', $activeYearId)
                 ->groupBy('c.id')
                 ->get()->getResultArray();
 

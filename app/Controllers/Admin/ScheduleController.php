@@ -43,14 +43,46 @@ class ScheduleController extends BaseController
         $user = session()->get('user');
         $school = $this->schoolModel->getProfile();
 
-        $classBuilder = $this->classModel->where('is_active', 1)->orderBy('name', 'ASC');
-        
-        // If SD and Teacher, only show their homeroom class
-        if ($school['level'] == 'SD' && $user['role_id'] == 3) {
-            $classBuilder->where('teacher_id', $user['related_id']);
+        if (in_array($user['role_id'], [1, 2])) {
+            // Admin / Kepsek: semua kelas aktif
+            $data['classes'] = $this->classModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll();
+        } elseif ($user['role_id'] == 3) {
+            // Guru: hanya kelas yang diampu di tahun ajaran aktif
+            $teacherId = $user['related_id'];
+            $activeYearId = $activeYear['id'] ?? 0;
+
+            if ($school['level'] == 'SD') {
+                // SD: guru kelas hanya lihat kelas perwaliannya
+                $data['classes'] = $this->classModel
+                    ->where('teacher_id', $teacherId)
+                    ->where('is_active', 1)
+                    ->orderBy('name', 'ASC')
+                    ->findAll();
+            } else {
+                // SMP/SMA: gabung kelas wali + kelas mapel (tahun ajaran aktif)
+                $waliClasses = $this->classModel
+                    ->where('teacher_id', $teacherId)
+                    ->where('is_active', 1)
+                    ->findAll();
+
+                $mapelClasses = $this->db->table('teaching_assignments ta')
+                    ->select('c.id, c.name, c.level, c.is_active, c.teacher_id')
+                    ->join('classes c', 'c.id = ta.class_id')
+                    ->where('ta.teacher_id', $teacherId)
+                    ->where('ta.academic_year_id', $activeYearId)
+                    ->groupBy('c.id')
+                    ->orderBy('c.name', 'ASC')
+                    ->get()->getResultArray();
+
+                $merged = [];
+                foreach ($waliClasses as $c) $merged[$c['id']] = $c;
+                foreach ($mapelClasses as $c) $merged[$c['id']] = $c;
+                $data['classes'] = array_values($merged);
+            }
+        } else {
+            $data['classes'] = [];
         }
 
-        $data['classes'] = $classBuilder->findAll();
         $data['activeYear'] = $activeYear;
         
         $selectedClassId = $this->request->getGet('class_id');
@@ -70,6 +102,18 @@ class ScheduleController extends BaseController
         $data['canManage'] = false;
         if ($selectedClassId) {
             $data['canManage'] = $this->isAuthorizedToManage($selectedClassId);
+        }
+
+        // Untuk guru: kumpulkan subject_id yang diampu agar view bisa disable link mapel lain
+        $data['teacherSubjectIds'] = [];
+        if ($user['role_id'] == 3 && $selectedClassId && !empty($activeYear['id'])) {
+            $mySubjects = $this->db->table('teaching_assignments')
+                ->select('subject_id')
+                ->where('teacher_id', $user['related_id'])
+                ->where('class_id', $selectedClassId)
+                ->where('academic_year_id', $activeYear['id'])
+                ->get()->getResultArray();
+            $data['teacherSubjectIds'] = array_column($mySubjects, 'subject_id');
         }
 
         return view('admin/schedule/index', $data);
