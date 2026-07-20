@@ -101,19 +101,25 @@ http://localhost/siakad
 
 ### Admin
 - Username: `admin`
-- Password: `admin123`
+- Password: (diatur saat instalasi)
 
 ### Guru
-- Username: `guru[NIP]`
+- Username: `[NIP]` (huruf kecil)
 - Password: `guru[NIP]`
-- Contoh: `guru123456` / `guru123456`
+- Contoh: Username `198501012010011001` / Password `guru198501012010011001`
+- Jika NIP kosong, username = nama (tanpa spasi), password = `guru[nama]`
 
 ### Siswa
-- Username: `siswa[NIS]`
+- Username: `[NIS]` (huruf kecil)
 - Password: `siswa[NIS]`
-- Contoh: `siswa001` / `siswa001`
+- Contoh: Username `0045` / Password `siswa0045`
 
-**⚠️ PENTING:** Semua user WAJIB mengganti password saat login pertama kali!
+### Orang Tua
+- Username: `ortu_[NIS]`
+- Password: `ortu[NIS]`
+- Contoh: Username `ortu_0045` / Password `ortu0045`
+
+**⚠️ PENTING:** Semua pengguna WAJIB mengganti password saat login pertama kali!
 
 ## 📖 Dokumentasi
 
@@ -170,7 +176,7 @@ public string $driver = 'CodeIgniter\Session\Handlers\DatabaseHandler';
 - Orang Tua: Auto-generate `[NIS]@ortu.com`
 
 #### Password Pattern
-- Guru: `guru[NIP]`
+- Guru: `guru[NIP]` (atau `guru[nama]` jika NIP kosong)
 - Siswa: `siswa[NIS]`
 - Orang Tua: `ortu[NIS]`
 
