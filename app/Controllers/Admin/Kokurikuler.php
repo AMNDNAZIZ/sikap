@@ -366,7 +366,31 @@ class Kokurikuler extends BaseController
             return json_encode($result);
             
         } else {
-            return $this->request->getPost('lainnya_text');
+            $postData = $this->request->getPost();
+            $items = [];
+            
+            foreach ($postData as $key => $value) {
+                // Match lainnya_dimensi_X
+                if (preg_match('/^lainnya_dimensi_(\d+)$/', $key, $matches)) {
+                    $index = (int)$matches[1];
+                    $dimensi = $value;
+                    $subDimensi = $postData['lainnya_subdimensi_' . $index] ?? '';
+                    
+                    if (!empty($dimensi) && !empty($subDimensi)) {
+                        $items[] = [
+                            'dimensi_profil' => $dimensi,
+                            'sub_dimensi' => $subDimensi,
+                        ];
+                    }
+                }
+            }
+            
+            $result = [
+                'text' => $this->request->getPost('lainnya_text'),
+                'items' => $items
+            ];
+            
+            return json_encode($result);
         }
     }
 
@@ -458,7 +482,12 @@ class Kokurikuler extends BaseController
                 $kegiatanDetail = "Kegiatan 7 KAIH yang dipilih: " . implode(', ', $kaihItems);
             }
         } else {
-            $kegiatanDetail = $document['kegiatan_detail'];
+            $detail = json_decode($document['kegiatan_detail'], true);
+            if ($detail && isset($detail['text'])) {
+                $kegiatanDetail = $detail['text'];
+            } else {
+                $kegiatanDetail = $document['kegiatan_detail'];
+            }
         }
 
         $prompt = "Anda adalah ahli kurikulum merdeka. Buatkan dokumen rencana kokurikuler dengan detail berikut:\n\n";
@@ -1000,7 +1029,11 @@ class Kokurikuler extends BaseController
         $dompdf->render();
         
         $filename = 'Kokurikuler_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $document['tema']) . '_' . date('YmdHis') . '.pdf';
+        if (ob_get_length()) {
+            @ob_end_clean();
+        }
         $dompdf->stream($filename, ['Attachment' => true]);
+        exit;
     }
 
     /**

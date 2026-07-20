@@ -278,11 +278,11 @@
               <i class="bi bi-people-fill"></i>
             </div>
             <div class="flex-grow-1">
-              <div class="stat-label">Total Siswa</div>
-              <div class="stat-value"><?= number_format($stats['total_students']) ?></div>
+              <div class="stat-label">Siswa Aktif</div>
+              <div class="stat-value"><?= number_format($stats['active_students'] ?? $stats['total_students']) ?></div>
               <div class="small text-muted mt-1">
-                <i class="bi bi-arrow-up-right text-success me-1"></i>
-                Aktif: <?= number_format($stats['active_students'] ?? $stats['total_students']) ?>
+                <i class="bi bi-info-circle text-primary me-1"></i>
+                Total Terdaftar: <?= number_format($stats['total_students']) ?>
               </div>
             </div>
           </div>
@@ -298,11 +298,11 @@
               <i class="bi bi-person-badge-fill"></i>
             </div>
             <div class="flex-grow-1">
-              <div class="stat-label">Total Guru</div>
-              <div class="stat-value"><?= number_format($stats['total_teachers']) ?></div>
+              <div class="stat-label">Guru Aktif</div>
+              <div class="stat-value"><?= number_format($stats['active_teachers'] ?? $stats['total_teachers']) ?></div>
               <div class="small text-muted mt-1">
-                <i class="bi bi-check-circle text-success me-1"></i>
-                Aktif: <?= number_format($stats['active_teachers'] ?? $stats['total_teachers']) ?>
+                <i class="bi bi-info-circle text-primary me-1"></i>
+                Total Terdaftar: <?= number_format($stats['total_teachers']) ?>
               </div>
             </div>
           </div>
@@ -999,6 +999,9 @@
 
     </div><!-- end col-lg-4 -->
   </div><!-- end row -->
+
+  <!-- Statistik Siswa per Kelas -->
+  <?= $this->include('dashboard/_student_stats_table') ?>
 
   <!-- JavaScript for Charts -->
   <script>

@@ -79,11 +79,20 @@ class PdfGenerator
         $options->set('isRemoteEnabled', false); // false = lebih hemat memori (tidak fetch URL eksternal)
         $options->set('defaultFont', 'DejaVu Sans');
 
+        // Set writable paths for Dompdf to avoid write/permission issues on hosting
+        $tempDir = WRITEPATH . 'tmp';
+        $fontDir = WRITEPATH . 'fonts';
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0777, true);
+        }
+        if (!is_dir($fontDir)) {
+            @mkdir($fontDir, 0777, true);
+        }
+        $options->set('tempDir', $tempDir);
+        $options->set('fontDir', $fontDir);
+        $options->set('fontCache', $fontDir);
+
         $dompdf = new Dompdf($options);
-        $dompdf->set_option('margin_left', 10);
-        $dompdf->set_option('margin_right', 10);
-        $dompdf->set_option('margin_top', 10);
-        $dompdf->set_option('margin_bottom', 10);
         $dompdf->loadHtml($html);
         $dompdf->setPaper($paper, $orientation);
         $dompdf->render();
@@ -91,6 +100,21 @@ class PdfGenerator
         // Kembalikan memory limit ke semula setelah selesai
         ini_set('memory_limit', $prevMemoryLimit);
 
+        // Turn off error reporting to prevent deprecation warnings or PHP notices from polluting the PDF binary stream
+        error_reporting(0);
+        ini_set('display_errors', '0');
+
+        // Disable zlib output compression if it is enabled
+        if (!headers_sent() && ini_get('zlib.output_compression')) {
+            ini_set('zlib.output_compression', 'Off');
+        }
+
+        // Clean any active output buffers to ensure no pre-existing whitespace, BOM, or warnings are prepended to the PDF
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
         $dompdf->stream($filename, ['Attachment' => $attachment]);
+        exit;
     }
 }

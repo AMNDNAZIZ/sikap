@@ -3,26 +3,42 @@
 
 <h2>Daftar Pemetaan Guru - Kelas - Mapel</h2>
 
-<form method="get" action="<?= site_url('admin/teachingassignments') ?>" class="row mb-3">
+<form method="get" action="<?= site_url('admin/teachingassignments') ?>" class="row g-2 mb-3 align-items-end">
     <div class="col-md-4">
+        <label class="form-label fw-semibold mb-1">Cari</label>
         <input type="text" name="q" value="<?= esc($keyword) ?>" class="form-control"
             placeholder="Cari guru, kelas, atau mapel...">
     </div>
     <div class="col-md-3">
-        <select name="year_id" class="form-control select2">
+        <label class="form-label fw-semibold mb-1">Tahun Ajaran</label>
+        <select name="year_id" class="form-select">
             <option value="">-- Semua Tahun Ajaran --</option>
             <?php foreach ($years as $y): ?>
                 <option value="<?= $y['id'] ?>" <?= $yearId == $y['id'] ? 'selected' : '' ?>>
-                    <?= $y['year'] ?>     <?= $y['is_active'] ? '(aktif)' : '' ?>
+                    <?= esc($y['year']) ?><?= $y['is_active'] ? ' ✅ (Aktif)' : '' ?>
                 </option>
             <?php endforeach; ?>
         </select>
     </div>
-    <div class="col-md-3">
-        <button type="submit" class="btn btn-primary">Cari</button>
-        <a href="<?= site_url('admin/teachingassignments') ?>" class="btn btn-secondary">Reset</a>
+    <div class="col-md-auto">
+        <button type="submit" class="btn btn-primary">🔍 Cari</button>
+        <a href="<?= site_url('admin/teachingassignments') ?>" class="btn btn-outline-secondary">Reset</a>
     </div>
 </form>
+
+<?php if ($yearId): ?>
+    <?php
+    $selectedYear = null;
+    foreach ($years as $y) { if ($y['id'] == $yearId) { $selectedYear = $y; break; } }
+    ?>
+    <?php if ($selectedYear): ?>
+    <div class="alert alert-info py-2 mb-3">
+        <i class="bi bi-calendar-check me-1"></i>
+        Menampilkan pemetaan untuk tahun ajaran: <strong><?= esc($selectedYear['year']) ?></strong>
+        <?= $selectedYear['is_active'] ? '<span class="badge bg-success ms-1">Aktif</span>' : '' ?>
+    </div>
+    <?php endif; ?>
+<?php endif; ?>
 
 <form method="post" action="<?= site_url('admin/teachingassignments/bulk-delete') ?>" id="bulkDeleteForm">
     <?= csrf_field() ?>

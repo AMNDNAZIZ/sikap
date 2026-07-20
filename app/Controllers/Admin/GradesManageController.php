@@ -385,7 +385,11 @@ class GradesManageController extends BaseController
         $dompdf->loadHtml($html);
         $dompdf->setPaper('A4', 'landscape');
         $dompdf->render();
+        if (ob_get_length()) {
+            @ob_end_clean();
+        }
         $dompdf->stream("Nilai_Semester{$semester}.pdf", ["Attachment" => true]);
+        exit;
     }
 
     /**
@@ -715,6 +719,7 @@ class GradesManageController extends BaseController
             ->join('academic_years ay', 'ay.id = sr.academic_year_id')
             ->join('classes c', 'c.id = sr.class_id')
             ->where('sr.student_id', $studentId)
+            ->where('sr.status !=', 'lulus')
             ->orderBy('ay.year', 'ASC') // Order ascending for the matrix columns
             ->get()->getResultArray();
 
@@ -817,7 +822,11 @@ class GradesManageController extends BaseController
         $dompdf->loadHtml($html);
         $dompdf->setPaper('A4', $orientation);
         $dompdf->render();
+        if (ob_get_length()) {
+            @ob_end_clean();
+        }
         $dompdf->stream("Riwayat_Nilai_" . $data['student']['nis'] . ".pdf", ["Attachment" => false]);
+        exit;
     }
 
     public function studentTrackingExcel()

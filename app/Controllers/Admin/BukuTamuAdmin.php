@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\BukuTamuModel;
 use App\Models\SchoolModel;
 use App\Models\SettingsModel;
+use App\Libraries\PdfGenerator;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Dompdf\Dompdf;
@@ -77,7 +78,7 @@ class BukuTamuAdmin extends BaseController
         $monthLabel = $month ? '_' . date('F', mktime(0,0,0,(int)$month,1)) : '';
         $filename = 'Buku_Tamu' . $typeLabel . $monthLabel . '_' . $year . '.pdf';
 
-        $pdfGenerator = new \App\Libraries\PdfGenerator();
+        $pdfGenerator = new PdfGenerator();
         $pdfGenerator->stream('admin/buku_tamu/exports/pdf_template', $data, $filename, 'landscape', $use_kop, false);
         exit;
     }

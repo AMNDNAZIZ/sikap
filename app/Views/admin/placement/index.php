@@ -1,7 +1,13 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<h4>📌 Penempatan Siswa - Tahun Ajaran <?= esc($activeYear['year']) ?></h4>
+<h4>📌 Penempatan Siswa Baru - Tahun Ajaran <?= esc($activeYear['year']) ?></h4>
+
+<div class="alert alert-info py-2 mb-3">
+    <i class="bi bi-info-circle me-1"></i>
+    Halaman ini menampilkan siswa yang <strong>belum pernah ditempatkan</strong> di kelas manapun.
+    Untuk siswa naik kelas, gunakan menu <a href="<?= base_url('admin/promotions') ?>">Kenaikan &amp; Kelulusan</a>.
+</div>
 
 <?php if (session()->getFlashdata('success')): ?>
   <div class="alert alert-success"><?= session()->getFlashdata('success') ?></div>

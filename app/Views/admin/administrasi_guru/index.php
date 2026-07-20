@@ -103,6 +103,27 @@
             </div>
         </div>
     </div>
+
+    <?php if (in_array(session()->get('user')['role_id'] ?? null, [1, 2])): ?>
+    <!-- Monitoring Card -->
+    <div class="col-xl-4 col-md-6 mb-4">
+        <div class="card border-left-danger shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Supervisi</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">Monitoring Adm Guru</div>
+                        <p class="mt-2 small text-muted">Pantau kelengkapan ATP dan Promes guru.</p>
+                        <a href="<?= base_url('admin/administrasi-guru/monitoring') ?>" class="btn btn-sm btn-danger mt-2">Buka Monitoring</a>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-speedometer2 fa-2x text-gray-300" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <?= $this->endSection() ?>

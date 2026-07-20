@@ -37,10 +37,18 @@ class StudentRecords extends BaseController
             $classId = $this->request->getGet('class_id');
             $search  = $this->request->getGet('search');
 
-            // pilih tahun (jika tidak ada, ambil tahun aktif)
-            $year = $yearId
-                ? $this->yearModel->find($yearId)
-                : $this->yearModel->where('is_active', 1)->first();
+            // 'all' = tampilkan semua tahun ajaran (untuk pencarian lintas tahun)
+            // kosong (pertama kali buka) = default ke tahun aktif
+            $allYears = ($yearId === 'all');
+
+            if ($allYears) {
+                $year = null;
+            } elseif ($yearId) {
+                $year = $this->yearModel->find($yearId);
+            } else {
+                // Default: tahun aktif
+                $year = $this->yearModel->where('is_active', 1)->first();
+            }
 
             // Build query lewat model (paginate tetap bekerja)
             $builder = $this->recordModel
@@ -56,6 +64,9 @@ class StudentRecords extends BaseController
             if ($year) {
                 $builder->where('student_records.academic_year_id', $year['id']);
             }
+
+            // Exclude siswa yang sudah lulus (mereka tampil di halaman Alumni)
+            $builder->where('student_records.status !=', 'lulus');
 
             if (!empty($classId)) {
                 $builder->where('student_records.class_id', $classId);
@@ -76,7 +87,7 @@ class StudentRecords extends BaseController
                 'pager'         => $this->recordModel->pager,
                 'years'         => $this->yearModel->orderBy('start_date', 'DESC')->findAll(),
                 'classes'       => $this->classModel->orderBy('name', 'ASC')->findAll(),
-                'selectedYear'  => $year['id'] ?? null,
+                'selectedYear'  => $allYears ? 'all' : ($year['id'] ?? null),
                 'selectedClass' => $classId,
                 'search'        => $search,
             ]);

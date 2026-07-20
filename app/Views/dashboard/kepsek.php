@@ -517,4 +517,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+  <!-- Statistik Siswa per Kelas -->
+  <?= $this->include('dashboard/_student_stats_table') ?>
+
 <?= $this->endSection() ?>

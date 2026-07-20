@@ -14,9 +14,9 @@ class LicenseFilter implements FilterInterface
         $uriPath = $request->getUri()->getPath();
         $rawUri  = $_SERVER['REQUEST_URI'] ?? '';
 
-        // Skip activation page, login, and static assets
-        $skip = ['activate', 'login', 'assets', 'favicon.ico', 'maintenance'];
-        foreach ($skip as $s) {
+        // Skip halaman yang tidak perlu cek lisensi
+        $skipPatterns = ['activate', 'login', 'assets', 'favicon.ico', 'maintenance', 'auth/'];
+        foreach ($skipPatterns as $s) {
             if (strpos($uriPath, $s) !== false || strpos($rawUri, $s) !== false) {
                 return;
             }
@@ -24,47 +24,35 @@ class LicenseFilter implements FilterInterface
 
         $model   = new LicenseModel();
         $license = $model->getActiveLicense();
-        $error   = null;
 
-        // Jika tidak ada lisensi sama sekali, coba cari record apapun (termasuk suspended)
+        // Tidak ada lisensi aktif — coba cari yang suspended/expired untuk recovery
         if (!$license) {
-            // Cari record lisensi meski statusnya suspended
             $anyLicense = $model->first();
-
             if (!$anyLicense) {
-                // Benar-benar tidak ada lisensi
-                return redirect()->to(base_url('activate'))->with('error', 'Aplikasi belum diaktivasi.');
+                return redirect()->to(base_url('activate'))
+                    ->with('error', 'Aplikasi belum diaktivasi.');
             }
 
-            // Ada lisensi tapi suspended/inactive — coba recover dari server
-            log_message('warning', 'License status is: ' . ($anyLicense['status'] ?? 'unknown') . '. Attempting recovery...');
-            $recovered = $this->verifyAndRefreshHash($anyLicense['license_key'], $model, $anyLicense['id']);
-
+            // Ada lisensi tapi tidak active — coba recover dari server
+            $recovered = $this->tryRecoverFromServer($anyLicense['license_key'], $model, $anyLicense['id']);
             if ($recovered) {
-                log_message('info', 'License recovered from server.');
-                return; // Lanjutkan
+                return; // Berhasil recover
             }
 
-            // Recovery gagal — terapkan grace period sebelum redirect
-            $cache     = \Config\Services::cache();
-            $failCount = $cache->get('license_fail_count') ?? 0;
-
-            if ($failCount > 5) {
-                return redirect()->to(base_url('activate'))->with('error', 'Lisensi tidak aktif. Silakan hubungi administrator.');
-            }
-
-            $cache->save('license_fail_count', $failCount + 1, 86400);
-            log_message('warning', 'License inactive, grace period ' . ($failCount + 1) . '/5');
-            return; // Allow dalam grace period
+            // Terapkan grace period sebelum redirect
+            return $this->handleGracePeriod(
+                redirect()->to(base_url('activate'))->with('error', 'Status lisensi tidak valid.')
+            );
         }
 
-        // Lisensi ada dan status active
+        // Lisensi ada tapi gagal validasi lokal
+        $error = null;
         if (!$model->isValidLicense($license, $error)) {
-            log_message('info', 'License validation failed: ' . $error);
+            log_message('warning', 'LicenseFilter: validation failed - ' . $error);
 
-            // Untuk hash mismatch, coba refresh dari server dulu
+            // Hash mismatch → coba refresh dari server sebelum apapun
             if (strpos($error ?? '', 'integrity mismatch') !== false) {
-                $refreshed = $this->verifyAndRefreshHash($license['license_key'], $model, $license['id']);
+                $refreshed = $this->tryRecoverFromServer($license['license_key'], $model, $license['id']);
                 if ($refreshed) {
                     \Config\Services::cache()->delete('license_fail_count');
                     return;
@@ -78,34 +66,45 @@ class LicenseFilter implements FilterInterface
                 return;
             }
 
-            // Grace period — jangan langsung redirect
-            $cache     = \Config\Services::cache();
-            $failCount = $cache->get('license_fail_count') ?? 0;
-
-            if ($failCount > 5) {
-                return redirect()->to(base_url('activate'))->with('error', $error);
-            }
-
-            $cache->save('license_fail_count', $failCount + 1, 86400);
-            log_message('warning', 'License invalid, grace period ' . ($failCount + 1) . '/5. Allowing continue.');
-            return; // Allow dalam grace period
+            // Grace period — beri kesempatan sebelum block
+            return $this->handleGracePeriod(
+                redirect()->to(base_url('activate'))->with('error', $error)
+            );
         }
 
-        // Lisensi valid — reset fail count
+        // Lisensi valid — reset fail count dan lakukan periodic check
         \Config\Services::cache()->delete('license_fail_count');
 
-        // Periodic verification setiap 24 jam (non-blocking)
         $lastCheck = $license['last_check'] ? strtotime($license['last_check']) : 0;
         if (time() - $lastCheck > 86400) {
-            $this->verifyLicense($license['license_key'], $model, $license['id']);
+            // Background check — non-blocking, tidak ubah status lisensi
+            $this->periodicCheck($license['license_key'], $model, $license['id']);
         }
     }
 
     /**
-     * Verify license with server and refresh all local data if valid.
-     * Also reactivates suspended license if server says it's valid.
+     * Grace period: izinkan sampai 5 kali gagal sebelum redirect.
+     * Mencegah false positive karena gangguan jaringan sementara.
      */
-    protected function verifyAndRefreshHash($key, $model, $id): bool
+    private function handleGracePeriod($redirectResponse)
+    {
+        $cache     = \Config\Services::cache();
+        $failCount = (int)($cache->get('license_fail_count') ?? 0);
+
+        if ($failCount >= 5) {
+            return $redirectResponse;
+        }
+
+        $cache->save('license_fail_count', $failCount + 1, 86400);
+        log_message('warning', 'License grace period: attempt ' . ($failCount + 1) . '/5, allowing continue.');
+        return null; // Lanjutkan
+    }
+
+    /**
+     * Coba recover lisensi dari server.
+     * Berhasil jika server bilang valid → update DB dan hash lokal.
+     */
+    protected function tryRecoverFromServer($key, $model, $id): bool
     {
         $serverUrl = \App\Libraries\LicenseGuard::getServerURL();
         $domain    = $_SERVER['HTTP_HOST'];
@@ -129,89 +128,32 @@ class LicenseFilter implements FilterInterface
             $result = json_decode($response->getBody(), true);
 
             if (isset($result['status']) && $result['status'] === 'success') {
-                $license    = $model->find($id);
-                $expiresAt  = $result['data']['expiry'] ?? $license['expires_at'];
-                $hashSecret = \App\Libraries\LicenseGuard::getHashSecret();
-                $newHash    = hash('sha256', $license['license_key'] . $expiresAt . $machineId . $hashSecret);
+                $license   = $model->find($id);
+                $expiresAt = $result['data']['expiry'] ?? ($license['expires_at'] ?? date('Y-m-d H:i:s', strtotime('+1 year')));
+                $secret    = \App\Libraries\LicenseGuard::getHashSecret();
+                $newHash   = hash('sha256', $license['license_key'] . $expiresAt . $machineId . $secret);
 
                 $model->update($id, [
+                    'status'     => 'active',
                     'hash'       => $newHash,
                     'expires_at' => $expiresAt,
                     'machine_id' => $machineId,
                     'last_check' => date('Y-m-d H:i:s'),
-                    'status'     => 'active', // Reactivate jika suspended
                 ]);
 
                 \App\Libraries\LicenseGuard::regenerateAllHashes();
-                log_message('info', 'License verified & refreshed from server. Status set to active.');
+                \Config\Services::cache()->delete('license_fail_count');
+                log_message('info', 'License recovered from server. Status set to active.');
                 return true;
             }
         } catch (\Exception $e) {
-            log_message('error', 'verifyAndRefreshHash failed: ' . $e->getMessage());
+            log_message('error', 'tryRecoverFromServer failed: ' . $e->getMessage());
         }
         return false;
     }
 
     /**
-     * Periodic verification — update data tapi TIDAK suspend lisensi
-     * karena koneksi gagal.
-     */
-    protected function verifyLicense($key, $model, $id)
-    {
-        $serverUrl = \App\Libraries\LicenseGuard::getServerURL();
-        $domain    = $_SERVER['HTTP_HOST'];
-
-        helper('license');
-        $machineId = generate_machine_id();
-
-        $client = \Config\Services::curlrequest();
-        try {
-            $response = $client->post($serverUrl, [
-                'form_params' => [
-                    'license_key' => $key,
-                    'domain'      => $domain,
-                    'machine_id'  => $machineId,
-                    'action'      => 'verify',
-                ],
-                'timeout'     => 5,
-                'http_errors' => false,
-            ]);
-
-            $result = json_decode($response->getBody(), true);
-
-            if (isset($result['status']) && $result['status'] === 'success') {
-                $license      = $model->find($id);
-                $hashSecret   = \App\Libraries\LicenseGuard::getHashSecret();
-                $newExpiresAt = $result['data']['expiry'] ?? $license['expires_at'];
-                $newHash      = hash('sha256', $license['license_key'] . $newExpiresAt . $machineId . $hashSecret);
-
-                $model->update($id, [
-                    'last_check' => date('Y-m-d H:i:s'),
-                    'domain'     => $domain,
-                    'machine_id' => $machineId,
-                    'expires_at' => $newExpiresAt,
-                    'status'     => 'active',
-                    'hash'       => $newHash,
-                ]);
-
-                \App\Libraries\LicenseGuard::regenerateAllHashes();
-                log_message('info', 'Periodic license verify OK. Expiry: ' . $newExpiresAt);
-
-            } elseif (isset($result['status'])) {
-                // Server bilang status tertentu — HANYA log, jangan suspend otomatis
-                // Suspend otomatis berisiko karena bisa error sementara dari server
-                log_message('warning', 'Periodic verify: server returned status=' . $result['status']
-                    . ' msg=' . ($result['message'] ?? ''));
-                // Tidak ada perubahan status di DB
-            }
-        } catch (\Exception $e) {
-            // Koneksi gagal — TIDAK apa-apa, coba lagi besok
-            log_message('warning', 'Periodic license verify failed (network): ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Attempt to auto-renew expired license from server.
+     * Auto-renew lisensi expired.
      */
     protected function attemptAutoRenewal($key, $model, $id): bool
     {
@@ -237,31 +179,83 @@ class LicenseFilter implements FilterInterface
             $result = json_decode($response->getBody(), true);
 
             if (isset($result['status']) && $result['status'] === 'success') {
-                $newExpiresAt = $result['data']['expiry'] ?? date('Y-m-d H:i:s', strtotime('+1 year'));
-                $license      = $model->find($id);
-                $hashSecret   = \App\Libraries\LicenseGuard::getHashSecret();
-                $newHash      = hash('sha256', $license['license_key'] . $newExpiresAt . $machineId . $hashSecret);
+                $newExpiry = $result['data']['expiry'] ?? date('Y-m-d H:i:s', strtotime('+1 year'));
+                $license   = $model->find($id);
+                $secret    = \App\Libraries\LicenseGuard::getHashSecret();
+                $newHash   = hash('sha256', $license['license_key'] . $newExpiry . $machineId . $secret);
 
                 $model->update($id, [
-                    'last_check' => date('Y-m-d H:i:s'),
-                    'domain'     => $domain,
-                    'machine_id' => $machineId,
                     'status'     => 'active',
-                    'expires_at' => $newExpiresAt,
+                    'expires_at' => $newExpiry,
+                    'machine_id' => $machineId,
                     'hash'       => $newHash,
+                    'last_check' => date('Y-m-d H:i:s'),
                 ]);
 
                 \App\Libraries\LicenseGuard::regenerateAllHashes();
-                log_message('info', 'License auto-renewed. New expiry: ' . $newExpiresAt);
+                log_message('info', 'License auto-renewed. New expiry: ' . $newExpiry);
                 return true;
             }
         } catch (\Exception $e) {
-            log_message('error', 'Auto-renewal failed: ' . $e->getMessage());
+            log_message('error', 'attemptAutoRenewal failed: ' . $e->getMessage());
         }
         return false;
     }
 
-    public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
+    /**
+     * Periodic background check — TIDAK mengubah status lisensi.
+     * Hanya update expiry dan hash jika server mengembalikan data baru.
+     */
+    protected function periodicCheck($key, $model, $id): void
+    {
+        $serverUrl = \App\Libraries\LicenseGuard::getServerURL();
+        $domain    = $_SERVER['HTTP_HOST'];
+
+        helper('license');
+        $machineId = generate_machine_id();
+
+        $client = \Config\Services::curlrequest();
+        try {
+            $response = $client->post($serverUrl, [
+                'form_params' => [
+                    'license_key' => $key,
+                    'domain'      => $domain,
+                    'machine_id'  => $machineId,
+                    'action'      => 'verify',
+                ],
+                'timeout'     => 5,
+                'http_errors' => false,
+            ]);
+
+            $result = json_decode($response->getBody(), true);
+
+            if (isset($result['status']) && $result['status'] === 'success') {
+                $license      = $model->find($id);
+                $newExpiresAt = $result['data']['expiry'] ?? $license['expires_at'];
+                $secret       = \App\Libraries\LicenseGuard::getHashSecret();
+                $newHash      = hash('sha256', $license['license_key'] . $newExpiresAt . $machineId . $secret);
+
+                $model->update($id, [
+                    'last_check' => date('Y-m-d H:i:s'),
+                    'expires_at' => $newExpiresAt,
+                    'machine_id' => $machineId,
+                    'status'     => 'active', // Pastikan tetap active
+                    'hash'       => $newHash,
+                ]);
+
+                \App\Libraries\LicenseGuard::regenerateAllHashes();
+                log_message('info', 'Periodic check OK. Expiry: ' . $newExpiresAt);
+            } else {
+                // Server mengembalikan error — HANYA log, TIDAK ubah status DB
+                log_message('warning', 'Periodic check: server returned ' . ($result['status'] ?? 'unknown'));
+            }
+        } catch (\Exception $e) {
+            // Koneksi gagal — TIDAK apa-apa, coba lagi besok
+            log_message('warning', 'Periodic check failed (network): ' . $e->getMessage());
+        }
+    }
+
+    public function after(RequestInterface $request, ResponseInterface $response, $arguments = null): void
     {
     }
 }

@@ -74,5 +74,9 @@
             </div>
         </div>
     </div>
+
+  <!-- Statistik Siswa per Kelas -->
+  <?= $this->include('dashboard/_student_stats_table') ?>
+
 </div>
 <?= $this->endSection() ?>

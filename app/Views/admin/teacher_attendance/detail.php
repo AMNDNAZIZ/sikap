@@ -74,7 +74,7 @@ $monthLabel = date('F Y', strtotime($month . '-01'));
                             <tr>
                                 <td colspan="6" class="text-end">Total JP Tidak Hadir:</td>
                                 <td class="text-center">
-                                    <?= array_sum(array_column($details, 'jp')) ?>
+                                    <?= count($details) ?>
                                 </td>
                                 <td></td>
                             </tr>

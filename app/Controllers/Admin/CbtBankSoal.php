@@ -271,7 +271,11 @@ class CbtBankSoal extends BaseController
         $dompdf->loadHtml($html);
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
+        if (ob_get_length()) {
+            @ob_end_clean();
+        }
         $dompdf->stream('bank-soal-' . $id . '.pdf');
+        exit;
     }
 
     public function edit_Soal($bankId, $questionId)

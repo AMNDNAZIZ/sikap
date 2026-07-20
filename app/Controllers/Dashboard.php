@@ -92,8 +92,11 @@ class Dashboard extends BaseController
                 $stats = [
                     'total_students' => $db->table('students')->countAllResults(),
                     'total_teachers' => $db->table('teachers')->countAllResults(),
-                    'total_classes' => $db->table('classes')->countAllResults(),
-                    'active_students' => $db->table('student_records')->where('status', 'aktif')->countAllResults(),
+                    'total_classes' => $db->table('classes')->where('is_active', 1)->countAllResults(),
+                    'active_students' => $db->table('student_records')
+                        ->where('academic_year_id', $activeYear['id'])
+                        ->where('status', 'aktif')
+                        ->countAllResults(),
                     'active_teachers' => $db->table('teachers')->countAllResults(), // Assume all teachers are active if no status column
                     'total_subjects' => $db->table('subjects')->countAllResults(),
                 ];
@@ -116,7 +119,7 @@ class Dashboard extends BaseController
                 if ($selectedClassId) {
                     $filterParams['class_id'] = $selectedClassId;
                 }
-                $todaySchedule = (new ScheduleModel())->getScheduleForDayWithFallback($dayOfWeek, $filterParams, $activeYear['id']);
+                $todaySchedule = (new ScheduleModel())->getScheduleForDay($dayOfWeek, $filterParams, $activeYear['id']);
 
                 // Generate real system notifications
                 $systemNotifications = [];
@@ -262,25 +265,35 @@ class Dashboard extends BaseController
                 
                 $systemActivity['today_requests'] = $attendanceCount + $agendaCount + $announcementCount;
 
+                // --- Statistik Siswa per Kelas ---
+                $statsAcademicYearId = (int)($this->request->getGet('stats_year_id') ?? $activeYear['id']);
+                $allAcademicYears    = (new \App\Models\AcademicYearModel())->orderBy('start_date', 'DESC')->findAll();
+                $statsAcademicYear   = (new \App\Models\AcademicYearModel())->find($statsAcademicYearId) ?? $activeYear;
+                $studentStatsPerClass = $this->getStudentStatsPerClass($db, $statsAcademicYearId);
+
                 return view('dashboard/admin_modern', [
-                    'user' => $user,
-                    'stats' => $stats,
-                    'absenceRekap' => $absenceRekap,
-                    'upcomingAgendas' => $upcomingAgendas,
-                    'todaySchedule' => $todaySchedule,
-                    'today' => $today,
-                    'rekapDate' => $rekapDate,
-                    'selectedClassId' => $selectedClassId,
-                    'holidayInfo' => $holidayInfo,
-                    'systemNotifications' => $systemNotifications,
-                    'systemActivity' => $systemActivity,
+                    'user'                 => $user,
+                    'stats'                => $stats,
+                    'absenceRekap'         => $absenceRekap,
+                    'upcomingAgendas'      => $upcomingAgendas,
+                    'todaySchedule'        => $todaySchedule,
+                    'today'                => $today,
+                    'rekapDate'            => $rekapDate,
+                    'selectedClassId'      => $selectedClassId,
+                    'holidayInfo'          => $holidayInfo,
+                    'systemNotifications'  => $systemNotifications,
+                    'systemActivity'       => $systemActivity,
+                    'studentStatsPerClass' => $studentStatsPerClass,
+                    'academicYears'        => $allAcademicYears,
+                    'statsAcademicYearId'  => $statsAcademicYearId,
+                    'statsActiveYear'      => $statsAcademicYear,
                 ]);
 
             case 2: // Kepala Sekolah
                 $stats = [
                     'total_students' => $db->table('students')->countAllResults(),
                     'total_teachers' => $db->table('teachers')->countAllResults(),
-                    'total_classes' => $db->table('classes')->countAllResults(),
+                    'total_classes' => $db->table('classes')->where('is_active', 1)->countAllResults(),
                 ];
 
                 $upcomingAgendas = $db->table('agendas a')
@@ -301,18 +314,28 @@ class Dashboard extends BaseController
                 if ($selectedClassId) {
                     $filterParams['class_id'] = $selectedClassId;
                 }
-                $todaySchedule = (new ScheduleModel())->getScheduleForDayWithFallback($dayOfWeek, $filterParams, $activeYear['id']);
+                $todaySchedule = (new ScheduleModel())->getScheduleForDay($dayOfWeek, $filterParams, $activeYear['id']);
+
+                // --- Statistik Siswa per Kelas ---
+                $statsAcademicYearId = (int)($this->request->getGet('stats_year_id') ?? $activeYear['id']);
+                $allAcademicYears    = (new \App\Models\AcademicYearModel())->orderBy('start_date', 'DESC')->findAll();
+                $statsAcademicYear   = (new \App\Models\AcademicYearModel())->find($statsAcademicYearId) ?? $activeYear;
+                $studentStatsPerClass = $this->getStudentStatsPerClass($db, $statsAcademicYearId);
 
                 return view('dashboard/kepsek', [
-                    'user' => $user,
-                    'stats' => $stats,
-                    'absenceRekap' => $absenceRekap,
-                    'upcomingAgendas' => $upcomingAgendas,
-                    'todaySchedule' => $todaySchedule,
-                    'today' => $today,
-                    'rekapDate' => $rekapDate,
-                    'selectedClassId' => $selectedClassId,
-                    'holidayInfo' => $holidayInfo,
+                    'user'                 => $user,
+                    'stats'                => $stats,
+                    'absenceRekap'         => $absenceRekap,
+                    'upcomingAgendas'      => $upcomingAgendas,
+                    'todaySchedule'        => $todaySchedule,
+                    'today'                => $today,
+                    'rekapDate'            => $rekapDate,
+                    'selectedClassId'      => $selectedClassId,
+                    'holidayInfo'          => $holidayInfo,
+                    'studentStatsPerClass' => $studentStatsPerClass,
+                    'academicYears'        => $allAcademicYears,
+                    'statsAcademicYearId'  => $statsAcademicYearId,
+                    'statsActiveYear'      => $statsAcademicYear,
                 ]);
 
             case 3: // Guru
@@ -349,6 +372,7 @@ class Dashboard extends BaseController
                         ->select('students.gender')
                         ->join('students', 'students.id = student_records.student_id')
                         ->where('student_records.class_id', $waliClass['id'])
+                        ->where('student_records.academic_year_id', $activeYear['id'])
                         ->where('student_records.status', 'aktif')
                         ->get()
                         ->getResultArray();
@@ -387,11 +411,11 @@ class Dashboard extends BaseController
                 // Schedule for Wali Kelas
                 $waliClassSchedule = [];
                 if ($waliClass) {
-                    $waliClassSchedule = $scheduleModel->getScheduleForDayWithFallback($dayOfWeek, ['class_id' => $waliClass['id']], $activeYearId);
+                    $waliClassSchedule = $scheduleModel->getScheduleForDay($dayOfWeek, ['class_id' => $waliClass['id']], $activeYearId);
                 }
 
                 // Personal teacher schedule
-                $personalSchedule = $scheduleModel->getScheduleForDayWithFallback($dayOfWeek, ['teacher_id' => $user['related_id']], $activeYearId);
+                $personalSchedule = $scheduleModel->getScheduleForDay($dayOfWeek, ['teacher_id' => $user['related_id']], $activeYearId);
                 
                 // Get teacher statistics
                 $teacherStats = [
@@ -461,20 +485,53 @@ class Dashboard extends BaseController
                 $stats = [
                     'total_teachers'  => $db->table('teachers')->countAllResults(),
                     'total_students'  => $db->table('students')->countAllResults(),
-                    'total_classes'   => $db->table('classes')->countAllResults(),
+                    'total_classes'   => $db->table('classes')->where('is_active', 1)->countAllResults(),
                     'active_students' => $db->table('student_records')
+                        ->where('academic_year_id', $activeYear['id'])
                         ->where('status', 'aktif')->countAllResults(),
                 ];
                 $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+                // --- Statistik Siswa per Kelas ---
+                $statsAcademicYearId = (int)($this->request->getGet('stats_year_id') ?? $activeYear['id']);
+                $allAcademicYears    = (new \App\Models\AcademicYearModel())->orderBy('start_date', 'DESC')->findAll();
+                $statsAcademicYear   = (new \App\Models\AcademicYearModel())->find($statsAcademicYearId) ?? $activeYear;
+                $studentStatsPerClass = $this->getStudentStatsPerClass($db, $statsAcademicYearId);
+
                 return view('dashboard/staf', [
-                    'user'       => $user,
-                    'stats'      => $stats,
-                    'activeYear' => $activeYear,
+                    'user'                 => $user,
+                    'stats'                => $stats,
+                    'activeYear'           => $activeYear,
+                    'studentStatsPerClass' => $studentStatsPerClass,
+                    'academicYears'        => $allAcademicYears,
+                    'statsAcademicYearId'  => $statsAcademicYearId,
+                    'statsActiveYear'      => $statsAcademicYear,
                 ]);
 
             default:
                 return redirect()->to('/login');
         }
+    }
+
+    /**
+     * Get student statistics per class (total, male, female) for a given academic year.
+     */
+    private function getStudentStatsPerClass($db, $academicYearId)
+    {
+        return $db->table('student_records sr')
+            ->select('c.name as class_name, c.teacher_id,
+                      COUNT(sr.id) as total,
+                      SUM(CASE WHEN s.gender = "L" THEN 1 ELSE 0 END) as total_l,
+                      SUM(CASE WHEN s.gender = "P" THEN 1 ELSE 0 END) as total_p,
+                      t.name as teacher_name')
+            ->join('students s', 's.id = sr.student_id')
+            ->join('classes c', 'c.id = sr.class_id')
+            ->join('teachers t', 't.id = c.teacher_id', 'left')
+            ->where('sr.academic_year_id', $academicYearId)
+            ->where('sr.status', 'aktif')
+            ->groupBy('sr.class_id')
+            ->orderBy('c.name', 'ASC')
+            ->get()
+            ->getResultArray();
     }
 
     private function getStudentDashboardData($user, $db, $today, $rekapDate = null)
@@ -595,7 +652,7 @@ class Dashboard extends BaseController
             'attendanceRate' => $attendanceRate,
             'latestAnnouncement' => $latestAnnouncement,
             'rekapDate' => $rekapDate,
-            'todaySchedule' => (new ScheduleModel())->getScheduleForDayWithFallback(date('N', strtotime($rekapDate)), ['class_id' => $classId], (new \App\Models\AcademicYearModel())->getActiveYear()['id']),
+            'todaySchedule' => (new ScheduleModel())->getScheduleForDay(date('N', strtotime($rekapDate)), ['class_id' => $classId], (new \App\Models\AcademicYearModel())->getActiveYear()['id']),
             'holidayInfo' => $holidayInfo,
         ];
     }

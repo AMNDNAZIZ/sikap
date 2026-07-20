@@ -122,8 +122,15 @@
             $isWeekend = is_weekend($d, $schoolDays);
             $isHoliday = $isWeekend || isset($holidays[$d]);
             $cls = $isHoliday ? 'bg-danger text-white' : 'bg-teal';
+            // Tooltip: keterangan libur
+            $holidayDesc = '';
+            if ($isWeekend) {
+                $holidayDesc = (date('N', strtotime($d)) == 6) ? 'Sabtu' : 'Minggu';
+            } elseif (isset($holidays[$d])) {
+                $holidayDesc = $holidays[$d];
+            }
             ?>
-            <th class="<?= $cls ?>" data-date="<?= $d ?>">
+            <th class="<?= $cls ?>" data-date="<?= $d ?>"<?= $holidayDesc ? ' title="' . esc($holidayDesc) . '"' : '' ?>>
               <?php if ($d <= $today && !$isHoliday && session()->get('user')['role_id'] != 2): ?>
                 <a href="#" class="date-link" data-date="<?= $d ?>"><?= date('d', strtotime($d)) ?></a>
               <?php else: ?>

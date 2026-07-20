@@ -135,7 +135,24 @@
     <div class="section">
         <div class="section-title">C. DESKRIPSI KEGIATAN KHUSUS</div>
         <div class="custom-box">
-            <p><?= nl2br(esc($document['kegiatan_detail'])) ?></p>
+            <?php 
+            $detail = json_decode($document['kegiatan_detail'], true);
+            if ($detail && isset($detail['text'])):
+            ?>
+                <p><?= nl2br(esc($detail['text'])) ?></p>
+                <?php if (isset($detail['items']) && !empty($detail['items'])): ?>
+                    <p style="margin-top: 10px; font-weight: bold; margin-bottom: 5px;">Sub Dimensi untuk Penilaian:</p>
+                    <ul style="margin-top: 0; padding-left: 20px;">
+                        <?php foreach ($detail['items'] as $item): ?>
+                            <li>
+                                <strong><?= esc($item['dimensi_profil']) ?></strong>: <?= esc($item['sub_dimensi']) ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            <?php else: ?>
+                <p><?= nl2br(esc($document['kegiatan_detail'])) ?></p>
+            <?php endif; ?>
         </div>
         <p><em>Kegiatan ini dirancang berdasarkan nilai-nilai khas, keunggulan yang dimiliki sekolah, atau kebijakan daerah setempat untuk memperkaya pengalaman belajar siswa.</em></p>
     </div>

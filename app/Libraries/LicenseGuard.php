@@ -210,9 +210,69 @@ class LicenseGuard
 
         $currentDomain = $_SERVER['HTTP_HOST'] ?? '';
 
-        if (!empty($license['domain']) && $license['domain'] !== $currentDomain) {
-            // Redirect ke aktivasi, bukan die/block
-            self::lock("INVALID DOMAIN", true);
+        if (empty($license['domain'])) {
+            return; // belum ada domain terdaftar, skip
+        }
+
+        $storedDomain  = $license['domain'];
+
+        // Normalisasi: strip www. untuk perbandingan
+        $normalize = fn($d) => preg_replace('/^www\./i', '', strtolower(trim($d)));
+
+        if ($normalize($storedDomain) !== $normalize($currentDomain)) {
+            log_message('warning', 'Domain mismatch: stored=' . $storedDomain . ', current=' . $currentDomain . '. Attempting server re-verify...');
+
+            // Coba update domain di server sebelum block
+            // Mungkin domain berubah (www vs non-www, atau perubahan subdomain)
+            $model = new LicenseModel();
+            $lic   = $model->first();
+
+            if ($lic) {
+                $serverUrl = self::getServerURL();
+                helper('license');
+                $machineId = generate_machine_id();
+
+                try {
+                    $client   = \Config\Services::curlrequest();
+                    $response = $client->post($serverUrl, [
+                        'form_params' => [
+                            'license_key' => $lic['license_key'],
+                            'domain'      => $currentDomain,
+                            'machine_id'  => $machineId,
+                            'action'      => 'verify',
+                        ],
+                        'timeout'     => 8,
+                        'http_errors' => false,
+                    ]);
+
+                    $result = json_decode($response->getBody(), true);
+
+                    if (isset($result['status']) && $result['status'] === 'success') {
+                        // Server terima domain baru — update DB
+                        $expiresAt = $result['data']['expiry'] ?? $lic['expires_at'];
+                        $secret    = self::getHashSecret();
+                        $newHash   = hash('sha256', $lic['license_key'] . $expiresAt . $machineId . $secret);
+
+                        $model->update($lic['id'], [
+                            'domain'     => $currentDomain,
+                            'hash'       => $newHash,
+                            'expires_at' => $expiresAt,
+                            'machine_id' => $machineId,
+                            'last_check' => date('Y-m-d H:i:s'),
+                            'status'     => 'active',
+                        ]);
+
+                        self::regenerateAllHashesSync();
+                        log_message('info', 'Domain updated to: ' . $currentDomain);
+                        return; // Domain berhasil diupdate, lanjutkan
+                    }
+                } catch (\Exception $e) {
+                    log_message('error', 'Domain re-verify failed: ' . $e->getMessage());
+                }
+            }
+
+            // Server tidak menerima domain baru — lock
+            self::lock("INVALID DOMAIN: expected={$storedDomain}, got={$currentDomain}", true);
         }
     }
 

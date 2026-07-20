@@ -33,6 +33,17 @@ class Students extends BaseController
         
         $classId = $this->request->getGet('class_id');
         $search = $this->request->getGet('search');
+        $academicYearId = $this->request->getGet('academic_year_id');
+        $statusFilter = $this->request->getGet('status');
+
+        if ($academicYearId === null) {
+            $activeYear = $this->yearModel->where('is_active', 1)->first();
+            $academicYearId = $activeYear ? $activeYear['id'] : '';
+        }
+
+        if ($statusFilter === null) {
+            $statusFilter = 'aktif';
+        }
 
         $builder = $this->studentModel
             ->select('students.*, classes.name as class_name, academic_years.year as academic_year, student_records.status, users.username')
@@ -40,6 +51,14 @@ class Students extends BaseController
             ->join('classes', 'classes.id = student_records.class_id', 'left')
             ->join('academic_years', 'academic_years.id = student_records.academic_year_id', 'left')
             ->join('users', 'users.id = students.user_id', 'left');
+
+        if ($academicYearId && $academicYearId !== 'all') {
+            $builder->where('student_records.academic_year_id', $academicYearId);
+        }
+
+        if ($statusFilter && $statusFilter !== 'all') {
+            $builder->where('student_records.status', $statusFilter);
+        }
 
         // ✅ For teachers, only show students in their class
         if (is_teacher()) {
@@ -75,7 +94,10 @@ class Students extends BaseController
             'students' => $builder->paginate(10),
             'pager' => $builder->pager,
             'classes' => $this->classModel->findAll(),
+            'academicYears' => $this->yearModel->orderBy('start_date', 'DESC')->findAll(),
             'selectedClass' => $classId,
+            'selectedYear' => $academicYearId,
+            'selectedStatus' => $statusFilter,
             'search' => $search,
         ];
 
@@ -405,13 +427,23 @@ class Students extends BaseController
                 // deactivate user account for non-active statuses
                 if ($newStatus && in_array($newStatus, ['lulus', 'dropout', 'nonaktif'])) {
                     if (!empty($student['user_id'])) {
-                        $this->userModel->update($student['user_id'], ['is_active' => 0]);
+                        $this->db->table('users')
+                             ->where('id', $student['user_id'])
+                             ->update(['is_active' => 0]);
                     }
+                    $this->db->table('users')
+                         ->where(['related_id' => $id, 'role_id' => 4, 'related_type' => 'student'])
+                         ->update(['is_active' => 0]);
                 } elseif ($newStatus === 'aktif' && in_array($record['status'], ['lulus', 'dropout', 'nonaktif'])) {
                     // reactivate if changed back to aktif
                     if (!empty($student['user_id'])) {
-                        $this->userModel->update($student['user_id'], ['is_active' => 1]);
+                        $this->db->table('users')
+                             ->where('id', $student['user_id'])
+                             ->update(['is_active' => 1]);
                     }
+                    $this->db->table('users')
+                         ->where(['related_id' => $id, 'role_id' => 4, 'related_type' => 'student'])
+                         ->update(['is_active' => 1]);
                 }
             } elseif (!empty($newClassId)) {
                 $this->recordModel->insert([

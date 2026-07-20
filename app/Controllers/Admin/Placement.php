@@ -31,15 +31,14 @@ class Placement extends BaseController
             return redirect()->back()->with('error', 'Tahun ajaran aktif belum diset.');
         }
 
-        // Ambil siswa yang BELUM punya record di tahun aktif
+        // Ambil siswa yang BELUM PERNAH punya record di tahun ajaran manapun
+        // (siswa baru yang belum pernah ditempatkan sama sekali)
         $db = db_connect();
         $students = $db->table('students')
             ->select('students.*')
-            ->whereNotIn('students.id', function($builder) use ($year) {
-                return $builder->select('student_records.student_id')
-                               ->from('student_records')
-                               ->where('academic_year_id', $year['id']);
-            })
+            ->whereNotIn('students.id',
+                $db->table('student_records')->select('student_id')->distinct()
+            )
             ->orderBy('students.name', 'ASC')
             ->get()
             ->getResultArray();

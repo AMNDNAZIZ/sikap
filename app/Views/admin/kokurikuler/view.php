@@ -235,7 +235,25 @@
                     </ul>
                 <?php endif; ?>
             <?php else: ?>
-                <p><?= nl2br(esc($document['kegiatan_detail'])) ?></p>
+                <?php 
+                $detail = json_decode($document['kegiatan_detail'], true);
+                if ($detail && isset($detail['text'])):
+                ?>
+                    <p><?= nl2br(esc($detail['text'])) ?></p>
+                    
+                    <?php if (isset($detail['items']) && !empty($detail['items'])): ?>
+                        <h6>Sub Dimensi untuk Penilaian:</h6>
+                        <ul>
+                            <?php foreach ($detail['items'] as $item): ?>
+                                <li>
+                                    <strong><?= esc($item['dimensi_profil']) ?></strong>: <?= esc($item['sub_dimensi']) ?>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                <?php else: ?>
+                    <p><?= nl2br(esc($document['kegiatan_detail'])) ?></p>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>

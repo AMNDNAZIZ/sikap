@@ -53,8 +53,13 @@ class AcademicYear extends BaseController
     public function setActive($id)
     {
         $model = new AcademicYearModel();
-        $model->set(['is_active' => 0])->update(); // nonaktifkan semua
-        $model->update($id, ['is_active' => 1]);   // aktifkan yang dipilih
+        
+        // Nonaktifkan semua tahun ajaran menggunakan query builder langsung
+        $db = \Config\Database::connect();
+        $db->table('academic_years')->set(['is_active' => 0])->update();
+        
+        // Aktifkan yang dipilih
+        $model->update($id, ['is_active' => 1]);
 
         return redirect()->to('/admin/academic-year')->with('success', 'Tahun ajaran aktif berhasil diubah');
     }

@@ -305,47 +305,47 @@
                                             ], $elemenList),
                                         ];
                                         ?>
-                                        <tr>
-                                            <td class="text-center fw-bold align-middle"><?= $no++ ?></td>
-                                            <td class="align-middle fw-bold"><?= esc($atp['lingkup_materi']) ?></td>
-                                            <!-- Elemen CP + TP berpasangan dalam satu cell -->
-                                            <td colspan="2" class="p-0" style="vertical-align:top;">
-                                                <?php foreach ($elemenList as $ei => $el): ?>
-                                                    <div class="d-flex<?= $ei > 0 ? ' border-top' : '' ?>" style="min-height:2rem;">
-                                                        <div class="fw-bold text-success p-2" style="width:35%; min-width:110px; border-right:1px solid #dee2e6;">
-                                                            <?= esc($el['elemen']) ?>
-                                                        </div>
-                                                        <div class="p-2 flex-grow-1">
-                                                            <?php if (!empty($el['tps'])): ?>
-                                                                <ul class="mb-0 ps-3">
-                                                                    <?php foreach ($el['tps'] as $tp): ?>
-                                                                        <li><strong><?= esc($tp['kode_tp']) ?></strong> <?= esc($tp['deskripsi']) ?></li>
-                                                                    <?php endforeach; ?>
-                                                                </ul>
+                                        <?php foreach ($elemenList as $ei => $el): ?>
+                                            <tr>
+                                                <?php if ($ei === 0): ?>
+                                                    <td class="text-center fw-bold align-middle" rowspan="<?= $jumlahElemen ?>"><?= $no++ ?></td>
+                                                    <td class="align-middle fw-bold" rowspan="<?= $jumlahElemen ?>"><?= esc($atp['lingkup_materi']) ?></td>
+                                                <?php endif; ?>
+
+                                                <td class="align-middle fw-bold text-success"><?= esc($el['elemen']) ?></td>
+                                                <td class="align-middle">
+                                                    <?php if (!empty($el['tps'])): ?>
+                                                        <ul class="mb-0 ps-3">
+                                                            <?php foreach ($el['tps'] as $tp): ?>
+                                                                <li><strong><?= esc($tp['kode_tp']) ?></strong> <?= esc($tp['deskripsi']) ?></li>
+                                                            <?php endforeach; ?>
+                                                        </ul>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">-</span>
+                                                    <?php endif; ?>
+                                                </td>
+
+                                                <?php if ($ei === 0): ?>
+                                                    <td class="text-center fw-bold align-middle" rowspan="<?= $jumlahElemen ?>"><?= $atp['semester'] ?></td>
+                                                    <td class="text-center fw-bold align-middle" rowspan="<?= $jumlahElemen ?>"><?= esc($atp['alokasi_waktu']) ?> JP</td>
+                                                    <td class="text-center align-middle" rowspan="<?= $jumlahElemen ?>">
+                                                        <div class="d-flex flex-column gap-1">
+                                                            <?php if (!$readonly): ?>
+                                                            <button class="btn btn-sm btn-outline-primary"
+                                                                    onclick='editAtp(<?= json_encode($editData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)'>
+                                                                <i class="bi bi-pencil"></i>
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-danger" onclick="confirmDeleteAtp(<?= $atp['id'] ?>)">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
                                                             <?php else: ?>
-                                                                <span class="text-muted">-</span>
+                                                                <span class="badge bg-light text-dark border">View Only</span>
                                                             <?php endif; ?>
                                                         </div>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </td>
-                                            <td class="text-center fw-bold align-middle"><?= $atp['semester'] ?></td>
-                                            <td class="text-center fw-bold align-middle"><?= esc($atp['alokasi_waktu']) ?> JP</td>
-                                            <td class="text-center align-middle">
-                                                <div class="d-flex flex-column gap-1">
-                                                    <?php if (!$readonly): ?>
-                                                    <button class="btn btn-sm btn-outline-primary"
-                                                            onclick='editAtp(<?= json_encode($editData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)'>
-                                                        <i class="bi bi-pencil"></i>
-                                                    </button>                                                    <button class="btn btn-sm btn-outline-danger" onclick="confirmDeleteAtp(<?= $atp['id'] ?>)">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                    <?php else: ?>
-                                                        <span class="badge bg-light text-dark border">View Only</span>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                                    </td>
+                                                <?php endif; ?>
+                                            </tr>
+                                        <?php endforeach; ?>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </tbody>

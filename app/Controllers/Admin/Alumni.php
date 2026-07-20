@@ -5,6 +5,7 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Models\StudentRecordModel;
 use App\Models\AcademicYearModel;
+use App\Libraries\PdfGenerator;
 
 class Alumni extends BaseController
 {
@@ -90,7 +91,7 @@ class Alumni extends BaseController
 
         $filename = 'daftar_alumni' . ($yearFilter ? '_' . str_replace('/', '-', $yearFilter) : '') . '.pdf';
 
-        $pdfGen = new \App\Libraries\PdfGenerator();
+        $pdfGen = new PdfGenerator();
         $pdfGen->stream('admin/alumni/pdf_template', $data, $filename, 'landscape', true);
     }
 }

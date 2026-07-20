@@ -18,7 +18,9 @@
         <form method="get" class="d-flex align-items-center gap-2 flex-wrap">
             <label class="fw-semibold mb-0">Tanggal:</label>
             <input type="date" name="date" class="form-control form-control-sm" style="width:auto"
-                value="<?= esc($date) ?>">
+                value="<?= esc($date) ?>"
+                min="<?= esc($activeYear['start_date'] ?? '') ?>"
+                max="<?= date('Y-m-d') ?>">
             <button type="submit" class="btn btn-primary btn-sm">Filter</button>
             <button type="button" class="btn btn-outline-secondary btn-sm"
                 onclick="document.querySelector('[name=date]').value='<?= date('Y-m-d') ?>';this.closest('form').submit()">
@@ -60,10 +62,10 @@
                     <tr>
                         <th style="width:45px" class="text-center">JP</th>
                         <th style="width:110px">Waktu</th>
-                        <th>Kelas</th>
+                        <th style="width:100px">Kelas</th>
                         <th>Mata Pelajaran</th>
                         <th style="width:160px" class="text-center">Status</th>
-                        <th>Keterangan</th>
+                        <th style="width:200px">Keterangan</th>
                     </tr>
                 </thead>
                 <tbody>

@@ -6,9 +6,12 @@
 <form class="row g-2 mb-3" method="get" action="">
   <div class="col-md-3">
     <select name="year_id" class="form-select">
+      <option value="all" <?= ($selectedYear === 'all') ? 'selected' : '' ?>>
+        — Semua Tahun Ajaran —
+      </option>
       <?php foreach ($years as $y): ?>
         <option value="<?= $y['id'] ?>" <?= ($selectedYear == $y['id']) ? 'selected' : '' ?>>
-          <?= esc($y['year']) ?>  <?= $y['is_active'] ? ' (aktif)' : '' ?>
+          <?= esc($y['year']) ?><?= $y['is_active'] ? ' (aktif)' : '' ?>
         </option>
       <?php endforeach ?>
     </select>

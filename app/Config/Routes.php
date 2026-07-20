@@ -82,6 +82,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('academic-year/create', 'AcademicYear::create', $auth127);
     $routes->post('academic-year/store', 'AcademicYear::store', $auth127);
     $routes->get('academic-year/set-active/(:num)', 'AcademicYear::setActive/$1', $auth127);
+    $routes->post('academic-year/set-active/(:num)', 'AcademicYear::setActive/$1', $auth127);
     $routes->get('academic-year/edit/(:num)', 'AcademicYear::edit/$1', $auth127);
     $routes->post('academic-year/update/(:num)', 'AcademicYear::update/$1', $auth127);
 
@@ -155,7 +156,10 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('placement/store', 'Placement::store', $auth127);
 
     $routes->get('promotions', 'Promotions::index', $auth127);
+    $routes->get('promotions/fix-graduated', 'Promotions::fixGraduatedAccounts', $auth127);
     $routes->post('promotions/process', 'Promotions::process', $auth127);
+    $routes->post('promotions/promote', 'Promotions::promote', $auth127);
+    $routes->post('promotions/graduate', 'Promotions::graduate', $auth127);
 
     $routes->get('student-records', 'StudentRecords::index', $auth127);
     $routes->get('student-records/(:num)', 'StudentRecords::index/$1', $auth127);
@@ -175,6 +179,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     // Wali Kelas Students (Guru only)
     $routes->get('wali-kelas-students', 'WaliKelasStudents::index', ['filter' => 'auth:3']);
     $routes->get('wali-kelas-students/detail/(:num)', 'WaliKelasStudents::detail/$1', ['filter' => 'auth:3']);
+    $routes->post('wali-kelas-students/update/(:num)', 'WaliKelasStudents::update/$1', ['filter' => 'auth:3']);
 
     $routes->get('sync-parents', 'AccountSync::syncParents', $auth12);
 

@@ -115,6 +115,9 @@ class KartuPeserta extends BaseController
         $safeExamName = preg_replace('/[^a-zA-Z0-9_]/', '_', strtoupper($examName));
     
         // 📄 Tampilkan langsung di browser
+        if (ob_get_length()) {
+            @ob_end_clean();
+        }
         $dompdf->stream("Kartu_Peserta_{$safeExamName}_Kelas_{$classId}.pdf", ["Attachment" => false]);
         exit;
     }

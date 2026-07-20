@@ -1,14 +1,12 @@
 <?php
 /**
- * Emergency Full Hash + Status Fix
+ * Emergency Hash + License Fix (includes domain fix)
  * Jalankan: https://yourdomain.com/rehash_all.php?token=REHASH2026
  * HAPUS SETELAH SELESAI
  */
 if (($_GET['token'] ?? '') !== 'REHASH2026') { http_response_code(403); die('Forbidden'); }
 
 $appPath = __DIR__ . '/app/';
-
-// Baca .env
 $env = [];
 if (file_exists(__DIR__ . '/.env')) {
     foreach (file(__DIR__ . '/.env') as $line) {
@@ -21,9 +19,10 @@ if (file_exists(__DIR__ . '/.env')) {
 }
 
 echo '<pre style="font-family:monospace;font-size:13px;">';
-echo "=== EMERGENCY HASH + LICENSE FIX ===\n\n";
+echo "=== EMERGENCY HASH + LICENSE FIX ===\n";
+echo "Server time : " . date('Y-m-d H:i:s') . "\n";
+echo "Current domain: " . ($_SERVER['HTTP_HOST'] ?? 'unknown') . "\n\n";
 
-// 1. Fix database: set status = active
 $dbHost = $env['database.default.hostname'] ?? 'localhost';
 $dbUser = $env['database.default.username'] ?? 'root';
 $dbPass = $env['database.default.password'] ?? '';
@@ -32,82 +31,72 @@ $dbName = $env['database.default.database'] ?? '';
 try {
     $pdo = new PDO("mysql:host=$dbHost;dbname=$dbName;charset=utf8mb4", $dbUser, $dbPass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $row = $pdo->query("SELECT id, status, expires_at FROM app_license LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-    if ($row) {
-        if ($row['status'] !== 'active') {
-            $pdo->prepare("UPDATE app_license SET status='active', last_check=? WHERE id=?")
-                ->execute([date('Y-m-d H:i:s'), $row['id']]);
-            echo "✅ DB status: '{$row['status']}' → 'active'\n";
-        } else {
-            echo "✅ DB status sudah active\n";
-        }
-        echo "   expires_at: {$row['expires_at']}\n\n";
-    }
-} catch (Exception $e) {
-    echo "⚠️  DB error: " . $e->getMessage() . "\n\n";
+} catch (Exception $e) { die("❌ DB: " . $e->getMessage()); }
+
+$row = $pdo->query("SELECT * FROM app_license LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+if (!$row) { die("❌ Tidak ada data lisensi."); }
+
+echo "Status DB      : " . $row['status'] . "\n";
+echo "Domain di DB   : " . $row['domain'] . "\n";
+echo "Expires at     : " . $row['expires_at'] . "\n\n";
+
+$currentDomain = $_SERVER['HTTP_HOST'] ?? '';
+$fixes = [];
+
+// Fix 1: status
+if ($row['status'] !== 'active') {
+    $fixes['status'] = 'active';
+    echo "✅ Fix status: {$row['status']} → active\n";
 }
 
-// 2. Regenerate .lic_hash (SHA1, untuk LicenseGuard::checkIntegrity)
-$licFiles = [
-    'Libraries/LicenseGuard.php',
-    'Filters/LicenseFilter.php',
-    'Models/LicenseModel.php',
-];
-$licHashes = [];
+// Fix 2: domain mismatch
+$normDomain = fn($d) => preg_replace('/^www\./i', '', strtolower(trim($d)));
+if ($currentDomain && $normDomain($row['domain']) !== $normDomain($currentDomain)) {
+    $fixes['domain'] = $currentDomain;
+    echo "✅ Fix domain: {$row['domain']} → $currentDomain\n";
+}
+
+if (!empty($fixes)) {
+    $fixes['last_check'] = date('Y-m-d H:i:s');
+    $setClauses = implode(', ', array_map(fn($k) => "$k = ?", array_keys($fixes)));
+    $values = array_values($fixes);
+    $values[] = $row['id'];
+    $pdo->prepare("UPDATE app_license SET $setClauses WHERE id = ?")->execute($values);
+    echo "\n";
+}
+
+// Fix 3: regenerate .lic_hash
+$licFiles = ['Libraries/LicenseGuard.php', 'Filters/LicenseFilter.php', 'Models/LicenseModel.php'];
+$licH = [];
 foreach ($licFiles as $f) {
     $p = $appPath . $f;
-    if (file_exists($p)) {
-        $licHashes[$f] = sha1_file($p);
-        echo "✅ lic_hash: $f\n";
-    } else {
-        echo "❌ MISSING: $f\n";
-    }
+    if (file_exists($p)) { $licH[$f] = sha1_file($p); echo "✅ lic_hash: $f\n"; }
+    else echo "❌ MISSING: $f\n";
 }
-file_put_contents($appPath . 'Config/.lic_hash', json_encode($licHashes, JSON_PRETTY_PRINT));
-echo "\n✅ .lic_hash ditulis (" . count($licHashes) . " files)\n\n";
+file_put_contents($appPath . 'Config/.lic_hash', json_encode($licH, JSON_PRETTY_PRINT));
+echo "✅ .lic_hash ditulis\n\n";
 
-// 3. Regenerate .security_hash (SHA256, untuk SecurityGuard::verifyCriticalFiles)
-$secFiles = [
-    'Helpers/license_helper.php',
-    'Libraries/LicenseGuard.php',
-    'Libraries/SecurityGuard.php',
-    'Libraries/SecureConfig.php',
-    'Filters/LicenseFilter.php',
-    'Models/LicenseModel.php',
-];
-$secHashes = [];
+// Fix 4: regenerate .security_hash
+$secFiles = ['Helpers/license_helper.php','Libraries/LicenseGuard.php','Libraries/SecurityGuard.php','Libraries/SecureConfig.php','Filters/LicenseFilter.php','Models/LicenseModel.php'];
+$secH = [];
 foreach ($secFiles as $f) {
     $p = $appPath . $f;
-    if (file_exists($p)) {
-        $secHashes[$f] = hash_file('sha256', $p);
-        echo "✅ security_hash: $f\n";
-    } else {
-        echo "❌ MISSING: $f\n";
-    }
+    if (file_exists($p)) { $secH[$f] = hash_file('sha256', $p); echo "✅ security_hash: $f\n"; }
+    else echo "❌ MISSING: $f\n";
 }
-file_put_contents($appPath . 'Config/.security_hash', json_encode($secHashes, JSON_PRETTY_PRINT));
-echo "\n✅ .security_hash ditulis (" . count($secHashes) . " files)\n\n";
+file_put_contents($appPath . 'Config/.security_hash', json_encode($secH, JSON_PRETTY_PRINT));
+echo "✅ .security_hash ditulis\n\n";
 
-// 4. Bersihkan semua cache yang berkaitan dengan license
+// Fix 5: clear cache
 $cacheDir = __DIR__ . '/writable/cache/';
-$cleaned = 0;
+$c = 0;
 if (is_dir($cacheDir)) {
     foreach (glob($cacheDir . '*') as $f) {
-        if (is_file($f) && basename($f) !== 'index.html') {
-            @unlink($f);
-            $cleaned++;
-        }
+        if (is_file($f) && basename($f) !== 'index.html') { @unlink($f); $c++; }
     }
 }
-echo "✅ Cache dibersihkan ($cleaned files)\n\n";
+echo "✅ Cache dibersihkan ($c files)\n\n";
 
-// 5. Verifikasi akhir
-echo "=== VERIFIKASI ===\n";
-$licFile = $appPath . 'Config/.lic_hash';
-$secFile = $appPath . 'Config/.security_hash';
-echo "lic_hash   exists: " . (file_exists($licFile) ? "✅" : "❌") . "\n";
-echo "security_hash exists: " . (file_exists($secFile) ? "✅" : "❌") . "\n\n";
-
-echo "🎉 SELESAI. Coba akses aplikasi sekarang.\n";
-echo "⚠️  HAPUS FILE INI SEGERA!\n";
+echo "🎉 SELESAI. Hapus file ini dan coba akses aplikasi.\n";
+echo "⚠️  HAPUS FILE INI SEKARANG!\n";
 echo '</pre>';

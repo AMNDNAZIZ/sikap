@@ -129,6 +129,9 @@ class ExamAttendance extends BaseController
         $dompdf->render();
 
         // Output ke browser
+        if (ob_get_length()) {
+            @ob_end_clean();
+        }
         $dompdf->stream('Daftar_Hadir_' . $examName . '_' . $className . '.pdf', ["Attachment" => false]);
         exit();
     }

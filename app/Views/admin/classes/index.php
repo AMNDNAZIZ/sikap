@@ -29,15 +29,15 @@
             <tr>
               <th width="50">#</th>
               <th>Nama Kelas</th>
-              <th width="100">Tingkat</th>
+              <th width="100" class="text-center">Tingkat</th>
               <th>Wali Kelas</th>
               <th width="100" class="text-center">Status</th>
-              <th width="250">Aksi</th>
+              <th width="200" class="text-center">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <?php foreach ($classes as $i => $c): ?>
-              <tr class="<?= $c['is_active'] ? '' : 'table-secondary text-muted' ?>">
+              <tr>
                 <td><?= $i + 1 ?></td>
                 <td><?= esc($c['name']) ?></td>
                 <td class="text-center">
@@ -45,32 +45,20 @@
                 </td>
                 <td><?= esc($c['teacher_name'] ?: '-') ?></td>
                 <td class="text-center">
-                  <?php if ($c['is_active']): ?>
-                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Aktif</span>
+                  <?php if (isset($c['is_active']) && $c['is_active']): ?>
+                    <span class="badge bg-success">Aktif</span>
                   <?php else: ?>
-                    <span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>Nonaktif</span>
+                    <span class="badge bg-secondary">Tidak Aktif</span>
                   <?php endif; ?>
                 </td>
-                <td>
+                <td class="text-center">
                   <?php if (session()->get('user')['role_id'] != 2): ?>
+                    <a href="<?= base_url('admin/classes/toggle/' . $c['id']) ?>" class="btn btn-sm <?= (isset($c['is_active']) && $c['is_active']) ? 'btn-outline-secondary' : 'btn-outline-success' ?>" title="Ubah Status Aktif">
+                      <i class="bi bi-power"></i>
+                    </a>
                     <a href="<?= base_url('admin/classes/edit/' . $c['id']) ?>" class="btn btn-sm btn-warning">
                       <i class="bi bi-pencil-square"></i> Edit
                     </a>
-                    <?php if ($c['is_active']): ?>
-                      <a href="<?= base_url('admin/classes/toggle-active/' . $c['id']) ?>"
-                         class="btn btn-sm btn-outline-secondary"
-                         title="Nonaktifkan <?= esc($c['name']) ?>"
-                         onclick="return confirm('Nonaktifkan kelas <?= esc($c['name']) ?>?')">
-                        <i class="bi bi-toggle-on fs-5"></i>
-                      </a>
-                    <?php else: ?>
-                      <a href="<?= base_url('admin/classes/toggle-active/' . $c['id']) ?>"
-                         class="btn btn-sm btn-outline-success"
-                         title="Aktifkan <?= esc($c['name']) ?>"
-                         onclick="return confirm('Aktifkan kelas <?= esc($c['name']) ?>?')">
-                        <i class="bi bi-toggle-off fs-5"></i>
-                      </a>
-                    <?php endif; ?>
                     <a href="<?= base_url('admin/classes/delete/' . $c['id']) ?>" class="btn btn-sm btn-danger"
                       onclick="return confirm('Yakin hapus kelas ini?')">
                       <i class="bi bi-trash"></i> Hapus

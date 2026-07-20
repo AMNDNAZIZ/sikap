@@ -43,7 +43,7 @@ class ScheduleController extends BaseController
         $user = session()->get('user');
         $school = $this->schoolModel->getProfile();
 
-        $classBuilder = $this->classModel->orderBy('name', 'ASC');
+        $classBuilder = $this->classModel->where('is_active', 1)->orderBy('name', 'ASC');
         
         // If SD and Teacher, only show their homeroom class
         if ($school['level'] == 'SD' && $user['role_id'] == 3) {

@@ -45,6 +45,20 @@ class StudentNotes extends BaseController
         $studentId = $user['student_id'] ?? null;
 
         $classId = $this->request->getGet('class_id');
+        $academicYearId = $this->request->getGet('academic_year_id');
+        $statusFilter = $this->request->getGet('status');
+        
+        $yearModel = new \App\Models\AcademicYearModel();
+
+        if ($academicYearId === null) {
+            $activeYear = $yearModel->where('is_active', 1)->first();
+            $academicYearId = $activeYear ? $activeYear['id'] : '';
+        }
+
+        if ($statusFilter === null) {
+            $statusFilter = 'aktif';
+        }
+
         $classes = [];
 
         // 🔹 Admin & Kepala Sekolah -> semua kelas
@@ -97,12 +111,20 @@ class StudentNotes extends BaseController
         $studentPoints = [];
 
         if ($classId) {
-            $students = $this->studentModel
+            $builder = $this->studentModel
                 ->select('students.*, sr.class_id')
                 ->join('student_records sr', 'sr.student_id = students.id')
                 ->where('sr.class_id', $classId)
-                ->orderBy('students.name', 'ASC')
-                ->findAll();
+                ->orderBy('students.name', 'ASC');
+
+            if ($academicYearId && $academicYearId !== 'all') {
+                $builder->where('sr.academic_year_id', $academicYearId);
+            }
+            if ($statusFilter && $statusFilter !== 'all') {
+                $builder->where('sr.status', $statusFilter);
+            }
+            
+            $students = $builder->findAll();
 
             foreach ($students as $s) {
                 $notes = $this->noteModel
@@ -125,11 +147,16 @@ class StudentNotes extends BaseController
             }
         }
 
+        $academicYears = $yearModel->orderBy('start_date', 'DESC')->findAll();
+
         return view('admin/student-notes/index', [
             'classes'       => $classes,
             'classId'       => $classId,
             'students'      => $students,
             'studentPoints' => $studentPoints,
+            'academicYears' => $academicYears,
+            'selectedYear'  => $academicYearId,
+            'selectedStatus'=> $statusFilter,
         ]);
     }
 

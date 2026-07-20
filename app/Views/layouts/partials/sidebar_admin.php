@@ -139,6 +139,7 @@
       <div class="collapse <?= $inKurikulum ? 'show' : '' ?>" id="menuKurikulum">
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/administrasi-guru') && !url_is('admin/administrasi-guru/*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru') ?>">🏠 <span class="label">Dashboard Adm</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/administrasi-guru/monitoring*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/monitoring') ?>">📊 <span class="label">Monitoring Adm Guru</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/cp') && !url_is('admin/administrasi-guru/cp-master*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/cp') ?>">📖 <span class="label">Lihat Capaian (CP)</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/tp*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/tp') ?>">🎯 <span class="label">Tujuan Pembelajaran</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/atp*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/atp') ?>">🛤️ <span class="label">Alur Pembelajaran (ATP)</span></a></li>

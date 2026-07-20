@@ -103,6 +103,22 @@ helper(['url', 'form']);
       <!-- Main Content -->
       <main id="mainContent" class="px-3 px-md-4 py-3" style="flex-grow: 1; transition: all 0.2s ease-in-out; overflow-y: auto; overflow-x: hidden; min-width: 0;">
         
+        <?php if (session()->getFlashdata('success')): ?>
+          <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <?= session()->getFlashdata('success') ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        <?php endif; ?>
+        <?php if (session()->getFlashdata('error')): ?>
+          <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <?= session()->getFlashdata('error') ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        <?php endif; ?>
+
+        <form action="<?= base_url('admin/wali-kelas-students/update/' . $student['id']) ?>" method="post">
+          <?= csrf_field() ?>
+        
         <div class="card shadow-sm border-0">
           <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
             <h5 class="card-title mb-0 text-primary">
@@ -214,7 +230,7 @@ helper(['url', 'form']);
                   </div>
                   <div class="col-md-3">
                     <label class="form-label fw-bold">Anak ke</label>
-                    <p><?php echo htmlspecialchars($student['child_order'] ?? '-'); ?></p>
+                    <input type="number" name="child_order" class="form-control" value="<?= esc($student['child_order'] ?? '') ?>" min="1">
                   </div>
                   <div class="col-md-3">
                     <label class="form-label fw-bold">Jenis Pendaftaran</label>
@@ -230,7 +246,7 @@ helper(['url', 'form']);
                   </div>
                   <div class="col-md-6">
                     <label class="form-label fw-bold">Kebutuhan Khusus</label>
-                    <p><?php echo htmlspecialchars($student['special_needs'] ?? '-'); ?></p>
+                    <input type="text" name="special_needs" class="form-control" value="<?= esc($student['special_needs'] ?? '') ?>" placeholder="Contoh: Tidak ada">
                   </div>
                   <div class="col-md-6">
                     <label class="form-label fw-bold">Email</label>
@@ -244,27 +260,34 @@ helper(['url', 'form']);
                 <div class="row g-3">
                   <div class="col-12">
                     <label class="form-label fw-bold">Alamat Lengkap</label>
-                    <p><?php echo htmlspecialchars($student['address'] ?? '-'); ?></p>
+                    <textarea name="address" class="form-control" rows="2"><?= esc($student['address'] ?? '') ?></textarea>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label fw-bold">Tempat Tinggal</label>
-                    <p><?php echo htmlspecialchars($student['residence_type'] ?? '-'); ?></p>
+                    <select name="residence_type" class="form-select">
+                      <option value="">- Pilih -</option>
+                      <?php foreach (['Bersama Orang Tua', 'Wali', 'Kos', 'Asrama', 'Panti Asuhan', 'Lainnya'] as $opt): ?>
+                        <option value="<?= $opt ?>" <?= ($student['residence_type'] ?? '') == $opt ? 'selected' : '' ?>><?= $opt ?></option>
+                      <?php endforeach; ?>
+                    </select>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label fw-bold">Moda Transportasi</label>
-                    <p><?php echo htmlspecialchars($student['transportation'] ?? '-'); ?></p>
+                    <select name="transportation" class="form-select">
+                      <option value="">- Pilih -</option>
+                      <?php foreach (['Jalan Kaki', 'Sepeda', 'Sepeda Motor', 'Angkutan Umum', 'Mobil Pribadi', 'Ojek', 'Andong', 'Perahu', 'Lainnya'] as $opt): ?>
+                        <option value="<?= $opt ?>" <?= ($student['transportation'] ?? '') == $opt ? 'selected' : '' ?>><?= $opt ?></option>
+                      <?php endforeach; ?>
+                    </select>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label fw-bold">Jarak ke Sekolah</label>
-                    <p><?php echo htmlspecialchars($student['distance'] ?? '-'); ?></p>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label fw-bold">Latitude</label>
-                    <p><?php echo htmlspecialchars($student['latitude'] ?? '-'); ?></p>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label fw-bold">Longitude</label>
-                    <p><?php echo htmlspecialchars($student['longitude'] ?? '-'); ?></p>
+                    <select name="distance" class="form-select">
+                      <option value="">- Pilih -</option>
+                      <?php foreach (['< 1 km', '1-5 km', '5-10 km', '10-20 km', '> 20 km'] as $opt): ?>
+                        <option value="<?= $opt ?>" <?= ($student['distance'] ?? '') == $opt ? 'selected' : '' ?>><?= $opt ?></option>
+                      <?php endforeach; ?>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -277,27 +300,37 @@ helper(['url', 'form']);
                   <div class="row g-3">
                     <div class="col-md-6">
                       <label class="form-label fw-bold">Nama Ayah</label>
-                      <p><?php echo htmlspecialchars($student['father_name'] ?? '-'); ?></p>
+                      <input type="text" name="father_name" class="form-control" value="<?= esc($student['father_name'] ?? '') ?>">
                     </div>
                     <div class="col-md-6">
                       <label class="form-label fw-bold">NIK Ayah</label>
-                      <p><?php echo htmlspecialchars($student['father_nik'] ?? '-'); ?></p>
+                      <input type="text" name="father_nik" class="form-control" value="<?= esc($student['father_nik'] ?? '') ?>">
                     </div>
                     <div class="col-md-4">
                       <label class="form-label fw-bold">Tahun Lahir</label>
-                      <p><?php echo htmlspecialchars($student['father_birth_year'] ?? '-'); ?></p>
+                      <input type="text" name="father_birth_year" class="form-control" value="<?= esc($student['father_birth_year'] ?? '') ?>" placeholder="cth: 1975">
                     </div>
                     <div class="col-md-4">
                       <label class="form-label fw-bold">Pendidikan</label>
-                      <p><?php echo htmlspecialchars($student['father_education'] ?? '-'); ?></p>
+                      <select name="father_education" class="form-select">
+                        <option value="">- Pilih -</option>
+                        <?php foreach (['Tidak Sekolah', 'SD/Sederajat', 'SMP/Sederajat', 'SMA/Sederajat', 'D1', 'D2', 'D3', 'D4/S1', 'S2', 'S3'] as $opt): ?>
+                          <option value="<?= $opt ?>" <?= ($student['father_education'] ?? '') == $opt ? 'selected' : '' ?>><?= $opt ?></option>
+                        <?php endforeach; ?>
+                      </select>
                     </div>
                     <div class="col-md-4">
                       <label class="form-label fw-bold">Penghasilan</label>
-                      <p><?php echo htmlspecialchars($student['father_income'] ?? '-'); ?></p>
+                      <select name="father_income" class="form-select">
+                        <option value="">- Pilih -</option>
+                        <?php foreach (['< Rp 500.000', 'Rp 500.000 - 1.000.000', 'Rp 1.000.000 - 2.000.000', 'Rp 2.000.000 - 5.000.000', '> Rp 5.000.000', 'Tidak Berpenghasilan'] as $opt): ?>
+                          <option value="<?= $opt ?>" <?= ($student['father_income'] ?? '') == $opt ? 'selected' : '' ?>><?= $opt ?></option>
+                        <?php endforeach; ?>
+                      </select>
                     </div>
                     <div class="col-12">
                       <label class="form-label fw-bold">Pekerjaan Ayah</label>
-                      <p><?php echo htmlspecialchars($student['father_job'] ?? '-'); ?></p>
+                      <input type="text" name="father_job" class="form-control" value="<?= esc($student['father_job'] ?? '') ?>">
                     </div>
                   </div>
                 </div>
@@ -308,27 +341,37 @@ helper(['url', 'form']);
                   <div class="row g-3">
                     <div class="col-md-6">
                       <label class="form-label fw-bold">Nama Ibu</label>
-                      <p><?php echo htmlspecialchars($student['mother_name'] ?? '-'); ?></p>
+                      <input type="text" name="mother_name" class="form-control" value="<?= esc($student['mother_name'] ?? '') ?>">
                     </div>
                     <div class="col-md-6">
                       <label class="form-label fw-bold">NIK Ibu</label>
-                      <p><?php echo htmlspecialchars($student['mother_nik'] ?? '-'); ?></p>
+                      <input type="text" name="mother_nik" class="form-control" value="<?= esc($student['mother_nik'] ?? '') ?>">
                     </div>
                     <div class="col-md-4">
                       <label class="form-label fw-bold">Tahun Lahir</label>
-                      <p><?php echo htmlspecialchars($student['mother_birth_year'] ?? '-'); ?></p>
+                      <input type="text" name="mother_birth_year" class="form-control" value="<?= esc($student['mother_birth_year'] ?? '') ?>" placeholder="cth: 1978">
                     </div>
                     <div class="col-md-4">
                       <label class="form-label fw-bold">Pendidikan</label>
-                      <p><?php echo htmlspecialchars($student['mother_education'] ?? '-'); ?></p>
+                      <select name="mother_education" class="form-select">
+                        <option value="">- Pilih -</option>
+                        <?php foreach (['Tidak Sekolah', 'SD/Sederajat', 'SMP/Sederajat', 'SMA/Sederajat', 'D1', 'D2', 'D3', 'D4/S1', 'S2', 'S3'] as $opt): ?>
+                          <option value="<?= $opt ?>" <?= ($student['mother_education'] ?? '') == $opt ? 'selected' : '' ?>><?= $opt ?></option>
+                        <?php endforeach; ?>
+                      </select>
                     </div>
                     <div class="col-md-4">
                       <label class="form-label fw-bold">Penghasilan</label>
-                      <p><?php echo htmlspecialchars($student['mother_income'] ?? '-'); ?></p>
+                      <select name="mother_income" class="form-select">
+                        <option value="">- Pilih -</option>
+                        <?php foreach (['< Rp 500.000', 'Rp 500.000 - 1.000.000', 'Rp 1.000.000 - 2.000.000', 'Rp 2.000.000 - 5.000.000', '> Rp 5.000.000', 'Tidak Berpenghasilan'] as $opt): ?>
+                          <option value="<?= $opt ?>" <?= ($student['mother_income'] ?? '') == $opt ? 'selected' : '' ?>><?= $opt ?></option>
+                        <?php endforeach; ?>
+                      </select>
                     </div>
                     <div class="col-12">
                       <label class="form-label fw-bold">Pekerjaan Ibu</label>
-                      <p><?php echo htmlspecialchars($student['mother_job'] ?? '-'); ?></p>
+                      <input type="text" name="mother_job" class="form-control" value="<?= esc($student['mother_job'] ?? '') ?>">
                     </div>
                   </div>
                 </div>
@@ -339,32 +382,47 @@ helper(['url', 'form']);
                   <div class="row g-3">
                     <div class="col-md-6">
                       <label class="form-label fw-bold">Nama Wali</label>
-                      <p><?php echo htmlspecialchars($student['guardian_name'] ?? '-'); ?></p>
+                      <input type="text" name="guardian_name" class="form-control" value="<?= esc($student['guardian_name'] ?? '') ?>">
                     </div>
                     <div class="col-md-6">
                       <label class="form-label fw-bold">Pendidikan Wali</label>
-                      <p><?php echo htmlspecialchars($student['guardian_education'] ?? '-'); ?></p>
+                      <select name="guardian_education" class="form-select">
+                        <option value="">- Pilih -</option>
+                        <?php foreach (['Tidak Sekolah', 'SD/Sederajat', 'SMP/Sederajat', 'SMA/Sederajat', 'D1', 'D2', 'D3', 'D4/S1', 'S2', 'S3'] as $opt): ?>
+                          <option value="<?= $opt ?>" <?= ($student['guardian_education'] ?? '') == $opt ? 'selected' : '' ?>><?= $opt ?></option>
+                        <?php endforeach; ?>
+                      </select>
                     </div>
                     <div class="col-md-6">
                       <label class="form-label fw-bold">Pekerjaan Wali</label>
-                      <p><?php echo htmlspecialchars($student['guardian_job'] ?? '-'); ?></p>
+                      <input type="text" name="guardian_job" class="form-control" value="<?= esc($student['guardian_job'] ?? '') ?>">
                     </div>
                     <div class="col-md-6">
                       <label class="form-label fw-bold">Penghasilan Wali</label>
-                      <p><?php echo htmlspecialchars($student['guardian_income'] ?? '-'); ?></p>
+                      <select name="guardian_income" class="form-select">
+                        <option value="">- Pilih -</option>
+                        <?php foreach (['< Rp 500.000', 'Rp 500.000 - 1.000.000', 'Rp 1.000.000 - 2.000.000', 'Rp 2.000.000 - 5.000.000', '> Rp 5.000.000', 'Tidak Berpenghasilan'] as $opt): ?>
+                          <option value="<?= $opt ?>" <?= ($student['guardian_income'] ?? '') == $opt ? 'selected' : '' ?>><?= $opt ?></option>
+                        <?php endforeach; ?>
+                      </select>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div class="card-footer bg-white p-4 text-end border-top shadow-sm">
-              <a href="<?= base_url('admin/wali-kelas-students') ?>" class="btn btn-secondary px-5 py-2 fw-bold">
+            <div class="card-footer bg-white p-4 d-flex justify-content-between border-top shadow-sm">
+              <a href="<?= base_url('admin/wali-kelas-students') ?>" class="btn btn-secondary px-4 py-2">
                 <i class="fas fa-arrow-left me-1"></i> Kembali
               </a>
+              <button type="submit" class="btn btn-primary px-4 py-2 fw-bold">
+                <i class="fas fa-save me-1"></i> Simpan Perubahan
+              </button>
             </div>
           </div>
         </div>
+
+        </form>
 
       </main>
     </div>

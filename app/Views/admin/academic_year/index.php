@@ -45,8 +45,13 @@
             <?php if (session()->get('user')['role_id'] != 2): ?>
               <a href="<?= base_url('admin/academic-year/edit/' . $y['id']) ?>" class="btn btn-sm btn-warning">✏️ Edit</a>
               <?php if (!$y['is_active']): ?>
-                <a href="<?= base_url('admin/academic-year/set-active/' . $y['id']) ?>"
-                  class="btn btn-sm btn-success">Aktifkan</a>
+                <form method="post" action="<?= base_url('admin/academic-year/set-active/' . $y['id']) ?>" style="display:inline;">
+                  <?= csrf_field() ?>
+                  <button type="submit" class="btn btn-sm btn-success"
+                    onclick="return confirm('Aktifkan tahun ajaran <?= esc($y['year']) ?>?')">
+                    ✅ Aktifkan
+                  </button>
+                </form>
               <?php endif; ?>
             <?php else: ?>
               <span class="badge bg-secondary">Read Only</span>

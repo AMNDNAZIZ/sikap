@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\ClassModel;
 use App\Models\SchoolModel;
 use App\Models\StudentModel;
+use App\Libraries\PdfGenerator;
 
 class TataUsaha extends BaseController
 {
@@ -90,7 +91,7 @@ class TataUsaha extends BaseController
             ? 'daftar-hadir-' . url_title($siswaPerKelas[0]['namaKelas'], '-', true)
             : 'daftar-hadir-semua-kelas';
 
-        $pdfGenerator = new \App\Libraries\PdfGenerator();
+        $pdfGenerator = new PdfGenerator();
 
         // Ambil kop_base64 secara manual agar bisa di-render di SETIAP halaman kelas
         // PdfGenerator hanya inject sekali di awal <body>, tidak cocok untuk multi-halaman

@@ -9,9 +9,9 @@ use App\Models\AcademicYearModel;
 
 class ActiveClasses extends BaseController
 {
-    protected $recordModel;
-    protected $classModel;
-    protected $yearModel;
+    protected StudentRecordModel $recordModel;
+    protected ClassModel $classModel;
+    protected AcademicYearModel $yearModel;
 
     public function __construct()
     {
@@ -35,7 +35,8 @@ class ActiveClasses extends BaseController
                       classes.id as class_id, classes.name as class_name')
             ->join('students', 'students.id = student_records.student_id')
             ->join('classes', 'classes.id = student_records.class_id', 'left')
-            ->where('student_records.academic_year_id', $year['id']);
+            ->where('student_records.academic_year_id', $year['id'])
+            ->where('student_records.status', 'aktif');
 
         if (!empty($classId)) {
             $builder->where('student_records.class_id', $classId);
@@ -54,7 +55,7 @@ class ActiveClasses extends BaseController
         ]);
     }
 
-    public function update($id)
+    public function update(int $id)
     {
         $data = [
             'class_id' => $this->request->getPost('class_id'),

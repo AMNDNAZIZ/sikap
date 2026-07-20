@@ -170,7 +170,9 @@ function refreshChat() {
   $.get(FETCH_URL, { _: Date.now() }).done(function(html) {
     // Guard: jangan update jika response bukan HTML pesan yang valid
     if (!html || html.trim() === '') {
-      console.warn('StaffChat: fetch returned empty response, skipping update');
+      if (lastMessageId > 0) {
+        console.warn('StaffChat: fetch returned empty response, skipping update');
+      }
       return;
     }
     if (html.includes('<html') || html.includes('<!DOCTYPE') || html.includes('<title>')) {

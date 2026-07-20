@@ -141,17 +141,50 @@ class KokurikulerRubrikModel extends Model
                 log_message('info', 'GenerateRubrik - 7 KAIH items processed: ' . count($rubrikData));
             }
         } else {
-            // Lainnya: Generate per dimensi profil (tanpa sub dimensi detail)
-            log_message('info', 'GenerateRubrik - Using default rubrik (Lainnya)');
-            foreach ($dimensiList as $dimensi) {
-                $rubrikData[] = [
-                    'document_id' => $documentId,
-                    'dimensi_profil' => $dimensi,
-                    'sub_dimensi' => null,
-                    'aspek_dinilai' => 'Menunjukkan pemahaman dan penerapan dimensi ' . $dimensi,
-                    'urutan' => $urutan++,
-                    'created_at' => $now,
-                ];
+            // Lainnya: Check if it's JSON and has items (selected sub-dimensions)
+            $kegiatanDetail = json_decode($document['kegiatan_detail'], true);
+            if ($kegiatanDetail && isset($kegiatanDetail['items']) && is_array($kegiatanDetail['items'])) {
+                // Group by dimensi and sub_dimensi to avoid duplicates
+                $grouped = [];
+                foreach ($kegiatanDetail['items'] as $item) {
+                    $dimensi = $item['dimensi_profil'] ?? null;
+                    $subDimensi = $item['sub_dimensi'] ?? null;
+                    if ($dimensi && $subDimensi) {
+                        $key = $dimensi . '|' . $subDimensi;
+                        if (!isset($grouped[$key])) {
+                            $grouped[$key] = [
+                                'dimensi' => $dimensi,
+                                'sub_dimensi' => $subDimensi,
+                            ];
+                        }
+                    }
+                }
+                
+                // Create rubrik for each unique dimensi-subdimensi pair
+                foreach ($grouped as $item) {
+                    $rubrikData[] = [
+                        'document_id' => $documentId,
+                        'dimensi_profil' => $item['dimensi'],
+                        'sub_dimensi' => $item['sub_dimensi'],
+                        'aspek_dinilai' => $item['sub_dimensi'], // Sub dimensi sebagai aspek
+                        'urutan' => $urutan++,
+                        'created_at' => $now,
+                    ];
+                }
+                log_message('info', 'GenerateRubrik - Lainnya items processed: ' . count($rubrikData));
+            } else {
+                // Fallback: Generate per dimensi profil (tanpa sub dimensi detail)
+                log_message('info', 'GenerateRubrik - Using default rubrik (Lainnya) without sub-dimensions');
+                foreach ($dimensiList as $dimensi) {
+                    $rubrikData[] = [
+                        'document_id' => $documentId,
+                        'dimensi_profil' => $dimensi,
+                        'sub_dimensi' => null,
+                        'aspek_dinilai' => 'Menunjukkan pemahaman dan penerapan dimensi ' . $dimensi,
+                        'urutan' => $urutan++,
+                        'created_at' => $now,
+                    ];
+                }
             }
         }
 

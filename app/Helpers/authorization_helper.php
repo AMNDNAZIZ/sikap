@@ -81,6 +81,21 @@ if (!function_exists('has_permission')) {
                 'attendance.view_own',
                 'cbt.take',
             ],
+            
+            // Staf / Tata Usaha (role_id = 7) - Full access to student & teacher management
+            7 => [
+                'students.*',
+                'teachers.*',
+                'classes.*',
+                'subjects.*',
+                'schedules.view',
+                'attendance.view',
+                'grades.view',
+                'cbt.view',
+                'school.*',
+                'academic_year.*',
+                'reports.*',
+            ],
         ];
 
         $rolePermissions = $permissions[$roleId] ?? [];

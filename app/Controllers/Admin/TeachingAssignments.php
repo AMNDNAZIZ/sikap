@@ -31,12 +31,18 @@ class TeachingAssignments extends BaseController
         $keyword = $this->request->getGet('q');
         $yearId  = $this->request->getGet('year_id');
 
+        // Default ke tahun ajaran aktif jika tidak ada filter
+        if ($yearId === null) {
+            $activeYear = $this->yearModel->getActiveYear();
+            $yearId = $activeYear['id'] ?? null;
+        }
+
         $data = [
-            'assignments' => $this->assignmentModel->searchAssignments($keyword, $yearId, 10),
+            'assignments' => $this->assignmentModel->searchAssignments($keyword, $yearId, 25),
             'pager'       => $this->assignmentModel->pager,
             'keyword'     => $keyword,
             'yearId'      => $yearId,
-            'years'       => $this->yearModel->findAll()
+            'years'       => $this->yearModel->orderBy('start_date', 'DESC')->findAll(),
         ];
 
         return view('admin/teaching_assignments/index', $data);

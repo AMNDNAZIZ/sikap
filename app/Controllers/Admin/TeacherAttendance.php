@@ -32,22 +32,20 @@ class TeacherAttendance extends BaseController
     // -----------------------------------------------------------------------
 
     /**
-     * Hitung JP dari durasi slot secara cerdas.
-     * Kisaran 1 JP = 30-45 menit, 2 JP = 60-90 menit, 3 JP = 91-135 menit.
-     * Untuk 90 menit (ambigu 2 atau 3 JP): pilih yang lebih sedikit (2 JP).
+     * Hitung JP dari durasi slot berdasarkan range waktu.
+     * 1 JP = 35-40 menit (maks kotor ~55 menit termasuk kemungkinan istirahat)
+     * 2 JP = maks kotor ~105 menit (70-80 menit + toleransi istirahat)
+     * 3 JP = maks kotor ~140 menit (105-120 menit + toleransi istirahat)
+     * Maksimal 3 JP per slot.
      */
     private function hitungJP(string $start, string $end): int
     {
         $menit = (strtotime($end) - strtotime($start)) / 60;
         if ($menit <= 0) return 0;
 
-        // Jarak ke setiap kemungkinan JP (pakai rata-rata 37.5 menit/JP)
-        $jp = max(1, min(3, (int) round($menit / 37.5)));
-
-        // Validasi ekstra: 90 menit → pilih 2 JP (lebih sedikit = lebih aman)
-        if ($menit == 90) $jp = 2;
-
-        return $jp;
+        if ($menit <= 55) return 1;
+        if ($menit <= 105) return 2;
+        return 3; // 106 menit ke atas, cap di 3 JP
     }
 
     /**
@@ -249,6 +247,21 @@ class TeacherAttendance extends BaseController
             ]);
         }
 
+        $today     = date('Y-m-d');
+        $yearStart = $activeYear['start_date'];
+        $yearEnd   = $activeYear['end_date'];
+
+        // Validasi: tanggal tidak boleh lebih dari hari ini dan harus dalam periode tahun ajaran
+        if ($date > $today) {
+            $date = $today;
+        }
+        if ($date < $yearStart) {
+            $date = $yearStart;
+        }
+        if ($date > $yearEnd) {
+            $date = $yearEnd < $today ? $yearEnd : $today;
+        }
+
         $dayOfWeek = (int) date('N', strtotime($date));
 
         // Cek apakah absensi hari ini sudah di-submit
@@ -313,7 +326,19 @@ class TeacherAttendance extends BaseController
             return $this->response->setJSON(['success' => false, 'message' => 'Tanggal tidak valid.']);
         }
 
+        // Validasi tanggal: tidak boleh masa depan, harus dalam periode tahun ajaran
+        $today = date('Y-m-d');
+        if ($date > $today) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Tidak dapat menyimpan absensi untuk tanggal yang akan datang.']);
+        }
+
         $activeYear = $this->getActiveYear();
+
+        // Validasi periode tahun ajaran
+        if (!empty($activeYear) && ($date < $activeYear['start_date'] || $date > $activeYear['end_date'])) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Tanggal di luar periode tahun ajaran aktif.']);
+        }
+
         $db = \Config\Database::connect();
 
         // Upsert session record
@@ -347,6 +372,16 @@ class TeacherAttendance extends BaseController
 
         if (!$date || !$scheduleId || !$jpKe || !in_array($status, ['H', 'TH'])) {
             return $this->response->setJSON(['success' => false, 'message' => 'Data tidak lengkap.']);
+        }
+
+        // Validasi tanggal: tidak boleh masa depan, harus dalam periode tahun ajaran
+        $today      = date('Y-m-d');
+        $activeYear = $this->getActiveYear();
+        if ($date > $today) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Tidak dapat mengisi absensi untuk tanggal yang akan datang.']);
+        }
+        if (!empty($activeYear) && ($date < $activeYear['start_date'] || $date > $activeYear['end_date'])) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Tanggal di luar periode tahun ajaran aktif.']);
         }
 
         if ($status === 'H') {

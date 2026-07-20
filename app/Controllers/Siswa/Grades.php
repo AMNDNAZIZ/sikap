@@ -62,6 +62,9 @@ class Grades extends BaseController
         $dompdf->render();
 
         $filename = "Nilai_Semester_{$semester}.pdf";
+        if (ob_get_length()) {
+            @ob_end_clean();
+        }
         $dompdf->stream($filename, ["Attachment" => true]);
         exit;
     }

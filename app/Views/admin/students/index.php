@@ -44,15 +44,45 @@
 <div class="card mb-3">
   <div class="card-body">
     <form method="get" class="row g-2">
-      <div class="col-md-4">
+      <div class="col-md-3">
+        <select name="academic_year_id" class="form-select">
+          <option value="all">Semua Tahun Ajaran</option>
+          <?php foreach ($academicYears as $year): ?>
+            <option value="<?= $year['id'] ?>" <?= $selectedYear == $year['id'] ? 'selected' : '' ?>>
+              <?= esc($year['year']) ?> <?= $year['is_active'] ? '✅' : '' ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="class_id" class="form-select">
+          <option value="">Semua Kelas</option>
+          <?php foreach ($classes as $class): ?>
+            <option value="<?= $class['id'] ?>" <?= $selectedClass == $class['id'] ? 'selected' : '' ?>>
+              <?= esc($class['name']) ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="status" class="form-select">
+          <option value="all" <?= $selectedStatus === 'all' ? 'selected' : '' ?>>Semua Status</option>
+          <option value="aktif" <?= $selectedStatus === 'aktif' ? 'selected' : '' ?>>Aktif</option>
+          <option value="lulus" <?= $selectedStatus === 'lulus' ? 'selected' : '' ?>>Lulus</option>
+          <option value="pindah" <?= $selectedStatus === 'pindah' ? 'selected' : '' ?>>Pindah</option>
+          <option value="dropout" <?= $selectedStatus === 'dropout' ? 'selected' : '' ?>>Drop Out</option>
+          <option value="nonaktif" <?= $selectedStatus === 'nonaktif' ? 'selected' : '' ?>>Nonaktif</option>
+        </select>
+      </div>
+      <div class="col-md-3">
         <input type="text" name="search" class="form-control" placeholder="Cari nama/NIS/NISN..."
           value="<?= esc($search) ?>">
       </div>
-      <div class="col-md-2">
-        <button type="submit" class="btn btn-primary w-100">🔍 Cari</button>
+      <div class="col-md-1">
+        <button type="submit" class="btn btn-primary w-100" title="Cari">🔍</button>
       </div>
-      <div class="col-md-2">
-        <a href="<?= base_url('admin/students') ?>" class="btn btn-secondary w-100">🔄 Reset</a>
+      <div class="col-md-1">
+        <a href="<?= base_url('admin/students') ?>" class="btn btn-secondary w-100" title="Reset">🔄</a>
       </div>
     </form>
   </div>
@@ -67,6 +97,8 @@
           <th>NISN</th>
           <th>NIS</th>
           <th>Nama</th>
+          <th>Kelas</th>
+          <th>Tahun Ajaran</th>
           <th>Status</th>
           <th>Aksi</th>
         </tr>
@@ -80,6 +112,8 @@
               <td><?= esc($student['nisn']) ?></td>
               <td><?= esc($student['nis']) ?></td>
               <td><?= esc($student['name']) ?></td>
+              <td><?= esc($student['class_name'] ?? '-') ?></td>
+              <td><?= esc($student['academic_year'] ?? '-') ?></td>
               <td>
                 <?php
                 $status = $student['status'] ?? 'aktif';

@@ -9,6 +9,7 @@ use App\Models\StudentRecordModel;
 use App\Models\UserModel;
 use App\Models\ClassModel;
 use App\Models\AcademicYearModel;
+use App\Libraries\PdfGenerator;
 
 class StudentMutation extends BaseController
 {
@@ -253,7 +254,7 @@ class StudentMutation extends BaseController
             $filename = 'surat_mutasi_' . $mutation['type'] . '_' . $mutation['id'] . '.pdf';
         }
 
-        $pdfGen = new \App\Libraries\PdfGenerator();
+        $pdfGen = new PdfGenerator();
         $pdfGen->stream($template, $data, $filename, 'portrait', true);
     }
 

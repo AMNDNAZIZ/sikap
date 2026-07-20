@@ -539,7 +539,7 @@
     <div class="container">
       <div class="section-title text-center mb-5" data-aos="fade-up">
         <h2 class="text-white">Tenaga Pengajar</h2>
-        <p class="text-muted">Guru-guru profesional yang berdedikasi tinggi bagi siswa-siswi.</p>
+        <p class="text-white-50">Guru-guru profesional yang berdedikasi tinggi bagi siswa-siswi.</p>
       </div>
       <div class="swiper teacher-swiper" data-aos="zoom-in">
         <div class="swiper-wrapper">

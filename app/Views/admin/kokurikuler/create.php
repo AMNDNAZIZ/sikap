@@ -226,8 +226,24 @@
                         Jelaskan nilai-nilai, kekhasan sekolah, keunggulan yang dimiliki, atau kebijakan daerah setempat.
                     </div>
                     
-                    <textarea name="lainnya_text" id="lainnya_text" class="form-control" rows="5" 
+                    <textarea name="lainnya_text" id="lainnya_text" class="form-control mb-3" rows="5" 
                               placeholder="Jelaskan kegiatan lainnya yang akan dilakukan..."></textarea>
+
+                    <!-- Sub Dimensi untuk Penilaian -->
+                    <div class="card border-secondary mb-2">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="mb-0"><i class="bi bi-list-check me-1"></i> Sub Dimensi untuk Penilaian</h6>
+                            <small class="text-muted">Tentukan sub dimensi Profil Pelajar Pancasila yang menjadi aspek penilaian kegiatan ini.</small>
+                        </div>
+                        <div class="card-body pb-2">
+                            <div id="lainnya_subdimensi_container">
+                                <!-- Akan diisi dinamis -->
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="btn_add_lainnya_subdimensi">
+                                <i class="bi bi-plus-circle"></i> Tambah Sub Dimensi
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -394,6 +410,21 @@
                 <small class="text-muted">Pilih dimensi profil yang sesuai dengan kebiasaan ini</small>
             </div>
         </div>
+    </div>
+</script>
+
+<!-- Template for Lainnya Sub Dimensi Item -->
+<script type="text/template" id="lainnya_subdimensi_template">
+    <div class="d-flex gap-2 mb-2 lainnya-subdimensi-item" data-index="{{INDEX}}">
+        <select name="lainnya_dimensi_{{INDEX}}" class="form-select form-select-sm lainnya-dimensi-select" required>
+            <option value="">-- Dimensi --</option>
+        </select>
+        <select name="lainnya_subdimensi_{{INDEX}}" class="form-select form-select-sm lainnya-subdimensi-select" required disabled>
+            <option value="">-- Sub Dimensi --</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-outline-danger btn-remove-lainnya flex-shrink-0">
+            <i class="bi bi-trash"></i>
+        </button>
     </div>
 </script>
 
@@ -581,6 +612,10 @@ $(document).ready(function() {
             });
         } else if (value === 'lainnya') {
             $('#lainnya_section').removeClass('d-none');
+            // Add first sub-dimension if empty
+            if ($('.lainnya-subdimensi-item').length === 0) {
+                addLainnyaSubDimensiItem();
+            }
         }
     });
 
@@ -685,6 +720,38 @@ $(document).ready(function() {
         populateSubDimensiOptions($subDimensiSelect, dimensi);
     });
 
+    // ========== Lainnya Sub Dimensi Management ==========
+    let lainnyaSubdimensiCount = 0;
+
+    $('#btn_add_lainnya_subdimensi').on('click', function() {
+        addLainnyaSubDimensiItem();
+    });
+
+    function addLainnyaSubDimensiItem() {
+        let template = $('#lainnya_subdimensi_template').html();
+        template = template.replace(/\{\{INDEX\}\}/g, lainnyaSubdimensiCount);
+        
+        const $item = $(template);
+        $('#lainnya_subdimensi_container').append($item);
+        
+        // Populate dimensi options
+        populateDimensiOptions($item.find('.lainnya-dimensi-select'));
+        
+        lainnyaSubdimensiCount++;
+    }
+
+    // Remove Lainnya Sub Dimensi Item
+    $(document).on('click', '.btn-remove-lainnya', function() {
+        $(this).closest('.lainnya-subdimensi-item').remove();
+    });
+
+    // Handle Dimensi Change in Lainnya - Populate Sub Dimensi
+    $(document).on('change', '.lainnya-dimensi-select', function() {
+        const dimensi = $(this).val();
+        const $subDimensiSelect = $(this).closest('.lainnya-subdimensi-item').find('.lainnya-subdimensi-select');
+        populateSubDimensiOptions($subDimensiSelect, dimensi);
+    });
+
     // ========== Dimensi Profil Management ==========
     
     // When dimensi profil changes, update all dimensi select options
@@ -698,6 +765,11 @@ $(document).ready(function() {
         
         // Update KAIH dimensi selects
         $('.kaih-dimensi-select').each(function() {
+            populateDimensiOptions($(this), selectedDimensi);
+        });
+        
+        // Update lainnya dimensi selects
+        $('.lainnya-dimensi-select').each(function() {
             populateDimensiOptions($(this), selectedDimensi);
         });
     });
@@ -758,6 +830,10 @@ $(document).ready(function() {
         } else if (jenisKokurikuler === 'lainnya') {
             if ($('#lainnya_text').val().trim() === '') {
                 alert('Jelaskan kegiatan lainnya yang akan dilakukan');
+                return false;
+            }
+            if ($('.lainnya-subdimensi-item').length === 0) {
+                alert('Minimal harus ada 1 sub dimensi untuk penilaian');
                 return false;
             }
         }
