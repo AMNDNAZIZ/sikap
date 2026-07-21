@@ -24,7 +24,7 @@ class TeacherAttendance extends BaseController
         $this->scheduleModel   = new ScheduleModel();
         $this->teacherModel    = new TeacherModel();
         $this->yearModel       = new AcademicYearModel();
-        helper('license'); // loads is_weekend() helper
+        helper(['license', 'jp']); // loads is_weekend() and hitung_jp() helpers
     }
 
     // -----------------------------------------------------------------------
@@ -32,20 +32,12 @@ class TeacherAttendance extends BaseController
     // -----------------------------------------------------------------------
 
     /**
-     * Hitung JP dari durasi slot berdasarkan range waktu.
-     * 1 JP = 35-40 menit (maks kotor ~55 menit termasuk kemungkinan istirahat)
-     * 2 JP = maks kotor ~105 menit (70-80 menit + toleransi istirahat)
-     * 3 JP = maks kotor ~140 menit (105-120 menit + toleransi istirahat)
-     * Maksimal 3 JP per slot.
+     * Hitung JP dari durasi slot berdasarkan level sekolah.
+     * Delegasi ke helper hitung_jp_dari_waktu().
      */
     private function hitungJP(string $start, string $end): int
     {
-        $menit = (strtotime($end) - strtotime($start)) / 60;
-        if ($menit <= 0) return 0;
-
-        if ($menit <= 55) return 1;
-        if ($menit <= 105) return 2;
-        return 3; // 106 menit ke atas, cap di 3 JP
+        return hitung_jp_dari_waktu($start, $end);
     }
 
     /**

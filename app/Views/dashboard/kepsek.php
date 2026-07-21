@@ -147,10 +147,7 @@
                                 <?php 
                                   $totalJP = 0;
                                   foreach ($todaySchedule as $item) {
-                                    $menit = (strtotime($item['end_time']) - strtotime($item['start_time'])) / 60;
-                                    if ($menit <= 55) $totalJP += 1;
-                                    elseif ($menit <= 105) $totalJP += 2;
-                                    else $totalJP += 3;
+                                    $totalJP += hitung_jp_dari_waktu($item['start_time'], $item['end_time']);
                                   }
                                   if ($totalJP > 0): 
                                 ?>
@@ -313,10 +310,7 @@
                               
                               $start = strtotime($item['start_time']);
                               $end = strtotime($item['end_time']);
-                              $itemMenit = ($end - $start) / 60;
-                              if ($itemMenit <= 55) $itemJP = 1;
-                              elseif ($itemMenit <= 105) $itemJP = 2;
-                              else $itemJP = 3;
+                              $itemJP = hitung_jp_dari_waktu($item['start_time'], $item['end_time']);
                               
                               $now = strtotime($currentTime);
                               $sessionStatus = '';

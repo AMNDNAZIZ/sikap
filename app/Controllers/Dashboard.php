@@ -10,7 +10,7 @@ class Dashboard extends BaseController
 {
     public function index()
     {
-        helper('holiday'); // Load holiday helper
+        helper(['holiday', 'jp']); // Load holiday and JP helpers
         
         $user = session()->get('user');
         $roleId = $user['role_id'] ?? null;
@@ -425,14 +425,9 @@ class Dashboard extends BaseController
                     'unique_subjects' => 0,
                 ];
                 
-                // Calculate total JP (jam pelajaran) using range-based logic
+                // Calculate total JP (jam pelajaran) menggunakan helper
                 foreach ($personalSchedule as $item) {
-                    $menit = (strtotime($item['end_time']) - strtotime($item['start_time'])) / 60;
-                    if ($menit <= 0) continue;
-                    if ($menit <= 55) $jp = 1;
-                    elseif ($menit <= 105) $jp = 2;
-                    else $jp = 3;
-                    $teacherStats['total_jp_today'] += $jp;
+                    $teacherStats['total_jp_today'] += hitung_jp_dari_waktu($item['start_time'], $item['end_time']);
                 }
                 
                 // Count unique classes and subjects
