@@ -145,15 +145,16 @@
                                 <i class="bi bi-info-circle me-1"></i>
                                 Total <?= count($todaySchedule) ?> sesi pelajaran
                                 <?php 
-                                  $totalHours = 0;
+                                  $totalJP = 0;
                                   foreach ($todaySchedule as $item) {
-                                    $start = strtotime($item['start_time']);
-                                    $end = strtotime($item['end_time']);
-                                    $totalHours += ($end - $start) / 3600;
+                                    $menit = (strtotime($item['end_time']) - strtotime($item['start_time'])) / 60;
+                                    if ($menit <= 55) $totalJP += 1;
+                                    elseif ($menit <= 105) $totalJP += 2;
+                                    else $totalJP += 3;
                                   }
-                                  if ($totalHours > 0): 
+                                  if ($totalJP > 0): 
                                 ?>
-                                  • <span class="text-success fw-semibold"><?= number_format($totalHours, 1) ?> jam</span>
+                                  • <span class="text-success fw-semibold"><?= $totalJP ?> JP</span>
                                 <?php endif; ?>
                             </small>
                         <?php endif; ?>
@@ -312,7 +313,10 @@
                               
                               $start = strtotime($item['start_time']);
                               $end = strtotime($item['end_time']);
-                              $duration = ($end - $start) / 3600;
+                              $itemMenit = ($end - $start) / 60;
+                              if ($itemMenit <= 55) $itemJP = 1;
+                              elseif ($itemMenit <= 105) $itemJP = 2;
+                              else $itemJP = 3;
                               
                               $now = strtotime($currentTime);
                               $sessionStatus = '';
@@ -360,7 +364,7 @@
                                             </span>
                                             <span class="badge bg-secondary bg-opacity-10 text-secondary py-1 px-2">
                                               <i class="bi bi-hourglass-split me-1"></i>
-                                              <?= number_format($duration, 1) ?> jam
+                                              <?= $itemJP ?> JP
                                             </span>
                                           </div>
                                         </div>
@@ -412,8 +416,8 @@
                                     <small class="text-muted">Total Sesi</small>
                                 </div>
                                 <div class="col-4">
-                                    <div class="h5 mb-0 fw-bold text-success"><?= number_format($totalHours, 1) ?></div>
-                                    <small class="text-muted">Jam Pelajaran</small>
+                                    <div class="h5 mb-0 fw-bold text-success"><?= $totalJP ?></div>
+                                    <small class="text-muted">Total JP</small>
                                 </div>
                                 <div class="col-4">
                                     <div class="h5 mb-0 fw-bold text-info">
