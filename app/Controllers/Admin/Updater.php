@@ -757,15 +757,19 @@ class Updater extends BaseController
             // Step 2: Backup critical files
             $this->backupCriticalFiles();
 
-            // Step 3: Move/copy dari staging ke ROOTPATH (operasi cepat, tidak crash)
+            // Step 3: Reconnect database (koneksi mungkin timeout selama download)
+            $db = \Config\Database::connect();
+            $db->reconnect();
+
+            // Step 4: Move/copy dari staging ke ROOTPATH (operasi cepat, tidak crash)
             $this->moveStagingToRoot($stagingDir, $allFiles);
 
-            // Step 4: Post-update tasks
+            // Step 5: Post-update tasks
             $migrateResult = $this->autoMigrateAfterUpdate();
             $this->syncChangelogsFromData();
             $this->regenerateSecurityHashes();
 
-            // Step 5: Clear sessions & cleanup
+            // Step 6: Clear sessions & cleanup
             $this->clearSessions();
             $this->disableMaintenanceMode();
             $this->cleanupStaging($stagingDir);
@@ -783,6 +787,12 @@ class Updater extends BaseController
             return $this->response->setBody($this->buildUpdateResultPage($message, $resultType, $successCount, count($allFiles)));
 
         } catch (\Exception $e) {
+            // Reconnect DB jika sudah disconnect
+            try {
+                $db = \Config\Database::connect();
+                $db->reconnect();
+            } catch (\Throwable $ignore) {}
+
             $this->disableMaintenanceMode();
             $this->cleanupStaging($stagingDir);
             log_message('error', 'Online update failed: ' . $e->getMessage());
