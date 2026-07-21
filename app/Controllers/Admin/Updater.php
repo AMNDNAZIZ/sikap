@@ -58,7 +58,10 @@ class Updater extends BaseController
                 // Step 5: Regenerate security hashes
                 $this->regenerateSecurityHashes();
 
-                // Step 6: Disable maintenance mode
+                // Step 6: Clear old sessions to prevent decode errors
+                $this->clearSessions();
+
+                // Step 7: Disable maintenance mode
                 $this->disableMaintenanceMode();
 
                 // Build success message
@@ -227,6 +230,24 @@ class Updater extends BaseController
         } catch (\Throwable $e) {
             log_message('warning', 'Failed to regenerate hashes: ' . $e->getMessage());
             // Don't block update, just log warning
+        }
+    }
+
+    /**
+     * Clear all sessions after update to prevent decode errors.
+     * Old session data may be incompatible with updated code.
+     */
+    private function clearSessions()
+    {
+        try {
+            $db = \Config\Database::connect();
+            // ci_sessions is the default CI4 session table
+            if ($db->tableExists('ci_sessions')) {
+                $db->table('ci_sessions')->truncate();
+                log_message('info', 'Sessions cleared after update');
+            }
+        } catch (\Throwable $e) {
+            log_message('warning', 'Failed to clear sessions: ' . $e->getMessage());
         }
     }
 
@@ -721,6 +742,7 @@ class Updater extends BaseController
             $migrateResult = $this->autoMigrateAfterUpdate();
             $this->syncChangelogsFromData();
             $this->regenerateSecurityHashes();
+            $this->clearSessions();
             $this->disableMaintenanceMode();
             session()->remove('online_update');
 
