@@ -664,9 +664,8 @@ class Updater extends BaseController
 
         $totalChanges = count($changedFiles) + count($newFiles);
 
-        // Store in session for apply step
+        // Store in session for apply step — JANGAN simpan remote_manifest (terlalu besar, bisa overflow session)
         session()->set('online_update', [
-            'remote_manifest' => $remoteManifest,
             'changed_files'   => $changedFiles,
             'new_files'       => $newFiles,
         ]);
