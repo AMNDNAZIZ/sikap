@@ -687,6 +687,10 @@ class Updater extends BaseController
      */
     public function applyOnlineUpdate()
     {
+        // Hapus batas waktu eksekusi PHP
+        set_time_limit(0);
+        ignore_user_abort(true);
+
         $updateData = session()->get('online_update');
         if (!$updateData) {
             return redirect()->to(base_url('admin/updater'))->with('error', 'Tidak ada data update. Silakan cek update terlebih dahulu.');
@@ -705,64 +709,68 @@ class Updater extends BaseController
             $this->enableMaintenanceMode();
             $this->backupCriticalFiles();
 
-            $client = \Config\Services::curlrequest();
             $successCount = 0;
             $failedFiles = [];
 
-            // Simpan session data sebelum file di-overwrite
-            $sessionData = session()->get();
-
+            // Download file satu per satu menggunakan curl langsung (lebih ringan dari CURLRequest service)
             foreach ($allFiles as $relativePath) {
                 $rawUrl = $this->githubRawUrl($relativePath);
 
-                try {
-                    $response = $client->get($rawUrl, [
-                        'timeout' => 30,
-                        'http_errors' => false,
-                    ]);
+                $ch = curl_init($rawUrl);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+                $body = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $error = curl_error($ch);
+                curl_close($ch);
 
-                    if ($response->getStatusCode() === 200) {
-                        $localPath = ROOTPATH . $relativePath;
-                        $dir = dirname($localPath);
+                if ($httpCode === 200 && $body !== false) {
+                    $localPath = ROOTPATH . $relativePath;
+                    $dir = dirname($localPath);
 
-                        if (!is_dir($dir)) {
-                            mkdir($dir, 0755, true);
-                        }
-
-                        file_put_contents($localPath, $response->getBody());
-                        $successCount++;
-                    } else {
-                        $failedFiles[] = $relativePath . ' (HTTP ' . $response->getStatusCode() . ')';
+                    if (!is_dir($dir)) {
+                        mkdir($dir, 0755, true);
                     }
-                } catch (\Exception $e) {
-                    $failedFiles[] = $relativePath . ' (' . $e->getMessage() . ')';
+
+                    file_put_contents($localPath, $body);
+                    $successCount++;
+                } else {
+                    $failedFiles[] = $relativePath . ' (HTTP ' . $httpCode . ($error ? ': ' . $error : '') . ')';
                 }
             }
 
-            $migrateResult = $this->autoMigrateAfterUpdate();
-            $this->syncChangelogsFromData();
-            $this->regenerateSecurityHashes();
+            // Post-update tasks (hanya jika ada file yang berhasil)
+            if ($successCount > 0) {
+                $migrateResult = $this->autoMigrateAfterUpdate();
+                $this->syncChangelogsFromData();
+                $this->regenerateSecurityHashes();
+            }
+
+            // Clear sessions TERAKHIR — setelah semua file sudah ditulis
             $this->clearSessions();
             $this->disableMaintenanceMode();
-            session()->remove('online_update');
 
             // Build result message
             $message = "Update online berhasil! {$successCount}/" . count($allFiles) . " file diperbarui.";
-            if ($migrateResult['executed']) {
+            if (isset($migrateResult) && $migrateResult['executed']) {
                 $message .= ' Database dimigrasi ke versi terbaru.';
             }
             if (!empty($failedFiles)) {
                 $message .= ' GAGAL: ' . implode(', ', array_slice($failedFiles, 0, 5));
+                if (count($failedFiles) > 5) $message .= '... +' . (count($failedFiles) - 5) . ' lainnya.';
             }
 
-            // Tampilkan halaman sukses langsung (tanpa redirect) agar tidak kehilangan session
             $resultType = empty($failedFiles) ? 'success' : 'warning';
             return $this->response->setBody($this->buildUpdateResultPage($message, $resultType, $successCount, count($allFiles)));
 
         } catch (\Exception $e) {
             $this->disableMaintenanceMode();
-            session()->remove('online_update');
-            return redirect()->to(base_url('admin/updater'))->with('error', 'Update gagal: ' . $e->getMessage());
+            log_message('error', 'Online update failed: ' . $e->getMessage());
+            return $this->response->setBody($this->buildUpdateResultPage(
+                'Update gagal: ' . $e->getMessage(), 'danger', 0, count($allFiles)
+            ));
         }
     }
 
