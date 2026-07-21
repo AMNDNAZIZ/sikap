@@ -279,10 +279,13 @@ class ScheduleController extends BaseController
         // Admin dan Staf bisa kelola semua kelas
         if (in_array($roleId, [1, 7])) return true;
 
-        // Guru (role 3): hanya bisa kelola kelas yang diwalikan
+        // Guru kelas (role 3): hanya untuk level SD, dan hanya kelas yang diampu
         if ($roleId == 3 && $classId) {
-            $class = $this->classModel->find($classId);
-            return ($class && $class['teacher_id'] == $user['related_id']);
+            $school = $this->schoolModel->getProfile();
+            if (($school['level'] ?? '') == 1 || strtoupper($school['level'] ?? '') == 'SD') {
+                $class = $this->classModel->find($classId);
+                return ($class && $class['teacher_id'] == $user['related_id']);
+            }
         }
 
         return false;
@@ -318,13 +321,22 @@ class ScheduleController extends BaseController
             return true;
         }
 
-        // 3. Guru (role 3) — hanya bisa kelola kelas yang diwalikan
+        // 3. Guru kelas (role 3) — hanya untuk level SD, hanya kelas yang diampu
         if ($roleId == 3) {
-            if ($classId) {
+            $school = $this->schoolModel->getProfile();
+            $isSD = (($school['level'] ?? '') == 1 || strtoupper($school['level'] ?? '') == 'SD');
+
+            if ($isSD && $classId) {
                 $class = $this->classModel->find($classId);
                 if (!$class || $class['teacher_id'] != $user['related_id']) {
-                    throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("Anda hanya dapat mengelola jadwal untuk kelas yang Anda walikan.");
+                    throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("Anda hanya dapat mengelola jadwal untuk kelas Anda sendiri.");
                 }
+                return true;
+            }
+
+            // Guru non-SD atau tanpa classId: view only
+            if ($this->request->getMethod() == 'post' || strpos($this->request->getUri()->getPath(), 'delete') !== false) {
+                throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("Guru tidak memiliki akses untuk mengelola jadwal.");
             }
             return true;
         }
