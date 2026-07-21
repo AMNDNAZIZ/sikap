@@ -375,11 +375,11 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('teaching-journal/get-atps', 'TeachingJournalController::getAtps', $auth123);
 
     // School Schedule (Jadwal Pelajaran)
-    $routes->get('schedules', 'ScheduleController::index', $auth123);
-    $routes->get('schedules/manage/(:num)', 'ScheduleController::manage/$1', $auth123); // Standard role auth is fine here as it's under admin group
-    $routes->post('schedules/store', 'ScheduleController::store', $auth1); // Only Admin can save
-    $routes->post('schedules/store-bulk', 'ScheduleController::storeBulk', $auth1); // Only Admin can save bulk
-    $routes->get('schedules/delete/(:num)', 'ScheduleController::delete/$1', $auth1); // Only Admin can delete
+    $routes->get('schedules', 'ScheduleController::index', $auth1237);
+    $routes->get('schedules/manage/(:num)', 'ScheduleController::manage/$1', $auth1237);
+    $routes->post('schedules/store', 'ScheduleController::store', ['filter' => 'auth:1,3,7']);
+    $routes->post('schedules/store-bulk', 'ScheduleController::storeBulk', ['filter' => 'auth:1,3,7']);
+    $routes->get('schedules/delete/(:num)', 'ScheduleController::delete/$1', ['filter' => 'auth:1,3,7']);
 
     $routes->get('announcements', 'Announcement::index', $auth123);
     $routes->get('announcements/create', 'Announcement::create', $auth123);

@@ -275,13 +275,16 @@ class ScheduleController extends BaseController
     {
         $user = session()->get('user');
         $roleId = $user['role_id'] ?? null;
-        $school = $this->schoolModel->getProfile();
 
-        if ($roleId == 1) return true;
-        if ($school['level'] == 'SD' && $roleId == 3) {
+        // Admin dan Staf bisa kelola semua kelas
+        if (in_array($roleId, [1, 7])) return true;
+
+        // Guru (role 3): hanya bisa kelola kelas yang diwalikan
+        if ($roleId == 3 && $classId) {
             $class = $this->classModel->find($classId);
             return ($class && $class['teacher_id'] == $user['related_id']);
         }
+
         return false;
     }
 
@@ -297,41 +300,38 @@ class ScheduleController extends BaseController
     }
 
     /**
-     * Valdidate if current user has access to manage schedule
+     * Validate if current user has access to manage schedule
      */
     private function validateAccess($classId = null)
     {
         $user = session()->get('user');
         $roleId = $user['role_id'] ?? null;
-        $school = $this->schoolModel->getProfile();
 
-        // 1. Admin always allowed
-        if ($roleId == 1) return true;
+        // 1. Admin dan Staf always allowed
+        if (in_array($roleId, [1, 7])) return true;
 
-        // 2. Beyond SD, only Admin can manage (Kepsek/Guru only view)
-        if ($school['level'] != 'SD') {
+        // 2. Kepsek (role 2) — view only, tidak boleh POST/delete
+        if ($roleId == 2) {
             if ($this->request->getMethod() == 'post' || strpos($this->request->getUri()->getPath(), 'delete') !== false) {
-                throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("Hanya Admin yang dapat mengelola jadwal.");
+                throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("Kepala Sekolah hanya dapat melihat jadwal.");
             }
-            // For index/view, allow Kepsek (2) or Teachers (3) - handled by routes filter anyway
             return true;
         }
 
-        // 3. For SD Level:
+        // 3. Guru (role 3) — hanya bisa kelola kelas yang diwalikan
         if ($roleId == 3) {
-            // If classId is provided, check if homeroom
             if ($classId) {
                 $class = $this->classModel->find($classId);
                 if (!$class || $class['teacher_id'] != $user['related_id']) {
-                    throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("Anda hanya dapat mengelola jadwal untuk kelas Anda sendiri.");
+                    throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("Anda hanya dapat mengelola jadwal untuk kelas yang Anda walikan.");
                 }
             }
             return true;
         }
 
-        // Default: If POST/Delete and not Admin or authorized Guru Kelas, deny
-        if ($roleId != 1 && ($this->request->getMethod() == 'post' || strpos($this->request->getUri()->getPath(), 'delete') !== false)) {
-             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("Akses ditolak.");
+        // Default: deny POST/delete for unknown roles
+        if ($this->request->getMethod() == 'post' || strpos($this->request->getUri()->getPath(), 'delete') !== false) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("Akses ditolak.");
         }
 
         return true;
