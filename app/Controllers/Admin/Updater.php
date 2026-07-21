@@ -571,6 +571,8 @@ class Updater extends BaseController
      */
     public function generateManifest()
     {
+        set_time_limit(300);
+
         $folders = ['app', 'public'];
         $files = [];
 
@@ -593,7 +595,63 @@ class Updater extends BaseController
         $jsonPath = ROOTPATH . 'update_manifest.json';
         file_put_contents($jsonPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
-        return redirect()->back()->with('success', 'Manifest berhasil digenerate: ' . count($files) . ' file. Jangan lupa push ke GitHub.');
+        // Auto push ke GitHub jika di localhost
+        $pushResult = $this->pushToUpdateRepo();
+
+        $message = 'Manifest berhasil digenerate: ' . count($files) . ' file (v' . $manifest['version'] . ').';
+        if ($pushResult['success']) {
+            $message .= ' ✅ Berhasil push ke GitHub.';
+        } else {
+            $message .= ' ⚠️ Push gagal: ' . $pushResult['error'];
+        }
+
+        return redirect()->back()->with($pushResult['success'] ? 'success' : 'warning', $message);
+    }
+
+    /**
+     * Push current state (app/, public/, manifest, README) ke repo sikap-update sebagai orphan commit.
+     */
+    private function pushToUpdateRepo(): array
+    {
+        $rootPath = ROOTPATH;
+
+        // Jalankan git commands secara sequential
+        $commands = [
+            'git checkout --orphan _update_push 2>&1',
+            'git reset 2>&1',
+            'git add app/ public/ update_manifest.json README.md .gitattributes 2>&1',
+            'git commit -m "v' . (defined('APP_VERSION') ? APP_VERSION : '1.0.0') . ' - Auto release ' . date('Y-m-d H:i') . '" 2>&1',
+            'git push update _update_push:main --force 2>&1',
+            'git checkout main --force 2>&1',
+            'git branch -D _update_push 2>&1',
+        ];
+
+        $output = [];
+        $success = true;
+        $error = '';
+
+        foreach ($commands as $cmd) {
+            $result = null;
+            $exitCode = 0;
+            exec('cd "' . rtrim($rootPath, '/\\') . '" && ' . $cmd, $result, $exitCode);
+
+            $resultStr = implode("\n", $result ?? []);
+            $output[] = $cmd . ' => ' . $resultStr;
+
+            // Push command is critical
+            if (strpos($cmd, 'git push') !== false && $exitCode !== 0) {
+                $success = false;
+                $error = $resultStr;
+                // Cleanup: go back to main
+                exec('cd "' . rtrim($rootPath, '/\\') . '" && git checkout main --force 2>&1');
+                exec('cd "' . rtrim($rootPath, '/\\') . '" && git branch -D _update_push 2>&1');
+                break;
+            }
+        }
+
+        log_message('info', 'Push to update repo: ' . ($success ? 'SUCCESS' : 'FAILED') . "\n" . implode("\n", $output));
+
+        return ['success' => $success, 'error' => $error, 'output' => $output];
     }
 
     /**

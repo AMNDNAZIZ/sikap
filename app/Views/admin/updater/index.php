@@ -156,13 +156,14 @@ $isLocalhost = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'])
                     <div class="row align-items-center">
                         <div class="col-md-9">
                             <p class="mb-0">
-                                Generate file <code>update_manifest.json</code> yang berisi daftar file beserta hash.
-                                Setelah digenerate, <strong>push ke GitHub</strong> agar client bisa cek update secara online.
+                                Generate file <code>update_manifest.json</code> dan langsung push ke repo <code>sikap-update</code> di GitHub.
+                                Setelah selesai, client bisa cek dan apply update secara online.
                             </p>
                         </div>
                         <div class="col-md-3 text-end">
-                            <a href="<?= base_url('admin/updater/generate-manifest') ?>" class="btn btn-info">
-                                📋 Generate Manifest
+                            <a href="<?= base_url('admin/updater/generate-manifest') ?>" class="btn btn-info"
+                               onclick="this.innerHTML='⏳ Processing...';this.classList.add('disabled')">
+                                📋 Generate & Push
                             </a>
                         </div>
                     </div>
