@@ -684,10 +684,10 @@ class Updater extends BaseController
 
     /**
      * Apply online update — download only changed/new files from GitHub.
+     * Strategy: download ke folder staging dulu, lalu move sekaligus di akhir.
      */
     public function applyOnlineUpdate()
     {
-        // Hapus batas waktu eksekusi PHP
         set_time_limit(0);
         ignore_user_abort(true);
 
@@ -705,14 +705,20 @@ class Updater extends BaseController
             return redirect()->to(base_url('admin/updater'))->with('info', 'Tidak ada file yang perlu diupdate.');
         }
 
+        // Staging directory — download semua file ke sini dulu
+        $stagingDir = WRITEPATH . 'update_staging_' . time() . '/';
+
         try {
             $this->enableMaintenanceMode();
-            $this->backupCriticalFiles();
+
+            // Step 1: Download semua file ke staging folder
+            if (!is_dir($stagingDir)) {
+                mkdir($stagingDir, 0755, true);
+            }
 
             $successCount = 0;
             $failedFiles = [];
 
-            // Download file satu per satu menggunakan curl langsung (lebih ringan dari CURLRequest service)
             foreach ($allFiles as $relativePath) {
                 $rawUrl = $this->githubRawUrl($relativePath);
 
@@ -726,31 +732,44 @@ class Updater extends BaseController
                 $error = curl_error($ch);
                 curl_close($ch);
 
-                if ($httpCode === 200 && $body !== false) {
-                    $localPath = ROOTPATH . $relativePath;
-                    $dir = dirname($localPath);
-
+                if ($httpCode === 200 && $body !== false && strlen($body) > 0) {
+                    $stagingPath = $stagingDir . $relativePath;
+                    $dir = dirname($stagingPath);
                     if (!is_dir($dir)) {
                         mkdir($dir, 0755, true);
                     }
-
-                    file_put_contents($localPath, $body);
+                    file_put_contents($stagingPath, $body);
                     $successCount++;
                 } else {
                     $failedFiles[] = $relativePath . ' (HTTP ' . $httpCode . ($error ? ': ' . $error : '') . ')';
                 }
             }
 
-            // Post-update tasks (hanya jika ada file yang berhasil)
-            if ($successCount > 0) {
-                $migrateResult = $this->autoMigrateAfterUpdate();
-                $this->syncChangelogsFromData();
-                $this->regenerateSecurityHashes();
+            // Jika tidak ada satupun file berhasil didownload, batalkan
+            if ($successCount === 0) {
+                $this->disableMaintenanceMode();
+                $this->cleanupStaging($stagingDir);
+                return $this->response->setBody($this->buildUpdateResultPage(
+                    'Update gagal: tidak ada file yang berhasil didownload. ' . implode(', ', array_slice($failedFiles, 0, 3)),
+                    'danger', 0, count($allFiles)
+                ));
             }
 
-            // Clear sessions TERAKHIR — setelah semua file sudah ditulis
+            // Step 2: Backup critical files
+            $this->backupCriticalFiles();
+
+            // Step 3: Move/copy dari staging ke ROOTPATH (operasi cepat, tidak crash)
+            $this->moveStagingToRoot($stagingDir, $allFiles);
+
+            // Step 4: Post-update tasks
+            $migrateResult = $this->autoMigrateAfterUpdate();
+            $this->syncChangelogsFromData();
+            $this->regenerateSecurityHashes();
+
+            // Step 5: Clear sessions & cleanup
             $this->clearSessions();
             $this->disableMaintenanceMode();
+            $this->cleanupStaging($stagingDir);
 
             // Build result message
             $message = "Update online berhasil! {$successCount}/" . count($allFiles) . " file diperbarui.";
@@ -759,7 +778,6 @@ class Updater extends BaseController
             }
             if (!empty($failedFiles)) {
                 $message .= ' GAGAL: ' . implode(', ', array_slice($failedFiles, 0, 5));
-                if (count($failedFiles) > 5) $message .= '... +' . (count($failedFiles) - 5) . ' lainnya.';
             }
 
             $resultType = empty($failedFiles) ? 'success' : 'warning';
@@ -767,11 +785,53 @@ class Updater extends BaseController
 
         } catch (\Exception $e) {
             $this->disableMaintenanceMode();
+            $this->cleanupStaging($stagingDir);
             log_message('error', 'Online update failed: ' . $e->getMessage());
             return $this->response->setBody($this->buildUpdateResultPage(
                 'Update gagal: ' . $e->getMessage(), 'danger', 0, count($allFiles)
             ));
         }
+    }
+
+    /**
+     * Move files from staging directory to ROOTPATH
+     */
+    private function moveStagingToRoot(string $stagingDir, array $files): void
+    {
+        foreach ($files as $relativePath) {
+            $source = $stagingDir . $relativePath;
+            if (!is_file($source)) continue;
+
+            $dest = ROOTPATH . $relativePath;
+            $destDir = dirname($dest);
+
+            if (!is_dir($destDir)) {
+                mkdir($destDir, 0755, true);
+            }
+
+            // copy + unlink lebih aman daripada rename lintas filesystem
+            copy($source, $dest);
+        }
+    }
+
+    /**
+     * Cleanup staging directory
+     */
+    private function cleanupStaging(string $stagingDir): void
+    {
+        if (!is_dir($stagingDir)) return;
+
+        $it = new \RecursiveDirectoryIterator($stagingDir, \RecursiveDirectoryIterator::SKIP_DOTS);
+        $files = new \RecursiveIteratorIterator($it, \RecursiveIteratorIterator::CHILD_FIRST);
+
+        foreach ($files as $file) {
+            if ($file->isDir()) {
+                rmdir($file->getRealPath());
+            } else {
+                unlink($file->getRealPath());
+            }
+        }
+        rmdir($stagingDir);
     }
 
     /**
