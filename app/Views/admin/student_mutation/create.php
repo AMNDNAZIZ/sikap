@@ -113,10 +113,20 @@
           </select>
         </div>
         <div class="col-md-6" id="fieldToClass" style="display:none">
-          <label class="form-label">Kelas Tujuan</label>
-          <select name="to_class_id" class="form-select">
+          <label class="form-label">Kelas Tujuan <span id="labelActiveOnly" style="display:none" class="badge bg-success ms-1">Kelas Aktif</span></label>
+          <select name="to_class_id" class="form-select" id="toClassSelect">
             <option value="">-- Pilih --</option>
             <?php foreach ($classes as $c): ?>
+              <option value="<?= $c['id'] ?>" <?= old('to_class_id') == $c['id'] ? 'selected' : '' ?>
+                data-active="<?= $c['is_active'] ?>">
+                <?= esc($c['name']) ?>
+              </option>
+            <?php endforeach ?>
+          </select>
+          <!-- Dropdown khusus kelas aktif untuk mutasi masuk (disembunyikan, digunakan via JS) -->
+          <select id="toClassActiveSelect" style="display:none" class="form-select">
+            <option value="">-- Pilih --</option>
+            <?php foreach ($activeClasses as $c): ?>
               <option value="<?= $c['id'] ?>" <?= old('to_class_id') == $c['id'] ? 'selected' : '' ?>>
                 <?= esc($c['name']) ?>
               </option>
@@ -161,7 +171,11 @@
 function toggleFields() {
   const type = document.getElementById('mutationType').value;
 
-  // hide all dynamic sections
+  const toClassSelect       = document.getElementById('toClassSelect');
+  const toClassActiveSelect = document.getElementById('toClassActiveSelect');
+  const labelActiveOnly     = document.getElementById('labelActiveOnly');
+
+  // Sembunyikan semua section dinamis
   document.getElementById('sectionNewStudent').style.display = 'none';
   document.getElementById('fieldStudentSelect').style.display = 'none';
   document.getElementById('fieldFromSchool').style.display = 'none';
@@ -169,17 +183,35 @@ function toggleFields() {
   document.getElementById('fieldFromClass').style.display = 'none';
   document.getElementById('fieldToClass').style.display = 'none';
 
+  // Reset nama select agar tidak double submit
+  toClassSelect.name       = '';
+  toClassActiveSelect.name = '';
+  labelActiveOnly.style.display = 'none';
+
   if (type === 'masuk') {
     document.getElementById('sectionNewStudent').style.display = 'block';
     document.getElementById('fieldFromSchool').style.display = 'block';
     document.getElementById('fieldToClass').style.display = 'block';
+
+    // Mutasi masuk: gunakan dropdown kelas aktif saja
+    toClassSelect.style.display       = 'none';
+    toClassActiveSelect.style.display = 'block';
+    toClassActiveSelect.name          = 'to_class_id';
+    labelActiveOnly.style.display     = 'inline-block';
+
   } else if (type === 'keluar') {
     document.getElementById('fieldStudentSelect').style.display = 'block';
     document.getElementById('fieldToSchool').style.display = 'block';
+
   } else if (type === 'pindah_kelas') {
     document.getElementById('fieldStudentSelect').style.display = 'block';
     document.getElementById('fieldFromClass').style.display = 'block';
     document.getElementById('fieldToClass').style.display = 'block';
+
+    // Pindah kelas: gunakan semua kelas (sudah aktif-aware dari data)
+    toClassSelect.style.display       = 'block';
+    toClassActiveSelect.style.display = 'none';
+    toClassSelect.name                = 'to_class_id';
   }
 }
 document.addEventListener('DOMContentLoaded', toggleFields);

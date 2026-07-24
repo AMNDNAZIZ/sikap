@@ -64,7 +64,10 @@ class StudentMutation extends BaseController
                 ->where('ay.is_active', 1)
                 ->orderBy('students.name', 'ASC')
                 ->findAll(),
+            // Semua kelas (untuk mutasi keluar & pindah kelas)
             'classes' => $this->classModel->orderBy('name', 'ASC')->findAll(),
+            // Hanya kelas aktif (untuk kelas tujuan mutasi masuk)
+            'activeClasses' => $this->classModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll(),
         ];
 
         return view('admin/student_mutation/create', $data);
@@ -109,23 +112,25 @@ class StudentMutation extends BaseController
 
         if ($type === 'masuk') {
             $nisn = $post['nisn'] ?? '';
-            $student = $this->studentModel->where('nisn', $nisn)->first();
+            $student = !empty($nisn) ? $this->studentModel->where('nisn', $nisn)->first() : null;
 
             if ($student) {
+                // Siswa sudah terdaftar di sistem
                 $mutationData['student_id'] = $student['id'];
             } else {
-                $mutationData['student_id'] = 0;
+                // Siswa baru: student_id NULL sementara, data disimpan di kolom note
+                $mutationData['student_id'] = null;
                 $mutationData['_new_student'] = [
-                    'nisn' => $post['nisn'] ?? '',
-                    'nis' => $post['nis'] ?? '',
-                    'name' => $post['student_name'] ?? '',
-                    'gender' => $post['gender'] ?? 'L',
+                    'nisn'        => $post['nisn'] ?? '',
+                    'nis'         => $post['nis'] ?? '',
+                    'name'        => $post['student_name'] ?? '',
+                    'gender'      => $post['gender'] ?? 'L',
                     'birth_place' => $post['birth_place'] ?? '',
-                    'birth_date' => !empty($post['birth_date']) ? $post['birth_date'] : null,
+                    'birth_date'  => !empty($post['birth_date']) ? $post['birth_date'] : null,
                 ];
             }
         } else {
-            $studentId = !empty($post['student_id']) ? (int)$post['student_id'] : 0;
+            $studentId = !empty($post['student_id']) ? (int)$post['student_id'] : null;
             $mutationData['student_id'] = $studentId;
 
             // Otomatis deteksi kelas asal siswa dari record aktif jika belum terisi
@@ -163,11 +168,9 @@ class StudentMutation extends BaseController
         unset($mutationData['_new_student']);
 
         if ($type === 'masuk' && $newStudentData) {
-            // defer creation to approval
-            $mutationData['_pending_student'] = json_encode($newStudentData);
-            $mutationData['note'] = ($mutationData['note'] ?? '') . "\n[DATA_SISWA_BARU]" . $mutationData['_pending_student'];
-            unset($mutationData['_pending_student']);
-            $mutationData['student_id'] = 0;
+            // Simpan data siswa baru di kolom note, student_id tetap NULL sampai approved
+            $mutationData['note'] = ($mutationData['note'] ?? '') . "\n[DATA_SISWA_BARU]" . json_encode($newStudentData);
+            $mutationData['student_id'] = null;
         }
 
         $this->mutationModel->insert($mutationData);
@@ -295,35 +298,47 @@ class StudentMutation extends BaseController
 
     private function _processMasuk(array $mutation, $year): void
     {
-        $noteData = $mutation['note'] ?? '';
+        $noteData  = $mutation['note'] ?? '';
         $studentId = $mutation['student_id'];
 
-        // check if new student data is embedded in note
-        if ($studentId == 0 && preg_match('/\[DATA_SISWA_BARU\](.*)/s', $noteData, $matches)) {
-            $newStudent = json_decode($matches[1], true);
+        // Jika student_id NULL, berarti siswa baru — data tersimpan di kolom note
+        if (empty($studentId) && preg_match('/\[DATA_SISWA_BARU\](.*)/s', $noteData, $matches)) {
+            $newStudent = json_decode(trim($matches[1]), true);
 
             if ($newStudent && !empty($newStudent['name'])) {
-                // create user account
-                $userId = $this->userModel->insert([
-                    'username' => $newStudent['nisn'] ?: 'mutasi_' . time(),
-                    'password' => password_hash($newStudent['nisn'] ?: 'mutasi123', PASSWORD_DEFAULT),
-                    'fullname' => $newStudent['name'],
-                    'role_id' => 5,
+                $username = !empty($newStudent['nisn']) ? $newStudent['nisn'] : 'mutasi_' . time();
+                $password = !empty($newStudent['nisn']) ? $newStudent['nisn'] : 'mutasi123';
+
+                // Buat akun user siswa baru
+                $this->userModel->insert([
+                    'username'     => $username,
+                    'password'     => password_hash($password, PASSWORD_DEFAULT),
+                    'fullname'     => $newStudent['name'],
+                    'role_id'      => 5,
                     'related_type' => 'student',
-                    'is_active' => 1,
+                    'is_active'    => 1,
                 ]);
+                $userId = $this->userModel->getInsertID();
 
-                // create student record
-                $studentId = $this->studentModel->insert([
-                    'nisn' => $newStudent['nisn'],
-                    'nis' => $newStudent['nis'],
-                    'name' => $newStudent['name'],
-                    'gender' => $newStudent['gender'],
-                    'birth_place' => $newStudent['birth_place'],
-                    'birth_date' => $newStudent['birth_date'],
-                    'user_id' => $userId,
+                // Buat data siswa baru
+                $this->studentModel->insert([
+                    'nisn'                => $newStudent['nisn'],
+                    'nis'                 => $newStudent['nis'],
+                    'name'                => $newStudent['name'],
+                    'gender'              => $newStudent['gender'],
+                    'birth_place'         => $newStudent['birth_place'],
+                    'birth_date'          => $newStudent['birth_date'],
+                    'user_id'             => $userId,
+                    'registration_type'   => 'Mutasi Masuk',
                 ]);
+                $studentId = $this->studentModel->getInsertID();
 
+                // Hubungkan akun user ke data siswa (related_id)
+                if ($userId && $studentId) {
+                    $this->userModel->update($userId, ['related_id' => $studentId]);
+                }
+
+                // Update mutation dengan student_id yang baru dibuat
                 $this->mutationModel->update($mutation['id'], ['student_id' => $studentId]);
             }
         }
@@ -337,18 +352,18 @@ class StudentMutation extends BaseController
             if ($existing) {
                 $this->recordModel->update($existing['id'], [
                     'class_id' => $mutation['to_class_id'],
-                    'status' => 'aktif',
+                    'status'   => 'aktif',
                 ]);
             } else {
                 $this->recordModel->insert([
-                    'student_id' => $studentId,
+                    'student_id'       => $studentId,
                     'academic_year_id' => $year['id'],
-                    'class_id' => $mutation['to_class_id'],
-                    'status' => 'aktif',
+                    'class_id'         => $mutation['to_class_id'],
+                    'status'           => 'aktif',
                 ]);
             }
 
-            // reactivate user account
+            // Aktifkan kembali akun user siswa
             $student = $this->studentModel->find($studentId);
             if ($student && !empty($student['user_id'])) {
                 $this->userModel->update($student['user_id'], ['is_active' => 1]);
