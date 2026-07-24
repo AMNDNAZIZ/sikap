@@ -42,12 +42,12 @@
     <div class="card-body">
       <!-- Pilih siswa existing (keluar & pindah kelas) -->
       <div class="mb-3" id="fieldStudentSelect">
-        <label class="form-label">Pilih Siswa <span class="text-danger">*</span></label>
-        <select name="student_id" class="form-select" id="studentSelect">
-          <option value="">-- Pilih Siswa --</option>
+        <label class="form-label fw-bold">Pilih Siswa <span class="text-danger">*</span></label>
+        <select name="student_id" class="form-select select2" id="studentSelect" data-placeholder="-- Cari Nama / NISN Siswa --">
+          <option value="">-- Cari Nama / NISN Siswa --</option>
           <?php foreach ($students as $s): ?>
             <option value="<?= $s['id'] ?>" <?= old('student_id') == $s['id'] ? 'selected' : '' ?>>
-              <?= esc($s['name']) ?> (<?= esc($s['nisn']) ?>)
+              <?= esc($s['name']) ?> (<?= !empty($s['nisn']) ? 'NISN: ' . esc($s['nisn']) : 'Tanpa NISN' ?><?= !empty($s['class_name']) ? ' - ' . esc($s['class_name']) : '' ?>)
             </option>
           <?php endforeach ?>
         </select>
@@ -212,6 +212,15 @@ function toggleFields() {
     toClassSelect.style.display       = 'block';
     toClassActiveSelect.style.display = 'none';
     toClassSelect.name                = 'to_class_id';
+  }
+
+  // Inisialisasi / perbarui Select2 agar pencarian siswa berfungsi presisi & responsive
+  if (window.jQuery && $.fn.select2) {
+    $('#studentSelect').select2({
+      placeholder: "-- Cari Nama / NISN Siswa --",
+      allowClear: true,
+      width: '100%'
+    });
   }
 }
 document.addEventListener('DOMContentLoaded', toggleFields);
