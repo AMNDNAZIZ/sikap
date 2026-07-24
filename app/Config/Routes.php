@@ -163,6 +163,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('promotions/process', 'Promotions::process', $auth127);
     $routes->post('promotions/promote', 'Promotions::promote', $auth127);
     $routes->post('promotions/graduate', 'Promotions::graduate', $auth127);
+    $routes->post('promotions/cancel', 'Promotions::cancel', $auth127);
 
     $routes->get('student-records', 'StudentRecords::index', $auth127);
     $routes->get('student-records/(:num)', 'StudentRecords::index/$1', $auth127);
