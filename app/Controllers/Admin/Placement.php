@@ -46,7 +46,7 @@ class Placement extends BaseController
         return view('admin/placement/index', [
             'title'      => 'Penempatan Siswa',
             'students'   => $students,
-            'classes'    => $this->classModel->findAll(),
+            'classes'    => $this->classModel->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll(),
             'activeYear' => $year
         ]);
     }

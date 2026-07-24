@@ -105,8 +105,8 @@ class Promotions extends BaseController
             }
         }
 
-        // Semua kelas untuk dropdown tujuan (tahun ajaran aktif)
-        $targetClasses = $this->classModel->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll();
+        // Semua kelas aktif untuk dropdown tujuan (tahun ajaran aktif)
+        $targetClasses = $this->classModel->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll();
         $finalLevel    = $this->getFinalLevel();
 
         // Cek apakah kelas yang difilter adalah kelas akhir
