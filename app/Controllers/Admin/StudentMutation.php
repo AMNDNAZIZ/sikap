@@ -57,11 +57,12 @@ class StudentMutation extends BaseController
         $data = [
             'title' => 'Tambah Mutasi',
             'students' => $this->studentModel
-                ->select('students.id, students.nisn, students.nis, students.name')
+                ->select('students.id, students.nisn, students.nis, students.name, classes.name as class_name')
                 ->join('student_records sr', 'sr.student_id = students.id')
                 ->where('sr.status', 'aktif')
                 ->join('academic_years ay', 'ay.id = sr.academic_year_id')
                 ->where('ay.is_active', 1)
+                ->join('classes', 'classes.id = sr.class_id', 'left')
                 ->orderBy('students.name', 'ASC')
                 ->findAll(),
             // Semua kelas (untuk mutasi keluar & pindah kelas)
