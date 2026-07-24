@@ -75,10 +75,11 @@ class Promotions extends BaseController
                 $allStudentIds = array_column($allStudents, 'student_id');
 
                 // Siswa yang sudah ada record di tahun aktif
-                $processedRecords = db_connect()->table('student_records')
-                    ->select('student_id, status, graduation_date')
-                    ->where('academic_year_id', $activeYear['id'])
-                    ->whereIn('student_id', $allStudentIds)
+                $processedRecords = db_connect()->table('student_records sr')
+                    ->select('sr.id as active_record_id, sr.student_id, sr.class_id as target_class_id, sr.status, sr.graduation_date, c.name as target_class_name')
+                    ->join('classes c', 'c.id = sr.class_id', 'left')
+                    ->where('sr.academic_year_id', $activeYear['id'])
+                    ->whereIn('sr.student_id', $allStudentIds)
                     ->get()->getResultArray();
 
                 $processedMap = [];
@@ -89,9 +90,12 @@ class Promotions extends BaseController
                 foreach ($allStudents as $s) {
                     if (isset($processedMap[$s['student_id']])) {
                         $record = $processedMap[$s['student_id']];
-                        $s['processed_status']    = $record['status'];
-                        $s['graduation_date']     = $record['graduation_date'];
-                        $graduatedStudents[]      = $s;
+                        $s['active_record_id'] = $record['active_record_id'];
+                        $s['processed_status'] = $record['status'];
+                        $s['target_class_id']  = $record['target_class_id'];
+                        $s['target_class_name']= $record['target_class_name'];
+                        $s['graduation_date']  = $record['graduation_date'];
+                        $graduatedStudents[]   = $s;
                     } else {
                         $students[] = $s;
                     }
@@ -276,6 +280,62 @@ class Promotions extends BaseController
 
         return redirect()->to('/admin/promotions?class_id=' . $filterClassId)
             ->with('success', "{$count} siswa berhasil diluluskan.");
+    }
+
+    /**
+     * Membatalkan kenaikan kelas atau kelulusan siswa di tahun ajaran aktif.
+     */
+    public function cancel()
+    {
+        $activeYear = $this->yearModel->where('is_active', 1)->first();
+        if (!$activeYear) {
+            return redirect()->back()->with('error', 'Tidak ada tahun ajaran aktif.');
+        }
+
+        $studentIds    = $this->request->getPost('student_ids') ?? [];
+        $filterClassId = $this->request->getPost('filter_class_id');
+
+        if (empty($studentIds)) {
+            return redirect()->back()->with('error', 'Pilih minimal satu siswa.');
+        }
+
+        $db = db_connect();
+        $db->transStart();
+        $count = 0;
+
+        foreach ($studentIds as $studentId) {
+            // Hapus record di tahun aktif
+            $db->table('student_records')
+               ->where('student_id', $studentId)
+               ->where('academic_year_id', $activeYear['id'])
+               ->delete();
+
+            // Mengaktifkan kembali akun user siswa & orang tua jika sebelumnya dinonaktifkan
+            $student = $this->studentModel->find($studentId);
+            if ($student && $db->fieldExists('is_active', 'users')) {
+                if (!empty($student['user_id'])) {
+                    $db->table('users')
+                       ->where('id', $student['user_id'])
+                       ->update(['is_active' => 1, 'updated_at' => date('Y-m-d H:i:s')]);
+                }
+                
+                // Aktifkan akun orang tua
+                $db->table('users')
+                   ->where(['related_id' => $studentId, 'role_id' => 4, 'related_type' => 'student'])
+                   ->update(['is_active' => 1, 'updated_at' => date('Y-m-d H:i:s')]);
+            }
+
+            $count++;
+        }
+
+        $db->transComplete();
+
+        if (!$db->transStatus()) {
+            return redirect()->back()->with('error', 'Gagal membatalkan kenaikan/kelulusan.');
+        }
+
+        return redirect()->to('/admin/promotions' . ($filterClassId ? '?class_id=' . $filterClassId : ''))
+            ->with('success', "{$count} siswa berhasil dibatalkan kenaikan/kelulusannya.");
     }
 
     /** Backward-compat — proses lama */

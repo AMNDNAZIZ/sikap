@@ -203,43 +203,71 @@
     <!-- Daftar siswa yang sudah diproses di tahun ajaran aktif -->
     <?php if (!empty($graduatedStudents)): ?>
     <div class="card shadow-sm mb-4 border-success">
-        <div class="card-header bg-success text-white fw-semibold">
-            <i class="bi bi-check-circle me-1"></i> Sudah Diproses di Tahun Ajaran <?= esc($activeYear['year'] ?? '') ?>
-            <span class="badge bg-light text-dark ms-2"><?= count($graduatedStudents) ?> siswa</span>
+        <div class="card-header bg-success text-white fw-semibold d-flex justify-content-between align-items-center">
+            <div>
+                <i class="bi bi-check-circle me-1"></i> Sudah Diproses di Tahun Ajaran <?= esc($activeYear['year'] ?? '') ?>
+                <span class="badge bg-light text-dark ms-2"><?= count($graduatedStudents) ?> siswa</span>
+            </div>
         </div>
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-bordered table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>NIS</th>
-                            <th>Nama Siswa</th>
-                            <th>Kelas Sebelumnya</th>
-                            <th>Status</th>
-                            <th>Tanggal Kelulusan</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($graduatedStudents as $s): ?>
+            <form method="post" action="<?= base_url('admin/promotions/cancel') ?>" id="formCancel">
+                <?= csrf_field() ?>
+                <input type="hidden" name="filter_class_id" value="<?= esc($filterClassId) ?>">
+
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle mb-0">
+                        <thead class="table-light">
                             <tr>
-                                <td><?= esc($s['nis'] ?? '-') ?></td>
-                                <td><?= esc($s['name']) ?></td>
-                                <td><?= esc($s['class_name']) ?></td>
-                                <td>
-                                    <?php if ($s['processed_status'] === 'lulus'): ?>
-                                        <span class="badge bg-success">Lulus</span>
-                                    <?php else: ?>
-                                        <span class="badge bg-primary"><?= ucfirst(esc($s['processed_status'])) ?></span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <?= $s['graduation_date'] ? date('d/m/Y', strtotime($s['graduation_date'])) : '-' ?>
-                                </td>
+                                <th width="40" class="text-center">
+                                    <input type="checkbox" id="checkAllCancel" title="Pilih Semua">
+                                </th>
+                                <th>NIS</th>
+                                <th>Nama Siswa</th>
+                                <th>Kelas Sebelumnya</th>
+                                <th>Status / Kelas Tujuan</th>
+                                <th>Tanggal Kelulusan</th>
+                                <th width="120" class="text-center">Aksi</th>
                             </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($graduatedStudents as $s): ?>
+                                <tr>
+                                    <td class="text-center">
+                                        <input type="checkbox" name="student_ids[]"
+                                            value="<?= $s['student_id'] ?>" class="cb-cancel">
+                                    </td>
+                                    <td><?= esc($s['nis'] ?? '-') ?></td>
+                                    <td><?= esc($s['name']) ?></td>
+                                    <td><?= esc($s['class_name']) ?></td>
+                                    <td>
+                                        <?php if ($s['processed_status'] === 'lulus'): ?>
+                                            <span class="badge bg-success">🎓 Lulus</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-primary">⬆️ Naik ke <?= esc($s['target_class_name'] ?? 'Kelas Baru') ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?= $s['graduation_date'] ? date('d/m/Y', strtotime($s['graduation_date'])) : '-' ?>
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-outline-danger" 
+                                            onclick="cancelSingle('<?= $s['student_id'] ?>', '<?= esc(addslashes($s['name'])) ?>')">
+                                            <i class="bi bi-arrow-counterclockwise"></i> Batal
+                                        </button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="p-3 bg-light border-top">
+                    <button type="submit" class="btn btn-danger btn-sm px-3"
+                        onclick="return validateSelection('cancel')">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Batalkan Kenaikan / Kelulusan Terpilih
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
     <?php endif; ?>
@@ -266,15 +294,31 @@ document.getElementById('checkAllGraduate')?.addEventListener('change', function
     document.querySelectorAll('.cb-graduate').forEach(cb => cb.checked = this.checked);
 });
 
+// Select All untuk form cancel
+document.getElementById('checkAllCancel')?.addEventListener('change', function() {
+    document.querySelectorAll('.cb-cancel').forEach(cb => cb.checked = this.checked);
+});
+
 function validateSelection(type) {
-    const cls = type === 'promote' ? '.cb-promote' : '.cb-graduate';
+    const cls = type === 'promote' ? '.cb-promote' : (type === 'graduate' ? '.cb-graduate' : '.cb-cancel');
     const checked = document.querySelectorAll(cls + ':checked').length;
     if (checked === 0) {
         alert('Pilih minimal satu siswa terlebih dahulu.');
         return false;
     }
-    const action = type === 'promote' ? 'menaikkan' : 'meluluskan';
+    let action = 'menaikkan';
+    if (type === 'graduate') action = 'meluluskan';
+    if (type === 'cancel') action = 'membatalkan kenaikan/kelulusan';
+
     return confirm('Yakin ingin ' + action + ' ' + checked + ' siswa terpilih?');
+}
+
+function cancelSingle(studentId, studentName) {
+    if (confirm('Yakin ingin membatalkan kenaikan/kelulusan untuk siswa ' + studentName + '?')) {
+        const form = document.getElementById('formCancel');
+        document.querySelectorAll('.cb-cancel').forEach(cb => cb.checked = (cb.value == studentId));
+        form.submit();
+    }
 }
 </script>
 
