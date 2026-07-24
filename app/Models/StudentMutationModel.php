@@ -20,7 +20,7 @@ class StudentMutationModel extends Model
     {
         $builder = $this->select('student_mutations.*, students.nisn, students.nis, students.name as student_name,
                                   fc.name as from_class_name, tc.name as to_class_name')
-                        ->join('students', 'students.id = student_mutations.student_id')
+                        ->join('students', 'students.id = student_mutations.student_id', 'left')
                         ->join('classes fc', 'fc.id = student_mutations.from_class_id', 'left')
                         ->join('classes tc', 'tc.id = student_mutations.to_class_id', 'left');
 
@@ -56,7 +56,7 @@ class StudentMutationModel extends Model
                               students.gender, students.birth_place, students.birth_date,
                               fc.name as from_class_name, tc.name as to_class_name,
                               u.username as approved_by_name')
-                    ->join('students', 'students.id = student_mutations.student_id')
+                    ->join('students', 'students.id = student_mutations.student_id', 'left')
                     ->join('classes fc', 'fc.id = student_mutations.from_class_id', 'left')
                     ->join('classes tc', 'tc.id = student_mutations.to_class_id', 'left')
                     ->join('users u', 'u.id = student_mutations.approved_by', 'left')

@@ -98,12 +98,12 @@ class StudentMutation extends BaseController
         $mutationData = [
             'type' => $type,
             'mutation_date' => $post['mutation_date'],
-            'reason' => $post['reason'] ?? null,
-            'letter_number' => $post['letter_number'] ?? null,
-            'from_school' => $post['from_school'] ?? null,
-            'to_school' => $post['to_school'] ?? null,
-            'from_class_id' => $post['from_class_id'] ?? null,
-            'to_class_id' => $post['to_class_id'] ?? null,
+            'reason' => !empty($post['reason']) ? trim($post['reason']) : null,
+            'letter_number' => !empty($post['letter_number']) ? trim($post['letter_number']) : null,
+            'from_school' => !empty($post['from_school']) ? trim($post['from_school']) : null,
+            'to_school' => !empty($post['to_school']) ? trim($post['to_school']) : null,
+            'from_class_id' => !empty($post['from_class_id']) ? (int)$post['from_class_id'] : null,
+            'to_class_id' => !empty($post['to_class_id']) ? (int)$post['to_class_id'] : null,
             'status' => 'pending',
         ];
 
@@ -121,11 +121,27 @@ class StudentMutation extends BaseController
                     'name' => $post['student_name'] ?? '',
                     'gender' => $post['gender'] ?? 'L',
                     'birth_place' => $post['birth_place'] ?? '',
-                    'birth_date' => $post['birth_date'] ?? null,
+                    'birth_date' => !empty($post['birth_date']) ? $post['birth_date'] : null,
                 ];
             }
         } else {
-            $mutationData['student_id'] = $post['student_id'];
+            $studentId = !empty($post['student_id']) ? (int)$post['student_id'] : 0;
+            $mutationData['student_id'] = $studentId;
+
+            // Otomatis deteksi kelas asal siswa dari record aktif jika belum terisi
+            if (empty($mutationData['from_class_id']) && $studentId > 0) {
+                $activeYear = $this->yearModel->where('is_active', 1)->first();
+                if ($activeYear) {
+                    $record = $this->recordModel
+                        ->where('student_id', $studentId)
+                        ->where('academic_year_id', $activeYear['id'])
+                        ->where('status', 'aktif')
+                        ->first();
+                    if ($record && !empty($record['class_id'])) {
+                        $mutationData['from_class_id'] = (int)$record['class_id'];
+                    }
+                }
+            }
         }
 
         // handle attachment upload
