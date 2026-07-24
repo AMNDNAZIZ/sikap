@@ -93,7 +93,7 @@ class Students extends BaseController
             'title' => 'Manajemen Siswa',
             'students' => $builder->paginate(10),
             'pager' => $builder->pager,
-            'classes' => $this->classModel->findAll(),
+            'classes' => $this->classModel->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll(),
             'academicYears' => $this->yearModel->orderBy('start_date', 'DESC')->findAll(),
             'selectedClass' => $classId,
             'selectedYear' => $academicYearId,
@@ -111,7 +111,7 @@ class Students extends BaseController
         
         return view('admin/students/create', [
             'title' => 'Tambah Siswa',
-            'classes' => $this->classModel->findAll()
+            'classes' => $this->classModel->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll()
         ]);
     }
 
@@ -287,7 +287,7 @@ class Students extends BaseController
         return view('admin/students/edit', [
             'title' => 'Edit Siswa',
             'student' => $student,
-            'classes' => $this->classModel->findAll(),
+            'classes' => $this->classModel->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll(),
             'record' => $record,
         ]);
     }

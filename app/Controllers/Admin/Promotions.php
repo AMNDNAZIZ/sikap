@@ -46,7 +46,7 @@ class Promotions extends BaseController
                 ->select('c.id, c.name, c.level')
                 ->join('classes c', 'c.id = sr.class_id')
                 ->where('sr.academic_year_id', $prevYear['id'])
-                ->where('sr.status', 'aktif')
+                ->whereIn('sr.status', ['aktif', 'lulus'])
                 ->groupBy('c.id')
                 ->orderBy('c.level', 'ASC')
                 ->orderBy('c.name', 'ASC')
@@ -57,34 +57,35 @@ class Promotions extends BaseController
         $students         = [];
         $graduatedStudents = [];
         if ($prevYear && $filterClassId) {
-            // Ambil semua siswa aktif di kelas & tahun sebelumnya
+            // Ambil semua siswa di kelas & tahun sebelumnya
             $allStudents = $this->recordModel
-                ->select('student_records.id as record_id, student_records.class_id as old_class_id,
+                ->select('student_records.id as record_id, student_records.class_id as old_class_id, student_records.status as old_status, student_records.graduation_date as old_graduation_date,
                           students.id as student_id, students.name, students.nis,
                           classes.name as class_name, classes.level as class_level')
                 ->join('students', 'students.id = student_records.student_id')
                 ->join('classes', 'classes.id = student_records.class_id', 'left')
                 ->where('student_records.academic_year_id', $prevYear['id'])
-                ->where('student_records.status', 'aktif')
+                ->whereIn('student_records.status', ['aktif', 'lulus'])
                 ->where('student_records.class_id', $filterClassId)
                 ->orderBy('students.name', 'ASC')
                 ->findAll();
 
-            // Pisahkan siswa yang sudah diproses (naik kelas / lulus) di tahun ajaran aktif
-            if ($activeYear && !empty($allStudents)) {
+            // Pisahkan siswa yang sudah diproses (naik kelas / lulus)
+            if (!empty($allStudents)) {
                 $allStudentIds = array_column($allStudents, 'student_id');
 
-                // Siswa yang sudah ada record di tahun aktif
-                $processedRecords = db_connect()->table('student_records sr')
-                    ->select('sr.id as active_record_id, sr.student_id, sr.class_id as target_class_id, sr.status, sr.graduation_date, c.name as target_class_name')
-                    ->join('classes c', 'c.id = sr.class_id', 'left')
-                    ->where('sr.academic_year_id', $activeYear['id'])
-                    ->whereIn('sr.student_id', $allStudentIds)
-                    ->get()->getResultArray();
-
                 $processedMap = [];
-                foreach ($processedRecords as $pr) {
-                    $processedMap[$pr['student_id']] = $pr;
+                if ($activeYear) {
+                    $processedRecords = db_connect()->table('student_records sr')
+                        ->select('sr.id as active_record_id, sr.student_id, sr.class_id as target_class_id, sr.status, sr.graduation_date, c.name as target_class_name')
+                        ->join('classes c', 'c.id = sr.class_id', 'left')
+                        ->where('sr.academic_year_id', $activeYear['id'])
+                        ->whereIn('sr.student_id', $allStudentIds)
+                        ->get()->getResultArray();
+
+                    foreach ($processedRecords as $pr) {
+                        $processedMap[$pr['student_id']] = $pr;
+                    }
                 }
 
                 foreach ($allStudents as $s) {
@@ -94,19 +95,21 @@ class Promotions extends BaseController
                         $s['processed_status'] = $record['status'];
                         $s['target_class_id']  = $record['target_class_id'];
                         $s['target_class_name']= $record['target_class_name'];
-                        $s['graduation_date']  = $record['graduation_date'];
+                        $s['graduation_date']  = $record['graduation_date'] ?? $s['old_graduation_date'];
+                        $graduatedStudents[]   = $s;
+                    } elseif ($s['old_status'] === 'lulus') {
+                        $s['processed_status'] = 'lulus';
+                        $s['graduation_date']  = $s['old_graduation_date'];
                         $graduatedStudents[]   = $s;
                     } else {
                         $students[] = $s;
                     }
                 }
-            } else {
-                $students = $allStudents;
             }
         }
 
-        // Semua kelas untuk dropdown tujuan (tahun ajaran aktif)
-        $targetClasses = $this->classModel->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll();
+        // Semua kelas aktif untuk dropdown tujuan (tahun ajaran aktif)
+        $targetClasses = $this->classModel->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll();
         $finalLevel    = $this->getFinalLevel();
 
         // Cek apakah kelas yang difilter adalah kelas akhir
@@ -191,13 +194,17 @@ class Promotions extends BaseController
 
     /**
      * Luluskan siswa — hanya bisa dari kelas level akhir.
+     * Record kelulusan dicatat pada Tahun Ajaran Sebelumnya (saat siswa lulus).
      */
     public function graduate()
     {
         $activeYear = $this->yearModel->where('is_active', 1)->first();
+        $prevYear   = $this->yearModel->where('is_active', 0)->orderBy('start_date', 'DESC')->first();
         if (!$activeYear) {
             return redirect()->back()->with('error', 'Tidak ada tahun ajaran aktif.');
         }
+
+        $targetYearId = $prevYear ? $prevYear['id'] : $activeYear['id'];
 
         $studentIds     = $this->request->getPost('student_ids') ?? [];
         $filterClassId  = $this->request->getPost('filter_class_id');
@@ -226,9 +233,10 @@ class Promotions extends BaseController
         $count = 0;
 
         foreach ($studentIds as $studentId) {
-            $existing = $this->recordModel
+            // Update atau insert record kelulusan pada tahun ajaran kelulusan (tahun ajaran sebelumnya)
+            $existingTarget = $this->recordModel
                 ->where('student_id', $studentId)
-                ->where('academic_year_id', $activeYear['id'])
+                ->where('academic_year_id', $targetYearId)
                 ->first();
 
             $graduateData = [
@@ -237,23 +245,31 @@ class Promotions extends BaseController
                 'updated_at'      => date('Y-m-d H:i:s'),
             ];
 
-            if (!$existing) {
+            if ($existingTarget) {
+                $db->table('student_records')
+                   ->where('id', $existingTarget['id'])
+                   ->update($graduateData);
+            } else {
                 $db->table('student_records')->insert([
                     'student_id'       => $studentId,
                     'class_id'         => $filterClassId,
-                    'academic_year_id' => $activeYear['id'],
+                    'academic_year_id' => $targetYearId,
                     'status'           => 'lulus',
                     'graduation_date'  => $graduationDate,
                     'created_at'       => date('Y-m-d H:i:s'),
                     'updated_at'       => date('Y-m-d H:i:s'),
                 ]);
-            } else {
-                $db->table('student_records')
-                   ->where('id', $existing['id'])
-                   ->update($graduateData);
             }
 
-            // Nonaktifkan akun user siswa (jika kolom is_active sudah ada)
+            // Hapus record di tahun aktif jika ada
+            if ($activeYear && $activeYear['id'] !== $targetYearId) {
+                $db->table('student_records')
+                   ->where('student_id', $studentId)
+                   ->where('academic_year_id', $activeYear['id'])
+                   ->delete();
+            }
+
+            // Nonaktifkan akun user siswa & orang tua
             $student = $this->studentModel->find($studentId);
             if ($student) {
                 if ($db->fieldExists('is_active', 'users')) {
@@ -283,11 +299,12 @@ class Promotions extends BaseController
     }
 
     /**
-     * Membatalkan kenaikan kelas atau kelulusan siswa di tahun ajaran aktif.
+     * Membatalkan kenaikan kelas atau kelulusan siswa.
      */
     public function cancel()
     {
         $activeYear = $this->yearModel->where('is_active', 1)->first();
+        $prevYear   = $this->yearModel->where('is_active', 0)->orderBy('start_date', 'DESC')->first();
         if (!$activeYear) {
             return redirect()->back()->with('error', 'Tidak ada tahun ajaran aktif.');
         }
@@ -304,13 +321,31 @@ class Promotions extends BaseController
         $count = 0;
 
         foreach ($studentIds as $studentId) {
-            // Hapus record di tahun aktif
+            // Hapus record di tahun aktif jika ada
             $db->table('student_records')
                ->where('student_id', $studentId)
                ->where('academic_year_id', $activeYear['id'])
                ->delete();
 
-            // Mengaktifkan kembali akun user siswa & orang tua jika sebelumnya dinonaktifkan
+            // Kembalikan status record di tahun sebelumnya ke 'aktif' jika sebelumnya 'lulus'
+            if ($prevYear) {
+                $prevRecord = $this->recordModel
+                    ->where('student_id', $studentId)
+                    ->where('academic_year_id', $prevYear['id'])
+                    ->first();
+
+                if ($prevRecord && $prevRecord['status'] === 'lulus') {
+                    $db->table('student_records')
+                       ->where('id', $prevRecord['id'])
+                       ->update([
+                           'status'          => 'aktif',
+                           'graduation_date' => null,
+                           'updated_at'      => date('Y-m-d H:i:s'),
+                       ]);
+                }
+            }
+
+            // Mengaktifkan kembali akun user siswa & orang tua
             $student = $this->studentModel->find($studentId);
             if ($student && $db->fieldExists('is_active', 'users')) {
                 if (!empty($student['user_id'])) {

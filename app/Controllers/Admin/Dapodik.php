@@ -127,7 +127,7 @@ class Dapodik extends BaseController
             $data = [
                 'title' => 'Pratinjau Data Siswa Dapodik',
                 'students' => $students,
-                'classes' => $this->classModel->findAll(),
+                'classes' => $this->classModel->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll(),
             ];
             return view('admin/dapodik/preview_students', $data);
         }
@@ -207,8 +207,8 @@ class Dapodik extends BaseController
         $skipped = 0;
         $updated = 0;
 
-        // Ambil semua kelas untuk pemetaan otomatis
-        $allClasses = $this->classModel->findAll();
+        // Ambil semua kelas aktif untuk pemetaan otomatis
+        $allClasses = $this->classModel->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll();
         $classMap = [];
         foreach ($allClasses as $c) {
             $classMap[strtolower(trim($c['name']))] = $c['id'];
