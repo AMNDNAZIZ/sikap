@@ -2080,10 +2080,14 @@ class AdministrasiGuru extends BaseController
 
         // Build soal request per tipe
         $soalRequest = '';
+        // SD/SMP: PGK tetap 4 opsi (A-D), SMA: 5 opsi (A-E)
+        $pgkOpsiCount = ($school['level'] == 3) ? 5 : 4;
+        $pgkOpsiLabel = ($pgkOpsiCount == 5) ? '5 opsi: A,B,C,D,E' : '4 opsi: A,B,C,D';
+
         foreach ($tipeList as $t) {
             $label = match($t['tipe']) {
                 'pg' => 'Pilihan Ganda (4 opsi: A,B,C,D)',
-                'pg_kompleks' => 'Pilihan Ganda Kompleks (5 opsi: A,B,C,D,E, bisa lebih dari 1 jawaban benar)',
+                'pg_kompleks' => "Pilihan Ganda Kompleks ({$pgkOpsiLabel}, bisa lebih dari 1 jawaban benar)",
                 'benar_salah' => 'Benar/Salah',
                 'esai' => 'Esai/Uraian singkat',
                 default => $t['tipe']
@@ -2150,7 +2154,7 @@ class AdministrasiGuru extends BaseController
             . "Setiap item memiliki field: type, question, options (jika PG/PGK), answer\n"
             . "Contoh:\n"
             . '[{"type":"pg","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"},'
-            . '{"type":"pg_kompleks","question":"...","options":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"answer":"A,C"},'
+            . '{"type":"pg_kompleks","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."' . ($pgkOpsiCount == 5 ? ',"E":"..."' : '') . '},"answer":"A,C"},'
             . '{"type":"benar_salah","question":"pernyataan...","answer":"Benar"},'
             . '{"type":"esai","question":"...","answer":"kunci jawaban lengkap"}]' . "\n\n"
             . "ATURAN TAMBAHAN:\n"
