@@ -54,47 +54,69 @@
         </div>
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-6">
+                <!-- Jenis Asesmen -->
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Jenis Asesmen</label>
+                    <select id="jenis_asesmen" class="form-select">
+                        <option value="formatif">Formatif (1 Materi)</option>
+                        <option value="sumatif">Sumatif (1 Semester)</option>
+                    </select>
+                </div>
+
+                <!-- Formatif: pilih 1 materi -->
+                <div class="col-md-5" id="wrap-materi">
                     <label class="form-label fw-bold">Materi (ATP)</label>
-                    <select id="atp_id" class="form-select" required>
+                    <select id="atp_id" class="form-select">
                         <option value="">-- Pilih Materi --</option>
                         <?php foreach ($atp_list as $atp): ?>
                             <option value="<?= $atp['id'] ?>"
+                                data-semester="<?= $atp['semester'] ?>"
                                 data-tps='<?= json_encode($atp['tps'] ?? []) ?>'>
                                 Sem <?= $atp['semester'] ?> - <?= esc($atp['lingkup_materi']) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="col-md-3">
+
+                <!-- Sumatif: pilih semester -->
+                <div class="col-md-5 d-none" id="wrap-semester">
+                    <label class="form-label fw-bold">Semester</label>
+                    <select id="semester_id" class="form-select">
+                        <option value="1">Semester 1 (Ganjil)</option>
+                        <option value="2">Semester 2 (Genap)</option>
+                    </select>
+                    <small class="text-muted mt-1 d-block" id="info-semester"></small>
+                </div>
+
+                <div class="col-md-4">
                     <label class="form-label fw-bold">Tipe & Jumlah Soal</label>
                     <div class="border rounded p-2">
                         <div class="form-check d-flex align-items-center gap-2 mb-1">
                             <input class="form-check-input tipe-check" type="checkbox" value="pg" id="chk_pg" checked>
                             <label class="form-check-label small" for="chk_pg">Pilihan Ganda</label>
-                            <input type="number" class="form-control form-control-sm ms-auto tipe-jumlah" data-tipe="pg" value="5" min="0" max="20" style="width:60px">
+                            <input type="number" class="form-control form-control-sm ms-auto tipe-jumlah" data-tipe="pg" value="5" min="0" max="50" style="width:60px">
                         </div>
                         <div class="form-check d-flex align-items-center gap-2 mb-1">
                             <input class="form-check-input tipe-check" type="checkbox" value="pg_kompleks" id="chk_pgk">
                             <label class="form-check-label small" for="chk_pgk">PG Kompleks</label>
-                            <input type="number" class="form-control form-control-sm ms-auto tipe-jumlah" data-tipe="pg_kompleks" value="3" min="0" max="20" style="width:60px">
+                            <input type="number" class="form-control form-control-sm ms-auto tipe-jumlah" data-tipe="pg_kompleks" value="3" min="0" max="50" style="width:60px">
                         </div>
                         <div class="form-check d-flex align-items-center gap-2 mb-1">
                             <input class="form-check-input tipe-check" type="checkbox" value="benar_salah" id="chk_bs">
                             <label class="form-check-label small" for="chk_bs">Benar / Salah</label>
-                            <input type="number" class="form-control form-control-sm ms-auto tipe-jumlah" data-tipe="benar_salah" value="5" min="0" max="20" style="width:60px">
+                            <input type="number" class="form-control form-control-sm ms-auto tipe-jumlah" data-tipe="benar_salah" value="5" min="0" max="50" style="width:60px">
                         </div>
                         <div class="form-check d-flex align-items-center gap-2">
                             <input class="form-check-input tipe-check" type="checkbox" value="esai" id="chk_esai">
                             <label class="form-check-label small" for="chk_esai">Esai / Uraian</label>
-                            <input type="number" class="form-control form-control-sm ms-auto tipe-jumlah" data-tipe="esai" value="2" min="0" max="20" style="width:60px">
+                            <input type="number" class="form-control form-control-sm ms-auto tipe-jumlah" data-tipe="esai" value="2" min="0" max="50" style="width:60px">
                         </div>
                     </div>
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-bold">Tujuan Pembelajaran (TP) <small class="text-muted">— pilih yang relevan</small></label>
-                    <div id="tp-list" class="border rounded p-2" style="max-height:150px; overflow-y:auto;">
-                        <span class="text-muted small">Pilih materi terlebih dahulu</span>
+                    <div id="tp-list" class="border rounded p-2" style="max-height:180px; overflow-y:auto;">
+                        <span class="text-muted small">Pilih materi atau semester terlebih dahulu</span>
                     </div>
                 </div>
                 <div class="col-12">
@@ -148,8 +170,56 @@ let csrfHash = '<?= csrf_hash() ?>';
 let generatedSoal = [];
 let generatedTipe = '';
 
-// ATP change → load TP
+// Data ATP untuk sumatif
+const allAtp = <?= json_encode($atp_list) ?>;
+
+// Toggle Formatif / Sumatif
+document.getElementById('jenis_asesmen')?.addEventListener('change', function() {
+    const isSubmatif = this.value === 'sumatif';
+    document.getElementById('wrap-materi').classList.toggle('d-none', isSubmatif);
+    document.getElementById('wrap-semester').classList.toggle('d-none', !isSubmatif);
+
+    if (isSubmatif) {
+        document.getElementById('semester_id').dispatchEvent(new Event('change'));
+    } else {
+        document.getElementById('tp-list').innerHTML = '<span class="text-muted small">Pilih materi terlebih dahulu</span>';
+        document.getElementById('btn-generate').disabled = true;
+    }
+});
+
+// Sumatif: semester change → load semua TP dari semester itu
+document.getElementById('semester_id')?.addEventListener('change', function() {
+    const sem = this.value;
+    const semAtps = allAtp.filter(a => a.semester == sem);
+    const container = document.getElementById('tp-list');
+
+    document.getElementById('info-semester').textContent = semAtps.length + ' materi pada semester ' + sem;
+
+    if (semAtps.length === 0) {
+        container.innerHTML = '<span class="text-muted small">Tidak ada ATP di semester ini</span>';
+        document.getElementById('btn-generate').disabled = true;
+        return;
+    }
+
+    let html = '';
+    semAtps.forEach(atp => {
+        html += `<div class="mb-2"><strong class="small text-primary">${atp.lingkup_materi}</strong>`;
+        (atp.tps || []).forEach(tp => {
+            html += `<div class="form-check ms-2">
+                <input class="form-check-input tp-check" type="checkbox" value="${tp.id}" id="tp_${tp.id}" checked>
+                <label class="form-check-label small" for="tp_${tp.id}">${tp.kode_tp ? tp.kode_tp + ': ' : ''}${tp.deskripsi}</label>
+            </div>`;
+        });
+        html += '</div>';
+    });
+    container.innerHTML = html;
+    document.getElementById('btn-generate').disabled = false;
+});
+
+// Formatif: ATP change → load TP
 document.getElementById('atp_id')?.addEventListener('change', function() {
+    if (document.getElementById('jenis_asesmen').value === 'sumatif') return;
+
     const opt = this.options[this.selectedIndex];
     const tps = JSON.parse(opt.dataset.tps || '[]');
     const container = document.getElementById('tp-list');
@@ -171,6 +241,7 @@ document.getElementById('atp_id')?.addEventListener('change', function() {
 // Generate
 document.getElementById('btn-generate')?.addEventListener('click', async function() {
     const btn = this;
+    const jenis = document.getElementById('jenis_asesmen').value;
 
     // Kumpulkan tipe yang dipilih beserta jumlahnya
     const tipeList = [];
@@ -189,11 +260,22 @@ document.getElementById('btn-generate')?.addEventListener('click', async functio
     const tpIds = [...document.querySelectorAll('.tp-check:checked')].map(el => el.value);
 
     const body = new FormData();
-    body.append('atp_id', document.getElementById('atp_id').value);
     body.append('subject_id', '<?= $selected_subject ?>');
     body.append('class_id', '<?= $selected_class ?>');
     body.append('tipe_list', JSON.stringify(tipeList));
+    body.append('jenis_asesmen', jenis);
     tpIds.forEach(id => body.append('tp_ids[]', id));
+
+    if (jenis === 'formatif') {
+        body.append('atp_id', document.getElementById('atp_id').value);
+    } else {
+        // Sumatif: kirim semester dan semua ATP IDs di semester itu
+        const sem = document.getElementById('semester_id').value;
+        body.append('semester', sem);
+        const semAtpIds = allAtp.filter(a => a.semester == sem).map(a => a.id);
+        semAtpIds.forEach(id => body.append('atp_ids[]', id));
+    }
+
     body.append(CSRF_NAME, csrfHash);
 
     try {

@@ -2037,18 +2037,30 @@ class AdministrasiGuru extends BaseController
         $atpId = $this->request->getPost('atp_id');
         $subjectId = $this->request->getPost('subject_id');
         $classId = $this->request->getPost('class_id');
-        $tipeListJson = $this->request->getPost('tipe_list'); // JSON array [{tipe, jumlah}]
+        $tipeListJson = $this->request->getPost('tipe_list');
         $selectedTps = $this->request->getPost('tp_ids');
+        $jenisAsesmen = $this->request->getPost('jenis_asesmen') ?? 'formatif';
+        $atpIds = $this->request->getPost('atp_ids'); // untuk sumatif
+        $semester = $this->request->getPost('semester');
 
         $tipeList = json_decode($tipeListJson, true);
         if (empty($tipeList)) {
             return $this->response->setJSON(['success' => false, 'error' => 'Pilih minimal satu tipe soal.']);
         }
 
-        // Load data
-        $atp = $this->atpModel->find($atpId);
-        if (!$atp) {
-            return $this->response->setJSON(['success' => false, 'error' => 'ATP tidak ditemukan.']);
+        // Load data ATP - formatif (1) atau sumatif (banyak)
+        $materiList = '';
+        if ($jenisAsesmen === 'sumatif' && !empty($atpIds)) {
+            $atps = $this->atpModel->whereIn('id', $atpIds)->findAll();
+            foreach ($atps as $a) {
+                $materiList .= "- " . $a['lingkup_materi'] . "\n";
+            }
+        } else {
+            $atp = $this->atpModel->find($atpId);
+            if (!$atp) {
+                return $this->response->setJSON(['success' => false, 'error' => 'ATP tidak ditemukan.']);
+            }
+            $materiList = $atp['lingkup_materi'] ?? '-';
         }
 
         $subject = $this->subjectModel->find($subjectId);
@@ -2082,6 +2094,11 @@ class AdministrasiGuru extends BaseController
         $jenjang = ($school['level'] == 1) ? 'SD' : (($school['level'] == 2) ? 'SMP' : 'SMA');
         $kelasLevel = (int)($classInfo['level'] ?? 7);
 
+        // Label jenis asesmen untuk prompt
+        $jenisLabel = ($jenisAsesmen === 'sumatif')
+            ? "SUMATIF SEMESTER {$semester} (mencakup seluruh materi semester)"
+            : "FORMATIF (fokus pada satu materi spesifik)";
+
         // Tentukan karakteristik soal berdasarkan jenjang dan level kelas
         $karakteristikLevel = '';
         if ($jenjang === 'SD') {
@@ -2104,11 +2121,12 @@ class AdministrasiGuru extends BaseController
 
         $prompt = "Kamu adalah pembuat soal ujian profesional berpengalaman untuk jenjang {$jenjang}.\n"
             . "Buatkan soal ujian BERKUALITAS TINGGI dengan komposisi:\n{$soalRequest}\n"
+            . "JENIS ASESMEN: {$jenisLabel}\n\n"
             . "KONTEKS PEMBELAJARAN:\n"
             . "- Jenjang: {$jenjang}\n"
             . "- Kelas: " . ($classInfo['name'] ?? '-') . " (Level {$kelasLevel})\n"
             . "- Mata Pelajaran: " . ($subject['name'] ?? '-') . "\n"
-            . "- Materi/Lingkup: " . ($atp['lingkup_materi'] ?? '-') . "\n"
+            . "- Materi/Lingkup:\n" . $materiList . "\n"
             . "- Karakteristik: {$karakteristikLevel}\n"
             . (!empty($tpDeskripsi) ? "- Tujuan Pembelajaran:\n{$tpDeskripsi}\n" : '')
             . "\nPANDUAN KUALITAS SOAL (WAJIB DIPATUHI):\n"
@@ -2139,6 +2157,10 @@ class AdministrasiGuru extends BaseController
             . "- Kelompokkan berurutan: PG dulu, lalu PGK, BS, terakhir Esai\n"
             . "- Untuk Esai: kunci jawaban harus lengkap (rubrik/poin yang diharapkan)\n"
             . "- Untuk BS: pernyataan harus spesifik, bukan opini\n"
+            . ($jenisAsesmen === 'sumatif'
+                ? "- SUMATIF: soal harus MERATA mencakup SEMUA materi yang tercantum, jangan fokus 1 materi saja\n"
+                  . "- SUMATIF: soal boleh menghubungkan antar-materi (integrasi konsep)\n"
+                : "- FORMATIF: soal fokus pada materi spesifik yang dipilih, eksplorasi mendalam\n")
             . "- KEMBALIKAN HANYA JSON ARRAY MURNI, tanpa backtick, tanpa markdown";
 
         // Call AI
