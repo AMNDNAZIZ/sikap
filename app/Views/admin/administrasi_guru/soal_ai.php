@@ -67,17 +67,29 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-bold">Tipe Soal</label>
-                    <select id="tipe_soal" class="form-select">
-                        <option value="pg">Pilihan Ganda (PG)</option>
-                        <option value="pg_kompleks">PG Kompleks (PGK)</option>
-                        <option value="benar_salah">Benar / Salah</option>
-                        <option value="esai">Esai / Uraian</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-bold">Jumlah Soal</label>
-                    <input type="number" id="jumlah" class="form-control" value="5" min="1" max="20">
+                    <label class="form-label fw-bold">Tipe & Jumlah Soal</label>
+                    <div class="border rounded p-2">
+                        <div class="form-check d-flex align-items-center gap-2 mb-1">
+                            <input class="form-check-input tipe-check" type="checkbox" value="pg" id="chk_pg" checked>
+                            <label class="form-check-label small" for="chk_pg">Pilihan Ganda</label>
+                            <input type="number" class="form-control form-control-sm ms-auto tipe-jumlah" data-tipe="pg" value="5" min="0" max="20" style="width:60px">
+                        </div>
+                        <div class="form-check d-flex align-items-center gap-2 mb-1">
+                            <input class="form-check-input tipe-check" type="checkbox" value="pg_kompleks" id="chk_pgk">
+                            <label class="form-check-label small" for="chk_pgk">PG Kompleks</label>
+                            <input type="number" class="form-control form-control-sm ms-auto tipe-jumlah" data-tipe="pg_kompleks" value="3" min="0" max="20" style="width:60px">
+                        </div>
+                        <div class="form-check d-flex align-items-center gap-2 mb-1">
+                            <input class="form-check-input tipe-check" type="checkbox" value="benar_salah" id="chk_bs">
+                            <label class="form-check-label small" for="chk_bs">Benar / Salah</label>
+                            <input type="number" class="form-control form-control-sm ms-auto tipe-jumlah" data-tipe="benar_salah" value="5" min="0" max="20" style="width:60px">
+                        </div>
+                        <div class="form-check d-flex align-items-center gap-2">
+                            <input class="form-check-input tipe-check" type="checkbox" value="esai" id="chk_esai">
+                            <label class="form-check-label small" for="chk_esai">Esai / Uraian</label>
+                            <input type="number" class="form-control form-control-sm ms-auto tipe-jumlah" data-tipe="esai" value="2" min="0" max="20" style="width:60px">
+                        </div>
+                    </div>
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-bold">Tujuan Pembelajaran (TP) <small class="text-muted">— pilih yang relevan</small></label>
@@ -159,6 +171,18 @@ document.getElementById('atp_id')?.addEventListener('change', function() {
 // Generate
 document.getElementById('btn-generate')?.addEventListener('click', async function() {
     const btn = this;
+
+    // Kumpulkan tipe yang dipilih beserta jumlahnya
+    const tipeList = [];
+    document.querySelectorAll('.tipe-check:checked').forEach(chk => {
+        const jumlah = document.querySelector(`.tipe-jumlah[data-tipe="${chk.value}"]`).value;
+        if (parseInt(jumlah) > 0) {
+            tipeList.push({ tipe: chk.value, jumlah: parseInt(jumlah) });
+        }
+    });
+
+    if (tipeList.length === 0) { alert('Pilih minimal satu tipe soal dengan jumlah > 0'); return; }
+
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating...';
 
@@ -168,8 +192,7 @@ document.getElementById('btn-generate')?.addEventListener('click', async functio
     body.append('atp_id', document.getElementById('atp_id').value);
     body.append('subject_id', '<?= $selected_subject ?>');
     body.append('class_id', '<?= $selected_class ?>');
-    body.append('tipe_soal', document.getElementById('tipe_soal').value);
-    body.append('jumlah', document.getElementById('jumlah').value);
+    body.append('tipe_list', JSON.stringify(tipeList));
     tpIds.forEach(id => body.append('tp_ids[]', id));
     body.append(CSRF_NAME, csrfHash);
 
@@ -180,8 +203,8 @@ document.getElementById('btn-generate')?.addEventListener('click', async functio
 
         if (data.success) {
             generatedSoal = data.soal;
-            generatedTipe = data.tipe;
-            renderHasil(data.soal, data.tipe);
+            generatedTipe = 'multi';
+            renderHasil(data.soal);
         } else {
             alert('Gagal: ' + (data.error || 'Unknown error'));
         }
@@ -193,15 +216,20 @@ document.getElementById('btn-generate')?.addEventListener('click', async functio
     btn.innerHTML = '<i class="bi bi-stars me-1"></i> Generate Soal';
 });
 
-function renderHasil(soal, tipe) {
+function renderHasil(soal) {
     const wrapper = document.getElementById('hasil-wrapper');
     const container = document.getElementById('hasil-soal');
     document.getElementById('hasil-count').textContent = soal.length;
     wrapper.classList.remove('d-none');
 
+    const tipeLabel = { pg: 'PG', pg_kompleks: 'PGK', benar_salah: 'B/S', esai: 'Esai' };
+
     container.innerHTML = soal.map((s, i) => {
         let html = `<div class="list-group-item">
-            <div class="fw-bold mb-1">${i+1}. ${s.question}</div>`;
+            <div class="d-flex justify-content-between">
+                <div class="fw-bold mb-1">${i+1}. ${s.question}</div>
+                <span class="badge bg-secondary">${tipeLabel[s.type] || s.type}</span>
+            </div>`;
 
         if (s.options) {
             html += '<div class="ms-3 small">';
@@ -212,7 +240,7 @@ function renderHasil(soal, tipe) {
             html += '</div>';
         }
 
-        if (tipe === 'benar_salah' || tipe === 'esai') {
+        if (s.type === 'benar_salah' || s.type === 'esai') {
             html += `<div class="ms-3 small text-success"><b>Jawaban:</b> ${s.answer}</div>`;
         }
 
@@ -235,7 +263,7 @@ document.getElementById('btn-save')?.addEventListener('click', async function() 
     const body = new FormData();
     body.append('bank_id', bankId);
     body.append('soal_json', JSON.stringify(generatedSoal));
-    body.append('tipe_soal', generatedTipe);
+    body.append('tipe_soal', 'multi'); // flag multi-tipe
     body.append(CSRF_NAME, csrfHash);
 
     try {

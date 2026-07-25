@@ -2010,7 +2010,7 @@ class AdministrasiGuru extends BaseController
     }
 
     /**
-     * Generate soal menggunakan AI
+     * Generate soal menggunakan AI (multi-tipe sekaligus)
      */
     public function generateSoalAi()
     {
@@ -2037,9 +2037,13 @@ class AdministrasiGuru extends BaseController
         $atpId = $this->request->getPost('atp_id');
         $subjectId = $this->request->getPost('subject_id');
         $classId = $this->request->getPost('class_id');
-        $tipesoal = $this->request->getPost('tipe_soal'); // pg, pg_kompleks, benar_salah, esai
-        $jumlah = (int)$this->request->getPost('jumlah') ?: 5;
-        $selectedTps = $this->request->getPost('tp_ids'); // array of TP ids
+        $tipeListJson = $this->request->getPost('tipe_list'); // JSON array [{tipe, jumlah}]
+        $selectedTps = $this->request->getPost('tp_ids');
+
+        $tipeList = json_decode($tipeListJson, true);
+        if (empty($tipeList)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Pilih minimal satu tipe soal.']);
+        }
 
         // Load data
         $atp = $this->atpModel->find($atpId);
@@ -2062,41 +2066,40 @@ class AdministrasiGuru extends BaseController
             }
         }
 
-        // Map tipe soal ke deskripsi
-        $tipeDeskripsi = match($tipesoal) {
-            'pg' => 'Pilihan Ganda (PG) dengan 4 opsi (A, B, C, D). Sertakan kunci jawaban yang benar.',
-            'pg_kompleks' => 'Pilihan Ganda Kompleks (PGK) dengan 5 opsi (A, B, C, D, E) dimana lebih dari 1 jawaban benar. Sertakan semua kunci jawaban yang benar.',
-            'benar_salah' => 'Benar/Salah (BS) dengan pernyataan yang harus dijawab Benar atau Salah.',
-            'esai' => 'Esai/Uraian singkat. Sertakan kunci jawaban / rubrik penilaian singkat.',
-            default => 'Pilihan Ganda (PG) dengan 4 opsi (A, B, C, D).'
-        };
-
-        $optionCount = ($tipesoal === 'pg_kompleks') ? 5 : 4;
-
-        $prompt = "Buatkan {$jumlah} soal {$tipeDeskripsi}\n\n"
-            . "KONTEKS:\n"
-            . "- Jenjang: " . ($school['level'] == 1 ? 'SD' : ($school['level'] == 2 ? 'SMP' : 'SMA')) . "\n"
-            . "- Kelas: " . ($classInfo['name'] ?? '-') . " (Level " . ($classInfo['level'] ?? '-') . ")\n"
-            . "- Mata Pelajaran: " . ($subject['name'] ?? '-') . "\n"
-            . "- Materi/Lingkup: " . ($atp['lingkup_materi'] ?? '-') . "\n"
-            . (!empty($tpDeskripsi) ? "- Tujuan Pembelajaran:\n{$tpDeskripsi}\n" : '')
-            . "\nFORMAT OUTPUT (WAJIB JSON ARRAY, TANPA MARKDOWN):\n";
-
-        if ($tipesoal === 'esai') {
-            $prompt .= '[{"question":"teks soal","answer":"kunci jawaban/rubrik"}]';
-        } elseif ($tipesoal === 'benar_salah') {
-            $prompt .= '[{"question":"pernyataan","answer":"Benar" atau "Salah"}]';
-        } elseif ($tipesoal === 'pg_kompleks') {
-            $prompt .= '[{"question":"teks soal","options":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"answer":"A,C" (huruf jawaban benar dipisah koma)}]';
-        } else {
-            $prompt .= '[{"question":"teks soal","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"}]';
+        // Build soal request per tipe
+        $soalRequest = '';
+        foreach ($tipeList as $t) {
+            $label = match($t['tipe']) {
+                'pg' => 'Pilihan Ganda (4 opsi: A,B,C,D)',
+                'pg_kompleks' => 'Pilihan Ganda Kompleks (5 opsi: A,B,C,D,E, bisa lebih dari 1 jawaban benar)',
+                'benar_salah' => 'Benar/Salah',
+                'esai' => 'Esai/Uraian singkat',
+                default => $t['tipe']
+            };
+            $soalRequest .= "- {$t['jumlah']} soal tipe {$label}\n";
         }
 
-        $prompt .= "\n\nPENTING:\n"
-            . "- Soal harus sesuai level kognitif siswa " . ($school['level'] == 1 ? 'SD' : 'SMP') . "\n"
-            . "- Variasi tingkat kesulitan (C1-C4)\n"
-            . "- Soal harus spesifik sesuai materi, bukan soal umum\n"
-            . "- KEMBALIKAN HANYA JSON ARRAY MURNI, tanpa backtick, tanpa markdown, tanpa penjelasan";
+        $jenjang = ($school['level'] == 1) ? 'SD' : (($school['level'] == 2) ? 'SMP' : 'SMA');
+
+        $prompt = "Buatkan soal ujian dengan komposisi berikut:\n{$soalRequest}\n"
+            . "KONTEKS:\n"
+            . "- Jenjang: {$jenjang}\n"
+            . "- Kelas: " . ($classInfo['name'] ?? '-') . "\n"
+            . "- Mata Pelajaran: " . ($subject['name'] ?? '-') . "\n"
+            . "- Materi: " . ($atp['lingkup_materi'] ?? '-') . "\n"
+            . (!empty($tpDeskripsi) ? "- Tujuan Pembelajaran:\n{$tpDeskripsi}\n" : '')
+            . "\nFORMAT OUTPUT WAJIB JSON ARRAY (tanpa markdown, tanpa backtick):\n"
+            . "Setiap item memiliki field: type, question, options (jika PG/PGK), answer\n"
+            . "Contoh:\n"
+            . '[{"type":"pg","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"},'
+            . '{"type":"pg_kompleks","question":"...","options":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"answer":"A,C"},'
+            . '{"type":"benar_salah","question":"pernyataan...","answer":"Benar"},'
+            . '{"type":"esai","question":"...","answer":"kunci jawaban"}]' . "\n\n"
+            . "PENTING:\n"
+            . "- Soal sesuai level kognitif siswa {$jenjang} dengan variasi C1-C4\n"
+            . "- Soal spesifik sesuai materi, bukan soal umum\n"
+            . "- Kelompokkan berurutan: PG dulu, lalu PGK, BS, terakhir Esai\n"
+            . "- KEMBALIKAN HANYA JSON ARRAY MURNI";
 
         // Call AI
         if ($aiProvider === 'groq') {
@@ -2119,7 +2122,7 @@ class AdministrasiGuru extends BaseController
         curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 90);
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
@@ -2137,31 +2140,28 @@ class AdministrasiGuru extends BaseController
             $content = $resData['candidates'][0]['content']['parts'][0]['text'] ?? '';
         }
 
-        // Clean markdown wrapper if any
         $content = preg_replace('/```(?:json)?(.*?)```/s', '$1', $content);
         $content = trim($content);
 
         $soalList = json_decode($content, true);
         if (!is_array($soalList)) {
-            return $this->response->setJSON(['success' => false, 'error' => 'Gagal parse response AI. Response: ' . substr($content, 0, 200)]);
+            return $this->response->setJSON(['success' => false, 'error' => 'Gagal parse response AI. Coba generate ulang.']);
         }
 
         return $this->response->setJSON([
             'success' => true,
             'soal' => $soalList,
-            'tipe' => $tipesoal,
             'jumlah' => count($soalList),
         ]);
     }
 
     /**
-     * Simpan soal hasil AI ke bank soal yang dipilih
+     * Simpan soal hasil AI ke bank soal yang dipilih (multi-tipe)
      */
     public function saveSoalToBank()
     {
         $bankId = $this->request->getPost('bank_id');
         $soalJson = $this->request->getPost('soal_json');
-        $tipesoal = $this->request->getPost('tipe_soal');
 
         if (!$bankId || !$soalJson) {
             return $this->response->setJSON(['success' => false, 'error' => 'Data tidak lengkap.']);
@@ -2182,18 +2182,19 @@ class AdministrasiGuru extends BaseController
         $inserted = 0;
 
         foreach ($soalList as $soal) {
+            $tipe = $soal['type'] ?? 'pg';
             $data = [
                 'bank_id' => $bankId,
                 'question_text' => $soal['question'] ?? '',
-                'question_type' => $tipesoal,
-                'score' => ($tipesoal === 'esai') ? 0 : 1,
+                'question_type' => $tipe,
+                'score' => ($tipe === 'esai') ? 0 : 1,
                 'option_a' => $soal['options']['A'] ?? null,
                 'option_b' => $soal['options']['B'] ?? null,
                 'option_c' => $soal['options']['C'] ?? null,
                 'option_d' => $soal['options']['D'] ?? null,
                 'option_e' => $soal['options']['E'] ?? null,
-                'correct_option' => $soal['answer'] ?? null,
-                'essay_answer' => ($tipesoal === 'esai') ? ($soal['answer'] ?? '') : null,
+                'correct_option' => ($tipe !== 'esai') ? ($soal['answer'] ?? null) : null,
+                'essay_answer' => ($tipe === 'esai') ? ($soal['answer'] ?? '') : null,
             ];
             $questionModel->insert($data);
             $inserted++;
