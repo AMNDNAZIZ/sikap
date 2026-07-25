@@ -1,0 +1,1 @@
+[16-Apr-2026 09:40:33 Asia/Jakarta] PHP Fatal error:  Allowed memory size of 268435456 bytes exhausted (tried to allocate 16384 bytes) in /home/mabq5276/public_html/cbt/system/Database/MySQLi/Connection.php on line 327

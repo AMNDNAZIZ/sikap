@@ -196,7 +196,7 @@
     $('.btn-view-question').each(function () {
       soalData.push({
         id: $(this).data('id'),
-        text: $(this).data('text'),
+        text: $(this).data('text') || $(this).data('plain') || '',
         type: $(this).data('type'),
         score: $(this).data('score'),
         options: $(this).data('options')

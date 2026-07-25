@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="grad" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0d6efd"/>
+      <stop offset="100%" stop-color="#6ea8fe"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#grad)" opacity="0.15"/>
+
+  <!-- Cloud -->
+  <path d="M90 70a14 14 0 0 0-3-27 18 18 0 0 0-34-4 14 14 0 0 0-5 27h42z" 
+        fill="#0d6efd" opacity="0.9"/>
+
+  <!-- Slash (offline indicator) -->
+  <line x1="35" y1="93" x2="93" y2="35" stroke="#dc3545" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Dots for connectivity -->
+  <circle cx="42" cy="95" r="3" fill="#dc3545"/>
+  <circle cx="86" cy="37" r="3" fill="#dc3545"/>
+</svg>
