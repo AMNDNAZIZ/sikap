@@ -25,7 +25,12 @@ class CbtQuestionModel extends Model
         'media_audio',
         'media_video',
         'has_image',
-        'has_audio'
+        'has_audio',
+        'audio_a',
+        'audio_b',
+        'audio_c',
+        'audio_d',
+        'audio_e'
     ];
 
     protected $useTimestamps = true;
