@@ -314,6 +314,11 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('settings/kop-surat', 'SettingsController::kopSurat', $auth127);
     $routes->post('settings/kop-surat/upload', 'SettingsController::uploadKopSurat', $auth127);
 
+    // Cache CBT Settings (Admin Only)
+    $routes->get('settings/session', 'SessionSettings::index', $auth1);
+    $routes->post('settings/session/update', 'SessionSettings::update', $auth1);
+    $routes->post('settings/session/flush', 'SessionSettings::flushCache', $auth1);
+
     // Surat Masuk
     $routes->get('surat-masuk', 'SuratMasuk::index', $auth127);
     $routes->get('surat-masuk/create', 'SuratMasuk::create', $auth127);

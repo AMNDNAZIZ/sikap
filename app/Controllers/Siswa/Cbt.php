@@ -47,6 +47,8 @@ class Cbt extends BaseController
         $this->scoringService = new CbtScoringService();
         $this->sessionService = new CbtSessionService();
         $this->questionService = new CbtQuestionService();
+
+        helper('cache');
     }
 
     protected function getStudentId()
