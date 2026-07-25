@@ -1946,6 +1946,280 @@ class AdministrasiGuru extends BaseController
         return ['list' => $atpList, 'all_tps' => $allTps];
     }
 
+    // =========================================================================
+    // PEMBUATAN SOAL AI
+    // =========================================================================
+
+    /**
+     * Halaman Pembuatan Soal AI
+     */
+    public function soalAi()
+    {
+        $data['title'] = 'Pembuatan Soal AI';
+        
+        $filters = $this->getAvailableFilters();
+        $data['classes'] = $filters['classes'];
+        $data['subjects'] = $filters['subjects'];
+        $data['readonly'] = $filters['readonly'];
+        $data['auto_class'] = $filters['auto_class'];
+        
+        $classId = $filters['selected_class'];
+        $subjectId = $this->request->getGet('subject_id');
+        $data['selected_class'] = $classId;
+        $data['selected_subject'] = $subjectId;
+
+        // AI config
+        $user = session()->get('user');
+        $data['gemini_api_key'] = '';
+        $data['ai_provider'] = 'gemini';
+        if ($user['role_id'] == 3) {
+            $teacher = $this->teacherModel->find($user['related_id']);
+            $data['gemini_api_key'] = $teacher['gemini_api_key'] ?? '';
+            $data['ai_provider'] = $teacher['ai_provider'] ?? 'gemini';
+        } elseif ($user['role_id'] == 1) {
+            $userData = $this->db->table('users')->where('id', $user['id'])->get()->getRowArray();
+            $data['gemini_api_key'] = $userData['gemini_api_key'] ?? '';
+            $data['ai_provider'] = $userData['ai_provider'] ?? 'gemini';
+        }
+
+        // ATP list + Bank Soal
+        $data['atp_list'] = [];
+        $data['bank_soal'] = [];
+
+        if ($subjectId && $classId) {
+            $school = $this->db->table('school_profile')->get()->getRowArray();
+            $schoolLevel = $school['level'] ?? 1;
+            $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+            $classLevel = (int)($classInfo['level'] ?? 0);
+
+            $atpResult = $this->loadAtpWithElemen((int)$subjectId, $classLevel);
+            $data['atp_list'] = $atpResult['list'];
+
+            // Bank soal milik guru ini untuk mapel ini
+            $context = get_cbt_user_context();
+            $bankQuery = $this->db->table('cbt_question_banks')
+                ->select('id, code, total_questions')
+                ->where('subject_id', $subjectId);
+            if (!empty($context['teacher_id'])) {
+                $bankQuery->where('teacher_id', $context['teacher_id']);
+            }
+            $data['bank_soal'] = $bankQuery->get()->getResultArray();
+        }
+
+        return view('admin/administrasi_guru/soal_ai', $data);
+    }
+
+    /**
+     * Generate soal menggunakan AI
+     */
+    public function generateSoalAi()
+    {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'], [1, 3])) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Akses ditolak.']);
+        }
+
+        // Get AI config
+        if ($user['role_id'] == 3) {
+            $teacher = $this->teacherModel->find($user['related_id']);
+            $apiKey = $teacher['gemini_api_key'] ?? '';
+            $aiProvider = $teacher['ai_provider'] ?? 'gemini';
+        } else {
+            $userData = $this->db->table('users')->where('id', $user['id'])->get()->getRowArray();
+            $apiKey = $userData['gemini_api_key'] ?? '';
+            $aiProvider = $userData['ai_provider'] ?? 'gemini';
+        }
+
+        if (empty($apiKey)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'API Key AI belum dikonfigurasi.']);
+        }
+
+        $atpId = $this->request->getPost('atp_id');
+        $subjectId = $this->request->getPost('subject_id');
+        $classId = $this->request->getPost('class_id');
+        $tipesoal = $this->request->getPost('tipe_soal'); // pg, pg_kompleks, benar_salah, esai
+        $jumlah = (int)$this->request->getPost('jumlah') ?: 5;
+        $selectedTps = $this->request->getPost('tp_ids'); // array of TP ids
+
+        // Load data
+        $atp = $this->atpModel->find($atpId);
+        if (!$atp) {
+            return $this->response->setJSON(['success' => false, 'error' => 'ATP tidak ditemukan.']);
+        }
+
+        $subject = $this->subjectModel->find($subjectId);
+        $school = $this->db->table('school_profile')->get()->getRowArray();
+        $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+
+        // Get TP descriptions
+        $tpDeskripsi = '';
+        if (!empty($selectedTps)) {
+            $tps = $this->db->table('tujuan_pembelajaran')
+                ->whereIn('id', $selectedTps)
+                ->get()->getResultArray();
+            foreach ($tps as $tp) {
+                $tpDeskripsi .= "- " . ($tp['kode_tp'] ? $tp['kode_tp'] . ': ' : '') . $tp['deskripsi'] . "\n";
+            }
+        }
+
+        // Map tipe soal ke deskripsi
+        $tipeDeskripsi = match($tipesoal) {
+            'pg' => 'Pilihan Ganda (PG) dengan 4 opsi (A, B, C, D). Sertakan kunci jawaban yang benar.',
+            'pg_kompleks' => 'Pilihan Ganda Kompleks (PGK) dengan 5 opsi (A, B, C, D, E) dimana lebih dari 1 jawaban benar. Sertakan semua kunci jawaban yang benar.',
+            'benar_salah' => 'Benar/Salah (BS) dengan pernyataan yang harus dijawab Benar atau Salah.',
+            'esai' => 'Esai/Uraian singkat. Sertakan kunci jawaban / rubrik penilaian singkat.',
+            default => 'Pilihan Ganda (PG) dengan 4 opsi (A, B, C, D).'
+        };
+
+        $optionCount = ($tipesoal === 'pg_kompleks') ? 5 : 4;
+
+        $prompt = "Buatkan {$jumlah} soal {$tipeDeskripsi}\n\n"
+            . "KONTEKS:\n"
+            . "- Jenjang: " . ($school['level'] == 1 ? 'SD' : ($school['level'] == 2 ? 'SMP' : 'SMA')) . "\n"
+            . "- Kelas: " . ($classInfo['name'] ?? '-') . " (Level " . ($classInfo['level'] ?? '-') . ")\n"
+            . "- Mata Pelajaran: " . ($subject['name'] ?? '-') . "\n"
+            . "- Materi/Lingkup: " . ($atp['lingkup_materi'] ?? '-') . "\n"
+            . (!empty($tpDeskripsi) ? "- Tujuan Pembelajaran:\n{$tpDeskripsi}\n" : '')
+            . "\nFORMAT OUTPUT (WAJIB JSON ARRAY, TANPA MARKDOWN):\n";
+
+        if ($tipesoal === 'esai') {
+            $prompt .= '[{"question":"teks soal","answer":"kunci jawaban/rubrik"}]';
+        } elseif ($tipesoal === 'benar_salah') {
+            $prompt .= '[{"question":"pernyataan","answer":"Benar" atau "Salah"}]';
+        } elseif ($tipesoal === 'pg_kompleks') {
+            $prompt .= '[{"question":"teks soal","options":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"answer":"A,C" (huruf jawaban benar dipisah koma)}]';
+        } else {
+            $prompt .= '[{"question":"teks soal","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"}]';
+        }
+
+        $prompt .= "\n\nPENTING:\n"
+            . "- Soal harus sesuai level kognitif siswa " . ($school['level'] == 1 ? 'SD' : 'SMP') . "\n"
+            . "- Variasi tingkat kesulitan (C1-C4)\n"
+            . "- Soal harus spesifik sesuai materi, bukan soal umum\n"
+            . "- KEMBALIKAN HANYA JSON ARRAY MURNI, tanpa backtick, tanpa markdown, tanpa penjelasan";
+
+        // Call AI
+        if ($aiProvider === 'groq') {
+            $url = 'https://api.groq.com/openai/v1/chat/completions';
+            $payload = json_encode([
+                "model" => "llama-3.3-70b-versatile",
+                "messages" => [["role" => "user", "content" => $prompt]],
+                "temperature" => 0.7
+            ]);
+            $headers = ['Authorization: Bearer ' . $apiKey, 'Content-Type: application/json'];
+        } else {
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=' . $apiKey;
+            $payload = json_encode(["contents" => [["parts" => [["text" => $prompt]]]]]);
+            $headers = ['Content-Type: application/json'];
+        }
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode != 200) {
+            $errRes = json_decode($response, true);
+            $errMsg = $errRes['error']['message'] ?? 'HTTP ' . $httpCode;
+            return $this->response->setJSON(['success' => false, 'error' => "AI error: {$errMsg}"]);
+        }
+
+        $resData = json_decode($response, true);
+        if ($aiProvider === 'groq') {
+            $content = $resData['choices'][0]['message']['content'] ?? '';
+        } else {
+            $content = $resData['candidates'][0]['content']['parts'][0]['text'] ?? '';
+        }
+
+        // Clean markdown wrapper if any
+        $content = preg_replace('/```(?:json)?(.*?)```/s', '$1', $content);
+        $content = trim($content);
+
+        $soalList = json_decode($content, true);
+        if (!is_array($soalList)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Gagal parse response AI. Response: ' . substr($content, 0, 200)]);
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'soal' => $soalList,
+            'tipe' => $tipesoal,
+            'jumlah' => count($soalList),
+        ]);
+    }
+
+    /**
+     * Simpan soal hasil AI ke bank soal yang dipilih
+     */
+    public function saveSoalToBank()
+    {
+        $bankId = $this->request->getPost('bank_id');
+        $soalJson = $this->request->getPost('soal_json');
+        $tipesoal = $this->request->getPost('tipe_soal');
+
+        if (!$bankId || !$soalJson) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Data tidak lengkap.']);
+        }
+
+        helper('cbt');
+        if (!can_access_cbt_bank($bankId)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Akses ditolak ke bank soal ini.']);
+        }
+
+        $soalList = json_decode($soalJson, true);
+        if (!is_array($soalList) || empty($soalList)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Data soal kosong atau tidak valid.']);
+        }
+
+        $questionModel = new \App\Models\CbtQuestionModel();
+        $bankModel = new \App\Models\CbtBankSoalModel();
+        $inserted = 0;
+
+        foreach ($soalList as $soal) {
+            $data = [
+                'bank_id' => $bankId,
+                'question_text' => $soal['question'] ?? '',
+                'question_type' => $tipesoal,
+                'score' => ($tipesoal === 'esai') ? 0 : 1,
+                'option_a' => $soal['options']['A'] ?? null,
+                'option_b' => $soal['options']['B'] ?? null,
+                'option_c' => $soal['options']['C'] ?? null,
+                'option_d' => $soal['options']['D'] ?? null,
+                'option_e' => $soal['options']['E'] ?? null,
+                'correct_option' => $soal['answer'] ?? null,
+                'essay_answer' => ($tipesoal === 'esai') ? ($soal['answer'] ?? '') : null,
+            ];
+            $questionModel->insert($data);
+            $inserted++;
+        }
+
+        // Update totals
+        $total = $questionModel->where('bank_id', $bankId)->countAllResults();
+        $totalPg = $questionModel->where('bank_id', $bankId)->where('question_type', 'pg')->countAllResults();
+        $totalPgk = $questionModel->where('bank_id', $bankId)->where('question_type', 'pg_kompleks')->countAllResults();
+        $totalBs = $questionModel->where('bank_id', $bankId)->where('question_type', 'benar_salah')->countAllResults();
+        $totalEsai = $questionModel->where('bank_id', $bankId)->where('question_type', 'esai')->countAllResults();
+
+        $bankModel->update($bankId, [
+            'total_questions' => $total,
+            'total_pg' => $totalPg,
+            'total_pg_kompleks' => $totalPgk,
+            'total_bs' => $totalBs,
+            'total_esai' => $totalEsai,
+        ]);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => "{$inserted} soal berhasil ditambahkan ke bank soal.",
+        ]);
+    }
+
     private function getAvailableFilters()
     {
         $user = session()->get('user');

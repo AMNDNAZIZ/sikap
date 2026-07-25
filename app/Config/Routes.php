@@ -245,6 +245,11 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->get('modul-ajar/print/(:num)/(:num)', 'AdministrasiGuru::printModulAjar/$1/$2');
         $routes->get('modul-ajar/delete/(:num)/(:num)/(:num)', 'AdministrasiGuru::deleteModulAjar/$1/$2/$3');
         $routes->post('modul-ajar/copy', 'AdministrasiGuru::copyModulAjar');
+
+        // Pembuatan Soal AI
+        $routes->get('soal-ai', 'AdministrasiGuru::soalAi');
+        $routes->post('soal-ai/generate', 'AdministrasiGuru::generateSoalAi');
+        $routes->post('soal-ai/save-to-bank', 'AdministrasiGuru::saveSoalToBank');
     });
 
     // 5.9 Kokurikuler (Kurikulum Merdeka) - Admin, Kepsek & Guru Kelas
