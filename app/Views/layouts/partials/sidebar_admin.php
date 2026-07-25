@@ -326,6 +326,7 @@
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/users*') ? 'active' : '' ?>" href="<?= base_url('admin/users') ?>">👤 <span class="label">User Management</span></a></li>
           <li><a class="nav-link <?= url_is('profile*') ? 'active' : '' ?>" href="<?= base_url('profile') ?>">⚙️ <span class="label">Pengaturan Profil</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/settings/session*') ? 'active' : '' ?>" href="<?= base_url('admin/settings/session') ?>">🚀 <span class="label">Cache CBT</span></a></li>
           <li><a class="nav-link <?= url_is('admin/updater*') ? 'active' : '' ?>" href="<?= base_url('admin/updater') ?>">🔄 <span class="label">Update Sistem</span></a></li>
         </ul>
       </div>
