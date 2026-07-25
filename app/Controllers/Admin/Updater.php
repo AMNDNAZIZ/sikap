@@ -678,6 +678,9 @@ class Updater extends BaseController
      */
     private function scanFilesForManifest(string $dir, string $rootPath, array &$files)
     {
+        // Extensions yang dianggap text file (perlu normalize line ending)
+        static $textExts = ['php', 'js', 'css', 'html', 'htm', 'json', 'xml', 'md', 'txt', 'yml', 'yaml', 'tpl', 'sql', 'htaccess', 'env'];
+
         $handle = opendir($dir);
         while (false !== ($f = readdir($handle))) {
             if ($f === '.' || $f === '..') continue;
@@ -691,7 +694,15 @@ class Updater extends BaseController
             if (strpos($relativePath, 'app/Config/.security_hash') !== false) continue;
 
             if (is_file($fullPath)) {
-                $files[$relativePath] = md5_file($fullPath);
+                // Normalize CRLF → LF untuk text files agar hash konsisten lintas OS
+                $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
+                if (in_array($ext, $textExts) || $ext === '') {
+                    $content = file_get_contents($fullPath);
+                    $content = str_replace("\r\n", "\n", $content);
+                    $files[$relativePath] = md5($content);
+                } else {
+                    $files[$relativePath] = md5_file($fullPath);
+                }
             } elseif (is_dir($fullPath)) {
                 $this->scanFilesForManifest($fullPath, $rootPath, $files);
             }
@@ -726,7 +737,8 @@ class Updater extends BaseController
             return redirect()->to(base_url('admin/updater'))->with('error', 'Format manifest tidak valid.');
         }
 
-        // Compare with local files
+        // Compare with local files (normalize LF untuk text files agar konsisten dengan manifest)
+        $textExts = ['php', 'js', 'css', 'html', 'htm', 'json', 'xml', 'md', 'txt', 'yml', 'yaml', 'tpl', 'sql', 'htaccess', 'env'];
         $changedFiles = [];
         $newFiles = [];
 
@@ -734,8 +746,17 @@ class Updater extends BaseController
             $localPath = ROOTPATH . $relativePath;
             if (!is_file($localPath)) {
                 $newFiles[] = $relativePath;
-            } elseif (md5_file($localPath) !== $remoteHash) {
-                $changedFiles[] = $relativePath;
+            } else {
+                $ext = strtolower(pathinfo($localPath, PATHINFO_EXTENSION));
+                if (in_array($ext, $textExts) || $ext === '') {
+                    $content = file_get_contents($localPath);
+                    $localHash = md5(str_replace("\r\n", "\n", $content));
+                } else {
+                    $localHash = md5_file($localPath);
+                }
+                if ($localHash !== $remoteHash) {
+                    $changedFiles[] = $relativePath;
+                }
             }
         }
 
