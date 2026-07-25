@@ -2080,26 +2080,66 @@ class AdministrasiGuru extends BaseController
         }
 
         $jenjang = ($school['level'] == 1) ? 'SD' : (($school['level'] == 2) ? 'SMP' : 'SMA');
+        $kelasLevel = (int)($classInfo['level'] ?? 7);
 
-        $prompt = "Buatkan soal ujian dengan komposisi berikut:\n{$soalRequest}\n"
-            . "KONTEKS:\n"
+        // Tentukan karakteristik soal berdasarkan jenjang dan level kelas
+        $karakteristikLevel = '';
+        if ($jenjang === 'SD') {
+            if ($kelasLevel <= 3) {
+                $karakteristikLevel = "Kelas rendah (1-3 SD): gunakan kalimat sederhana, konkret, dekat kehidupan sehari-hari anak.";
+            } else {
+                $karakteristikLevel = "Kelas tinggi (4-6 SD): boleh abstrak ringan, hubungkan dengan pengalaman nyata, mulai penalaran sederhana.";
+            }
+        } elseif ($jenjang === 'SMP') {
+            if ($kelasLevel <= 7) {
+                $karakteristikLevel = "Kelas 7 SMP: transisi dari SD, mulai analisis sederhana, kontekstual dengan kehidupan remaja awal.";
+            } elseif ($kelasLevel == 8) {
+                $karakteristikLevel = "Kelas 8 SMP: penalaran lebih dalam, bisa bandingkan konsep, analisis teks/data sederhana.";
+            } else {
+                $karakteristikLevel = "Kelas 9 SMP: persiapan ujian akhir, penalaran tinggi, evaluasi, dan sintesis antar konsep.";
+            }
+        } else {
+            $karakteristikLevel = "Jenjang SMA: penalaran tinggi, analisis mendalam, evaluasi kritis, dan kreativitas berpikir.";
+        }
+
+        $prompt = "Kamu adalah pembuat soal ujian profesional berpengalaman untuk jenjang {$jenjang}.\n"
+            . "Buatkan soal ujian BERKUALITAS TINGGI dengan komposisi:\n{$soalRequest}\n"
+            . "KONTEKS PEMBELAJARAN:\n"
             . "- Jenjang: {$jenjang}\n"
-            . "- Kelas: " . ($classInfo['name'] ?? '-') . "\n"
+            . "- Kelas: " . ($classInfo['name'] ?? '-') . " (Level {$kelasLevel})\n"
             . "- Mata Pelajaran: " . ($subject['name'] ?? '-') . "\n"
-            . "- Materi: " . ($atp['lingkup_materi'] ?? '-') . "\n"
+            . "- Materi/Lingkup: " . ($atp['lingkup_materi'] ?? '-') . "\n"
+            . "- Karakteristik: {$karakteristikLevel}\n"
             . (!empty($tpDeskripsi) ? "- Tujuan Pembelajaran:\n{$tpDeskripsi}\n" : '')
-            . "\nFORMAT OUTPUT WAJIB JSON ARRAY (tanpa markdown, tanpa backtick):\n"
+            . "\nPANDUAN KUALITAS SOAL (WAJIB DIPATUHI):\n"
+            . "1. DISTRIBUSI LEVEL KOGNITIF (Taksonomi Bloom Revisi):\n"
+            . "   - 20% soal C1-C2 (Mengingat & Memahami): definisi, fakta, konsep dasar\n"
+            . "   - 30% soal C3 (Menerapkan): aplikasi konsep dalam situasi baru\n"
+            . "   - 50% soal C4-C6 (HOTS - Menganalisis, Mengevaluasi, Mencipta): analisis data/teks, membandingkan, menyimpulkan, menilai argumen\n"
+            . "2. SOAL HOTS harus mengandung STIMULUS (teks bacaan, data, tabel, situasi, kasus) yang harus dianalisis siswa sebelum menjawab.\n"
+            . "3. Untuk mapel BAHASA (Indonesia/Inggris/Daerah):\n"
+            . "   - WAJIB sertakan WACANA/TEKS BACAAN yang relevan sebelum soal (dalam field 'question')\n"
+            . "   - Format: tuliskan wacana dulu dengan label 'Bacalah teks berikut!' lalu soalnya\n"
+            . "   - Teks harus sesuai panjang dan kompleksitas level kelas\n"
+            . "4. Untuk soal yang IDEALNYA memerlukan GAMBAR/ILUSTRASI:\n"
+            . "   - Sertakan deskripsi dalam kurung siku: [Gambar: deskripsi gambar yang diperlukan]\n"
+            . "   - Contoh: [Gambar: Peta Indonesia dengan panah menunjukkan arah angin muson barat]\n"
+            . "5. DISTRAKTOR (opsi salah) harus MASUK AKAL dan homogen — jangan opsi yang jelas salah\n"
+            . "6. Soal TIDAK BOLEH mengandung petunjuk jawabannya di soal lain\n"
+            . "7. Stem soal harus JELAS dan tidak ambigu\n"
+            . "8. Hindari soal yang jawabannya 'semua benar' atau 'tidak ada yang benar'\n\n"
+            . "FORMAT OUTPUT WAJIB JSON ARRAY (tanpa markdown, tanpa backtick):\n"
             . "Setiap item memiliki field: type, question, options (jika PG/PGK), answer\n"
             . "Contoh:\n"
             . '[{"type":"pg","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"},'
             . '{"type":"pg_kompleks","question":"...","options":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"answer":"A,C"},'
             . '{"type":"benar_salah","question":"pernyataan...","answer":"Benar"},'
-            . '{"type":"esai","question":"...","answer":"kunci jawaban"}]' . "\n\n"
-            . "PENTING:\n"
-            . "- Soal sesuai level kognitif siswa {$jenjang} dengan variasi C1-C4\n"
-            . "- Soal spesifik sesuai materi, bukan soal umum\n"
+            . '{"type":"esai","question":"...","answer":"kunci jawaban lengkap"}]' . "\n\n"
+            . "ATURAN TAMBAHAN:\n"
             . "- Kelompokkan berurutan: PG dulu, lalu PGK, BS, terakhir Esai\n"
-            . "- KEMBALIKAN HANYA JSON ARRAY MURNI";
+            . "- Untuk Esai: kunci jawaban harus lengkap (rubrik/poin yang diharapkan)\n"
+            . "- Untuk BS: pernyataan harus spesifik, bukan opini\n"
+            . "- KEMBALIKAN HANYA JSON ARRAY MURNI, tanpa backtick, tanpa markdown";
 
         // Call AI
         if ($aiProvider === 'groq') {
