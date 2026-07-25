@@ -571,8 +571,21 @@ class Updater extends BaseController
      */
     public function generateManifest()
     {
-        set_time_limit(300);
+        set_time_limit(600);
 
+        $rootPath = rtrim(ROOTPATH, '/\\');
+
+        // Step 1: Pull dari origin (AMNDNAZIZ/sikap) untuk sinkronisasi
+        $pullResult = [];
+        exec("cd \"{$rootPath}\" && git pull origin main 2>&1", $pullResult, $pullCode);
+        $pullOutput = implode("\n", $pullResult);
+        log_message('info', '[GenerateManifest] Pull from origin: ' . $pullOutput);
+
+        if ($pullCode !== 0 && strpos($pullOutput, 'Already up to date') === false) {
+            return redirect()->back()->with('warning', 'Pull dari origin gagal: ' . $pullOutput . '. Manifest tetap digenerate dari state lokal.');
+        }
+
+        // Step 2: Generate manifest
         $folders = ['app', 'public'];
         $files = [];
 
@@ -595,32 +608,40 @@ class Updater extends BaseController
         $jsonPath = ROOTPATH . 'update_manifest.json';
         file_put_contents($jsonPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
-        // Auto push ke GitHub jika di localhost
+        // Step 3: Commit manifest ke origin
+        exec("cd \"{$rootPath}\" && git add update_manifest.json 2>&1", $addResult);
+        exec("cd \"{$rootPath}\" && git commit -m \"Regenerate manifest v{$manifest['version']}\" --allow-empty 2>&1", $commitResult);
+        exec("cd \"{$rootPath}\" && git push origin main 2>&1", $pushOriginResult, $pushOriginCode);
+        log_message('info', '[GenerateManifest] Push to origin: ' . implode("\n", $pushOriginResult ?? []));
+
+        // Step 4: Push orphan ke update repo (Sakajaya/sikap-update)
         $pushResult = $this->pushToUpdateRepo();
 
         $message = 'Manifest berhasil digenerate: ' . count($files) . ' file (v' . $manifest['version'] . ').';
+        if ($pullCode === 0 || strpos($pullOutput, 'Already up to date') !== false) {
+            $message .= ' ✅ Sinkron dengan origin.';
+        }
         if ($pushResult['success']) {
-            $message .= ' ✅ Berhasil push ke GitHub.';
+            $message .= ' ✅ Push ke sikap-update berhasil.';
         } else {
-            $message .= ' ⚠️ Push gagal: ' . $pushResult['error'];
+            $message .= ' ⚠️ Push ke sikap-update gagal: ' . $pushResult['error'];
         }
 
         return redirect()->back()->with($pushResult['success'] ? 'success' : 'warning', $message);
     }
 
     /**
-     * Push current state (app/, public/, manifest, README) ke repo sikap-update sebagai orphan commit.
+     * Push current state ke repo sikap-update sebagai orphan commit.
      */
     private function pushToUpdateRepo(): array
     {
-        $rootPath = ROOTPATH;
+        $rootPath = rtrim(ROOTPATH, '/\\');
 
-        // Jalankan git commands secara sequential
         $commands = [
             'git checkout --orphan _update_push 2>&1',
             'git reset 2>&1',
             'git add app/ public/ update_manifest.json README.md .gitattributes 2>&1',
-            'git commit -m "v' . (defined('APP_VERSION') ? APP_VERSION : '1.0.0') . ' - Auto release ' . date('Y-m-d H:i') . '" 2>&1',
+            'git commit -m "v' . (defined('APP_VERSION') ? APP_VERSION : '1.0.0') . ' - Release ' . date('Y-m-d H:i') . '" 2>&1',
             'git push update _update_push:main --force 2>&1',
             'git checkout main --force 2>&1',
             'git branch -D _update_push 2>&1',
@@ -633,18 +654,16 @@ class Updater extends BaseController
         foreach ($commands as $cmd) {
             $result = null;
             $exitCode = 0;
-            exec('cd "' . rtrim($rootPath, '/\\') . '" && ' . $cmd, $result, $exitCode);
+            exec("cd \"{$rootPath}\" && {$cmd}", $result, $exitCode);
 
             $resultStr = implode("\n", $result ?? []);
             $output[] = $cmd . ' => ' . $resultStr;
 
-            // Push command is critical
-            if (strpos($cmd, 'git push') !== false && $exitCode !== 0) {
+            if (strpos($cmd, 'git push update') !== false && $exitCode !== 0) {
                 $success = false;
                 $error = $resultStr;
-                // Cleanup: go back to main
-                exec('cd "' . rtrim($rootPath, '/\\') . '" && git checkout main --force 2>&1');
-                exec('cd "' . rtrim($rootPath, '/\\') . '" && git branch -D _update_push 2>&1');
+                exec("cd \"{$rootPath}\" && git checkout main --force 2>&1");
+                exec("cd \"{$rootPath}\" && git branch -D _update_push 2>&1");
                 break;
             }
         }
