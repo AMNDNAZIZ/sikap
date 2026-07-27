@@ -242,6 +242,13 @@
       </div>
     </li>
 
+    <!-- Perpustakaan Digital -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/ebook*') ? 'active' : '' ?>" href="<?= base_url('admin/ebook') ?>">
+        📚 <span class="label">Perpustakaan Digital</span>
+      </a>
+    </li>
+
     <!-- ══ KONSELING & KOMUNIKASI ══ -->
     <li class="nav-item mt-2">
       <small class="text-uppercase text-muted px-3 label" style="font-size:.68rem;letter-spacing:.08em;">Konseling & Komunikasi</small>

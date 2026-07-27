@@ -125,6 +125,19 @@
       </a>
     </li>
 
+    <?php
+    // Perpustakaan Digital - hanya untuk wali kelas
+    $guruUserEbook = session()->get('user');
+    $guruClassIdEbook = $guruUserEbook['class_id'] ?? null;
+    if ($guruClassIdEbook):
+    ?>
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/ebook*') ? 'active' : '' ?>" href="<?= base_url('admin/ebook') ?>">
+        📚 <span class="label">Perpustakaan Digital</span>
+      </a>
+    </li>
+    <?php endif; ?>
+
     <li class="nav-item">
       <a class="nav-link <?= url_is('admin/student-map*') ? 'active' : '' ?>"
         href="<?= base_url('admin/student-map') ?>">

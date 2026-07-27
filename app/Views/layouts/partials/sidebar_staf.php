@@ -113,6 +113,13 @@
       </div>
     </li>
 
+    <!-- Perpustakaan Digital -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/ebook*') ? 'active' : '' ?>" href="<?= base_url('admin/ebook') ?>">
+        📚 <span class="label">Perpustakaan Digital</span>
+      </a>
+    </li>
+
     <!-- Pengaturan Profil -->
     <li class="nav-item mt-2">
       <a class="nav-link <?= url_is('profile*') ? 'active' : '' ?>" href="<?= base_url('profile') ?>">

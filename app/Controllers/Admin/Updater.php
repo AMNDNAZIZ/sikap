@@ -574,10 +574,14 @@ class Updater extends BaseController
         set_time_limit(600);
 
         $rootPath = rtrim(ROOTPATH, '/\\');
+        $git = '"C:\\Program Files\\Git\\cmd\\git.exe" -c safe.directory=C:/xampp/htdocs/siakad';
+        putenv('HOME=C:\\Users\\SAKA');
+        putenv('USERPROFILE=C:\\Users\\SAKA');
+        putenv('GIT_TERMINAL_PROMPT=0');
 
-        // Step 1: Pull dari origin (AMNDNAZIZ/sikap) untuk sinkronisasi
+        // Step 1: Pull dari origin (skip jika gagal, lanjut generate dari state lokal)
         $pullResult = [];
-        exec("cd \"{$rootPath}\" && git pull origin main 2>&1", $pullResult, $pullCode);
+        exec("cd /d \"{$rootPath}\" && {$git} pull origin main 2>&1", $pullResult, $pullCode);
         $pullOutput = implode("\n", $pullResult);
         log_message('info', '[GenerateManifest] Pull from origin: ' . $pullOutput);
 
@@ -609,9 +613,9 @@ class Updater extends BaseController
         file_put_contents($jsonPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         // Step 3: Commit manifest ke origin
-        exec("cd \"{$rootPath}\" && git add update_manifest.json 2>&1", $addResult);
-        exec("cd \"{$rootPath}\" && git commit -m \"Regenerate manifest v{$manifest['version']}\" --allow-empty 2>&1", $commitResult);
-        exec("cd \"{$rootPath}\" && git push origin main 2>&1", $pushOriginResult, $pushOriginCode);
+        exec("cd /d \"{$rootPath}\" && {$git} add update_manifest.json 2>&1", $addResult);
+        exec("cd /d \"{$rootPath}\" && {$git} commit -m \"Regenerate manifest v{$manifest['version']}\" --allow-empty 2>&1", $commitResult);
+        exec("cd /d \"{$rootPath}\" && {$git} push origin main 2>&1", $pushOriginResult, $pushOriginCode);
         log_message('info', '[GenerateManifest] Push to origin: ' . implode("\n", $pushOriginResult ?? []));
 
         // Step 4: Push orphan ke update repo (Sakajaya/sikap-update)
@@ -636,15 +640,20 @@ class Updater extends BaseController
     private function pushToUpdateRepo(): array
     {
         $rootPath = rtrim(ROOTPATH, '/\\');
+        $git = '"C:\\Program Files\\Git\\cmd\\git.exe" -c safe.directory=C:/xampp/htdocs/siakad';
 
+        // Stash uncommitted changes agar tidak hilang saat checkout
+        exec("cd /d \"{$rootPath}\" && {$git} stash --include-untracked 2>&1", $stashResult);
+        $didStash = !empty($stashResult) && strpos(implode("\n", $stashResult), 'No local changes') === false;
+        log_message('info', '[pushToUpdateRepo] Stash: ' . implode(" ", $stashResult));
+
+        $version = defined('APP_VERSION') ? APP_VERSION : '1.0.0';
         $commands = [
-            'git checkout --orphan _update_push 2>&1',
-            'git reset 2>&1',
-            'git add app/ public/ update_manifest.json README.md .gitattributes 2>&1',
-            'git commit -m "v' . (defined('APP_VERSION') ? APP_VERSION : '1.0.0') . ' - Release ' . date('Y-m-d H:i') . '" 2>&1',
-            'git push update _update_push:main --force 2>&1',
-            'git checkout main --force 2>&1',
-            'git branch -D _update_push 2>&1',
+            "{$git} checkout --orphan _update_push 2>&1",
+            "{$git} reset 2>&1",
+            "{$git} add app/ public/ update_manifest.json README.md .gitattributes 2>&1",
+            "{$git} commit -m \"v{$version} - Release " . date('Y-m-d H:i') . "\" 2>&1",
+            "{$git} push update _update_push:main --force 2>&1",
         ];
 
         $output = [];
@@ -654,18 +663,26 @@ class Updater extends BaseController
         foreach ($commands as $cmd) {
             $result = null;
             $exitCode = 0;
-            exec("cd \"{$rootPath}\" && {$cmd}", $result, $exitCode);
+            exec("cd /d \"{$rootPath}\" && {$cmd}", $result, $exitCode);
 
             $resultStr = implode("\n", $result ?? []);
             $output[] = $cmd . ' => ' . $resultStr;
 
-            if (strpos($cmd, 'git push update') !== false && $exitCode !== 0) {
+            if (strpos($cmd, 'push update') !== false && $exitCode !== 0) {
                 $success = false;
                 $error = $resultStr;
-                exec("cd \"{$rootPath}\" && git checkout main --force 2>&1");
-                exec("cd \"{$rootPath}\" && git branch -D _update_push 2>&1");
                 break;
             }
+        }
+
+        // Selalu kembali ke main dan restore stash
+        exec("cd /d \"{$rootPath}\" && {$git} checkout main --force 2>&1", $checkoutResult);
+        exec("cd /d \"{$rootPath}\" && {$git} branch -D _update_push 2>&1", $branchResult);
+
+        // Restore stash jika ada
+        if ($didStash) {
+            exec("cd /d \"{$rootPath}\" && {$git} stash pop 2>&1", $popResult);
+            log_message('info', '[pushToUpdateRepo] Stash pop: ' . implode(" ", $popResult ?? []));
         }
 
         log_message('info', 'Push to update repo: ' . ($success ? 'SUCCESS' : 'FAILED') . "\n" . implode("\n", $output));

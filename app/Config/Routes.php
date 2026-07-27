@@ -602,6 +602,22 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('changelogs/save', 'Changelogs::save');
     $routes->get('changelogs/delete/(:num)', 'Changelogs::delete/$1');
 
+    // ── Perpustakaan Digital (Admin, Guru Wali Kelas, Staf TU) ──────────────
+    $auth137 = ['filter' => 'auth:1,3,7'];
+    $routes->get('ebook', 'Ebook::index', $auth137);
+    $routes->get('ebook/create', 'Ebook::create', $auth137);
+    $routes->post('ebook/store', 'Ebook::store', $auth137);
+    $routes->get('ebook/edit/(:num)', 'Ebook::edit/$1', $auth137);
+    $routes->post('ebook/update/(:num)', 'Ebook::update/$1', $auth137);
+    $routes->post('ebook/replace/(:num)', 'Ebook::replace/$1', $auth137);
+    $routes->post('ebook/delete/(:num)', 'Ebook::delete/$1', $auth137);
+    $routes->get('ebook/get-religion/(:num)', 'Ebook::getSubjectReligion/$1', $auth137);
+
+    // File serving (all authenticated roles with ebook access)
+    $auth1357 = ['filter' => 'auth:1,3,5,7'];
+    $routes->get('ebook/file/read/(:num)', 'EbookFile::read/$1', $auth1357);
+    $routes->get('ebook/file/download/(:num)', 'EbookFile::download/$1', $auth1357);
+
     // ── Absensi Guru ──────────────────────────────────────────────────────────
     $routes->get('teacher-attendance', 'TeacherAttendance::index', ['filter' => 'auth:1,7']);
     $routes->post('teacher-attendance/save', 'TeacherAttendance::save', ['filter' => 'auth:1,7']);
@@ -652,6 +668,11 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
     $routes->get('cbt/hasil/(:num)', 'Cbt::hasil/$1');
     $routes->post('cbt/saveAnswersBulk', 'Cbt::saveAnswersBulk');
     $routes->get('cbt/saveAnswersBulk', 'Cbt::saveAnswersBulk');
+
+    // Perpustakaan Digital Siswa
+    $routes->get('ebook', 'Ebook::index');
+    $routes->get('ebook/read/(:num)', 'Ebook::read/$1');
+    $routes->get('ebook/download/(:num)', 'Ebook::download/$1');
 });
 
 // ==================== OTHER ROUTES ====================

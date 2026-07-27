@@ -53,6 +53,13 @@
       </a>
     </li>
 
+    <!-- Perpustakaan Digital -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('siswa/ebook*') ? 'active' : '' ?>" href="<?= site_url('siswa/ebook') ?>">
+        📚 <span class="label">Perpustakaan Digital</span>
+      </a>
+    </li>
+
     <!-- CBT -->
     <li class="nav-item">
       <a class="nav-link <?= url_is('siswa/cbt*') ? 'active' : '' ?>" href="<?= site_url('siswa/cbt') ?>">
