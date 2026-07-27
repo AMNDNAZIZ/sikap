@@ -20,7 +20,7 @@ class Ebook extends BaseController
     }
 
     /**
-     * Daftar buku digital siswa (filtered by level + religion)
+     * Daftar buku digital siswa (filtered by level + religion, plus umum books)
      */
     public function index()
     {
@@ -43,15 +43,19 @@ class Ebook extends BaseController
 
         $builder = $this->ebookModel->withSubject();
 
-        // Filter by student level
-        $builder->filterByLevel($studentData['level']);
+        // Filter: student's level OR umum books
+        $builder->filterByLevelOrUmum($studentData['level']);
 
         // Filter out religion books that don't match student's religion
+        // But umum books skip religion filter entirely
         $builder->groupStart()
-            ->where('ebooks.religion IS NULL')
-            ->orWhere('ebooks.religion', '')
-            ->orWhere('ebooks.religion', $studentData['religion'] ?? '')
-            ->groupEnd();
+            ->where('ebooks.book_type', 'umum')
+            ->orGroupStart()
+                ->where('ebooks.religion IS NULL')
+                ->orWhere('ebooks.religion', '')
+                ->orWhere('ebooks.religion', $studentData['religion'] ?? '')
+            ->groupEnd()
+        ->groupEnd();
 
         if (!empty($search)) {
             $builder->search($search);

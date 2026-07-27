@@ -33,45 +33,61 @@
         <form action="<?= base_url('admin/ebook/update/' . $book['id']) ?>" method="post">
           <?= csrf_field() ?>
 
+          <?php if (!empty($canManageUmum)): ?>
+          <div class="mb-3">
+            <label class="form-label">Jenis Buku <span class="text-danger">*</span></label>
+            <select name="book_type" id="book_type" class="form-select" required>
+              <option value="mapel" <?= old('book_type', $book['book_type'] ?? 'mapel') === 'mapel' ? 'selected' : '' ?>>📘 Buku Mata Pelajaran</option>
+              <option value="umum" <?= old('book_type', $book['book_type'] ?? 'mapel') === 'umum' ? 'selected' : '' ?>>📖 Buku Umum (Lintas Kelas)</option>
+            </select>
+            <div class="form-text">Buku Umum dapat diakses oleh semua siswa tanpa batasan kelas.</div>
+          </div>
+          <?php else: ?>
+          <input type="hidden" name="book_type" value="<?= esc($book['book_type'] ?? 'mapel') ?>">
+          <?php endif; ?>
+
           <div class="mb-3">
             <label class="form-label">Judul Buku <span class="text-danger">*</span></label>
             <input type="text" name="title" class="form-control" maxlength="255" required
                    value="<?= old('title', $book['title']) ?>">
           </div>
 
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label class="form-label">Level Kelas <span class="text-danger">*</span></label>
-              <select name="level" class="form-select" required>
-                <?php for ($i = 1; $i <= 6; $i++): ?>
-                  <?php if (in_array($i, $allowedLevels)): ?>
-                    <option value="<?= $i ?>" <?= old('level', $book['level']) == $i ? 'selected' : '' ?>>Kelas <?= $i ?></option>
-                  <?php endif; ?>
-                <?php endfor; ?>
-              </select>
+          <div id="mapelFields">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Level Kelas <span class="text-danger">*</span></label>
+                <select name="level" id="levelSelect" class="form-select" required>
+                  <option value="">-- Pilih Level --</option>
+                  <?php for ($i = 1; $i <= 6; $i++): ?>
+                    <?php if (in_array($i, $allowedLevels)): ?>
+                      <option value="<?= $i ?>" <?= old('level', $book['level']) == $i ? 'selected' : '' ?>>Kelas <?= $i ?></option>
+                    <?php endif; ?>
+                  <?php endfor; ?>
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Mata Pelajaran <span class="text-danger">*</span></label>
+                <select name="subject_id" id="subject_id" class="form-select" required>
+                  <option value="">-- Pilih Mapel --</option>
+                  <?php foreach ($subjects as $s): ?>
+                    <option value="<?= $s['id'] ?>" <?= old('subject_id', $book['subject_id']) == $s['id'] ? 'selected' : '' ?>><?= esc($s['name']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
             </div>
-            <div class="col-md-6 mb-3">
-              <label class="form-label">Mata Pelajaran <span class="text-danger">*</span></label>
-              <select name="subject_id" id="subject_id" class="form-select" required>
-                <option value="">-- Pilih Mapel --</option>
-                <?php foreach ($subjects as $s): ?>
-                  <option value="<?= $s['id'] ?>" <?= old('subject_id', $book['subject_id']) == $s['id'] ? 'selected' : '' ?>><?= esc($s['name']) ?></option>
+
+            <div class="mb-3" id="religionGroup" style="display:none;">
+              <label class="form-label">Agama <span class="text-danger">*</span></label>
+              <select name="religion" id="religion" class="form-select">
+                <option value="">-- Pilih Agama --</option>
+                <?php
+                $religions = ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu'];
+                foreach ($religions as $r):
+                ?>
+                  <option value="<?= $r ?>" <?= old('religion', $book['religion']) === $r ? 'selected' : '' ?>><?= $r ?></option>
                 <?php endforeach; ?>
               </select>
             </div>
-          </div>
-
-          <div class="mb-3" id="religionGroup" style="display:none;">
-            <label class="form-label">Agama <span class="text-danger">*</span></label>
-            <select name="religion" id="religion" class="form-select">
-              <option value="">-- Pilih Agama --</option>
-              <?php
-              $religions = ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu'];
-              foreach ($religions as $r):
-              ?>
-                <option value="<?= $r ?>" <?= old('religion', $book['religion']) === $r ? 'selected' : '' ?>><?= $r ?></option>
-              <?php endforeach; ?>
-            </select>
           </div>
 
           <div class="mb-3">
@@ -114,10 +130,33 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  const bookTypeSelect = document.getElementById('book_type');
+  const mapelFields = document.getElementById('mapelFields');
+  const levelSelect = document.getElementById('levelSelect');
   const subjectSelect = document.getElementById('subject_id');
   const religionGroup = document.getElementById('religionGroup');
   const religionSelect = document.getElementById('religion');
   const replaceFile = document.getElementById('replaceFile');
+
+  // Toggle mapel fields based on book type
+  function toggleBookType() {
+    if (!bookTypeSelect) return;
+    const isUmum = bookTypeSelect.value === 'umum';
+    mapelFields.style.display = isUmum ? 'none' : 'block';
+    if (isUmum) {
+      levelSelect.removeAttribute('required');
+      subjectSelect.removeAttribute('required');
+      religionSelect.removeAttribute('required');
+    } else {
+      levelSelect.setAttribute('required', 'required');
+      subjectSelect.setAttribute('required', 'required');
+    }
+  }
+
+  if (bookTypeSelect) {
+    bookTypeSelect.addEventListener('change', toggleBookType);
+    toggleBookType(); // init
+  }
 
   function checkReligion(subjectId) {
     if (!subjectId) {

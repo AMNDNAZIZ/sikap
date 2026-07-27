@@ -10,7 +10,7 @@ class EbookModel extends Model
     protected $primaryKey = 'id';
     protected $useTimestamps = true;
     protected $allowedFields = [
-        'title', 'level', 'subject_id', 'religion',
+        'title', 'book_type', 'level', 'subject_id', 'religion',
         'description', 'filename', 'original_filename',
         'file_size', 'uploaded_by'
     ];
@@ -47,11 +47,23 @@ class EbookModel extends Model
     }
 
     /**
-     * Filter by level
+     * Filter by level (also includes umum books with NULL level)
      */
     public function filterByLevel($level)
     {
         $this->where('ebooks.level', $level);
+        return $this;
+    }
+
+    /**
+     * Filter by level OR umum books (for student view)
+     */
+    public function filterByLevelOrUmum($level)
+    {
+        $this->groupStart()
+             ->where('ebooks.level', $level)
+             ->orWhere('ebooks.book_type', 'umum')
+             ->groupEnd();
         return $this;
     }
 
@@ -61,6 +73,17 @@ class EbookModel extends Model
     public function filterBySubject($subjectId)
     {
         $this->where('ebooks.subject_id', $subjectId);
+        return $this;
+    }
+
+    /**
+     * Filter by book type
+     */
+    public function filterByType($type)
+    {
+        if (in_array($type, ['mapel', 'umum'])) {
+            $this->where('ebooks.book_type', $type);
+        }
         return $this;
     }
 }

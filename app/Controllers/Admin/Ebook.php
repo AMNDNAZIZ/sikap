@@ -35,12 +35,14 @@ class Ebook extends BaseController
         $search = $this->request->getGet('search');
         $levelFilter = $this->request->getGet('level');
         $subjectFilter = $this->request->getGet('subject_id');
+        $bookTypeFilter = $this->request->getGet('book_type');
 
         $builder = $this->ebookModel->withSubject();
 
-        // Wali kelas: filter by allowed levels only
+        // Wali kelas: filter by allowed levels only (mapel books) - cannot see umum
         if ((int) $user['role_id'] === 3) {
             $builder->whereIn('ebooks.level', $allowedLevels);
+            $builder->where('ebooks.book_type', 'mapel');
         }
 
         if (!empty($search)) {
@@ -51,6 +53,9 @@ class Ebook extends BaseController
         }
         if (!empty($subjectFilter)) {
             $builder->filterBySubject($subjectFilter);
+        }
+        if (!empty($bookTypeFilter)) {
+            $builder->filterByType($bookTypeFilter);
         }
 
         $books = $builder->orderBy('ebooks.created_at', 'DESC')->findAll();
@@ -67,6 +72,7 @@ class Ebook extends BaseController
             'search' => $search,
             'levelFilter' => $levelFilter,
             'subjectFilter' => $subjectFilter,
+            'bookTypeFilter' => $bookTypeFilter,
             'allowedLevels' => $allowedLevels,
         ]);
     }
@@ -91,6 +97,7 @@ class Ebook extends BaseController
         return view('admin/ebook/create', [
             'subjects' => $subjects,
             'allowedLevels' => $allowedLevels,
+            'canManageUmum' => $this->accessService->canManageUmum($user),
         ]);
     }
 
@@ -117,44 +124,77 @@ class Ebook extends BaseController
             return redirect()->back()->withInput()->with('error', 'Ukuran file melebihi batas maksimum 20MB.');
         }
 
-        // Validate metadata
-        $rules = [
-            'title' => 'required|max_length[255]',
-            'level' => 'required|integer|greater_than[0]|less_than[7]',
-            'subject_id' => 'required|integer',
-        ];
+        // Determine book type
+        $bookType = $this->request->getPost('book_type') ?? 'mapel';
+        if (!in_array($bookType, ['mapel', 'umum'])) {
+            $bookType = 'mapel';
+        }
+
+        // Wali Kelas can only upload 'mapel' type
+        if ((int) $user['role_id'] === 3 && $bookType === 'umum') {
+            return redirect()->back()->withInput()
+                ->with('error', 'Anda tidak memiliki izin untuk mengunggah Buku Umum.');
+        }
+
+        // Validate metadata based on book type
+        if ($bookType === 'mapel') {
+            $rules = [
+                'title' => 'required|max_length[255]',
+                'level' => 'required|integer|greater_than[0]|less_than[7]',
+                'subject_id' => 'required|integer',
+            ];
+        } else {
+            // umum: level and subject_id are optional
+            $rules = [
+                'title' => 'required|max_length[255]',
+            ];
+        }
 
         if (!$this->validate($rules)) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
         $title = $this->request->getPost('title');
-        $level = (int) $this->request->getPost('level');
-        $subjectId = (int) $this->request->getPost('subject_id');
         $description = $this->request->getPost('description');
 
-        // Check manage permission
-        if (!$this->accessService->canManage($user, $level)) {
-            return redirect()->back()->withInput()
-                ->with('error', 'Anda hanya dapat mengelola buku untuk level kelas yang diwalikan.');
-        }
+        if ($bookType === 'mapel') {
+            $level = (int) $this->request->getPost('level');
+            $subjectId = (int) $this->request->getPost('subject_id');
 
-        // Verify subject exists
-        $subject = $this->db->table('subjects')->where('id', $subjectId)->get()->getRowArray();
-        if (!$subject) {
-            return redirect()->back()->withInput()->with('error', 'Mata pelajaran tidak valid.');
-        }
-
-        // Handle religion field
-        $religion = null;
-        if (!empty($subject['religion'])) {
-            $religion = $this->request->getPost('religion');
-            if (empty($religion)) {
-                return redirect()->back()->withInput()->with('error', 'Field agama wajib diisi untuk mata pelajaran ini.');
+            // Check manage permission
+            if (!$this->accessService->canManage($user, $level, 'mapel')) {
+                return redirect()->back()->withInput()
+                    ->with('error', 'Anda hanya dapat mengelola buku untuk level kelas yang diwalikan.');
             }
-            $validReligions = ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu'];
-            if (!in_array($religion, $validReligions)) {
-                return redirect()->back()->withInput()->with('error', 'Nilai agama tidak valid.');
+
+            // Verify subject exists
+            $subject = $this->db->table('subjects')->where('id', $subjectId)->get()->getRowArray();
+            if (!$subject) {
+                return redirect()->back()->withInput()->with('error', 'Mata pelajaran tidak valid.');
+            }
+
+            // Handle religion field
+            $religion = null;
+            if (!empty($subject['religion'])) {
+                $religion = $this->request->getPost('religion');
+                if (empty($religion)) {
+                    return redirect()->back()->withInput()->with('error', 'Field agama wajib diisi untuk mata pelajaran ini.');
+                }
+                $validReligions = ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu'];
+                if (!in_array($religion, $validReligions)) {
+                    return redirect()->back()->withInput()->with('error', 'Nilai agama tidak valid.');
+                }
+            }
+        } else {
+            // umum: no level, no subject, no religion
+            $level = null;
+            $subjectId = null;
+            $religion = null;
+
+            // Check permission for umum
+            if (!$this->accessService->canManageUmum($user)) {
+                return redirect()->back()->withInput()
+                    ->with('error', 'Anda tidak memiliki izin untuk mengunggah Buku Umum.');
             }
         }
 
@@ -173,6 +213,7 @@ class Ebook extends BaseController
         // Save record
         $this->ebookModel->insert([
             'title' => $title,
+            'book_type' => $bookType,
             'level' => $level,
             'subject_id' => $subjectId,
             'religion' => $religion,
@@ -183,7 +224,7 @@ class Ebook extends BaseController
             'uploaded_by' => $user['id'],
         ]);
 
-        log_message('info', "Ebook uploaded: {$title} by user #{$user['id']}");
+        log_message('info', "Ebook uploaded: {$title} (type: {$bookType}) by user #{$user['id']}");
 
         return redirect()->to('/admin/ebook')->with('success', 'Buku berhasil diunggah.');
     }
@@ -200,9 +241,11 @@ class Ebook extends BaseController
             return redirect()->to('/admin/ebook')->with('error', 'Buku tidak ditemukan.');
         }
 
-        if (!$this->accessService->canManage($user, (int) $book['level'])) {
+        $bookType = $book['book_type'] ?? 'mapel';
+
+        if (!$this->accessService->canManage($user, $book['level'] ? (int) $book['level'] : null, $bookType)) {
             return redirect()->to('/admin/ebook')
-                ->with('error', 'Anda hanya dapat mengelola buku untuk level kelas yang diwalikan.');
+                ->with('error', 'Anda tidak memiliki izin untuk mengelola buku ini.');
         }
 
         $allowedLevels = $this->accessService->getAllowedLevels($user);
@@ -215,6 +258,7 @@ class Ebook extends BaseController
             'book' => $book,
             'subjects' => $subjects,
             'allowedLevels' => $allowedLevels,
+            'canManageUmum' => $this->accessService->canManageUmum($user),
         ]);
     }
 
@@ -230,52 +274,86 @@ class Ebook extends BaseController
             return redirect()->to('/admin/ebook')->with('error', 'Buku tidak ditemukan.');
         }
 
-        if (!$this->accessService->canManage($user, (int) $book['level'])) {
-            return redirect()->back()->with('error', 'Anda hanya dapat mengelola buku untuk level kelas yang diwalikan.');
+        $oldBookType = $book['book_type'] ?? 'mapel';
+
+        if (!$this->accessService->canManage($user, $book['level'] ? (int) $book['level'] : null, $oldBookType)) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki izin untuk mengelola buku ini.');
         }
 
-        $rules = [
-            'title' => 'required|max_length[255]',
-            'level' => 'required|integer|greater_than[0]|less_than[7]',
-            'subject_id' => 'required|integer',
-        ];
+        // Determine new book type
+        $bookType = $this->request->getPost('book_type') ?? 'mapel';
+        if (!in_array($bookType, ['mapel', 'umum'])) {
+            $bookType = 'mapel';
+        }
+
+        // Wali Kelas cannot change to/from umum
+        if ((int) $user['role_id'] === 3 && $bookType === 'umum') {
+            return redirect()->back()->withInput()
+                ->with('error', 'Anda tidak memiliki izin untuk mengelola Buku Umum.');
+        }
+
+        if ($bookType === 'mapel') {
+            $rules = [
+                'title' => 'required|max_length[255]',
+                'level' => 'required|integer|greater_than[0]|less_than[7]',
+                'subject_id' => 'required|integer',
+            ];
+        } else {
+            $rules = [
+                'title' => 'required|max_length[255]',
+            ];
+        }
 
         if (!$this->validate($rules)) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
         $title = $this->request->getPost('title');
-        $level = (int) $this->request->getPost('level');
-        $subjectId = (int) $this->request->getPost('subject_id');
         $description = $this->request->getPost('description');
 
-        // Check manage permission for new level
-        if (!$this->accessService->canManage($user, $level)) {
-            return redirect()->back()->withInput()
-                ->with('error', 'Anda hanya dapat mengelola buku untuk level kelas yang diwalikan.');
-        }
+        if ($bookType === 'mapel') {
+            $level = (int) $this->request->getPost('level');
+            $subjectId = (int) $this->request->getPost('subject_id');
 
-        // Verify subject
-        $subject = $this->db->table('subjects')->where('id', $subjectId)->get()->getRowArray();
-        if (!$subject) {
-            return redirect()->back()->withInput()->with('error', 'Mata pelajaran tidak valid.');
-        }
-
-        // Handle religion
-        $religion = null;
-        if (!empty($subject['religion'])) {
-            $religion = $this->request->getPost('religion');
-            if (empty($religion)) {
-                return redirect()->back()->withInput()->with('error', 'Field agama wajib diisi untuk mata pelajaran ini.');
+            // Check manage permission for new level
+            if (!$this->accessService->canManage($user, $level, 'mapel')) {
+                return redirect()->back()->withInput()
+                    ->with('error', 'Anda hanya dapat mengelola buku untuk level kelas yang diwalikan.');
             }
-            $validReligions = ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu'];
-            if (!in_array($religion, $validReligions)) {
-                return redirect()->back()->withInput()->with('error', 'Nilai agama tidak valid.');
+
+            // Verify subject
+            $subject = $this->db->table('subjects')->where('id', $subjectId)->get()->getRowArray();
+            if (!$subject) {
+                return redirect()->back()->withInput()->with('error', 'Mata pelajaran tidak valid.');
+            }
+
+            // Handle religion
+            $religion = null;
+            if (!empty($subject['religion'])) {
+                $religion = $this->request->getPost('religion');
+                if (empty($religion)) {
+                    return redirect()->back()->withInput()->with('error', 'Field agama wajib diisi untuk mata pelajaran ini.');
+                }
+                $validReligions = ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu'];
+                if (!in_array($religion, $validReligions)) {
+                    return redirect()->back()->withInput()->with('error', 'Nilai agama tidak valid.');
+                }
+            }
+        } else {
+            // umum
+            $level = null;
+            $subjectId = null;
+            $religion = null;
+
+            if (!$this->accessService->canManageUmum($user)) {
+                return redirect()->back()->withInput()
+                    ->with('error', 'Anda tidak memiliki izin untuk mengelola Buku Umum.');
             }
         }
 
         $this->ebookModel->update($id, [
             'title' => $title,
+            'book_type' => $bookType,
             'level' => $level,
             'subject_id' => $subjectId,
             'religion' => $religion,
@@ -297,8 +375,10 @@ class Ebook extends BaseController
             return redirect()->to('/admin/ebook')->with('error', 'Buku tidak ditemukan.');
         }
 
-        if (!$this->accessService->canManage($user, (int) $book['level'])) {
-            return redirect()->back()->with('error', 'Anda hanya dapat mengelola buku untuk level kelas yang diwalikan.');
+        $bookType = $book['book_type'] ?? 'mapel';
+
+        if (!$this->accessService->canManage($user, $book['level'] ? (int) $book['level'] : null, $bookType)) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki izin untuk mengelola buku ini.');
         }
 
         $file = $this->request->getFile('pdf_file');
@@ -353,13 +433,15 @@ class Ebook extends BaseController
             return redirect()->to('/admin/ebook')->with('error', 'Buku tidak ditemukan.');
         }
 
-        if (!$this->accessService->canManage($user, (int) $book['level'])) {
+        $bookType = $book['book_type'] ?? 'mapel';
+
+        if (!$this->accessService->canManage($user, $book['level'] ? (int) $book['level'] : null, $bookType)) {
             if ($this->request->isAJAX()) {
                 return $this->response->setStatusCode(403)
-                    ->setJSON(['status' => 'error', 'message' => 'Anda hanya dapat mengelola buku untuk level kelas yang diwalikan.']);
+                    ->setJSON(['status' => 'error', 'message' => 'Anda tidak memiliki izin untuk mengelola buku ini.']);
             }
             return redirect()->to('/admin/ebook')
-                ->with('error', 'Anda hanya dapat mengelola buku untuk level kelas yang diwalikan.');
+                ->with('error', 'Anda tidak memiliki izin untuk mengelola buku ini.');
         }
 
         // Delete file

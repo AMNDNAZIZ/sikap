@@ -49,14 +49,22 @@
           <div class="card h-100 shadow-sm">
             <div class="card-body d-flex flex-column">
               <div class="d-flex justify-content-between align-items-start mb-2">
-                <span class="badge bg-info">Kelas <?= $book['level'] ?></span>
+                <?php if (($book['book_type'] ?? 'mapel') === 'umum'): ?>
+                  <span class="badge bg-success">📖 Umum</span>
+                <?php else: ?>
+                  <span class="badge bg-info">Kelas <?= $book['level'] ?></span>
+                <?php endif; ?>
                 <?php if (!empty($book['religion'])): ?>
                   <span class="badge bg-secondary"><?= esc($book['religion']) ?></span>
                 <?php endif; ?>
               </div>
               <h6 class="card-title"><?= esc($book['title']) ?></h6>
               <p class="card-text text-muted small flex-grow-1">
-                📘 <?= esc($book['subject_name'] ?? '-') ?>
+                <?php if (($book['book_type'] ?? 'mapel') === 'umum'): ?>
+                  📖 Buku Umum
+                <?php else: ?>
+                  📘 <?= esc($book['subject_name'] ?? '-') ?>
+                <?php endif; ?>
                 <?php if (!empty($book['description'])): ?>
                   <br><?= esc(mb_substr($book['description'], 0, 100)) ?><?= mb_strlen($book['description'] ?? '') > 100 ? '...' : '' ?>
                 <?php endif; ?>

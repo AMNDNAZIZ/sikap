@@ -10,10 +10,17 @@ class EbookAccessService
     public function canAccess(array $user, array $book): bool
     {
         $roleId = (int) ($user['role_id'] ?? 0);
+        $bookType = $book['book_type'] ?? 'mapel';
 
         // Admin & Staf TU = full access
         if (in_array($roleId, [1, 7])) {
             return true;
+        }
+
+        // Buku Umum: any authenticated user with valid role can access
+        if ($bookType === 'umum') {
+            // Guru and Siswa can access umum books
+            return in_array($roleId, [3, 5]);
         }
 
         // Guru (Wali Kelas) = check level matches
@@ -49,8 +56,9 @@ class EbookAccessService
 
     /**
      * Cek apakah pengelola boleh mengelola (create/edit/delete) buku pada level tertentu
+     * For umum books, pass level=0 or null
      */
-    public function canManage(array $user, int $level): bool
+    public function canManage(array $user, ?int $level, string $bookType = 'mapel'): bool
     {
         $roleId = (int) ($user['role_id'] ?? 0);
 
@@ -59,8 +67,17 @@ class EbookAccessService
             return true;
         }
 
-        // Guru = check level in allowed levels
+        // Guru (Wali Kelas): can only manage 'mapel' type books at their level
         if ($roleId === 3) {
+            // Wali Kelas cannot manage umum books
+            if ($bookType === 'umum') {
+                return false;
+            }
+
+            if ($level === null || $level === 0) {
+                return false;
+            }
+
             $allowedLevels = $this->getAllowedLevels($user);
             return in_array($level, $allowedLevels);
         }
@@ -108,6 +125,15 @@ class EbookAccessService
         }
 
         return [];
+    }
+
+    /**
+     * Cek apakah user bisa mengelola buku umum (hanya Admin & Staf TU)
+     */
+    public function canManageUmum(array $user): bool
+    {
+        $roleId = (int) ($user['role_id'] ?? 0);
+        return in_array($roleId, [1, 7]);
     }
 
     /**

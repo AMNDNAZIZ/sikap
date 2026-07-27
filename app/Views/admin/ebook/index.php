@@ -9,8 +9,15 @@
 
 <!-- Filter & Search -->
 <form method="get" action="<?= base_url('admin/ebook') ?>" class="row g-2 mb-3">
-  <div class="col-md-4">
+  <div class="col-md-3">
     <input type="text" name="search" class="form-control form-control-sm" placeholder="🔍 Cari judul atau mapel..." value="<?= esc($search ?? '') ?>">
+  </div>
+  <div class="col-md-2">
+    <select name="book_type" class="form-select form-select-sm">
+      <option value="">Semua Jenis</option>
+      <option value="mapel" <?= ($bookTypeFilter ?? '') === 'mapel' ? 'selected' : '' ?>>📘 Mapel</option>
+      <option value="umum" <?= ($bookTypeFilter ?? '') === 'umum' ? 'selected' : '' ?>>📖 Umum</option>
+    </select>
   </div>
   <div class="col-md-2">
     <select name="level" class="form-select form-select-sm">
@@ -20,7 +27,7 @@
       <?php endfor; ?>
     </select>
   </div>
-  <div class="col-md-3">
+  <div class="col-md-2">
     <select name="subject_id" class="form-select form-select-sm">
       <option value="">Semua Mapel</option>
       <?php foreach ($subjects as $s): ?>
@@ -31,7 +38,7 @@
   <div class="col-md-2">
     <button type="submit" class="btn btn-outline-secondary btn-sm w-100">Filter</button>
   </div>
-  <?php if (!empty($search) || !empty($levelFilter) || !empty($subjectFilter)): ?>
+  <?php if (!empty($search) || !empty($levelFilter) || !empty($subjectFilter) || !empty($bookTypeFilter)): ?>
     <div class="col-md-1">
       <a href="<?= base_url('admin/ebook') ?>" class="btn btn-outline-danger btn-sm w-100">✕</a>
     </div>
@@ -63,6 +70,7 @@
         <tr>
           <th>#</th>
           <th>Judul</th>
+          <th>Jenis</th>
           <th>Level</th>
           <th>Mata Pelajaran</th>
           <th>Agama</th>
@@ -80,7 +88,20 @@
                 <br><small class="text-muted"><?= esc(mb_substr($book['description'], 0, 80)) ?><?= mb_strlen($book['description']) > 80 ? '...' : '' ?></small>
               <?php endif; ?>
             </td>
-            <td><span class="badge bg-info">Kelas <?= $book['level'] ?></span></td>
+            <td>
+              <?php if (($book['book_type'] ?? 'mapel') === 'umum'): ?>
+                <span class="badge bg-success">📖 Umum</span>
+              <?php else: ?>
+                <span class="badge bg-primary">📘 Mapel</span>
+              <?php endif; ?>
+            </td>
+            <td>
+              <?php if (!empty($book['level'])): ?>
+                <span class="badge bg-info">Kelas <?= $book['level'] ?></span>
+              <?php else: ?>
+                <span class="text-muted">Semua</span>
+              <?php endif; ?>
+            </td>
             <td><?= esc($book['subject_name'] ?? '-') ?></td>
             <td><?= esc($book['religion'] ?? '-') ?></td>
             <td><?= number_format(($book['file_size'] ?? 0) / 1048576, 1) ?> MB</td>
