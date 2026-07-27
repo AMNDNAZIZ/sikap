@@ -8,17 +8,21 @@ class AddIsActiveToClasses extends Migration
 {
     public function up()
     {
-        $this->forge->addColumn('classes', [
-            'is_active' => [
-                'type'       => 'BOOLEAN',
-                'default'    => true,
-                'null'       => false,
-            ],
-        ]);
+        if (!$this->db->fieldExists('is_active', 'classes')) {
+            $this->forge->addColumn('classes', [
+                'is_active' => [
+                    'type'       => 'BOOLEAN',
+                    'default'    => true,
+                    'null'       => false,
+                ],
+            ]);
+        }
     }
 
     public function down()
     {
-        $this->forge->dropColumn('classes', 'is_active');
+        if ($this->db->fieldExists('is_active', 'classes')) {
+            $this->forge->dropColumn('classes', 'is_active');
+        }
     }
 }

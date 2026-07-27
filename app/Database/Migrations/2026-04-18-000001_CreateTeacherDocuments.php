@@ -22,11 +22,11 @@ class CreateTeacherDocuments extends Migration
         $this->forge->addKey('id', true);
         $this->forge->addKey('teacher_id');
         $this->forge->addForeignKey('teacher_id', 'teachers', 'id', 'CASCADE', 'CASCADE');
-        $this->forge->createTable('teacher_documents');
+        $this->forge->createTable('teacher_documents', true);
     }
 
     public function down()
     {
-        $this->forge->dropTable('teacher_documents');
+        $this->forge->dropTable('teacher_documents', true);
     }
 }

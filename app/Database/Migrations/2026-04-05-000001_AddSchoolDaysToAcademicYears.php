@@ -24,6 +24,8 @@ class AddSchoolDaysToAcademicYears extends Migration
 
     public function down()
     {
-        $this->forge->dropColumn('academic_years', 'school_days');
+        if ($this->db->fieldExists('school_days', 'academic_years')) {
+            $this->forge->dropColumn('academic_years', 'school_days');
+        }
     }
 }

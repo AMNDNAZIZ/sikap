@@ -17,7 +17,7 @@ class CreateSuratMenyuratTables extends Migration
         ]);
         $this->forge->addKey('id', true);
         $this->forge->addUniqueKey('year');
-        $this->forge->createTable('letter_number_sequences');
+        $this->forge->createTable('letter_number_sequences', true);
 
         // 2. outgoing_letters (Surat Keluar)
         $this->forge->addField([
@@ -71,7 +71,7 @@ class CreateSuratMenyuratTables extends Migration
         $this->forge->addKey('issued_at');
         $this->forge->addKey('letter_type');
         $this->forge->addKey('status');
-        $this->forge->createTable('outgoing_letters');
+        $this->forge->createTable('outgoing_letters', true);
 
         // 3. incoming_letters (Surat Masuk)
         $this->forge->addField([
@@ -107,7 +107,7 @@ class CreateSuratMenyuratTables extends Migration
         $this->forge->addKey('id', true);
         $this->forge->addKey('received_at');
         $this->forge->addKey('sender_name');
-        $this->forge->createTable('incoming_letters');
+        $this->forge->createTable('incoming_letters', true);
 
         // Add FK to outgoing_letters -> reference_incoming_id
         // (Note: in MySQL, FK needs to reference the exact same type)
@@ -126,7 +126,7 @@ class CreateSuratMenyuratTables extends Migration
         ]);
         $this->forge->addKey('id', true);
         $this->forge->addKey('qr_code_id');
-        $this->forge->createTable('qr_verifications');
+        $this->forge->createTable('qr_verifications', true);
 
         // 5. audit_logs (Log Aktivitas Surat)
         $this->forge->addField([
@@ -142,15 +142,15 @@ class CreateSuratMenyuratTables extends Migration
         ]);
         $this->forge->addKey('id', true);
         $this->forge->addKey('entity_id');
-        $this->forge->createTable('letter_audit_logs'); // Ganti nama agar tidak bentrok dengan audit_logs sistem SIKAP jika ada
+        $this->forge->createTable('letter_audit_logs', true); // Ganti nama agar tidak bentrok dengan audit_logs sistem SIKAP jika ada
     }
 
     public function down(): void
     {
-        $this->forge->dropTable('letter_audit_logs');
-        $this->forge->dropTable('qr_verifications');
-        $this->forge->dropTable('incoming_letters');
-        $this->forge->dropTable('outgoing_letters');
-        $this->forge->dropTable('letter_number_sequences');
+        $this->forge->dropTable('letter_audit_logs', true);
+        $this->forge->dropTable('qr_verifications', true);
+        $this->forge->dropTable('incoming_letters', true);
+        $this->forge->dropTable('outgoing_letters', true);
+        $this->forge->dropTable('letter_number_sequences', true);
     }
 }

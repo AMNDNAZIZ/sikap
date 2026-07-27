@@ -38,11 +38,17 @@ class AddCreatedByToCbtExamNames extends Migration
     public function down()
     {
         // Drop foreign key first
-        if ($this->db->DBDriver !== 'SQLite3') {
-            $this->forge->dropForeignKey('cbt_exam_names', 'fk_cbt_exam_names_created_by');
+        if ($this->db->fieldExists('created_by', 'cbt_exam_names')) {
+            if ($this->db->DBDriver !== 'SQLite3') {
+                try {
+                    $this->forge->dropForeignKey('cbt_exam_names', 'fk_cbt_exam_names_created_by');
+                } catch (\Exception $e) {
+                    // FK may not exist
+                }
+            }
+            
+            // Drop column
+            $this->forge->dropColumn('cbt_exam_names', 'created_by');
         }
-        
-        // Drop column
-        $this->forge->dropColumn('cbt_exam_names', 'created_by');
     }
 }

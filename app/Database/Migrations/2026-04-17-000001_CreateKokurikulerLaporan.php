@@ -20,11 +20,11 @@ class CreateKokurikulerLaporan extends Migration
         $this->forge->addKey('id', true);
         $this->forge->addUniqueKey('document_id');
         $this->forge->addForeignKey('document_id', 'kokurikuler_documents', 'id', 'CASCADE', 'CASCADE');
-        $this->forge->createTable('kokurikuler_laporan');
+        $this->forge->createTable('kokurikuler_laporan', true);
     }
 
     public function down()
     {
-        $this->forge->dropTable('kokurikuler_laporan');
+        $this->forge->dropTable('kokurikuler_laporan', true);
     }
 }

@@ -104,11 +104,11 @@ class CreateKokurikulerTables extends Migration
         $this->forge->addKey('id', true);
         $this->forge->addKey('year_id');
         $this->forge->addKey('created_by');
-        $this->forge->createTable('kokurikuler_documents');
+        $this->forge->createTable('kokurikuler_documents', true);
     }
 
     public function down()
     {
-        $this->forge->dropTable('kokurikuler_documents');
+        $this->forge->dropTable('kokurikuler_documents', true);
     }
 }
