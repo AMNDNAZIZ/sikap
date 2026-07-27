@@ -1,6 +1,6 @@
 {
     "version": "1.2.7",
-    "generated": "2026-07-27 18:04:37",
+    "generated": "2026-07-27 18:55:43",
     "last_update": "2026-07-27 10:00",
     "total_files": 787,
     "files": {
@@ -81,7 +81,7 @@
         "app/Controllers/Admin/Cms/Links.php": "d44f1e8b761a8bb9e1a045371f43a0f0",
         "app/Controllers/Admin/Cms/Sliders.php": "2ca62ceb67f2b692b2f97e7b40ad48b5",
         "app/Controllers/Admin/Dapodik.php": "8761d6fa403d969cd70910206d517a25",
-        "app/Controllers/Admin/Ebook.php": "8a3faf400aadb28dc79d59c44078cb4f",
+        "app/Controllers/Admin/Ebook.php": "a2def7bf57cc9ee4ad402b6c6fc3c101",
         "app/Controllers/Admin/EbookFile.php": "0a2e4e3a5864283dbfe94f1187682bff",
         "app/Controllers/Admin/Erapor.php": "453d2338ae19605c400d5a0d7f004fcb",
         "app/Controllers/Admin/ExamAttendance.php": "2ce5aa68461a3f5fe7983d9bb9980894",
@@ -410,8 +410,8 @@
         "app/Views/admin/dapodik/index.php": "f8d40ced42f6706ad25ca4914edccd46",
         "app/Views/admin/dapodik/preview_students.php": "860b9f91f00b60480d4f422eb4c5ca6b",
         "app/Views/admin/dapodik/preview_teachers.php": "704c385d00d6030d2fc7c71be8d33bdc",
-        "app/Views/admin/ebook/create.php": "12163661a0a735d4b36068886cc3b62b",
-        "app/Views/admin/ebook/edit.php": "61c6f8ee78c83220627f1b68df65bac2",
+        "app/Views/admin/ebook/create.php": "79c610d49ddf16492e6d45414d0c75b7",
+        "app/Views/admin/ebook/edit.php": "ee1e2a25e05dc89c2f25c3bf713d16d4",
         "app/Views/admin/ebook/index.php": "8098cddb433484691f850c2f4ed169c4",
         "app/Views/admin/erapor/index_admin.php": "0b486e6d9ac3e60185de2105051c75f2",
         "app/Views/admin/erapor/input.php": "b144a09137ca57afc32b5d438bc72bf2",
