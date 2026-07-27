@@ -118,7 +118,7 @@
           <?= csrf_field() ?>
           <div class="mb-3">
             <input type="file" name="pdf_file" class="form-control form-control-sm" accept="application/pdf,.pdf" required id="replaceFile">
-            <div class="form-text">Format: PDF, Maks: 20MB</div>
+            <div class="form-text">Format: PDF, Maks: 40MB</div>
             <div id="replaceError" class="text-danger small" style="display:none;"></div>
           </div>
           <button type="submit" class="btn btn-warning btn-sm">🔄 Ganti File PDF</button>
@@ -196,8 +196,8 @@ document.addEventListener('DOMContentLoaded', function() {
       this.value = '';
       return;
     }
-    if (file.size > 20971520) {
-      errorDiv.textContent = 'Ukuran file melebihi 20MB.';
+    if (file.size > 41943040) {
+      errorDiv.textContent = 'Ukuran file melebihi 40MB.';
       errorDiv.style.display = 'block';
       this.value = '';
       return;

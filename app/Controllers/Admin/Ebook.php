@@ -119,9 +119,9 @@ class Ebook extends BaseController
             return redirect()->back()->withInput()->with('error', 'Format file harus PDF.');
         }
 
-        // Check size (20MB = 20971520 bytes)
-        if ($file->getSize() > 20971520) {
-            return redirect()->back()->withInput()->with('error', 'Ukuran file melebihi batas maksimum 20MB.');
+        // Check size (40MB = 41943040 bytes)
+        if ($file->getSize() > 41943040) {
+            return redirect()->back()->withInput()->with('error', 'Ukuran file melebihi batas maksimum 40MB.');
         }
 
         // Determine book type
@@ -390,8 +390,8 @@ class Ebook extends BaseController
             return redirect()->back()->with('error', 'Format file harus PDF.');
         }
 
-        if ($file->getSize() > 20971520) {
-            return redirect()->back()->with('error', 'Ukuran file melebihi batas maksimum 20MB.');
+        if ($file->getSize() > 41943040) {
+            return redirect()->back()->with('error', 'Ukuran file melebihi batas maksimum 40MB.');
         }
 
         // Delete old file

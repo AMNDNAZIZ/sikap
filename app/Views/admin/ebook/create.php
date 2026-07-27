@@ -87,7 +87,7 @@
       <div class="mb-3">
         <label class="form-label">File PDF <span class="text-danger">*</span></label>
         <input type="file" name="pdf_file" class="form-control" accept="application/pdf,.pdf" required id="pdfFile">
-        <div class="form-text">Format: PDF, Maksimum: 20MB</div>
+        <div class="form-text">Format: PDF, Maksimum: 40MB</div>
         <div id="fileError" class="text-danger small" style="display:none;"></div>
       </div>
 
@@ -160,8 +160,8 @@ document.addEventListener('DOMContentLoaded', function() {
       this.value = '';
       return;
     }
-    if (file.size > 20971520) {
-      errorDiv.textContent = 'Ukuran file melebihi batas maksimum 20MB.';
+    if (file.size > 41943040) {
+      errorDiv.textContent = 'Ukuran file melebihi batas maksimum 40MB.';
       errorDiv.style.display = 'block';
       this.value = '';
       return;
