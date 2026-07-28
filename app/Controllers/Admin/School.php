@@ -68,6 +68,7 @@ class School extends BaseController
             'headmaster' => $this->request->getPost('headmaster'),
             'principal_nip' => $this->request->getPost('principal_nip'),
             'level' => $this->request->getPost('level'),
+            'status' => $this->request->getPost('status'),
             'vision' => $this->request->getPost('vision'),
             'mission' => $this->request->getPost('mission'),
             'facebook' => $this->request->getPost('facebook'),
@@ -101,6 +102,9 @@ class School extends BaseController
             }
             $model->insert($data);
         }
+
+        // Clear cached school status agar perubahan status langsung berlaku
+        cache()->delete('school_status');
 
         return redirect()->to('/admin/school')->with('success', 'Identitas sekolah berhasil disimpan');
     }

@@ -6,6 +6,27 @@
 <?php if (session()->getFlashdata('error')): ?>
   <div class="alert alert-danger"><?= session()->getFlashdata('error') ?></div>
 <?php endif; ?>
+<?php if (session()->getFlashdata('success')): ?>
+  <div class="alert alert-success"><?= session()->getFlashdata('success') ?></div>
+<?php endif; ?>
+
+<!-- Mode Harian (Mobile-Friendly) -->
+<?php if (!empty($classes)): ?>
+<div class="card border-0 shadow-sm rounded-3 mb-4">
+  <div class="card-body p-3">
+    <h6 class="fw-bold mb-2"><i class="bi bi-phone me-1"></i> Mode Harian (Cepat)</h6>
+    <p class="text-muted small mb-3">Cocok untuk pengisian absensi dari HP. Langsung isi absensi hari ini per kelas.</p>
+    <div class="d-flex flex-wrap gap-2">
+      <?php foreach ($classes as $c): ?>
+        <a href="<?= base_url('admin/attendance/daily?class_id=' . $c['id'] . '&date=' . date('Y-m-d')) ?>"
+           class="btn btn-outline-primary btn-sm rounded-pill">
+          <?= esc($c['name']) ?>
+        </a>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 
 <form method="get" id="form-laporan" action="<?= base_url('admin/attendance/view') ?>" class="mt-3 row g-3">
 

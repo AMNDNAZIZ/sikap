@@ -351,6 +351,82 @@ class Attendance extends BaseController
 
 
     /**
+     * Mode harian (mobile-friendly) — tampilkan absensi 1 hari dalam format card/list.
+     * Default menampilkan hari ini, tapi bisa pilih tanggal lain.
+     */
+    public function daily()
+    {
+        $classId = $this->request->getGet('class_id');
+        $date = $this->request->getGet('date') ?? date('Y-m-d');
+
+        if (!$classId) {
+            return redirect()->to('/admin/attendance')->with('error', 'Pilih kelas terlebih dahulu.');
+        }
+
+        if (!$this->canAccessAttendance($classId)) {
+            return redirect()->to('/dashboard')->with('error', 'Akses ditolak.');
+        }
+
+        $class = $this->classModel->find($classId);
+        if (!$class) {
+            return redirect()->to('/admin/attendance')->with('error', 'Kelas tidak ditemukan.');
+        }
+
+        $activeYear = $this->yearModel->getActiveYear() ?: [];
+        $schoolDays = $activeYear['school_days'] ?? 5;
+        $students = $this->getStudentsByClass((int) $classId, $activeYear);
+
+        // Cek apakah tanggal ini hari libur
+        $isWeekend = is_weekend($date, $schoolDays);
+        $holiday = $this->holidayModel->where('date', $date)->first();
+        $isHoliday = $isWeekend || !empty($holiday);
+        $holidayDesc = '';
+        if ($isWeekend) {
+            $holidayDesc = (date('N', strtotime($date)) == 6) ? 'Sabtu' : 'Minggu';
+        } elseif ($holiday) {
+            $holidayDesc = $holiday['description'] ?? 'Hari Libur';
+        }
+
+        // Cek apakah tanggal di luar tahun ajaran
+        $yearStart = date('Y-m-d', strtotime($activeYear['start_date']));
+        $yearEnd = date('Y-m-d', strtotime($activeYear['end_date']));
+        if ($date < $yearStart || $date > $yearEnd) {
+            $isHoliday = true;
+            $holidayDesc = 'Di luar periode tahun ajaran';
+        }
+
+        // Ambil data absensi untuk tanggal ini
+        $attendances = $this->attendanceModel
+            ->where('class_id', $classId)
+            ->where('date', $date)
+            ->findAll();
+
+        $attMap = [];
+        foreach ($attendances as $a) {
+            $attMap[$a['student_id']] = $a['status'];
+        }
+
+        $today = date('Y-m-d');
+        $isFuture = $date > $today;
+        $isReadonly = (session()->get('user')['role_id'] ?? 0) == 2; // Kepsek read-only
+
+        return view('admin/attendance/daily', [
+            'title'       => 'Absensi Harian',
+            'class'       => $class,
+            'students'    => $students,
+            'date'        => $date,
+            'today'       => $today,
+            'attMap'      => $attMap,
+            'isHoliday'   => $isHoliday,
+            'holidayDesc' => $holidayDesc,
+            'isFuture'    => $isFuture,
+            'isReadonly'  => $isReadonly,
+            'schoolDays'  => $schoolDays,
+        ]);
+    }
+
+
+    /**
      * Simpan absensi per tanggal (hemat storage):
      * - jika status = 'H' -> hapus record (anggap default hadir)
      * - jika status != 'H' -> insert / update

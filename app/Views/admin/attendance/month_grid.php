@@ -76,6 +76,10 @@
 </div>
 
 <div class="mb-3 d-flex gap-2">
+  <a href="<?= base_url('admin/attendance/daily?class_id=' . (int) $class['id'] . '&date=' . date('Y-m-d')) ?>"
+    class="btn btn-outline-success">
+    <i class="bi bi-phone"></i> Mode Harian (HP)
+  </a>
   <a href="<?= base_url('admin/attendance/pdf?class_id=' . (int) $class['id'] . '&month=' . $month) ?>" target="_blank"
     class="btn btn-danger">
     <i class="bi bi-file-earmark-pdf"></i> Cetak PDF

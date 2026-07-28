@@ -75,6 +75,13 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('users/delete/(:num)', 'User::delete/$1', $auth12);
     $routes->get('users/reset-password/(:num)', 'User::resetPassword/$1', $auth12);
 
+    // Role & Permission Management (Admin Only)
+    $routes->get('role-permission', 'RolePermission::index', $auth1);
+    $routes->get('role-permission/edit/(:num)', 'RolePermission::edit/$1', $auth1);
+    $routes->post('role-permission/update/(:num)', 'RolePermission::update/$1', $auth1);
+    $routes->post('role-permission/create-role', 'RolePermission::createRole', $auth1);
+    $routes->get('role-permission/delete/(:num)', 'RolePermission::deleteRole/$1', $auth1);
+
     // 2. Identitas & Pengaturan
     $routes->get('school', 'School::index', $auth127);
     $routes->post('school/update', 'School::update', $auth127);
@@ -364,6 +371,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('attendance/rekapPdf', 'Attendance::rekapPdf', $auth123);
     $routes->get('attendance/rekapExcel', 'Attendance::rekapExcel', $auth123);
     $routes->get('attendance/week', 'Attendance::week', $auth123);
+    $routes->get('attendance/daily', 'Attendance::daily', $auth123);
     $routes->get('attendance/report/semester', 'Attendance::reportSemester', $auth123);
     $routes->get('attendance/report/year', 'Attendance::reportYear', $auth123);
 
