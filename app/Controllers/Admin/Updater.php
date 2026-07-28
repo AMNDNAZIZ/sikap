@@ -579,6 +579,9 @@ class Updater extends BaseController
         putenv('USERPROFILE=C:\\Users\\SAKA');
         putenv('GIT_TERMINAL_PROMPT=0');
 
+        // Step 0: Sinkronkan APP_VERSION dari database changelogs
+        $syncedVersion = $this->syncVersionFromChangelogs();
+
         // Step 1: Pull dari origin (skip jika gagal, lanjut generate dari state lokal)
         $pullResult = [];
         exec("cd /d \"{$rootPath}\" && {$git} pull origin main 2>&1", $pullResult, $pullCode);
@@ -602,7 +605,7 @@ class Updater extends BaseController
         ksort($files);
 
         $manifest = [
-            'version'     => defined('APP_VERSION') ? APP_VERSION : '1.0.0',
+            'version'     => $syncedVersion,
             'generated'   => date('Y-m-d H:i:s'),
             'last_update' => defined('LAST_UPDATE') ? LAST_UPDATE : date('Y-m-d H:i'),
             'total_files' => count($files),
@@ -612,16 +615,16 @@ class Updater extends BaseController
         $jsonPath = ROOTPATH . 'update_manifest.json';
         file_put_contents($jsonPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
-        // Step 3: Commit manifest ke origin
-        exec("cd /d \"{$rootPath}\" && {$git} add update_manifest.json 2>&1", $addResult);
-        exec("cd /d \"{$rootPath}\" && {$git} commit -m \"Regenerate manifest v{$manifest['version']}\" --allow-empty 2>&1", $commitResult);
+        // Step 3: Commit manifest + Constants.php ke origin
+        exec("cd /d \"{$rootPath}\" && {$git} add update_manifest.json app/Config/Constants.php 2>&1", $addResult);
+        exec("cd /d \"{$rootPath}\" && {$git} commit -m \"Regenerate manifest v{$syncedVersion}\" --allow-empty 2>&1", $commitResult);
         exec("cd /d \"{$rootPath}\" && {$git} push origin main 2>&1", $pushOriginResult, $pushOriginCode);
         log_message('info', '[GenerateManifest] Push to origin: ' . implode("\n", $pushOriginResult ?? []));
 
         // Step 4: Push orphan ke update repo (Sakajaya/sikap-update)
         $pushResult = $this->pushToUpdateRepo();
 
-        $message = 'Manifest berhasil digenerate: ' . count($files) . ' file (v' . $manifest['version'] . ').';
+        $message = 'Manifest berhasil digenerate: ' . count($files) . ' file (v' . $syncedVersion . ').';
         if ($pullCode === 0 || strpos($pullOutput, 'Already up to date') !== false) {
             $message .= ' ✅ Sinkron dengan origin.';
         }
@@ -632,6 +635,58 @@ class Updater extends BaseController
         }
 
         return redirect()->back()->with($pushResult['success'] ? 'success' : 'warning', $message);
+    }
+
+    /**
+     * Sinkronkan APP_VERSION dan LAST_UPDATE di Constants.php dari tabel changelogs.
+     * Ini memastikan versi manifest selalu sesuai dengan changelog terbaru.
+     * 
+     * @return string Versi terbaru yang disinkronkan
+     */
+    private function syncVersionFromChangelogs(): string
+    {
+        try {
+            $db = \Config\Database::connect();
+            $changelog = $db->table('changelogs')
+                ->select('version, release_date')
+                ->orderBy('release_date', 'DESC')
+                ->orderBy('id', 'DESC')
+                ->limit(1)
+                ->get()
+                ->getRowArray();
+
+            if (!$changelog) {
+                return defined('APP_VERSION') ? APP_VERSION : '1.0.0';
+            }
+
+            $newVersion = $changelog['version'];
+            $newDate = date('Y-m-d H:i', strtotime($changelog['release_date']));
+
+            // Update Constants.php
+            $constantsPath = APPPATH . 'Config/Constants.php';
+            $content = file_get_contents($constantsPath);
+
+            $content = preg_replace(
+                "/define\('APP_VERSION',\s*'[^']+'\);/",
+                "define('APP_VERSION', '{$newVersion}');",
+                $content
+            );
+            $content = preg_replace(
+                "/define\('LAST_UPDATE',\s*'[^']*'\);/",
+                "define('LAST_UPDATE', '{$newDate}');",
+                $content
+            );
+
+            file_put_contents($constantsPath, $content);
+
+            log_message('info', "[syncVersionFromChangelogs] Updated Constants.php: APP_VERSION={$newVersion}, LAST_UPDATE={$newDate}");
+
+            return $newVersion;
+
+        } catch (\Exception $e) {
+            log_message('error', '[syncVersionFromChangelogs] Failed: ' . $e->getMessage());
+            return defined('APP_VERSION') ? APP_VERSION : '1.0.0';
+        }
     }
 
     /**
@@ -647,7 +702,11 @@ class Updater extends BaseController
         $didStash = !empty($stashResult) && strpos(implode("\n", $stashResult), 'No local changes') === false;
         log_message('info', '[pushToUpdateRepo] Stash: ' . implode(" ", $stashResult));
 
-        $version = defined('APP_VERSION') ? APP_VERSION : '1.0.0';
+        // Baca versi dari Constants.php yang sudah di-sync (re-read file karena mungkin baru diupdate)
+        $constantsContent = file_get_contents(APPPATH . 'Config/Constants.php');
+        preg_match("/define\('APP_VERSION',\s*'([^']+)'\)/", $constantsContent, $vMatch);
+        $version = $vMatch[1] ?? (defined('APP_VERSION') ? APP_VERSION : '1.0.0');
+
         $commands = [
             "{$git} checkout --orphan _update_push 2>&1",
             "{$git} reset 2>&1",
