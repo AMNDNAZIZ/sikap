@@ -33,12 +33,27 @@ class Attendance extends BaseController
         $user = $session->get('user');
         $roleId = $user['role_id'] ?? null;
 
+        // Deteksi mobile — jika HP, langsung arahkan ke mode harian
+        $forceDesktop = $this->request->getGet('view') === 'desktop';
+        $isMobile = false;
+        if (!$forceDesktop) {
+            $userAgent = $this->request->getUserAgent();
+            $isMobile = $userAgent->isMobile();
+        }
+
         if ($roleId == 1 || $roleId == 2) { // Admin atau Kepala Sekolah
             $classes = $this->classModel->orderBy('name', 'ASC')->findAll();
+
+            // Mobile + hanya 1 kelas → langsung ke daily
+            if ($isMobile && count($classes) === 1) {
+                return redirect()->to('/admin/attendance/daily?class_id=' . $classes[0]['id'] . '&date=' . date('Y-m-d'));
+            }
+
             return view('admin/attendance/select_class', [
                 'title' => 'Absensi Siswa',
                 'classes' => $classes,
                 'isAdmin' => true,
+                'isMobile' => $isMobile,
             ]);
         }
 
@@ -76,10 +91,16 @@ class Attendance extends BaseController
                 return redirect()->to('/dashboard')->with('error', 'Anda tidak memiliki akses absensi untuk kelas mana pun.');
             }
 
+            // Mobile + hanya 1 kelas → langsung ke daily
+            if ($isMobile && count($classes) === 1) {
+                return redirect()->to('/admin/attendance/daily?class_id=' . $classes[0]['id'] . '&date=' . date('Y-m-d'));
+            }
+
             return view('admin/attendance/select_class', [
                 'title' => 'Absensi Siswa',
                 'classes' => $classes,
                 'isAdmin' => false,
+                'isMobile' => $isMobile,
             ]);
         }
 
