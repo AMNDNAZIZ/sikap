@@ -2,7 +2,7 @@
 <?= $this->section('content') ?>
 
 <style>
-    .daily-container { padding-bottom: 100px; }
+    .daily-container { padding-bottom: 80px; }
 
     .student-row {
         display: flex;
@@ -80,6 +80,26 @@
     @media (min-width: 768px) {
         .daily-container { max-width: 500px; margin: 0 auto; }
     }
+
+    /* Save button fixed to bottom of viewport */
+    .save-btn-wrapper {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 1050;
+        background: #fff;
+        border-top: 1px solid #dee2e6;
+        padding: 0;
+    }
+    .save-btn-wrapper .btn {
+        border-radius: 0 !important;
+        padding-top: 16px;
+        padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Hide layout footer on this page to avoid overlap */
+    footer { display: none !important; }
 </style>
 
 <div class="daily-container">
@@ -177,12 +197,10 @@
 
             <?php if (!$isReadonly): ?>
                 <!-- Sticky bottom save button -->
-                <div class="position-fixed bottom-0 start-0 end-0 bg-white border-top p-3" style="z-index:20;">
-                    <div class="daily-container mx-auto px-0">
-                        <button type="submit" class="btn btn-primary w-100 fw-bold py-3 rounded-3">
-                            <i class="bi bi-check-lg me-1"></i>Simpan Absensi
-                        </button>
-                    </div>
+                <div class="save-btn-wrapper">
+                    <button type="submit" class="btn btn-primary w-100 fw-bold py-3 rounded-0">
+                        <i class="bi bi-check-lg me-1"></i>Simpan Absensi
+                    </button>
                 </div>
             <?php endif; ?>
         </form>
