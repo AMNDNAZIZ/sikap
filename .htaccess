@@ -48,10 +48,16 @@ ServerSignature Off
 <IfModule mod_php.c>
     php_value output_buffering 4096
     php_value max_input_vars 10000
+    php_value upload_max_filesize 50M
+    php_value post_max_size 55M
+    php_value max_execution_time 300
 </IfModule>
 <IfModule mod_php8.c>
     php_value output_buffering 4096
     php_value max_input_vars 10000
+    php_value upload_max_filesize 50M
+    php_value post_max_size 55M
+    php_value max_execution_time 300
 </IfModule>
 
 # ----------------------------------------------------------------------
