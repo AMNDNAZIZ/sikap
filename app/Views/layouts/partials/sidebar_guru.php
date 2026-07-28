@@ -94,11 +94,13 @@
       </a>
     </li>
 
+    <?php if (is_school_swasta()): ?>
     <li class="nav-item">
       <a class="nav-link <?= url_is('admin/teacher-attendance/my*') ? 'active' : '' ?>" href="<?= base_url('admin/teacher-attendance/my') ?>">
         🙋 <span class="label">Kehadiran Saya</span>
       </a>
     </li>
+    <?php endif; ?>
 
     <li class="nav-item">
       <a class="nav-link <?= url_is('admin/agendas*') ? 'active' : '' ?>" href="<?= base_url('admin/agendas') ?>">

@@ -181,7 +181,9 @@
       <div class="collapse <?= $inPresensi ? 'show' : '' ?>" id="menuPresensi">
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/attendance*') ? 'active' : '' ?>" href="<?= base_url('admin/attendance') ?>">🎓 <span class="label">Absensi Siswa</span></a></li>
+          <?php if (is_school_swasta()): ?>
           <li><a class="nav-link <?= url_is('admin/teacher-attendance*') ? 'active' : '' ?>" href="<?= base_url('admin/teacher-attendance') ?>">👨‍🏫 <span class="label">Absensi Guru</span></a></li>
+          <?php endif; ?>
         </ul>
       </div>
     </li>
