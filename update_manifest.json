@@ -1,6 +1,6 @@
 {
     "version": "1.2.8",
-    "generated": "2026-07-28 21:23:51",
+    "generated": "2026-07-29 09:12:31",
     "last_update": "2026-07-28 00:00",
     "total_files": 796,
     "files": {
@@ -530,8 +530,8 @@
         "app/Views/admin/teaching_assignments/create.php": "adeb0d068ecdf982c9f14cf1f41dac09",
         "app/Views/admin/teaching_assignments/edit.php": "1cd77899caecf87d7bbd77ea20ea4688",
         "app/Views/admin/teaching_assignments/index.php": "d4d6c5d0129cc1db6245b1611eb49511",
-        "app/Views/admin/teaching_journal/form.php": "fd25cbf1eacee4fd599df807a59e84a4",
-        "app/Views/admin/teaching_journal/index.php": "17d1c4da5c495d2cd1771f76fca5460a",
+        "app/Views/admin/teaching_journal/form.php": "03bcc673f37c88b1e1cf9f593587849f",
+        "app/Views/admin/teaching_journal/index.php": "848ef28fa7405623f095f04a610b675a",
         "app/Views/admin/updater/index.php": "2682dccc61980bc995e44779f5ab7e30",
         "app/Views/admin/updater/online_update.php": "6c8bd6b5bc3b5abc4a373fc04cec5917",
         "app/Views/admin/users/create.php": "6a2137806b2f50faff628e5d63417771",
