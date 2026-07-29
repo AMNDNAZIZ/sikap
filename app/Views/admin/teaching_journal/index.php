@@ -95,11 +95,51 @@
                         <td><?= date('d/m/Y', strtotime($j['date'])) ?></td>
                         <td>
                             <span class="badge bg-info text-dark"><?= esc($j['class_name']) ?></span><br>
-                            <small class="text-muted"><?= esc($j['subject_name']) ?></small>
+                            <?php
+                                // Ambil multi-subject dari pivot jika ada
+                                $extraSubjects = db_connect()->table('teaching_journal_subjects tjs')
+                                    ->select('s.name as subject_name')
+                                    ->join('subjects s', 's.id = tjs.subject_id')
+                                    ->where('tjs.journal_id', $j['id'])
+                                    ->get()->getResultArray();
+                                
+                                if (!empty($extraSubjects)):
+                                    foreach ($extraSubjects as $es):
+                            ?>
+                                <small class="text-muted d-block"><?= esc($es['subject_name']) ?></small>
+                            <?php
+                                    endforeach;
+                                else:
+                            ?>
+                                <small class="text-muted"><?= esc($j['subject_name']) ?></small>
+                            <?php endif; ?>
                         </td>
                         <td>
-                            <strong><?= esc($j['elemen']) ?></strong><br>
-                            <small><?= esc($j['lingkup_materi']) ?></small>
+                            <?php
+                                // Ambil multi-subject elemen dari pivot
+                                $extraElements = db_connect()->table('teaching_journal_subjects tjs')
+                                    ->select('s.name as subject_name, atp.lingkup_materi, atp.semester')
+                                    ->join('subjects s', 's.id = tjs.subject_id')
+                                    ->join('alur_tujuan_pembelajaran atp', 'atp.id = tjs.atp_id', 'left')
+                                    ->where('tjs.journal_id', $j['id'])
+                                    ->get()->getResultArray();
+                                
+                                if (!empty($extraElements)):
+                                    foreach ($extraElements as $el):
+                            ?>
+                                <div class="mb-1">
+                                    <strong><?= esc($el['subject_name']) ?></strong>
+                                    <?php if (!empty($el['lingkup_materi'])): ?>
+                                        <br><small class="text-muted">Sem<?= $el['semester'] ?> | <?= esc($el['lingkup_materi']) ?></small>
+                                    <?php endif; ?>
+                                </div>
+                            <?php
+                                    endforeach;
+                                else:
+                            ?>
+                                <strong><?= esc($j['elemen'] ?? '-') ?></strong><br>
+                                <small><?= esc($j['lingkup_materi'] ?? '-') ?></small>
+                            <?php endif; ?>
                         </td>
                         <td><?= nl2br(esc($j['notes'])) ?></td>
                         <?php if (!$readonly): ?>
