@@ -1,6 +1,6 @@
 {
     "version": "1.2.8",
-    "generated": "2026-07-29 19:14:28",
+    "generated": "2026-07-29 19:26:31",
     "last_update": "2026-07-28 00:00",
     "total_files": 799,
     "files": {
@@ -124,7 +124,7 @@
         "app/Controllers/Auth.php": "c1186f77316e42995614b817b8dd4b05",
         "app/Controllers/BaseController.php": "10559d3c4f28e25eeb34757ccba3e8b4",
         "app/Controllers/BukuTamu.php": "b88dfbcc386ea66aea497b0160d6c922",
-        "app/Controllers/Dashboard.php": "65db7af969da80ebcf6a42132bcac743",
+        "app/Controllers/Dashboard.php": "6c3d48c2d10e120604c0cec796c98caf",
         "app/Controllers/Home.php": "6d9df823beee1f0ae656b3c9b9f1ecd0",
         "app/Controllers/Maintenance.php": "6cc995cd9e9d0372bfcc26563bc184a8",
         "app/Controllers/News.php": "954fca8865ab7c614ce1c875be9a1228",
@@ -617,7 +617,7 @@
         "app/Views/siswa/grades/index.php": "ba0ce4508e83022ff2e082fe891055b3",
         "app/Views/siswa/grades/pdf.php": "69569a226ae087b56f87c3dac0e36082",
         "app/Views/siswa/location/index.php": "5ead257909ebeed97f46de4d07bb8d02",
-        "app/Views/siswa/payment/index.php": "4e371c751c8502f0010ff491750a185f",
+        "app/Views/siswa/payment/index.php": "9225707f6c5ec0946b1de3ffe0857af9",
         "app/Views/siswa/profile.php": "30b54860fb499fb7b5ada70d2c2b3f61",
         "app/Views/siswa/student-notes/index.php": "b283013b57d205d7b70e8f2c24f4a839",
         "app/Views/verify/index.php": "4d6b58f9ada4d4e14c87daa70388d828",
