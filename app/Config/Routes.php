@@ -321,6 +321,10 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('settings/kop-surat', 'SettingsController::kopSurat', $auth127);
     $routes->post('settings/kop-surat/upload', 'SettingsController::uploadKopSurat', $auth127);
 
+    // Integrasi Pembayaran (Admin Only)
+    $routes->get('settings/payment', 'SettingsController::payment', $auth1);
+    $routes->post('settings/payment/save', 'SettingsController::savePayment', $auth1);
+
     // Cache CBT Settings (Admin Only)
     $routes->get('settings/session', 'SessionSettings::index', $auth1);
     $routes->post('settings/session/update', 'SessionSettings::update', $auth1);
@@ -663,6 +667,9 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
 
     $routes->get('profile', 'Profile::index');
     $routes->post('profile/update', 'Profile::update');
+
+    // Pembayaran (integrasi web pembayaran eksternal)
+    $routes->get('payment', 'Payment::index');
 
     $routes->get('cbt', 'Cbt::index');
     $routes->post('cbt/verifyToken/(:num)', 'Cbt::verifyToken/$1');

@@ -74,6 +74,15 @@
       </a>
     </li>
 
+    <!-- Pembayaran (hanya sekolah swasta) -->
+    <?php if (is_school_swasta()): ?>
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('siswa/payment*') ? 'active' : '' ?>" href="<?= site_url('siswa/payment') ?>">
+        💳 <span class="label">Pembayaran</span>
+      </a>
+    </li>
+    <?php endif; ?>
+
     <!-- Lokasi Rumah -->
     <li class="nav-item">
       <a class="nav-link <?= url_is('siswa/location*') ? 'active' : '' ?>" href="<?= site_url('siswa/location') ?>">

@@ -1,0 +1,12 @@
+ERROR - 2025-10-27 16:07:09 --> Insert pembayaran gagal: {"jumlah_bayar":"The jumlah_bayar field must contain a number greater than 0."}
+ERROR - 2025-10-27 16:07:09 --> Bayar gagal: "Gagal menyimpan pembayaran."
+ERROR - 2025-10-27 16:07:15 --> Insert pembayaran gagal: {"jumlah_bayar":"The jumlah_bayar field must contain a number greater than 0."}
+ERROR - 2025-10-27 16:07:15 --> Bayar gagal: "Gagal menyimpan pembayaran."
+ERROR - 2025-10-27 16:07:15 --> Insert pembayaran gagal: {"jumlah_bayar":"The jumlah_bayar field must contain a number greater than 0."}
+ERROR - 2025-10-27 16:07:15 --> Bayar gagal: "Gagal menyimpan pembayaran."
+ERROR - 2025-10-27 16:07:44 --> Insert pembayaran gagal: {"jumlah_bayar":"The jumlah_bayar field must contain a number greater than 0."}
+ERROR - 2025-10-27 16:07:44 --> Bayar gagal: "Gagal menyimpan pembayaran."
+ERROR - 2025-10-27 16:07:55 --> Insert pembayaran gagal: {"jumlah_bayar":"The jumlah_bayar field must contain a number greater than 0."}
+ERROR - 2025-10-27 16:07:55 --> Bayar gagal: "Gagal menyimpan pembayaran."
+ERROR - 2025-10-27 16:15:54 --> Insert pembayaran gagal: {"jumlah_bayar":"The jumlah_bayar field must contain a number greater than 0."}
+ERROR - 2025-10-27 16:15:54 --> Bayar gagal: "Gagal menyimpan pembayaran."

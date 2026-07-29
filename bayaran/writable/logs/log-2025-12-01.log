@@ -1,0 +1,11 @@
+ERROR - 2025-12-01 15:26:01 --> Bayar gagal: "Angsuran ke-1 sudah tercatat."
+CRITICAL - 2025-12-01 19:56:25 --> CodeIgniter\HTTP\Exceptions\BadRequestException: The URI you submitted has disallowed characters: "Ufida.T.CodeBehind._PriorityLevel,App_Code.ashx"
+[Method: POST, Route: tplus/ajaxpro/Ufida.T.CodeBehind._PriorityLevel,App_Code.ashx]
+in SYSTEMPATH/Router/Router.php on line 741.
+ 1 SYSTEMPATH/Router/Router.php(207): CodeIgniter\Router\Router->checkDisallowedChars('tplus/ajaxpro/Ufida.T.CodeBehind._PriorityLevel,App_Code.ashx')
+ 2 SYSTEMPATH/CodeIgniter.php(832): CodeIgniter\Router\Router->handle('tplus/ajaxpro/Ufida.T.CodeBehind._PriorityLevel,App_Code.ashx')
+ 3 SYSTEMPATH/CodeIgniter.php(455): CodeIgniter\CodeIgniter->tryToRouteIt(Object(CodeIgniter\Router\RouteCollection))
+ 4 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))

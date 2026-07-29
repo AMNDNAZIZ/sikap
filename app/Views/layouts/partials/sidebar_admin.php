@@ -338,6 +338,9 @@
           <li><a class="nav-link <?= url_is('admin/role-permission*') ? 'active' : '' ?>" href="<?= base_url('admin/role-permission') ?>">🛡️ <span class="label">Role & Permission</span></a></li>
           <li><a class="nav-link <?= url_is('profile*') ? 'active' : '' ?>" href="<?= base_url('profile') ?>">⚙️ <span class="label">Pengaturan Profil</span></a></li>
           <li><a class="nav-link <?= url_is('admin/settings/session*') ? 'active' : '' ?>" href="<?= base_url('admin/settings/session') ?>">🚀 <span class="label">Cache CBT</span></a></li>
+          <?php if (is_school_swasta()): ?>
+          <li><a class="nav-link <?= url_is('admin/settings/payment*') ? 'active' : '' ?>" href="<?= base_url('admin/settings/payment') ?>">💳 <span class="label">Integrasi Pembayaran</span></a></li>
+          <?php endif; ?>
           <li><a class="nav-link <?= url_is('admin/updater*') ? 'active' : '' ?>" href="<?= base_url('admin/updater') ?>">🔄 <span class="label">Update Sistem</span></a></li>
         </ul>
       </div>

@@ -55,4 +55,32 @@ class SettingsController extends BaseController
 
         return redirect()->back()->with('error', 'Gagal mengunggah file.');
     }
+
+    /**
+     * Halaman pengaturan integrasi pembayaran
+     */
+    public function payment()
+    {
+        $data = [
+            'title'           => 'Integrasi Pembayaran',
+            'payment_api_url' => $this->settingsModel->getValue('payment_api_url') ?? '',
+            'payment_api_key' => $this->settingsModel->getValue('payment_api_key') ?? '',
+        ];
+
+        return view('admin/settings/payment', $data);
+    }
+
+    /**
+     * Simpan pengaturan integrasi pembayaran
+     */
+    public function savePayment()
+    {
+        $apiUrl = trim($this->request->getPost('payment_api_url'));
+        $apiKey = trim($this->request->getPost('payment_api_key'));
+
+        $this->settingsModel->setValue('payment_api_url', $apiUrl);
+        $this->settingsModel->setValue('payment_api_key', $apiKey);
+
+        return redirect()->back()->with('success', 'Pengaturan integrasi pembayaran berhasil disimpan.');
+    }
 }

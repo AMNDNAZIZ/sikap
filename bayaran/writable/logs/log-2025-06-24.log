@@ -1,0 +1,21 @@
+ERROR - 2025-06-24 03:20:10 --> Insert pembayaran gagal: {"jumlah_bayar":"The jumlah_bayar field must contain a number greater than 0."}
+ERROR - 2025-06-24 03:20:10 --> Bayar gagal: "Gagal menyimpan pembayaran."
+ERROR - 2025-06-24 08:54:00 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2025-06-24 08:54:05 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2025-06-24 09:14:33 --> Bayar gagal: "Angsuran ke-1 sudah tercatat."
+ERROR - 2025-06-24 09:23:06 --> Bayar gagal: "Angsuran ke-3 sudah tercatat."
+ERROR - 2025-06-24 09:34:52 --> Bayar gagal: "Angsuran ke-3 sudah tercatat."
+ERROR - 2025-06-24 09:35:32 --> Bayar gagal: "Angsuran ke-5 sudah tercatat."
+ERROR - 2025-06-24 09:42:38 --> Bayar gagal: "Angsuran ke-1 sudah tercatat."
+ERROR - 2025-06-24 09:42:45 --> Bayar gagal: "Angsuran ke-1 sudah tercatat."
+ERROR - 2025-06-24 10:02:15 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2025-06-24 10:05:44 --> Bayar gagal: "Angsuran ke-1 sudah tercatat."
+ERROR - 2025-06-24 10:10:04 --> Bayar gagal: "Angsuran ke-1 sudah tercatat."
+ERROR - 2025-06-24 10:10:59 --> Insert pembayaran gagal: {"tanggal":"The tanggal field must contain a valid date."}
+ERROR - 2025-06-24 10:10:59 --> Bayar gagal: "Gagal menyimpan pembayaran."
+ERROR - 2025-06-24 10:12:04 --> Bayar gagal: "Angsuran ke-1 sudah tercatat."
+ERROR - 2025-06-24 10:21:13 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2025-06-24 10:25:58 --> Bayar gagal: "Angsuran ke-1 sudah tercatat."
+ERROR - 2025-06-24 10:31:23 --> Bayar gagal: "Angsuran ke-1 sudah tercatat."
+ERROR - 2025-06-24 12:21:29 --> Insert pembayaran gagal: {"jumlah_bayar":"The jumlah_bayar field must contain a number greater than 0."}
+ERROR - 2025-06-24 12:21:29 --> Bayar gagal: "Gagal menyimpan pembayaran."
