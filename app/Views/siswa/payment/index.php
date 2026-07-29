@@ -12,9 +12,21 @@
 
         <?php
             $siswaData = $data['siswa'] ?? [];
-            $summary = $data['summary'] ?? ['total' => 0, 'dibayar' => 0, 'sisa' => 0];
+            $summary = $data['summary'] ?? [];
             $bulanan = $data['bulanan'] ?? [];
             $bebas = $data['bebas'] ?? [];
+
+            // Normalisasi summary — handle format lama (string) dan baru (numeric)
+            $summaryTotal = $summary['total'] ?? 0;
+            $summaryDibayar = $summary['dibayar'] ?? 0;
+            $summarySisa = $summary['sisa'] ?? 0;
+
+            // Jika format lama (key total_tagihan), parse angka dari string
+            if (isset($summary['total_tagihan']) && !isset($summary['total'])) {
+                $summaryTotal = (float) preg_replace('/[^0-9]/', '', $summary['total_tagihan']);
+                $summaryDibayar = (float) preg_replace('/[^0-9]/', '', $summary['total_dibayar'] ?? '0');
+                $summarySisa = (float) preg_replace('/[^0-9]/', '', $summary['sisa_tunggakan'] ?? '0');
+            }
 
             // Helper bulan
             $namaBulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -37,15 +49,15 @@
             <div class="card-header bg-info text-white">Rangkuman Keuangan</div>
             <div class="card-body">
                 <table class="table table-borderless w-auto mb-0">
-                    <tr><th>Total Tagihan</th><td>: Rp. <?= number_format($summary['total'], 0, ',', '.') ?></td></tr>
-                    <tr><th>Dibayarkan</th><td>: Rp. <?= number_format($summary['dibayar'], 0, ',', '.') ?></td></tr>
-                    <tr><th>Sisa Tunggakan</th><td>: Rp. <?= number_format($summary['sisa'], 0, ',', '.') ?></td></tr>
+                    <tr><th>Total Tagihan</th><td>: Rp. <?= number_format($summaryTotal, 0, ',', '.') ?></td></tr>
+                    <tr><th>Dibayarkan</th><td>: Rp. <?= number_format($summaryDibayar, 0, ',', '.') ?></td></tr>
+                    <tr><th>Sisa Tunggakan</th><td>: Rp. <?= number_format($summarySisa, 0, ',', '.') ?></td></tr>
                     <tr>
                         <th>Status</th>
                         <td>:
-                            <?php if ($summary['dibayar'] == 0 && $summary['total'] > 0): ?>
+                            <?php if ($summaryDibayar == 0 && $summaryTotal > 0): ?>
                                 <span class="badge bg-danger">Belum Bayar</span>
-                            <?php elseif ($summary['sisa'] > 0): ?>
+                            <?php elseif ($summarySisa > 0): ?>
                                 <span class="badge bg-warning text-dark">Kurang Bayar</span>
                             <?php else: ?>
                                 <span class="badge bg-success">Lunas</span>
