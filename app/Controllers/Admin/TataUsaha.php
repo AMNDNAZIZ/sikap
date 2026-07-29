@@ -24,7 +24,7 @@ class TataUsaha extends BaseController
     public function cetakDaftarHadir()
     {
         $kelasId = $this->request->getGet('kelas_id');
-        $classes = $this->classModel->orderBy('name', 'ASC')->findAll();
+        $classes = $this->classModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll();
 
         return view('admin/tata_usaha/cetak_daftar_hadir', [
             'title'   => 'Cetak Daftar Hadir',
@@ -68,16 +68,19 @@ class TataUsaha extends BaseController
         // ── Kelompokkan siswa per kelas
         if ($kelasId) {
             // Satu kelas saja
-            $kelas      = $this->classModel->find($kelasId);
-            $namaKelas  = $kelas ? $kelas['name'] : '-';
+            $kelas = $this->classModel->where('id', $kelasId)->where('is_active', 1)->first();
+            if (!$kelas) {
+                return redirect()->back()->with('error', 'Kelas tidak ditemukan atau tidak aktif.');
+            }
+            $namaKelas  = $kelas['name'];
             $siswaKelas = $this->studentModel->getByClass($kelasId);
 
             $siswaPerKelas = [
                 ['namaKelas' => $namaKelas, 'siswa' => $siswaKelas],
             ];
         } else {
-            // Semua kelas — kelompokkan dari student_records
-            $semuaKelas = $this->classModel->orderBy('name', 'ASC')->findAll();
+            // Semua kelas — kelompokkan dari student_records (hanya kelas aktif)
+            $semuaKelas = $this->classModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll();
             $siswaPerKelas = [];
             foreach ($semuaKelas as $kls) {
                 $s = $this->studentModel->getByClass($kls['id']);
