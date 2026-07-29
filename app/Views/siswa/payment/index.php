@@ -3,20 +3,6 @@
 
 <div class="container-fluid px-4 pb-4">
     <h4 class="mt-3 fw-bold">💳 Informasi Pembayaran</h4>
-    <p class="text-muted mb-4">Data pembayaran diambil dari sistem pembayaran sekolah.</p>
-
-    <!-- Info Siswa -->
-    <div class="card border-0 shadow-sm rounded-3 mb-4">
-        <div class="card-body d-flex align-items-center gap-3">
-            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width:48px;height:48px;font-size:1.2rem;">
-                👤
-            </div>
-            <div>
-                <strong><?= esc($student['name'] ?? '-') ?></strong>
-                <div class="text-muted small">NIS: <?= esc($student['nis'] ?? '-') ?></div>
-            </div>
-        </div>
-    </div>
 
     <?php if (!empty($error)): ?>
         <div class="alert alert-warning border-0 shadow-sm">
@@ -24,136 +10,221 @@
         </div>
     <?php elseif (!empty($data)): ?>
 
-        <!-- Ringkasan Pembayaran -->
-        <?php if (isset($data['summary'])): ?>
-        <div class="row g-3 mb-4">
-            <div class="col-6 col-md-3">
-                <div class="card border-0 shadow-sm text-center p-3">
-                    <div class="text-muted small">Total Tagihan</div>
-                    <div class="fw-bold text-primary"><?= esc($data['summary']['total_tagihan'] ?? '-') ?></div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="card border-0 shadow-sm text-center p-3">
-                    <div class="text-muted small">Total Dibayar</div>
-                    <div class="fw-bold text-success"><?= esc($data['summary']['total_dibayar'] ?? '-') ?></div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="card border-0 shadow-sm text-center p-3">
-                    <div class="text-muted small">Sisa Tunggakan</div>
-                    <div class="fw-bold text-danger"><?= esc($data['summary']['sisa_tunggakan'] ?? '-') ?></div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="card border-0 shadow-sm text-center p-3">
-                    <div class="text-muted small">Status</div>
-                    <?php
-                        $status = $data['summary']['status'] ?? 'unknown';
-                        $statusClass = ($status === 'lunas') ? 'bg-success' : (($status === 'sebagian') ? 'bg-warning text-dark' : 'bg-danger');
-                    ?>
-                    <span class="badge <?= $statusClass ?>"><?= esc(ucfirst($status)) ?></span>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
+        <?php
+            $siswaData = $data['siswa'] ?? [];
+            $summary = $data['summary'] ?? ['total' => 0, 'dibayar' => 0, 'sisa' => 0];
+            $bulanan = $data['bulanan'] ?? [];
+            $bebas = $data['bebas'] ?? [];
 
-        <!-- Riwayat Pembayaran -->
-        <?php if (isset($data['payments']) && is_array($data['payments'])): ?>
-        <div class="card border-0 shadow-sm rounded-3 mb-4">
-            <div class="card-header bg-white">
-                <h6 class="fw-bold mb-0">📋 Riwayat Pembayaran</h6>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Tanggal</th>
-                                <th>Keterangan</th>
-                                <th class="text-end">Jumlah</th>
-                                <th class="text-center">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($data['payments'] as $p): ?>
-                            <tr>
-                                <td><?= esc($p['tanggal'] ?? '-') ?></td>
-                                <td><?= esc($p['keterangan'] ?? '-') ?></td>
-                                <td class="text-end"><?= esc($p['jumlah'] ?? '-') ?></td>
-                                <td class="text-center">
-                                    <?php
-                                        $pStatus = $p['status'] ?? '';
-                                        $pClass = ($pStatus === 'lunas') ? 'bg-success' : (($pStatus === 'pending') ? 'bg-warning text-dark' : 'bg-secondary');
-                                    ?>
-                                    <span class="badge <?= $pClass ?>"><?= esc(ucfirst($pStatus)) ?></span>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                            <?php if (empty($data['payments'])): ?>
-                            <tr><td colspan="4" class="text-center text-muted py-3">Belum ada riwayat pembayaran.</td></tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
+            // Helper bulan
+            $namaBulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        ?>
 
-        <!-- Detail Tagihan -->
-        <?php if (isset($data['tagihan']) && is_array($data['tagihan'])): ?>
-        <div class="card border-0 shadow-sm rounded-3">
-            <div class="card-header bg-white">
-                <h6 class="fw-bold mb-0">📄 Detail Tagihan</h6>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Jenis Bayar</th>
-                                <th class="text-end">Tagihan</th>
-                                <th class="text-end">Terbayar</th>
-                                <th class="text-end">Sisa</th>
-                                <th class="text-center">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($data['tagihan'] as $t): ?>
-                            <tr>
-                                <td>
-                                    <?= esc($t['jenis'] ?? '-') ?>
-                                    <?php if (!empty($t['bulan'])): ?>
-                                        <small class="text-muted">(Bln <?= $t['bulan'] ?>)</small>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="text-end"><?= esc($t['jumlah'] ?? '-') ?></td>
-                                <td class="text-end"><?= esc($t['terbayar'] ?? '-') ?></td>
-                                <td class="text-end"><?= esc($t['sisa'] ?? '-') ?></td>
-                                <td class="text-center">
-                                    <?php
-                                        $tStatus = $t['status'] ?? '';
-                                        $tClass = ($tStatus === 'lunas') ? 'bg-success' : 'bg-danger';
-                                    ?>
-                                    <span class="badge <?= $tClass ?>"><?= esc(ucfirst($tStatus)) ?></span>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
-
-        <!-- Jika API mengembalikan format custom/plain -->
-        <?php if (!isset($data['summary']) && !isset($data['payments'])): ?>
-        <div class="card border-0 shadow-sm rounded-3">
+        <!-- Data Siswa -->
+        <div class="card mb-4 border-0 shadow-sm">
+            <div class="card-header bg-primary text-white">Data Siswa</div>
             <div class="card-body">
-                <pre class="mb-0"><?= esc(json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></pre>
+                <table class="table table-borderless w-auto mb-0">
+                    <tr><th>NIS</th><td>: <?= esc($siswaData['nis'] ?? $student['nis'] ?? '-') ?></td></tr>
+                    <tr><th>Nama</th><td>: <?= esc($siswaData['nama'] ?? $student['name'] ?? '-') ?></td></tr>
+                    <tr><th>Kelas</th><td>: <?= esc($siswaData['kelas'] ?? '-') ?></td></tr>
+                </table>
             </div>
         </div>
-        <?php endif; ?>
+
+        <!-- Rangkuman Keuangan -->
+        <div class="card mb-4 border-0 shadow-sm">
+            <div class="card-header bg-info text-white">Rangkuman Keuangan</div>
+            <div class="card-body">
+                <table class="table table-borderless w-auto mb-0">
+                    <tr><th>Total Tagihan</th><td>: Rp. <?= number_format($summary['total'], 0, ',', '.') ?></td></tr>
+                    <tr><th>Dibayarkan</th><td>: Rp. <?= number_format($summary['dibayar'], 0, ',', '.') ?></td></tr>
+                    <tr><th>Sisa Tunggakan</th><td>: Rp. <?= number_format($summary['sisa'], 0, ',', '.') ?></td></tr>
+                    <tr>
+                        <th>Status</th>
+                        <td>:
+                            <?php if ($summary['dibayar'] == 0 && $summary['total'] > 0): ?>
+                                <span class="badge bg-danger">Belum Bayar</span>
+                            <?php elseif ($summary['sisa'] > 0): ?>
+                                <span class="badge bg-warning text-dark">Kurang Bayar</span>
+                            <?php else: ?>
+                                <span class="badge bg-success">Lunas</span>
+                            <?php endif ?>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pembayaran Bulanan -->
+        <?php if (!empty($bulanan)): ?>
+        <div class="card mb-4 border-0 shadow-sm">
+            <div class="card-header bg-success text-white">Pembayaran Bulanan</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered m-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>No</th>
+                                <th>Jenis Bayaran</th>
+                                <th>Kelas</th>
+                                <th>Tagihan</th>
+                                <th>Dibayar</th>
+                                <th>Tunggakan</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($bulanan as $i => $b):
+                                $statusClass = ($b['dibayar'] == 0) ? 'text-danger' : (($b['sisa'] > 0) ? 'text-warning' : 'text-success');
+                            ?>
+                            <tr>
+                                <td class="<?= $statusClass ?>"><?= $i + 1 ?></td>
+                                <td class="<?= $statusClass ?>"><?= esc($b['nama']) ?></td>
+                                <td class="<?= $statusClass ?>"><?= esc($b['kelas_tagihan'] ?? '-') ?></td>
+                                <td class="<?= $statusClass ?>">Rp. <?= number_format($b['total'], 0, ',', '.') ?></td>
+                                <td class="<?= $statusClass ?>">Rp. <?= number_format($b['dibayar'], 0, ',', '.') ?></td>
+                                <td class="<?= $statusClass ?>">Rp. <?= number_format($b['sisa'], 0, ',', '.') ?></td>
+                                <td>
+                                    <?php if ($b['dibayar'] == 0): ?>
+                                        <span class="badge bg-danger">Belum Bayar</span>
+                                    <?php elseif ($b['sisa'] > 0): ?>
+                                        <span class="badge bg-warning text-dark">Kurang Bayar</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-success">Lunas</span>
+                                    <?php endif ?>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#detail_bulanan_<?= $b['id'] ?>">Rincian</button>
+                                </td>
+                            </tr>
+                            <tr class="collapse" id="detail_bulanan_<?= $b['id'] ?>">
+                                <td colspan="8" class="p-0">
+                                    <table class="table table-sm table-bordered table-striped table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>No</th>
+                                                <th>Bulan</th>
+                                                <th>Tagihan</th>
+                                                <th>Tgl. Bayar</th>
+                                                <th>Cara Bayar</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php $no = 1; foreach ($b['items'] as $item): ?>
+                                            <tr>
+                                                <td><?= $no++ ?></td>
+                                                <td><?= $namaBulan[(int)($item['bulan'] ?? 0)] ?? '-' ?></td>
+                                                <td>Rp. <?= number_format((float)($item['jumlah'] ?? 0), 0, ',', '.') ?></td>
+                                                <td><?= !empty($item['tanggal_pembayaran']) ? date('d-m-Y', strtotime($item['tanggal_pembayaran'])) : '-' ?></td>
+                                                <td><?= esc(ucfirst($item['cara_bayar_detail'] ?? $item['cara_bayar'] ?? '-')) ?></td>
+                                                <td>
+                                                    <?= ($item['status'] ?? '') == 'lunas'
+                                                        ? '<span class="badge bg-success">Lunas</span>'
+                                                        : '<span class="badge bg-danger">Belum</span>' ?>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach ?>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                            <?php endforeach ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <?php endif ?>
+
+        <!-- Pembayaran Bebas -->
+        <?php if (!empty($bebas)): ?>
+        <div class="card mb-4 border-0 shadow-sm">
+            <div class="card-header bg-warning text-dark">Pembayaran Bebas</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered m-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>No</th>
+                                <th>Jenis Bayaran</th>
+                                <th>Kelas</th>
+                                <th>Tagihan</th>
+                                <th>Dibayar</th>
+                                <th>Tunggakan</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($bebas as $i => $b):
+                                $statusClass = ($b['dibayar'] == 0) ? 'text-danger' : (($b['sisa'] > 0) ? 'text-warning' : 'text-success');
+                            ?>
+                            <tr>
+                                <td class="<?= $statusClass ?>"><?= $i + 1 ?></td>
+                                <td class="<?= $statusClass ?>"><?= esc($b['nama']) ?></td>
+                                <td class="<?= $statusClass ?>"><?= esc($b['kelas_tagihan'] ?? '-') ?></td>
+                                <td class="<?= $statusClass ?>">Rp. <?= number_format($b['total'], 0, ',', '.') ?></td>
+                                <td class="<?= $statusClass ?>">Rp. <?= number_format($b['dibayar'], 0, ',', '.') ?></td>
+                                <td class="<?= $statusClass ?>">Rp. <?= number_format($b['sisa'], 0, ',', '.') ?></td>
+                                <td>
+                                    <?php if ($b['dibayar'] == 0): ?>
+                                        <span class="badge bg-danger">Belum Bayar</span>
+                                    <?php elseif ($b['sisa'] > 0): ?>
+                                        <span class="badge bg-warning text-dark">Kurang Bayar</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-success">Lunas</span>
+                                    <?php endif ?>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#detail_bebas_<?= $b['id'] ?>">Rincian</button>
+                                </td>
+                            </tr>
+                            <tr class="collapse" id="detail_bebas_<?= $b['id'] ?>">
+                                <td colspan="8" class="p-0 bg-light">
+                                    <table class="table table-sm table-bordered table-striped table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>No</th>
+                                                <th>Tgl. Bayar</th>
+                                                <th>Jml. Bayar</th>
+                                                <th>Cara Bayar</th>
+                                                <th>Keterangan</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php if (empty($b['pembayaran'] ?? [])): ?>
+                                                <tr><td colspan="5" class="text-center text-muted">Belum ada riwayat pembayaran</td></tr>
+                                            <?php else: ?>
+                                                <?php $no = 1; foreach ($b['pembayaran'] as $p): ?>
+                                                <tr>
+                                                    <td><?= $no++ ?></td>
+                                                    <td><?= date('d-m-Y', strtotime($p['tanggal'])) ?></td>
+                                                    <td>Rp. <?= number_format((float)$p['jumlah_bayar'], 0, ',', '.') ?></td>
+                                                    <td><?= esc(ucfirst($p['cara_bayar'] ?? '-')) ?></td>
+                                                    <td><?= esc($p['keterangan'] ?? '-') ?></td>
+                                                </tr>
+                                                <?php endforeach ?>
+                                            <?php endif ?>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                            <?php endforeach ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <?php endif ?>
+
+        <?php if (empty($bulanan) && empty($bebas)): ?>
+            <div class="alert alert-info border-0 shadow-sm">
+                <i class="bi bi-info-circle me-2"></i>Belum ada data tagihan yang tersedia.
+            </div>
+        <?php endif ?>
 
     <?php else: ?>
         <div class="alert alert-info border-0 shadow-sm">

@@ -51,7 +51,7 @@ class Api extends Controller
         }
 
         $siswa = model('SiswaModel')
-            ->select('siswa.*, kelas.nama_kelas')
+            ->select('siswa.*, kelas.nama_kelas, kelas_siswa.status as status_kelas')
             ->join('kelas_siswa', 'kelas_siswa.siswa_id = siswa.id AND kelas_siswa.tahun_ajaran_id = ' . $tahunAktif['id'], 'left')
             ->join('kelas', 'kelas.id = kelas_siswa.kelas_id', 'left')
             ->where('siswa.nis', $nis)
@@ -62,70 +62,99 @@ class Api extends Controller
             return $this->failNotFound('Siswa dengan NIS ' . $nis . ' tidak ditemukan.');
         }
 
-        // Ambil semua tagihan siswa
+        // Ambil semua tagihan siswa (sama dengan Publik::index)
         $tagihan = model('TagihanSiswaModel')
-            ->select('tagihan_siswa.*, jenis_bayar.nama_jenis_bayar, jenis_bayar.tipe')
+            ->select('tagihan_siswa.*, jenis_bayar.nama_jenis_bayar, jenis_bayar.tipe, jenis_bayar.tahun_ajaran_id, kelas.nama_kelas AS kelas_tagihan')
             ->join('jenis_bayar', 'jenis_bayar.id = tagihan_siswa.jenis_bayar_id')
+            ->join('kelas_siswa', 'kelas_siswa.siswa_id = tagihan_siswa.siswa_id AND kelas_siswa.tahun_ajaran_id = jenis_bayar.tahun_ajaran_id', 'left')
+            ->join('kelas', 'kelas.id = kelas_siswa.kelas_id', 'left')
             ->where('tagihan_siswa.siswa_id', $siswa['id'])
+            ->orderBy('jenis_bayar.tipe, jenis_bayar.tahun_ajaran_id, tagihan_siswa.jenis_bayar_id')
             ->findAll();
 
-        // Hitung summary
-        $totalTagihan = 0;
-        $totalDibayar = 0;
+        // Kelompokkan tagihan (sama persis dengan Publik::index)
+        $grouped = ['bulanan' => [], 'bebas' => []];
+        $summary = ['total' => 0, 'dibayar' => 0, 'sisa' => 0];
+
         foreach ($tagihan as $t) {
-            $totalTagihan += (float) $t['jumlah'];
-            $totalDibayar += (float) $t['terbayar'];
+            $id = $t['jenis_bayar_id'];
+            $tipe = $t['tipe'];
+
+            $grouped[$tipe][$id] ??= [
+                'id' => $id,
+                'nama' => $t['nama_jenis_bayar'],
+                'kelas_tagihan' => $t['kelas_tagihan'] ?? '-',
+                'total' => 0,
+                'dibayar' => 0,
+                'sisa' => 0,
+                'items' => [],
+            ];
+
+            $grouped[$tipe][$id]['total'] += (float) $t['jumlah'];
+            $grouped[$tipe][$id]['dibayar'] += (float) $t['terbayar'];
+            $grouped[$tipe][$id]['sisa'] += (float) $t['jumlah'] - (float) $t['terbayar'];
+            $grouped[$tipe][$id]['items'][] = $t;
+
+            $summary['total'] += (float) $t['jumlah'];
+            $summary['dibayar'] += (float) $t['terbayar'];
         }
-        $sisaTunggakan = $totalTagihan - $totalDibayar;
+        $summary['sisa'] = $summary['total'] - $summary['dibayar'];
 
-        // Status
-        if ($sisaTunggakan <= 0) {
-            $status = 'lunas';
-        } elseif ($totalDibayar > 0) {
-            $status = 'sebagian';
-        } else {
-            $status = 'belum';
+        // Urut bulan untuk bulanan
+        foreach ($grouped['bulanan'] as &$b) {
+            usort($b['items'], fn($a, $bx) => ($a['bulan'] ?? 0) <=> ($bx['bulan'] ?? 0));
         }
+        unset($b);
 
-        // Ambil riwayat pembayaran terbaru
-        $tagihanIds = array_column($tagihan, 'id');
-        $payments = [];
-
-        if (!empty($tagihanIds)) {
-            $pembayaranList = model('PembayaranModel')
-                ->select('pembayaran.*, tagihan_siswa.jenis_bayar_id, jenis_bayar.nama_jenis_bayar')
-                ->join('tagihan_siswa', 'tagihan_siswa.id = pembayaran.tagihan_id')
-                ->join('jenis_bayar', 'jenis_bayar.id = tagihan_siswa.jenis_bayar_id')
-                ->whereIn('pembayaran.tagihan_id', $tagihanIds)
-                ->orderBy('pembayaran.tanggal', 'DESC')
-                ->limit(50)
-                ->findAll();
-
-            foreach ($pembayaranList as $p) {
-                $payments[] = [
-                    'tanggal'     => $p['tanggal'],
-                    'keterangan'  => $p['nama_jenis_bayar'] . ($p['keterangan'] ? ' - ' . $p['keterangan'] : ''),
-                    'jumlah'      => 'Rp ' . number_format((float) $p['jumlah_bayar'], 0, ',', '.'),
-                    'cara_bayar'  => $p['cara_bayar'] ?? 'Tunai',
-                    'status'      => 'lunas',
-                ];
+        // Ambil pembayaran untuk bulanan items (tanggal bayar)
+        $tagihanIds = [];
+        foreach ($grouped['bulanan'] as $byr) {
+            foreach ($byr['items'] as $item) {
+                $tagihanIds[] = $item['id'];
+            }
+        }
+        foreach ($grouped['bebas'] as $byr) {
+            foreach ($byr['items'] as $item) {
+                $tagihanIds[] = $item['id'];
             }
         }
 
-        // Daftar tagihan per jenis
-        $tagihanDetail = [];
-        foreach ($tagihan as $t) {
-            $sisa = (float) $t['jumlah'] - (float) $t['terbayar'];
-            $tagihanDetail[] = [
-                'jenis'     => $t['nama_jenis_bayar'],
-                'tipe'      => $t['tipe'],
-                'bulan'     => $t['bulan'] ?? null,
-                'jumlah'    => 'Rp ' . number_format((float) $t['jumlah'], 0, ',', '.'),
-                'terbayar'  => 'Rp ' . number_format((float) $t['terbayar'], 0, ',', '.'),
-                'sisa'      => 'Rp ' . number_format($sisa, 0, ',', '.'),
-                'status'    => $t['status'],
-            ];
+        $pembayaranMap = [];
+        if (!empty($tagihanIds)) {
+            $pembayaranList = model('PembayaranModel')
+                ->whereIn('tagihan_id', $tagihanIds)
+                ->orderBy('tanggal', 'desc')
+                ->findAll();
+
+            foreach ($pembayaranList as $p) {
+                $pembayaranMap[$p['tagihan_id']][] = $p;
+            }
         }
+
+        // Tambahkan info tanggal pembayaran ke items bulanan
+        foreach ($grouped['bulanan'] as &$byr) {
+            foreach ($byr['items'] as &$item) {
+                $item['tanggal_pembayaran'] = $pembayaranMap[$item['id']][0]['tanggal'] ?? null;
+                $item['cara_bayar_detail'] = $pembayaranMap[$item['id']][0]['cara_bayar'] ?? null;
+            }
+        }
+        unset($byr, $item);
+
+        // Untuk bebas, sertakan riwayat pembayaran per jenis
+        foreach ($grouped['bebas'] as &$byr) {
+            $bebasTagihanIds = array_column($byr['items'], 'id');
+            $byr['pembayaran'] = [];
+            foreach ($bebasTagihanIds as $tid) {
+                if (isset($pembayaranMap[$tid])) {
+                    foreach ($pembayaranMap[$tid] as $p) {
+                        $byr['pembayaran'][] = $p;
+                    }
+                }
+            }
+            // Urutkan dari terlama
+            usort($byr['pembayaran'], fn($a, $bx) => strtotime($a['tanggal']) - strtotime($bx['tanggal']));
+        }
+        unset($byr);
 
         return $this->respond([
             'success' => true,
@@ -135,14 +164,9 @@ class Api extends Controller
                     'nama'  => $siswa['nama'],
                     'kelas' => $siswa['nama_kelas'] ?? '-',
                 ],
-                'summary' => [
-                    'total_tagihan'  => 'Rp ' . number_format($totalTagihan, 0, ',', '.'),
-                    'total_dibayar'  => 'Rp ' . number_format($totalDibayar, 0, ',', '.'),
-                    'sisa_tunggakan' => 'Rp ' . number_format($sisaTunggakan, 0, ',', '.'),
-                    'status'         => $status,
-                ],
-                'tagihan'  => $tagihanDetail,
-                'payments' => $payments,
+                'summary' => $summary,
+                'bulanan' => array_values($grouped['bulanan']),
+                'bebas'   => array_values($grouped['bebas']),
             ],
         ]);
     }
