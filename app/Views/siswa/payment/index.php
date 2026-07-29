@@ -60,7 +60,7 @@
 
         <!-- Riwayat Pembayaran -->
         <?php if (isset($data['payments']) && is_array($data['payments'])): ?>
-        <div class="card border-0 shadow-sm rounded-3">
+        <div class="card border-0 shadow-sm rounded-3 mb-4">
             <div class="card-header bg-white">
                 <h6 class="fw-bold mb-0">📋 Riwayat Pembayaran</h6>
             </div>
@@ -87,6 +87,55 @@
                                         $pClass = ($pStatus === 'lunas') ? 'bg-success' : (($pStatus === 'pending') ? 'bg-warning text-dark' : 'bg-secondary');
                                     ?>
                                     <span class="badge <?= $pClass ?>"><?= esc(ucfirst($pStatus)) ?></span>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <?php if (empty($data['payments'])): ?>
+                            <tr><td colspan="4" class="text-center text-muted py-3">Belum ada riwayat pembayaran.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Detail Tagihan -->
+        <?php if (isset($data['tagihan']) && is_array($data['tagihan'])): ?>
+        <div class="card border-0 shadow-sm rounded-3">
+            <div class="card-header bg-white">
+                <h6 class="fw-bold mb-0">📄 Detail Tagihan</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Jenis Bayar</th>
+                                <th class="text-end">Tagihan</th>
+                                <th class="text-end">Terbayar</th>
+                                <th class="text-end">Sisa</th>
+                                <th class="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($data['tagihan'] as $t): ?>
+                            <tr>
+                                <td>
+                                    <?= esc($t['jenis'] ?? '-') ?>
+                                    <?php if (!empty($t['bulan'])): ?>
+                                        <small class="text-muted">(Bln <?= $t['bulan'] ?>)</small>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-end"><?= esc($t['jumlah'] ?? '-') ?></td>
+                                <td class="text-end"><?= esc($t['terbayar'] ?? '-') ?></td>
+                                <td class="text-end"><?= esc($t['sisa'] ?? '-') ?></td>
+                                <td class="text-center">
+                                    <?php
+                                        $tStatus = $t['status'] ?? '';
+                                        $tClass = ($tStatus === 'lunas') ? 'bg-success' : 'bg-danger';
+                                    ?>
+                                    <span class="badge <?= $tClass ?>"><?= esc(ucfirst($tStatus)) ?></span>
                                 </td>
                             </tr>
                             <?php endforeach; ?>

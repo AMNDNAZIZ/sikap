@@ -8,6 +8,10 @@ use CodeIgniter\Router\RouteCollection;
 
 $routes->get('/', 'Publik::index');
 $routes->get('cari', 'Publik::cari');
+
+// API Endpoint untuk integrasi SIAKAD
+$routes->get('api/payment-info', 'Api::paymentInfo');
+
 $routes->get('/login', 'Auth::login');
 $routes->get('/admin', 'Auth::login');
 $routes->post('/login', 'Auth::doLogin');
