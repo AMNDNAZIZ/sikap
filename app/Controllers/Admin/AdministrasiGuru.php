@@ -2594,15 +2594,15 @@ class AdministrasiGuru extends BaseController
         $data['selected_class'] = $classId;
         $data['selected_subject'] = $subjectId;
         $data['kktp_list'] = [];
+        $data['available_tps'] = [];
 
         if ($classId && $subjectId) {
             $kktpModel = new \App\Models\KktpModel();
 
-            // Untuk single-guru, cari KKTP di level yang sama
             $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
             $classLevel = (int) ($classInfo['level'] ?? 0);
 
-            // Cek apakah multi-guru
+            // Cek multi-guru
             $teacherCount = $this->db->table('teaching_assignments ta')
                 ->distinct()->select('ta.teacher_id')
                 ->join('classes c', 'c.id = ta.class_id')
@@ -2611,33 +2611,66 @@ class AdministrasiGuru extends BaseController
                 ->get()->getResultArray();
             $isMultiGuru = count($teacherCount) > 1;
 
+            // Tentukan class_ids untuk query
             if ($isMultiGuru) {
-                $data['kktp_list'] = $kktpModel->getByClassSubject((int)$classId, (int)$subjectId);
+                $effectiveClassIds = [(int)$classId];
             } else {
-                // Single guru: tampilkan KKTP dari kelas manapun se-level
-                $classIdsAtLevel = $this->db->table('classes')
-                    ->select('id')
-                    ->where('level', $classLevel)
-                    ->get()->getResultArray();
-                $classIds = array_column($classIdsAtLevel, 'id');
-
-                if (!empty($classIds)) {
-                    $data['kktp_list'] = $kktpModel
-                        ->where('subject_id', $subjectId)
-                        ->whereIn('class_id', $classIds)
-                        ->orderBy('id', 'ASC')
-                        ->findAll();
-                }
+                $effectiveClassIds = array_column(
+                    $this->db->table('classes')->select('id')->where('level', $classLevel)->get()->getResultArray(),
+                    'id'
+                ) ?: [(int)$classId];
             }
 
-            // Ambil TP dari ATP untuk referensi
-            $data['available_tps'] = $this->db->table('tujuan_pembelajaran tp')
-                ->select('tp.id, tp.kode_tp, tp.deskripsi, tp.lingkup_materi')
-                ->join('classes c', "c.level = {$classLevel}", 'inner')
+            // Ambil semua TP dari ATP yang sudah ada di level ini
+            $tpList = $this->db->table('tujuan_pembelajaran tp')
+                ->select('tp.id, tp.kode_tp, tp.deskripsi, tp.lingkup_materi, tp.atp_id')
+                ->join('alur_tujuan_pembelajaran atp', 'atp.id = tp.atp_id')
                 ->where('tp.subject_id', $subjectId)
+                ->whereIn('atp.class_id', $effectiveClassIds)
                 ->groupBy('tp.id')
                 ->orderBy('tp.kode_tp', 'ASC')
                 ->get()->getResultArray();
+
+            $data['available_tps'] = $tpList;
+
+            // Auto-generate KKTP untuk TP yang belum ada
+            if (!$data['readonly'] && !empty($tpList)) {
+                foreach ($tpList as $tp) {
+                    $exists = $kktpModel
+                        ->where('subject_id', $subjectId)
+                        ->where('tp_id', $tp['id'])
+                        ->whereIn('class_id', $effectiveClassIds)
+                        ->first();
+
+                    if (!$exists) {
+                        $kktpModel->insert([
+                            'class_id'              => (int)$classId,
+                            'subject_id'            => (int)$subjectId,
+                            'tp_id'                 => (int)$tp['id'],
+                            'tujuan_pembelajaran'   => $tp['kode_tp'] . ' - ' . $tp['deskripsi'],
+                            'kriteria_1_interval'   => '0-40%',
+                            'kriteria_1_label'      => 'Belum Tercapai',
+                            'kriteria_1_intervensi' => 'Remedial di seluruh bagian',
+                            'kriteria_2_interval'   => '41-65%',
+                            'kriteria_2_label'      => 'Mulai Tercapai',
+                            'kriteria_2_intervensi' => 'Remedial di bagian yang diperlukan',
+                            'kriteria_3_interval'   => '66-85%',
+                            'kriteria_3_label'      => 'Tercapai',
+                            'kriteria_3_intervensi' => 'Tidak perlu remedial',
+                            'kriteria_4_interval'   => '86-100%',
+                            'kriteria_4_label'      => 'Melampaui',
+                            'kriteria_4_intervensi' => 'Diberikan pengayaan',
+                        ]);
+                    }
+                }
+            }
+
+            // Load KKTP yang sudah ada
+            $data['kktp_list'] = $kktpModel
+                ->where('subject_id', $subjectId)
+                ->whereIn('class_id', $effectiveClassIds)
+                ->orderBy('id', 'ASC')
+                ->findAll();
         }
 
         return view('admin/administrasi_guru/kktp', $data);
