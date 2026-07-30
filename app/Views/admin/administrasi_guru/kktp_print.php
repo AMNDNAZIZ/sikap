@@ -92,14 +92,14 @@
             <td>
                 Mengetahui,<br>
                 Kepala Sekolah<br><br><br><br>
-                <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u><br>
-                NIP. ............................
+                <u><?= esc($school['headmaster'] ?? '............................') ?></u><br>
+                NIP. <?= esc($school['principal_nip'] ?? '............................' ) ?>
             </td>
             <td style="text-align: right;">
                 <?= esc($school['city_regency'] ?? '............') ?>, .........................<br>
                 Guru Mata Pelajaran<br><br><br><br>
                 <u><?= esc($teacher['name'] ?? '............................') ?></u><br>
-                NIP. ............................
+                NIP. <?= esc($teacher['nip'] ?? '............................' ) ?>
             </td>
         </tr>
     </table>
