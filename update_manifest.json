@@ -1,6 +1,6 @@
 {
     "version": "1.2.8",
-    "generated": "2026-07-30 11:24:14",
+    "generated": "2026-07-30 11:40:34",
     "last_update": "2026-07-28 00:00",
     "total_files": 803,
     "files": {
@@ -582,9 +582,9 @@
         "app/Views/layouts/footer.php": "797697de0fdcc501848ab70de6ebb9b6",
         "app/Views/layouts/header.php": "09ada3879c592e4322bb5654f82330f2",
         "app/Views/layouts/main.php": "c39c24832d529c15ed1b39374072b065",
-        "app/Views/layouts/partials/sidebar_admin.php": "1b2937aad11c4350d4ae512c91252347",
-        "app/Views/layouts/partials/sidebar_guru.php": "8bf067ae11cc0a967e9ea6138dc25806",
-        "app/Views/layouts/partials/sidebar_kepsek.php": "8f5afb85616fb7be0ca5af17473bd321",
+        "app/Views/layouts/partials/sidebar_admin.php": "cd870c72a9b377d21f78761eb6ff1e19",
+        "app/Views/layouts/partials/sidebar_guru.php": "2e7858e14827552a94a3e999ff284856",
+        "app/Views/layouts/partials/sidebar_kepsek.php": "643b2e296ad39ac6c24755c24edcd342",
         "app/Views/layouts/partials/sidebar_kontributor.php": "5f08dedc7774f0c3cd4357f2d87aefdd",
         "app/Views/layouts/partials/sidebar_ortu.php": "49ddb9cc09b172a0a2751441f35e69fb",
         "app/Views/layouts/partials/sidebar_siswa.php": "8d544da48e9a7d80cad6d744a19b2139",
