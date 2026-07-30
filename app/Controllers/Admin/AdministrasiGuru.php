@@ -2486,4 +2486,179 @@ class AdministrasiGuru extends BaseController
         return redirect()->to(base_url("admin/administrasi-guru/modul-ajar?class_id=$targetClassId&subject_id=$subjectId"))
             ->with('success', 'Modul berhasil disalin. Anda dapat mengeditnya jika diperlukan.');
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // KKTP (Kriteria Ketercapaian Tujuan Pembelajaran)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function kktp()
+    {
+        $data['title'] = 'Kriteria Ketercapaian Tujuan Pembelajaran (KKTP)';
+
+        $filters = $this->getAvailableFilters();
+        $data['classes'] = $filters['classes'];
+        $data['subjects'] = $filters['subjects'];
+        $data['readonly'] = $filters['readonly'];
+        $data['auto_class'] = $filters['auto_class'];
+
+        $classId = $filters['selected_class'];
+        $subjectId = $this->request->getGet('subject_id');
+        $data['selected_class'] = $classId;
+        $data['selected_subject'] = $subjectId;
+        $data['kktp_list'] = [];
+
+        if ($classId && $subjectId) {
+            $kktpModel = new \App\Models\KktpModel();
+
+            // Untuk single-guru, cari KKTP di level yang sama
+            $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+            $classLevel = (int) ($classInfo['level'] ?? 0);
+
+            // Cek apakah multi-guru
+            $teacherCount = $this->db->table('teaching_assignments ta')
+                ->distinct()->select('ta.teacher_id')
+                ->join('classes c', 'c.id = ta.class_id')
+                ->where('ta.subject_id', $subjectId)
+                ->where('c.level', $classLevel)
+                ->get()->getResultArray();
+            $isMultiGuru = count($teacherCount) > 1;
+
+            if ($isMultiGuru) {
+                $data['kktp_list'] = $kktpModel->getByClassSubject((int)$classId, (int)$subjectId);
+            } else {
+                // Single guru: tampilkan KKTP dari kelas manapun se-level
+                $classIdsAtLevel = $this->db->table('classes')
+                    ->select('id')
+                    ->where('level', $classLevel)
+                    ->get()->getResultArray();
+                $classIds = array_column($classIdsAtLevel, 'id');
+
+                if (!empty($classIds)) {
+                    $data['kktp_list'] = $kktpModel
+                        ->where('subject_id', $subjectId)
+                        ->whereIn('class_id', $classIds)
+                        ->orderBy('id', 'ASC')
+                        ->findAll();
+                }
+            }
+
+            // Ambil TP dari ATP untuk referensi
+            $data['available_tps'] = $this->db->table('tujuan_pembelajaran tp')
+                ->select('tp.id, tp.kode_tp, tp.deskripsi, tp.lingkup_materi')
+                ->join('classes c', "c.level = {$classLevel}", 'inner')
+                ->where('tp.subject_id', $subjectId)
+                ->groupBy('tp.id')
+                ->orderBy('tp.kode_tp', 'ASC')
+                ->get()->getResultArray();
+        }
+
+        return view('admin/administrasi_guru/kktp', $data);
+    }
+
+    public function kktpStore()
+    {
+        $user = session()->get('user');
+        if ($user['role_id'] == 2) {
+            return redirect()->back()->with('error', 'Kepala Sekolah tidak memiliki akses untuk menambah data.');
+        }
+
+        $classId = $this->request->getPost('class_id');
+        $subjectId = $this->request->getPost('subject_id');
+
+        if (empty($classId) || empty($subjectId)) {
+            return redirect()->back()->with('error', 'Kelas dan Mata Pelajaran wajib dipilih.');
+        }
+
+        $id = $this->request->getPost('id');
+        $kktpModel = new \App\Models\KktpModel();
+
+        $data = [
+            'class_id'              => $classId,
+            'subject_id'            => $subjectId,
+            'tp_id'                 => $this->request->getPost('tp_id') ?: null,
+            'tujuan_pembelajaran'   => $this->request->getPost('tujuan_pembelajaran'),
+            'kriteria_1_interval'   => $this->request->getPost('kriteria_1_interval') ?: '0-40%',
+            'kriteria_1_label'      => $this->request->getPost('kriteria_1_label') ?: 'Belum Tercapai',
+            'kriteria_1_intervensi' => $this->request->getPost('kriteria_1_intervensi') ?: 'Remedial di seluruh bagian',
+            'kriteria_2_interval'   => $this->request->getPost('kriteria_2_interval') ?: '41-65%',
+            'kriteria_2_label'      => $this->request->getPost('kriteria_2_label') ?: 'Mulai Tercapai',
+            'kriteria_2_intervensi' => $this->request->getPost('kriteria_2_intervensi') ?: 'Remedial di bagian yang diperlukan',
+            'kriteria_3_interval'   => $this->request->getPost('kriteria_3_interval') ?: '66-85%',
+            'kriteria_3_label'      => $this->request->getPost('kriteria_3_label') ?: 'Tercapai',
+            'kriteria_3_intervensi' => $this->request->getPost('kriteria_3_intervensi') ?: 'Tidak perlu remedial',
+            'kriteria_4_interval'   => $this->request->getPost('kriteria_4_interval') ?: '86-100%',
+            'kriteria_4_label'      => $this->request->getPost('kriteria_4_label') ?: 'Melampaui',
+            'kriteria_4_intervensi' => $this->request->getPost('kriteria_4_intervensi') ?: 'Diberikan pengayaan',
+        ];
+
+        if ($id) {
+            $kktpModel->update($id, $data);
+            $msg = 'KKTP berhasil diperbarui.';
+        } else {
+            $kktpModel->insert($data);
+            $msg = 'KKTP berhasil disimpan.';
+        }
+
+        return redirect()->to(base_url("admin/administrasi-guru/kktp?class_id={$classId}&subject_id={$subjectId}"))
+            ->with('success', $msg);
+    }
+
+    public function kktpDelete($id)
+    {
+        $kktpModel = new \App\Models\KktpModel();
+        $kktp = $kktpModel->find($id);
+        if ($kktp) {
+            $kktpModel->delete($id);
+            return redirect()->to(base_url("admin/administrasi-guru/kktp?class_id={$kktp['class_id']}&subject_id={$kktp['subject_id']}"))
+                ->with('success', 'KKTP berhasil dihapus.');
+        }
+        return redirect()->back();
+    }
+
+    public function kktpPrint($classId, $subjectId)
+    {
+        $subject = $this->subjectModel->find($subjectId);
+        if (!$subject) return redirect()->back();
+
+        $school = $this->schoolModel->getProfile();
+        $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+        $classLevel = (int) ($classInfo['level'] ?? 0);
+
+        // Guru pengampu
+        $assignment = $this->teachingAssignmentModel
+            ->where('subject_id', $subjectId)
+            ->where('class_id', $classId)
+            ->first();
+        $teacher = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
+
+        // Ambil KKTP (single guru → lintas kelas se-level)
+        $kktpModel = new \App\Models\KktpModel();
+        $teacherCount = $this->db->table('teaching_assignments ta')
+            ->distinct()->select('ta.teacher_id')
+            ->join('classes c', 'c.id = ta.class_id')
+            ->where('ta.subject_id', $subjectId)
+            ->where('c.level', $classLevel)
+            ->get()->getResultArray();
+        $isMultiGuru = count($teacherCount) > 1;
+
+        if ($isMultiGuru) {
+            $kktpList = $kktpModel->getByClassSubject((int)$classId, (int)$subjectId);
+        } else {
+            $classIds = array_column(
+                $this->db->table('classes')->select('id')->where('level', $classLevel)->get()->getResultArray(),
+                'id'
+            );
+            $kktpList = !empty($classIds)
+                ? $kktpModel->where('subject_id', $subjectId)->whereIn('class_id', $classIds)->orderBy('id')->findAll()
+                : [];
+        }
+
+        return view('admin/administrasi_guru/kktp_print', [
+            'school'   => $school,
+            'subject'  => $subject,
+            'teacher'  => $teacher,
+            'classInfo'=> $classInfo,
+            'kktpList' => $kktpList,
+        ]);
+    }
 }

@@ -253,6 +253,12 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->get('modul-ajar/delete/(:num)/(:num)/(:num)', 'AdministrasiGuru::deleteModulAjar/$1/$2/$3');
         $routes->post('modul-ajar/copy', 'AdministrasiGuru::copyModulAjar');
 
+        // KKTP (Kriteria Ketercapaian Tujuan Pembelajaran)
+        $routes->get('kktp', 'AdministrasiGuru::kktp');
+        $routes->post('kktp/store', 'AdministrasiGuru::kktpStore');
+        $routes->get('kktp/delete/(:num)', 'AdministrasiGuru::kktpDelete/$1');
+        $routes->get('kktp/print/(:num)/(:num)', 'AdministrasiGuru::kktpPrint/$1/$2');
+
         // Pembuatan Soal AI
         $routes->get('soal-ai', 'AdministrasiGuru::soalAi');
         $routes->post('soal-ai/generate', 'AdministrasiGuru::generateSoalAi');

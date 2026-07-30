@@ -142,6 +142,24 @@
             </div>
         </div>
     </div>
+
+    <!-- KKTP -->
+    <div class="col-xl-4 col-md-6 mb-4">
+        <div class="card border-left-dark shadow h-100 py-2" style="border-left: 4px solid #e83e8c;">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">KKTP</div>
+                        <p class="mt-2 small text-muted">Kriteria Ketercapaian Tujuan Pembelajaran — pengganti KKM di Kurikulum Merdeka.</p>
+                        <a href="<?= base_url('admin/administrasi-guru/kktp') ?>" class="btn btn-sm mt-2 text-white" style="background:#e83e8c;">Kelola KKTP</a>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-clipboard-check fa-2x text-gray-300" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <?= $this->endSection() ?>
