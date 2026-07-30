@@ -308,16 +308,48 @@
                                 <td><?= esc($row['subject_name']) ?></td>
 
                                 <!-- ATP -->
-                                <td><?= $this->renderStatusBadge($row['atp_status'], $row['atp_info']) ?></td>
+                                <td>
+                                    <?php if ($row['atp_status'] === 'complete'): ?>
+                                        <span class="badge bg-success"><?= esc($row['atp_info']) ?></span>
+                                    <?php elseif ($row['atp_status'] === 'partial'): ?>
+                                        <span class="badge bg-warning text-dark"><?= esc($row['atp_info']) ?></span>
+                                    <?php else: ?>
+                                        <span class="badge bg-danger"><?= esc($row['atp_info']) ?></span>
+                                    <?php endif; ?>
+                                </td>
 
                                 <!-- KKTP -->
-                                <td><?= $this->renderStatusBadge($row['kktp_status'], $row['kktp_info']) ?></td>
+                                <td>
+                                    <?php if ($row['kktp_status'] === 'complete'): ?>
+                                        <span class="badge bg-success"><?= esc($row['kktp_info']) ?></span>
+                                    <?php elseif ($row['kktp_status'] === 'partial'): ?>
+                                        <span class="badge bg-warning text-dark"><?= esc($row['kktp_info']) ?></span>
+                                    <?php else: ?>
+                                        <span class="badge bg-danger"><?= esc($row['kktp_info']) ?></span>
+                                    <?php endif; ?>
+                                </td>
 
                                 <!-- Promes -->
-                                <td><?= $this->renderStatusBadge($row['promes_status'], $row['promes_info']) ?></td>
+                                <td>
+                                    <?php if ($row['promes_status'] === 'complete'): ?>
+                                        <span class="badge bg-success"><?= esc($row['promes_info']) ?></span>
+                                    <?php elseif ($row['promes_status'] === 'partial'): ?>
+                                        <span class="badge bg-warning text-dark"><?= esc($row['promes_info']) ?></span>
+                                    <?php else: ?>
+                                        <span class="badge bg-danger"><?= esc($row['promes_info']) ?></span>
+                                    <?php endif; ?>
+                                </td>
 
                                 <!-- Modul Ajar -->
-                                <td><?= $this->renderStatusBadge($row['modul_status'], $row['modul_info']) ?></td>
+                                <td>
+                                    <?php if ($row['modul_status'] === 'complete'): ?>
+                                        <span class="badge bg-success"><?= esc($row['modul_info']) ?></span>
+                                    <?php elseif ($row['modul_status'] === 'partial'): ?>
+                                        <span class="badge bg-warning text-dark"><?= esc($row['modul_info']) ?></span>
+                                    <?php else: ?>
+                                        <span class="badge bg-danger"><?= esc($row['modul_info']) ?></span>
+                                    <?php endif; ?>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
