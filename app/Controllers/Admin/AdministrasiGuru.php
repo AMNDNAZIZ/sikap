@@ -91,6 +91,8 @@ class AdministrasiGuru extends BaseController
             $data['pager'] = null;
             $data['atp_stats'] = ['complete' => 0, 'partial' => 0, 'empty' => 0];
             $data['promes_stats'] = ['complete' => 0, 'partial' => 0, 'empty' => 0];
+            $data['kktp_stats'] = ['complete' => 0, 'partial' => 0, 'empty' => 0];
+            $data['modul_stats'] = ['complete' => 0, 'partial' => 0, 'empty' => 0];
             return view('admin/administrasi_guru/monitoring', $data);
         }
 
@@ -134,6 +136,8 @@ class AdministrasiGuru extends BaseController
         // Statistics counters
         $atpStats = ['complete' => 0, 'partial' => 0, 'empty' => 0];
         $promesStats = ['complete' => 0, 'partial' => 0, 'empty' => 0];
+        $kktpStats = ['complete' => 0, 'partial' => 0, 'empty' => 0];
+        $modulStats = ['complete' => 0, 'partial' => 0, 'empty' => 0];
 
         // 7. Calculate status for all assignments
         foreach ($allAssignments as &$row) {
@@ -241,6 +245,53 @@ class AdministrasiGuru extends BaseController
                 $row['promes_info'] = "Selesai sebagian (Sem1: {$sem1Distributed}/{$sem1Allocated}, Sem2: {$sem2Distributed}/{$sem2Allocated} JP)";
                 $promesStats['partial']++;
             }
+
+            // KKTP Status Logic
+            $kktpQuery = $this->db->table('kktp');
+            if ($isMultiGuru) {
+                $kktpQuery->where('class_id', $classId);
+            } else {
+                $classIdsAtLevel = array_column(
+                    $this->db->table('classes')->select('id')->where('level', $classLevel)->get()->getResultArray(),
+                    'id'
+                ) ?: [0];
+                $kktpQuery->whereIn('class_id', $classIdsAtLevel);
+            }
+            $kktpCount = $kktpQuery->where('subject_id', $subjectId)->countAllResults();
+
+            if ($kktpCount == 0) {
+                $row['kktp_status'] = 'empty';
+                $row['kktp_info'] = 'Kosong';
+                $kktpStats['empty']++;
+            } elseif ($kktpCount >= 3) {
+                $row['kktp_status'] = 'complete';
+                $row['kktp_info'] = "Selesai ({$kktpCount} TP)";
+                $kktpStats['complete']++;
+            } else {
+                $row['kktp_status'] = 'partial';
+                $row['kktp_info'] = "Sebagian ({$kktpCount} TP)";
+                $kktpStats['partial']++;
+            }
+
+            // Modul Ajar Status Logic
+            $modulCount = $this->db->table('modul_ajar')
+                ->where('class_id', $classId)
+                ->where('subject_id', $subjectId)
+                ->countAllResults();
+
+            if ($modulCount == 0) {
+                $row['modul_status'] = 'empty';
+                $row['modul_info'] = 'Kosong';
+                $modulStats['empty']++;
+            } elseif ($modulCount >= $atpCount && $atpCount > 0) {
+                $row['modul_status'] = 'complete';
+                $row['modul_info'] = "Selesai ({$modulCount} modul)";
+                $modulStats['complete']++;
+            } else {
+                $row['modul_status'] = 'partial';
+                $row['modul_info'] = "Sebagian ({$modulCount}" . ($atpCount > 0 ? "/{$atpCount}" : "") . " modul)";
+                $modulStats['partial']++;
+            }
         }
         unset($row);
 
@@ -264,6 +315,43 @@ class AdministrasiGuru extends BaseController
         $data['total'] = $totalItems;
         $data['atp_stats'] = $atpStats;
         $data['promes_stats'] = $promesStats;
+        $data['kktp_stats'] = $kktpStats;
+        $data['modul_stats'] = $modulStats;
+
+        // 9. Ringkasan per guru: hitung status keseluruhan administrasi
+        $teacherSummary = [];
+        foreach ($allAssignments as $row) {
+            $tid = $row['teacher_id'];
+            if (!isset($teacherSummary[$tid])) {
+                $teacherSummary[$tid] = [
+                    'name'     => $row['teacher_name'],
+                    'total'    => 0,
+                    'complete' => 0,
+                    'partial'  => 0,
+                    'empty'    => 0,
+                ];
+            }
+            $teacherSummary[$tid]['total']++;
+
+            // Hitung overall status per assignment (semua 4 komponen harus selesai)
+            $allComplete = ($row['atp_status'] === 'complete' && $row['kktp_status'] === 'complete' && $row['promes_status'] === 'complete' && $row['modul_status'] === 'complete');
+            $allEmpty = ($row['atp_status'] === 'empty' && $row['kktp_status'] === 'empty' && $row['promes_status'] === 'empty' && $row['modul_status'] === 'empty');
+
+            if ($allComplete) {
+                $teacherSummary[$tid]['complete']++;
+            } elseif ($allEmpty) {
+                $teacherSummary[$tid]['empty']++;
+            } else {
+                $teacherSummary[$tid]['partial']++;
+            }
+        }
+        // Urutkan berdasarkan persentase selesai (descending)
+        uasort($teacherSummary, function($a, $b) {
+            $pctA = $a['total'] > 0 ? ($a['complete'] / $a['total']) : 0;
+            $pctB = $b['total'] > 0 ? ($b['complete'] / $b['total']) : 0;
+            return $pctB <=> $pctA;
+        });
+        $data['teacher_summary'] = $teacherSummary;
 
         return view('admin/administrasi_guru/monitoring', $data);
     }
