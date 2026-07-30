@@ -742,6 +742,45 @@ class AdministrasiGuru extends BaseController
         $urutan        = $this->request->getPost('urutan');
         $kelas         = $this->request->getPost('kelas');
 
+        // ═══ PENCEGAHAN DUPLIKASI ═══
+        // Jika bukan edit (id kosong), cek apakah ATP dengan lingkup_materi + subject_id 
+        // sudah ada di level yang sama (oleh guru yang sama)
+        if (empty($id)) {
+            $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+            $classLevel = (int) ($classInfo['level'] ?? 0);
+
+            // Cek ATP yang sudah ada di level ini untuk mapel + lingkup materi yang sama
+            $existingAtp = $this->db->table('alur_tujuan_pembelajaran atp')
+                ->select('atp.id, atp.class_id, c.name as class_name')
+                ->join('classes c', 'c.id = atp.class_id')
+                ->where('atp.subject_id', $subjectId)
+                ->where('atp.lingkup_materi', $lingkupMateri)
+                ->where('atp.semester', $semester)
+                ->where('c.level', $classLevel)
+                ->get()->getRowArray();
+
+            if ($existingAtp) {
+                // Cek apakah guru yang sama mengajar di kelas sumber
+                $sameTeacher = true;
+                if ($user['role_id'] == 3) {
+                    $sameTeacher = $this->db->table('teaching_assignments')
+                        ->where('teacher_id', $user['related_id'])
+                        ->where('class_id', $existingAtp['class_id'])
+                        ->where('subject_id', $subjectId)
+                        ->countAllResults() > 0;
+                }
+
+                if ($sameTeacher) {
+                    // Guru yang sama — ATP sudah ada, tidak perlu buat baru
+                    return redirect()->back()->with('error', 
+                        'ATP dengan lingkup materi "' . esc($lingkupMateri) . '" semester ' . $semester . 
+                        ' sudah ada di ' . esc($existingAtp['class_name']) . 
+                        '. Karena Anda mengajar mapel ini di kelas se-level, ATP tersebut otomatis berlaku untuk semua kelas yang Anda ampu.');
+                }
+                // Guru berbeda — boleh buat ATP sendiri (salin manual atau buat baru)
+            }
+        }
+
         $this->db->transStart();
 
         // 1. Simpan/update ATP header (tp_id nullable, diisi setelah TP tersimpan)
