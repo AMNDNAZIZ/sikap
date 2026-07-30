@@ -136,11 +136,10 @@ class Ebook extends BaseController
                 ->with('error', 'Anda tidak memiliki izin untuk mengunggah Buku Umum.');
         }
 
-        // Validate metadata based on book type
         if ($bookType === 'mapel') {
             $rules = [
                 'title' => 'required|max_length[255]',
-                'level' => 'required|integer|greater_than[0]|less_than[7]',
+                'level' => 'required|integer|greater_than[0]|less_than[13]',
                 'subject_id' => 'required|integer',
             ];
         } else {
@@ -295,7 +294,7 @@ class Ebook extends BaseController
         if ($bookType === 'mapel') {
             $rules = [
                 'title' => 'required|max_length[255]',
-                'level' => 'required|integer|greater_than[0]|less_than[7]',
+                'level' => 'required|integer|greater_than[0]|less_than[13]',
                 'subject_id' => 'required|integer',
             ];
         } else {

@@ -58,11 +58,9 @@
                 <label class="form-label">Level Kelas <span class="text-danger">*</span></label>
                 <select name="level" id="levelSelect" class="form-select" required>
                   <option value="">-- Pilih Level --</option>
-                  <?php for ($i = 1; $i <= 6; $i++): ?>
-                    <?php if (in_array($i, $allowedLevels)): ?>
-                      <option value="<?= $i ?>" <?= old('level', $book['level']) == $i ? 'selected' : '' ?>>Kelas <?= $i ?></option>
-                    <?php endif; ?>
-                  <?php endfor; ?>
+                  <?php foreach ($allowedLevels as $lvl): ?>
+                    <option value="<?= $lvl ?>" <?= old('level', $book['level']) == $lvl ? 'selected' : '' ?>>Kelas <?= $lvl ?></option>
+                  <?php endforeach; ?>
                 </select>
               </div>
               <div class="col-md-6 mb-3">

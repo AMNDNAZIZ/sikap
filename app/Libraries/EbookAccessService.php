@@ -92,9 +92,9 @@ class EbookAccessService
     {
         $roleId = (int) ($user['role_id'] ?? 0);
 
-        // Admin & Staf TU = all levels
+        // Admin & Staf TU = all levels berdasarkan tingkat sekolah
         if (in_array($roleId, [1, 7])) {
-            return [1, 2, 3, 4, 5, 6];
+            return $this->getSchoolLevels();
         }
 
         // Guru = levels from classes where teacher_id matches
@@ -125,6 +125,36 @@ class EbookAccessService
         }
 
         return [];
+    }
+
+    /**
+     * Dapatkan daftar level kelas berdasarkan tingkat sekolah di school_profile
+     * SD (level=1): 1-6, SMP (level=2): 7-9, SMA (level=3): 10-12
+     */
+    public function getSchoolLevels(): array
+    {
+        $db = \Config\Database::connect();
+        $school = $db->table('school_profile')->select('level')->get()->getRowArray();
+        $schoolLevel = (int) ($school['level'] ?? 1);
+
+        switch ($schoolLevel) {
+            case 1: // SD
+                return [1, 2, 3, 4, 5, 6];
+            case 2: // SMP
+                return [7, 8, 9];
+            case 3: // SMA
+                return [10, 11, 12];
+            default:
+                return [1, 2, 3, 4, 5, 6];
+        }
+    }
+
+    /**
+     * Dapatkan label kelas berdasarkan level number
+     */
+    public static function getLevelLabel(int $level): string
+    {
+        return 'Kelas ' . $level;
     }
 
     /**
