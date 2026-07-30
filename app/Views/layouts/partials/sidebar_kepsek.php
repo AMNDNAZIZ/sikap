@@ -142,6 +142,7 @@
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/atp*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/atp') ?>">🛤️ <span class="label">Alur Pembelajaran (ATP)</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/prota-prosem*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/prota-prosem') ?>">📅 <span class="label">Prota & Prosem</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/modul-ajar*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/modul-ajar') ?>">📂 <span class="label">Modul Ajar</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/administrasi-guru/kktp*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/kktp') ?>">📋 <span class="label">KKTP</span></a></li>
         </ul>
       </div>
     </li>
