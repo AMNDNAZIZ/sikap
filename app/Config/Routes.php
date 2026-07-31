@@ -247,6 +247,8 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->get('modul-ajar', 'AdministrasiGuru::modulAjar');
         $routes->post('modul-ajar/saveApiKey', 'AdministrasiGuru::saveApiKey');
         $routes->post('modul-ajar/generate', 'AdministrasiGuru::generateModulAjar');
+        $routes->post('modul-ajar/get-prompt', 'AdministrasiGuru::getModulPrompt');
+        $routes->post('modul-ajar/save-manual', 'AdministrasiGuru::saveManualModul');
         $routes->get('modul-ajar/edit/(:num)/(:num)', 'AdministrasiGuru::editModulAjar/$1/$2');
         $routes->post('modul-ajar/update', 'AdministrasiGuru::updateModulAjar');
         $routes->get('modul-ajar/print/(:num)/(:num)', 'AdministrasiGuru::printModulAjar/$1/$2');

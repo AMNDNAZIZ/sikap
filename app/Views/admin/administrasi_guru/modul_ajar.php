@@ -185,6 +185,9 @@
                                 <?php else: ?>
                                     <?php if (in_array(session()->get('user')['role_id'], [1, 3]) && !$readonly): ?>
                                         <?php if (empty($gemini_api_key)): ?>
+                                            <button class="btn btn-sm btn-outline-primary w-100 mb-1 get-prompt-btn" data-atp-id="<?= $atp['id'] ?>" data-subject-id="<?= $selected_subject ?>">
+                                                <i class="bi bi-clipboard"></i> Generate Manual
+                                            </button>
                                             <button class="btn btn-sm btn-danger w-100" data-bs-toggle="modal" data-bs-target="#apiKeyModal">
                                                 <i class="bi bi-robot"></i> Set API Key
                                             </button>
@@ -197,6 +200,9 @@
                                                     <i class="bi bi-magic"></i> Generate Modul (AI)
                                                 </button>
                                             </form>
+                                            <button class="btn btn-sm btn-outline-secondary w-100 mt-1 get-prompt-btn" data-atp-id="<?= $atp['id'] ?>" data-subject-id="<?= $selected_subject ?>">
+                                                <i class="bi bi-clipboard"></i> Generate Manual
+                                            </button>
                                             <?php if (!empty($atp['modul_source'])): ?>
                                             <form action="<?= base_url('admin/administrasi-guru/modul-ajar/copy') ?>" method="post" class="mt-1">
                                                 <?= csrf_field() ?>
@@ -226,6 +232,62 @@
     <?php endif; ?>
 <?php endif; ?>
 
+<!-- Modal: Generate Manual (Copy Prompt → Paste Result) -->
+<div class="modal fade" id="manualPromptModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-clipboard me-2"></i>Generate Modul Manual</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Step 1: Prompt -->
+                <div id="promptStep">
+                    <div class="alert alert-info py-2">
+                        <strong>Langkah 1:</strong> Copy prompt di bawah, lalu paste ke ChatGPT / Gemini / AI lainnya langsung di browser.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Prompt (klik untuk copy):</label>
+                        <textarea id="promptText" class="form-control" rows="8" readonly style="font-size:0.8rem; background:#f8f9fa;"></textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-success" id="copyPromptBtn">
+                            <i class="bi bi-clipboard-check me-1"></i>Copy Prompt
+                        </button>
+                        <button type="button" class="btn btn-primary" id="goToPasteStep">
+                            <i class="bi bi-arrow-right me-1"></i>Selanjutnya: Paste Hasil AI
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Paste Result -->
+                <div id="pasteStep" style="display:none;">
+                    <div class="alert alert-success py-2">
+                        <strong>Langkah 2:</strong> Paste hasil dari AI ke kotak di bawah, lalu klik Simpan.
+                    </div>
+                    <form action="<?= base_url('admin/administrasi-guru/modul-ajar/save-manual') ?>" method="post">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="atp_id" id="manualAtpId">
+                        <input type="hidden" name="subject_id" id="manualSubjectId">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Hasil dari AI (HTML):</label>
+                            <textarea name="modul_content" id="pasteArea" class="form-control" rows="12" required placeholder="Paste hasil HTML dari AI di sini..."></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary" id="backToPrompt">
+                                <i class="bi bi-arrow-left me-1"></i>Kembali
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-1"></i>Simpan Modul
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
@@ -245,6 +307,56 @@
             $('#geminiInstructions').removeClass('d-none');
             $('#groqInstructions').addClass('d-none');
         }
+    });
+
+    // Manual prompt flow
+    $('.get-prompt-btn').on('click', function() {
+        const atpId = $(this).data('atp-id');
+        const subjectId = $(this).data('subject-id');
+        const btn = $(this);
+
+        btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+
+        $.post('<?= base_url('admin/administrasi-guru/modul-ajar/get-prompt') ?>', {
+            atp_id: atpId,
+            subject_id: subjectId,
+            '<?= csrf_token() ?>': '<?= csrf_hash() ?>'
+        }, function(res) {
+            btn.prop('disabled', false).html('<i class="bi bi-clipboard"></i> Generate Manual');
+            if (res.error) {
+                alert(res.error);
+                return;
+            }
+            $('#promptText').val(res.prompt);
+            $('#manualAtpId').val(atpId);
+            $('#manualSubjectId').val(subjectId);
+            $('#promptStep').show();
+            $('#pasteStep').hide();
+            new bootstrap.Modal(document.getElementById('manualPromptModal')).show();
+        }).fail(function() {
+            btn.prop('disabled', false).html('<i class="bi bi-clipboard"></i> Generate Manual');
+            alert('Gagal mengambil prompt.');
+        });
+    });
+
+    $('#copyPromptBtn').on('click', function() {
+        const textarea = document.getElementById('promptText');
+        textarea.select();
+        document.execCommand('copy');
+        $(this).html('<i class="bi bi-check me-1"></i>Tersalin!').addClass('btn-dark').removeClass('btn-success');
+        setTimeout(() => {
+            $(this).html('<i class="bi bi-clipboard-check me-1"></i>Copy Prompt').addClass('btn-success').removeClass('btn-dark');
+        }, 2000);
+    });
+
+    $('#goToPasteStep').on('click', function() {
+        $('#promptStep').hide();
+        $('#pasteStep').show();
+    });
+
+    $('#backToPrompt').on('click', function() {
+        $('#pasteStep').hide();
+        $('#promptStep').show();
     });
 </script>
 <?= $this->endSection() ?>

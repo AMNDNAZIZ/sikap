@@ -1460,6 +1460,177 @@ class AdministrasiGuru extends BaseController
         return redirect()->back()->with('error', 'Anda tidak diizinkan menyimpan API Key.');
     }
 
+    /**
+     * Generate prompt saja (tanpa panggil API) — user copy prompt ke AI langsung
+     */
+    public function getModulPrompt()
+    {
+        $atpId = $this->request->getPost('atp_id');
+        $subjectId = $this->request->getPost('subject_id');
+
+        $user = session()->get('user');
+        if (!in_array($user['role_id'], [1, 3])) {
+            return $this->response->setJSON(['error' => 'Tidak diizinkan.']);
+        }
+
+        // Load data ATP
+        $atpRaw = $this->atpModel->find($atpId);
+        if (!$atpRaw) {
+            return $this->response->setJSON(['error' => 'ATP tidak ditemukan.']);
+        }
+
+        $atpResult = $this->loadAtpWithElemen((int)$atpRaw['subject_id']);
+        $atpFull = null;
+        foreach ($atpResult['list'] as $a) {
+            if ($a['id'] == $atpId) { $atpFull = $a; break; }
+        }
+        $atp = $atpFull ?? $atpRaw;
+
+        $tps = $atp['tps'] ?? [];
+        $tpDeskripsi = "";
+        foreach ($tps as $tp) {
+            $kodeTp = !empty($tp['kode_tp']) ? $tp['kode_tp'] . '. ' : '';
+            $tpDeskripsi .= $kodeTp . $tp['deskripsi'] . "\n";
+        }
+
+        $cpDeskripsiAll = "";
+        foreach ($atp['elemen_list'] ?? [] as $el) {
+            $cpDeskripsiAll .= ($el['elemen'] ?? '') . ": " . ($el['cp_deskripsi'] ?? '') . "\n";
+        }
+
+        $subject = $this->subjectModel->find($subjectId);
+        $school = $this->schoolModel->getProfile();
+
+        // Resolve teacher
+        if ($user['role_id'] == 3) {
+            $teacher = $this->teacherModel->find($user['related_id']);
+        } else {
+            $assignment = $this->db->table('teaching_assignments')
+                ->where('subject_id', $subjectId)
+                ->where('class_id', $atpRaw['class_id'])
+                ->get()->getRowArray();
+            $teacher = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
+        }
+
+        $totalJp = (int) ($atp['alokasi_waktu'] ?? 4);
+
+        // JP per minggu dari promes
+        $prosemJpPerWeek = $this->db->table('prosem_distributions')
+            ->where('atp_id', $atpId)->where('jp >', 0)
+            ->orderBy('id', 'ASC')->limit(1)->get()->getRowArray();
+        $jpPerMinggu = (int) ($prosemJpPerWeek['jp'] ?? 0);
+
+        if ($jpPerMinggu <= 0) {
+            $totalDistributed = $this->db->table('prosem_distributions')
+                ->where('atp_id', $atpId)->where('jp >', 0)->countAllResults();
+            if ($totalDistributed > 0) {
+                $sumJp = $this->db->table('prosem_distributions')
+                    ->selectSum('jp')->where('atp_id', $atpId)->where('jp >', 0)->get()->getRowArray();
+                $jpPerMinggu = (int) round(($sumJp['jp'] ?? $totalJp) / $totalDistributed);
+            } else {
+                $jpPerMinggu = min($totalJp, 4);
+            }
+        }
+
+        $pertemuanPerMinggu = ($jpPerMinggu <= 3) ? 1 : 2;
+        $jpPerPertemuan = max(1, (int) round($jpPerMinggu / $pertemuanPerMinggu));
+        $jumlahPertemuan = max(1, (int) ceil($totalJp / $jpPerPertemuan));
+        $menitPerPertemuan = $jpPerPertemuan * 45;
+
+        $prompt = "Buatkan Modul Ajar Kurikulum Merdeka DEEP LEARNING (MJM) 2025 dengan STRUKTUR PERSIS mengikuti rujukan 'Guru Karier' (Poin A sampai K).\n\n"
+            . "ATURAN:\n"
+            . "1. Bagian A (Identitas): Tabel 2-kolom. Alokasi Waktu: '{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)'.\n"
+            . "2. Bagian B (Kompetensi Awal): Tulis HANYA CP.\n"
+            . "3. Bagian C (Tujuan Pembelajaran): Masukkan TP persis seperti input.\n"
+            . "4. Bagian F (Langkah Pembelajaran): Buat TEPAT {$jumlahPertemuan} tabel pertemuan. Kolom: (Tahap | Sintaks | Deskripsi | Waktu). TOTAL waktu setiap pertemuan = {$menitPerPertemuan} menit.\n"
+            . "5. Setiap pertemuan WAJIB mengandung MJM: Mindful (~10 menit), Meaningful (~" . max(10, $menitPerPertemuan - 25) . " menit), Joyful (~15 menit).\n"
+            . "6. Bagian K (Penilaian): Buat spesifik (Penilaian Proses + Penilaian Hasil).\n"
+            . "7. JANGAN buat bagian Tanda Tangan.\n\n"
+            . "DATA INPUT:\n"
+            . "Sekolah: " . ($school['name'] ?? '-') . "\n"
+            . "Penyusun: " . ($teacher['name'] ?? '-') . "\n"
+            . "Mapel: " . ($subject['name'] ?? '-') . "\n"
+            . "Materi: " . ($atp['lingkup_materi'] ?? '-') . "\n"
+            . "Kelas: " . ($tps[0]['kelas'] ?? '-') . "\n"
+            . "Alokasi: {$totalJp} JP → {$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP ({$menitPerPertemuan} menit)\n"
+            . "CP:\n" . $cpDeskripsiAll . "\n"
+            . "TP:\n" . $tpDeskripsi . "\n\n"
+            . "KEMBALIKAN HANYA PURE HTML (tanpa markdown, tanpa code block).";
+
+        return $this->response->setJSON([
+            'success' => true,
+            'prompt' => $prompt,
+            'info' => [
+                'materi' => $atp['lingkup_materi'] ?? '-',
+                'total_jp' => $totalJp,
+                'pertemuan' => $jumlahPertemuan,
+                'jp_per_pertemuan' => $jpPerPertemuan,
+            ],
+        ]);
+    }
+
+    /**
+     * Simpan modul hasil copy-paste dari AI (mode manual tanpa API)
+     */
+    public function saveManualModul()
+    {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'], [1, 3])) {
+            return redirect()->back()->with('error', 'Tidak diizinkan.');
+        }
+
+        $atpId = $this->request->getPost('atp_id');
+        $subjectId = $this->request->getPost('subject_id');
+        $content = $this->request->getPost('modul_content');
+
+        if (empty($content) || strlen(strip_tags($content)) < 50) {
+            return redirect()->back()->with('error', 'Konten modul terlalu pendek. Pastikan Anda paste hasil dari AI dengan benar.');
+        }
+
+        $atpRaw = $this->atpModel->find($atpId);
+        if (!$atpRaw) {
+            return redirect()->back()->with('error', 'ATP tidak ditemukan.');
+        }
+
+        $classId = $atpRaw['class_id'];
+
+        // Resolve teacher
+        if ($user['role_id'] == 3) {
+            $targetTeacherId = $user['related_id'];
+        } else {
+            $assignment = $this->db->table('teaching_assignments')
+                ->where('subject_id', $subjectId)
+                ->where('class_id', $classId)
+                ->get()->getRowArray();
+            $targetTeacherId = $assignment['teacher_id'] ?? null;
+        }
+
+        if (!$targetTeacherId) {
+            return redirect()->back()->with('error', 'Tidak dapat menentukan guru pengampu.');
+        }
+
+        $modulModel = new \App\Models\ModulAjarModel();
+
+        // Cek duplikat
+        $existing = $modulModel->where('atp_id', $atpId)->where('class_id', $classId)->first();
+        if ($existing) {
+            $modulModel->update($existing['id'], ['content' => $content]);
+            $msg = 'Modul berhasil diperbarui dari input manual.';
+        } else {
+            $modulModel->insert([
+                'atp_id'     => $atpId,
+                'subject_id' => $subjectId,
+                'class_id'   => $classId,
+                'teacher_id' => $targetTeacherId,
+                'content'    => $content,
+            ]);
+            $msg = 'Modul berhasil disimpan dari input manual.';
+        }
+
+        return redirect()->to(base_url("admin/administrasi-guru/modul-ajar?class_id={$classId}&subject_id={$subjectId}"))
+            ->with('success', $msg);
+    }
+
     public function generateModulAjar()
     {
         $atpId = $this->request->getPost('atp_id');
