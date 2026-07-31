@@ -1531,25 +1531,71 @@ class AdministrasiGuru extends BaseController
         $school = $this->schoolModel->getProfile();
 
         $totalJp = (int) ($atp['alokasi_waktu'] ?? 4);
-        $jumlahPertemuan = max(1, (int) ceil($totalJp / 2));
-        $menitPerPertemuan = 2 * 45; // 2 JP × 45 menit = 90 menit
+
+        // Ambil JP per minggu dari Program Semester (Promes)
+        // untuk menentukan jumlah pertemuan yang akurat
+        $prosemJpPerWeek = $this->db->table('prosem_distributions')
+            ->where('atp_id', $atpId)
+            ->where('jp >', 0)
+            ->orderBy('id', 'ASC')
+            ->limit(1)
+            ->get()->getRowArray();
+
+        $jpPerMinggu = (int) ($prosemJpPerWeek['jp'] ?? 0);
+
+        // Fallback: jika promes belum diisi, hitung dari total JP
+        if ($jpPerMinggu <= 0) {
+            // Estimasi dari total JP / jumlah minggu efektif (asumsi)
+            $totalDistributed = $this->db->table('prosem_distributions')
+                ->where('atp_id', $atpId)
+                ->where('jp >', 0)
+                ->countAllResults();
+            if ($totalDistributed > 0) {
+                $sumJp = $this->db->table('prosem_distributions')
+                    ->selectSum('jp')
+                    ->where('atp_id', $atpId)
+                    ->where('jp >', 0)
+                    ->get()->getRowArray();
+                $jpPerMinggu = (int) round(($sumJp['jp'] ?? $totalJp) / $totalDistributed);
+            } else {
+                // Tidak ada promes sama sekali, fallback ke alokasi_waktu
+                $jpPerMinggu = min($totalJp, 4);
+            }
+        }
+
+        // Hitung jumlah pertemuan per minggu berdasarkan JP per minggu
+        // Aturan: 1-3 JP = 1 pertemuan, 4-8 JP = 2 pertemuan
+        if ($jpPerMinggu <= 3) {
+            $pertemuanPerMinggu = 1;
+        } else {
+            $pertemuanPerMinggu = 2;
+        }
+
+        // JP per pertemuan
+        $jpPerPertemuan = max(1, (int) round($jpPerMinggu / $pertemuanPerMinggu));
+
+        // Total pertemuan untuk seluruh alokasi waktu ATP ini
+        $jumlahPertemuan = max(1, (int) ceil($totalJp / $jpPerPertemuan));
+
+        // Menit per pertemuan
+        $menitPerPertemuan = $jpPerPertemuan * 45;
 
         $prompt = "Buatkan Modul Ajar Kurikulum Merdeka DEEP LEARNING (MJM) 2025 dengan STRUKTUR PERSIS mengikuti rujukan 'Guru Karier' (Poin A sampai K).\n\n"
                 . "ATURAN TATA LETAK (WAJIB & KETAT):\n"
                 . "1. JANGAN PERNAH menyatukan judul bagian dalam satu baris. Setiap bagian diawali tag <h3>.\n"
-                . "2. Bagian A (Identitas): Tabel 2-kolom. Kolom kiri (Label) WAJIB 'text-align: left; width: 170px; font-weight: bold;'. Isi baris Alokasi Waktu dengan '{$totalJp} JP ({$jumlahPertemuan} Pertemuan)'.\n"
+                . "2. Bagian A (Identitas): Tabel 2-kolom. Kolom kiri (Label) WAJIB 'text-align: left; width: 170px; font-weight: bold;'. Isi baris Alokasi Waktu dengan '{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)'.\n"
                 . "3. Bagian B (Kompetensi Awal): Tuliskan HANYA Capaian Pembelajaran (CP) saja, jangan sertakan Tujuan Pembelajaran (TP).\n"
                 . "4. Bagian C (Tujuan Pembelajaran): Masukkan Tujuan Pembelajaran persis seperti input HTML, JANGAN buatkan penomoran list otomatis (1, 2) lagi karena sudah dimuat di teks.\n"
                 . "5. Bagian F (Langkah Pembelajaran): Pindahkan dan buat TEPAT {$jumlahPertemuan} tabel pertemuan di sini, masing-masing berlabel 'Pertemuan ke-1', 'Pertemuan ke-2', dst.\n"
                 . "   Setiap tabel pertemuan memiliki 4 kolom: (Tahap | Sintaks | Deskripsi | Waktu) dengan Header Cream (#fff9c4).\n"
-                . "   TOTAL waktu setiap pertemuan WAJIB {$menitPerPertemuan} menit (2 JP × 45 menit).\n"
+                . "   TOTAL waktu setiap pertemuan WAJIB {$menitPerPertemuan} menit ({$jpPerPertemuan} JP × 45 menit).\n"
                 . "6. Bagian K (Penilaian / Asesmen): Buat SPESIFIK. Jelaskan 'Penilaian Proses' (bentuknya) dan 'Penilaian Hasil' (instrumennya) yang benar-benar dapat mengukur Tujuan Pembelajaran tersebut.\n"
                 . "7. JANGAN MENGHASILKAN bagian Tanda Tangan (L, M, dst) sama sekali karena sistem pencetak otomatis telah menyediakan kolom tanda tangan di bawah modul.\n\n"
                 . "PANDUAN DEEP LEARNING MJM (SANGAT PENTING — WAJIB ADA DI SETIAP PERTEMUAN):\n"
                 . "Setiap pertemuan wajib mengandung ketiga elemen MJM dalam kolom 'Deskripsi' dengan proporsi waktu berikut:\n"
                 . "  a. MINDFUL (~10 menit): Tuliskan SCRIPT kata-kata guru untuk teknik STOP / mindfulness singkat.\n"
                 . "     Contoh: 'Guru mengajak siswa memejamkan mata 30 detik, fokus pada napas, lalu bertanya: Apa yang ingin kamu capai hari ini?'\n"
-                . "  b. MEANINGFUL (~65 menit): Eksplorasi → Diskusi Kolaboratif → Koneksi ke dunia nyata yang SPESIFIK untuk materi " . $atp['lingkup_materi'] . ".\n"
+                . "  b. MEANINGFUL (~" . max(10, $menitPerPertemuan - 25) . " menit): Eksplorasi → Diskusi Kolaboratif → Koneksi ke dunia nyata yang SPESIFIK untuk materi " . $atp['lingkup_materi'] . ".\n"
                 . "     Gunakan model: Motivasi → Eksplorasi Konsep → Diskusi Kelompok → Presentasi/Sintesis.\n"
                 . "     JANGAN gunakan kalimat normatif 'Guru menjelaskan'. Gunakan deskripsi aksi nyata.\n"
                 . "  c. JOYFUL (~15 menit): Rincikan AKTIVITAS/GAME/PROYEK MINI yang memancing emosi positif terkait materi.\n\n"
@@ -1559,7 +1605,7 @@ class AdministrasiGuru extends BaseController
                 . "Mapel: " . $subject['name'] . "\n"
                 . "Materi: " . $atp['lingkup_materi'] . "\n"
                 . "Kelas: " . ($tps[0]['kelas'] ?? '-') . "\n"
-                . "Alokasi Waktu: {$totalJp} JP → {$jumlahPertemuan} Pertemuan (masing-masing 2 JP / {$menitPerPertemuan} menit)\n"
+                . "Alokasi Waktu: {$totalJp} JP → {$jumlahPertemuan} Pertemuan (masing-masing {$jpPerPertemuan} JP / {$menitPerPertemuan} menit)\n"
                 . "CP: " . $cpDeskripsiAll . "\n"
                 . "TP:\n" . $tpDeskripsi . "\n\n"
                 . "KEMBALIKAN HANYA PURE HTML (TANPA MARKDOWN). Pastikan esensi MJM terlihat kuat dalam deskripsi kegiatan.";
