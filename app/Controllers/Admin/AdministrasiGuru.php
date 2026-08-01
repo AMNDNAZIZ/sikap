@@ -2698,6 +2698,16 @@ class AdministrasiGuru extends BaseController
 
         foreach ($soalList as $soal) {
             $tipe = $soal['type'] ?? 'pg';
+
+            // Normalisasi tipe dari berbagai variasi output AI
+            $tipe = match(strtolower(trim($tipe))) {
+                'pg', 'pilihan_ganda', 'pilgan', 'multiple_choice' => 'pg',
+                'pg_kompleks', 'pgk', 'pilihan_ganda_kompleks', 'multiple_choice_complex', 'pg kompleks' => 'pg_kompleks',
+                'benar_salah', 'bs', 'true_false', 'betul_salah' => 'benar_salah',
+                'esai', 'essay', 'uraian' => 'esai',
+                default => $tipe,
+            };
+
             $data = [
                 'bank_id' => $bankId,
                 'question_text' => $soal['question'] ?? '',

@@ -313,6 +313,19 @@ function renderHasil(soal) {
 
     const tipeLabel = { pg: 'PG', pg_kompleks: 'PGK', benar_salah: 'B/S', esai: 'Esai' };
 
+    // Normalisasi tipe dari output AI yang mungkin bervariasi
+    const normalizeType = (t) => {
+        t = (t || 'pg').toLowerCase().trim();
+        if (['pg', 'pilihan_ganda', 'pilgan', 'multiple_choice'].includes(t)) return 'pg';
+        if (['pg_kompleks', 'pgk', 'pilihan_ganda_kompleks', 'pg kompleks'].includes(t)) return 'pg_kompleks';
+        if (['benar_salah', 'bs', 'true_false'].includes(t)) return 'benar_salah';
+        if (['esai', 'essay', 'uraian'].includes(t)) return 'esai';
+        return t;
+    };
+
+    // Normalisasi tipe di data soal sebelum render
+    soal.forEach(s => { s.type = normalizeType(s.type); });
+
     container.innerHTML = soal.map((s, i) => {
         let html = `<div class="list-group-item">
             <div class="d-flex justify-content-between">
