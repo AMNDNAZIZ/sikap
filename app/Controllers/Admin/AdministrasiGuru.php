@@ -2037,20 +2037,29 @@ class AdministrasiGuru extends BaseController
             return ($month >= 7) ? $startYear : $startYear + 1;
         };
 
-        // weekStatus[month][week] = 'full_holiday' | 'has_holiday' | 'out_range' | 'normal'
+        // weekStatus[month][week] = 'full_holiday' | 'has_holiday' | 'partial' | 'out_range' | 'normal'
         $weekStatus = [];
 
         foreach ($data['months'] as $mCode => $mName) {
             $year = $yearForMonth($mCode);
             $weekStatus[$mCode] = [];
 
-            for ($w = 1; $w <= 5; $w++) {
-                // Hitung rentang hari dalam pekan ini
-                // Pekan 1 = hari 1-7, pekan 2 = 8-14, pekan 3 = 15-21, pekan 4 = 22-28, pekan 5 = 29-akhir bulan
-                $weekStartDay = ($w - 1) * 7 + 1;
-                $weekEndDay   = min($w * 7, (int)date('t', mktime(0, 0, 0, $mCode, 1, $year)));
+            // Cari minggu-minggu (Senin–Minggu) yang beririsan dengan bulan ini
+            // Mulai dari Senin pertama sebelum atau pada tanggal 1 bulan
+            $firstDayOfMonth  = mktime(0, 0, 0, $mCode, 1, $year);
+            $lastDayOfMonth   = mktime(0, 0, 0, $mCode, (int)date('t', $firstDayOfMonth), $year);
+            $daysInMonth      = (int)date('t', $firstDayOfMonth);
 
-                if ($weekStartDay > (int)date('t', mktime(0, 0, 0, $mCode, 1, $year))) {
+            // Cari Senin awal pekan pertama yang bersinggungan dengan bulan ini
+            $dayOfWeekFirst = (int)date('N', $firstDayOfMonth); // 1=Senin, 7=Minggu
+            $mondayOfFirstWeek = mktime(0, 0, 0, $mCode, 1 - ($dayOfWeekFirst - 1), $year);
+
+            for ($w = 1; $w <= 5; $w++) {
+                $weekMonday = strtotime('+' . ($w - 1) . ' weeks', $mondayOfFirstWeek);
+                $weekSunday = strtotime('+6 days', $weekMonday);
+
+                // Pekan ini tidak beririsan dengan bulan sama sekali
+                if ($weekMonday > $lastDayOfMonth || $weekSunday < $firstDayOfMonth) {
                     $weekStatus[$mCode][$w] = 'out_range';
                     continue;
                 }
@@ -2058,17 +2067,18 @@ class AdministrasiGuru extends BaseController
                 $effectiveDays = 0;
                 $holidayDaysInWeek = 0;
 
-                for ($day = $weekStartDay; $day <= $weekEndDay; $day++) {
-                    $dateStr = sprintf('%04d-%02d-%02d', $year, $mCode, $day);
-                    $dayOfWeek = (int)date('N', strtotime($dateStr));
+                // Loop hari Senin–Jumat (atau Sabtu jika 6 hari sekolah) dalam minggu ini
+                $maxDay = ($schoolDays == 6) ? 6 : 5;
+                for ($d = 0; $d < $maxDay; $d++) {
+                    $dayTs  = strtotime('+' . $d . ' days', $weekMonday);
+                    $dateStr = date('Y-m-d', $dayTs);
 
-                    // Skip weekend berdasarkan school_days
-                    $isWeekend = ($schoolDays == 5 && $dayOfWeek >= 6) || ($schoolDays == 6 && $dayOfWeek == 7);
-                    if ($isWeekend) continue;
+                    // Harus berada dalam bulan ini
+                    if ((int)date('n', $dayTs) !== $mCode) continue;
 
                     // Cek out of academic year range
                     if ($yearStart && $dateStr < $yearStart) continue;
-                    if ($yearEnd && $dateStr > $yearEnd) continue;
+                    if ($yearEnd   && $dateStr > $yearEnd)   continue;
 
                     $effectiveDays++;
 
@@ -2078,10 +2088,12 @@ class AdministrasiGuru extends BaseController
                 }
 
                 if ($effectiveDays === 0) {
-                    // Tidak ada hari efektif sama sekali (semua libur atau out of range)
                     $weekStatus[$mCode][$w] = 'full_holiday';
                 } elseif ($holidayDaysInWeek > 0 && $holidayDaysInWeek >= $effectiveDays) {
                     $weekStatus[$mCode][$w] = 'full_holiday';
+                } elseif ($effectiveDays <= 2) {
+                    // Pekan pendek — awal/akhir TA atau sebagian besar di luar bulan
+                    $weekStatus[$mCode][$w] = 'partial';
                 } elseif ($holidayDaysInWeek > 0) {
                     $weekStatus[$mCode][$w] = 'has_holiday';
                 } else {

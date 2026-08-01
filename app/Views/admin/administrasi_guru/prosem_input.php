@@ -43,6 +43,7 @@
                                     $headerBg = match($status) {
                                         'full_holiday' => 'style="background:#f8d7da; color:#842029;" title="Pekan libur/tidak efektif — tidak dapat diisi"',
                                         'has_holiday'  => 'style="background:#fff3cd; color:#664d03;" title="Ada hari libur di pekan ini — perhatikan alokasi jam"',
+                                        'partial'      => 'style="background:#ffe0cc; color:#7c3500;" title="Pekan pendek (≤2 hari efektif) — perhatikan alokasi"',
                                         default        => '',
                                     };
                                 ?>
@@ -69,11 +70,16 @@
                                         $status = $week_status[$mCode][$w] ?? 'normal';
                                         $isFullHoliday = in_array($status, ['full_holiday', 'out_range']);
                                         $isHasHoliday  = ($status === 'has_holiday');
+                                        $isPartial     = ($status === 'partial');
                                         
                                         if ($isFullHoliday) {
                                             $cellStyle = 'background:#f8d7da;';
                                             $inputAttr = 'disabled readonly tabindex="-1"';
                                             $cellTitle = 'title="Pekan libur/tidak efektif"';
+                                        } elseif ($isPartial) {
+                                            $cellStyle = 'background:#fff0e6;';
+                                            $inputAttr = '';
+                                            $cellTitle = 'title="Pekan pendek ≤2 hari efektif"';
                                         } elseif ($isHasHoliday) {
                                             $cellStyle = 'background:#fff9e6;';
                                             $inputAttr = '';
@@ -114,6 +120,7 @@
                     <span class="text-danger fw-bold">* Tips:</span> Masukkan angka JP pada kolom minggu yang direncanakan.
                     <span class="ms-3">
                         <span class="badge" style="background:#f8d7da; color:#842029; border:1px solid #f5c2c7;">■ Libur penuh / tidak efektif</span>
+                        <span class="badge ms-1" style="background:#ffe0cc; color:#7c3500; border:1px solid #ffcba4;">■ Pekan pendek (≤2 hari)</span>
                         <span class="badge ms-1" style="background:#fff3cd; color:#664d03; border:1px solid #ffe69c;">■ Ada hari libur</span>
                     </span>
                 </div>
