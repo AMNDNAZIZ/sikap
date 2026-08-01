@@ -383,10 +383,9 @@ document.getElementById('btn-manual-prompt')?.addEventListener('click', async fu
 
     // Gather tipe list
     const tipeList = [];
-    document.querySelectorAll('.tipe-row').forEach(row => {
-        const tipe = row.querySelector('[name="tipe"]')?.value;
-        const jumlah = parseInt(row.querySelector('[name="jumlah"]')?.value || 0);
-        if (tipe && jumlah > 0) tipeList.push({ tipe, jumlah });
+    document.querySelectorAll('.tipe-check:checked').forEach(chk => {
+        const jumlah = parseInt(document.querySelector(`.tipe-jumlah[data-tipe="${chk.value}"]`).value || 0);
+        if (jumlah > 0) tipeList.push({ tipe: chk.value, jumlah });
     });
     if (tipeList.length === 0) { alert('Pilih minimal satu tipe soal.'); return; }
 
