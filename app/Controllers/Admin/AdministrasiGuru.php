@@ -2431,9 +2431,9 @@ class AdministrasiGuru extends BaseController
 
         foreach ($tipeList as $t) {
             $label = match($t['tipe']) {
-                'pg' => 'Pilihan Ganda (4 opsi: A,B,C,D)',
+                'pg' => 'Pilihan Ganda (4 opsi: A,B,C,D — pilih 1 jawaban benar)',
                 'pg_kompleks' => "Pilihan Ganda Kompleks ({$pgkOpsiLabel}, bisa lebih dari 1 jawaban benar)",
-                'benar_salah' => 'Benar/Salah',
+                'benar_salah' => 'Benar/Salah (1 stimulus + 4 PERNYATAAN yang masing-masing dinilai Benar atau Salah secara INDEPENDEN)',
                 'esai' => 'Esai/Uraian singkat',
                 default => $t['tipe']
             };
@@ -2504,6 +2504,8 @@ class AdministrasiGuru extends BaseController
             . '{"type":"esai","question":"...","answer":"kunci jawaban lengkap"}]' . "\n\n"
             . "ATURAN TAMBAHAN:\n"
             . "- Untuk tipe benar_salah: question=stimulus utama, options=4 pernyataan (A-D), answer=status B atau S per opsi dipisah koma (contoh: 'B,S,B,B')\n"
+            . "- PENTING SOAL BS: Opsi A-D adalah PERNYATAAN BERBEDA yang masing-masing dinilai Benar/Salah secara INDEPENDEN. INI BUKAN pilihan ganda! Setiap pernyataan harus berdiri sendiri dan bisa dinilai kebenarannya. Campurkan pernyataan benar dan salah (jangan semua benar atau semua salah).\n"
+            . "- Contoh BS BENAR: question='Perhatikan pernyataan tentang Pancasila berikut!', options: A='Pancasila terdiri dari 5 sila' (B), B='Sila pertama tentang kemanusiaan' (S), C='Pancasila adalah dasar negara' (B), D='Pancasila ditetapkan tanggal 1 Juni 1945' (S)\n"
             . "- Kelompokkan berurutan: PG dulu, lalu PGK, BS, terakhir Esai\n"
             . "- Untuk Esai: kunci jawaban harus lengkap (rubrik/poin yang diharapkan)\n"
             . "- Untuk BS: pernyataan harus spesifik, bukan opini\n"
@@ -2625,9 +2627,9 @@ class AdministrasiGuru extends BaseController
 
         foreach ($tipeList as $t) {
             $label = match($t['tipe']) {
-                'pg' => 'Pilihan Ganda (4 opsi: A,B,C,D)',
+                'pg' => 'Pilihan Ganda (4 opsi: A,B,C,D — pilih 1 jawaban benar)',
                 'pg_kompleks' => "Pilihan Ganda Kompleks ({$pgkOpsiLabel}, bisa lebih dari 1 jawaban benar)",
-                'benar_salah' => 'Benar/Salah',
+                'benar_salah' => 'Benar/Salah (1 stimulus + 4 PERNYATAAN independen, masing-masing dinilai B/S)',
                 'esai' => 'Esai/Uraian singkat',
                 default => $t['tipe']
             };
@@ -2656,6 +2658,7 @@ class AdministrasiGuru extends BaseController
             . "FORMAT OUTPUT: JSON ARRAY (tanpa markdown/backtick)\n"
             . "Field per item: type, question, options (jika PG/PGK/BS), answer\n"
             . "PENTING untuk tipe benar_salah: question=stimulus utama, options={A:'pernyataan 1',B:'pernyataan 2',C:'pernyataan 3',D:'pernyataan 4'}, answer='B,S,B,S' (B=Benar, S=Salah per opsi)\n"
+            . "Soal BS BUKAN pilihan ganda! Setiap opsi adalah PERNYATAAN INDEPENDEN yang dinilai B/S. Campurkan pernyataan benar dan salah.\n"
             . "Contoh:\n"
             . '[{"type":"pg","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"},'
             . '{"type":"benar_salah","question":"Stimulus soal","options":{"A":"pernyataan 1","B":"pernyataan 2","C":"pernyataan 3","D":"pernyataan 4"},"answer":"B,S,B,B"},'
