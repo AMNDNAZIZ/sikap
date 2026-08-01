@@ -397,15 +397,16 @@ document.getElementById('btn-manual-prompt')?.addEventListener('click', async fu
     body.append(CSRF_NAME, csrfHash);
 
     if (jenis === 'formatif') {
-        const atpId = document.getElementById('atp_select')?.value;
+        const atpId = document.getElementById('atp_id')?.value;
         if (!atpId) { alert('Pilih materi ATP.'); return; }
         body.append('atp_id', atpId);
         const tpChecks = document.querySelectorAll('.tp-check:checked');
         tpChecks.forEach(c => body.append('tp_ids[]', c.value));
     } else {
-        const semester = document.getElementById('semester_select')?.value;
+        const semester = document.getElementById('semester_id')?.value;
         body.append('semester', semester);
-        document.querySelectorAll('.sumatif-atp-check:checked').forEach(c => body.append('atp_ids[]', c.value));
+        const semAtpIds = allAtp.filter(a => a.semester == semester).map(a => a.id);
+        semAtpIds.forEach(id => body.append('atp_ids[]', id));
     }
 
     btn.disabled = true;
