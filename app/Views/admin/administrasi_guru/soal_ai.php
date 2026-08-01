@@ -432,42 +432,6 @@ document.getElementById('btn-manual-prompt')?.addEventListener('click', async fu
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-clipboard me-1"></i> Generate Manual (Copy Prompt)';
 });
-
-document.getElementById('copySoalPrompt')?.addEventListener('click', function() {
-    const ta = document.getElementById('soalPromptText');
-    ta.select();
-    document.execCommand('copy');
-    this.innerHTML = '<i class="bi bi-check me-1"></i>Tersalin!';
-    setTimeout(() => { this.innerHTML = '<i class="bi bi-clipboard-check me-1"></i>Copy Prompt'; }, 2000);
-});
-
-document.getElementById('goSoalPaste')?.addEventListener('click', function() {
-    document.getElementById('soalPromptStep').style.display = 'none';
-    document.getElementById('soalPasteStep').style.display = 'block';
-});
-
-document.getElementById('backSoalPrompt')?.addEventListener('click', function() {
-    document.getElementById('soalPasteStep').style.display = 'none';
-    document.getElementById('soalPromptStep').style.display = 'block';
-});
-
-document.getElementById('parseSoalManual')?.addEventListener('click', function() {
-    const raw = document.getElementById('soalPasteArea').value.trim();
-    if (!raw) { alert('Paste hasil AI terlebih dahulu.'); return; }
-
-    // Clean markdown code blocks if any
-    let cleaned = raw.replace(/```(?:json)?([\s\S]*?)```/g, '$1').trim();
-
-    try {
-        const soal = JSON.parse(cleaned);
-        if (!Array.isArray(soal)) throw new Error('Bukan array');
-        generatedSoal = soal;
-        renderHasil(soal);
-        bootstrap.Modal.getInstance(document.getElementById('soalManualModal')).hide();
-    } catch (e) {
-        alert('Gagal parse JSON. Pastikan output dari AI berupa JSON array yang valid.\n\nError: ' + e.message);
-    }
-});
 </script>
 
 <!-- Modal: Manual Prompt Soal -->
@@ -513,5 +477,43 @@ document.getElementById('parseSoalManual')?.addEventListener('click', function()
         </div>
     </div>
 </div>
+
+<!-- Script untuk modal (harus setelah modal ada di DOM) -->
+<script>
+document.getElementById('copySoalPrompt').addEventListener('click', function() {
+    const ta = document.getElementById('soalPromptText');
+    ta.select();
+    document.execCommand('copy');
+    this.innerHTML = '<i class="bi bi-check me-1"></i>Tersalin!';
+    setTimeout(() => { this.innerHTML = '<i class="bi bi-clipboard-check me-1"></i>Copy Prompt'; }, 2000);
+});
+
+document.getElementById('goSoalPaste').addEventListener('click', function() {
+    document.getElementById('soalPromptStep').style.display = 'none';
+    document.getElementById('soalPasteStep').style.display = 'block';
+});
+
+document.getElementById('backSoalPrompt').addEventListener('click', function() {
+    document.getElementById('soalPasteStep').style.display = 'none';
+    document.getElementById('soalPromptStep').style.display = 'block';
+});
+
+document.getElementById('parseSoalManual').addEventListener('click', function() {
+    const raw = document.getElementById('soalPasteArea').value.trim();
+    if (!raw) { alert('Paste hasil AI terlebih dahulu.'); return; }
+
+    let cleaned = raw.replace(/```(?:json)?([\s\S]*?)```/g, '$1').trim();
+
+    try {
+        const soal = JSON.parse(cleaned);
+        if (!Array.isArray(soal)) throw new Error('Bukan array');
+        generatedSoal = soal;
+        renderHasil(soal);
+        bootstrap.Modal.getInstance(document.getElementById('soalManualModal')).hide();
+    } catch (e) {
+        alert('Gagal parse JSON. Pastikan output dari AI berupa JSON array yang valid.\n\nError: ' + e.message);
+    }
+});
+</script>
 
 <?= $this->endSection() ?>
