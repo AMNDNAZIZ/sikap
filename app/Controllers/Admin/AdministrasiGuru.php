@@ -2050,16 +2050,18 @@ class AdministrasiGuru extends BaseController
             $lastDayOfMonth   = mktime(0, 0, 0, $mCode, (int)date('t', $firstDayOfMonth), $year);
             $daysInMonth      = (int)date('t', $firstDayOfMonth);
 
-            // Cari Senin awal pekan pertama yang bersinggungan dengan bulan ini
-            $dayOfWeekFirst = (int)date('N', $firstDayOfMonth); // 1=Senin, 7=Minggu
-            $mondayOfFirstWeek = mktime(0, 0, 0, $mCode, 1 - ($dayOfWeekFirst - 1), $year);
+            // Cari Minggu awal pekan pertama yang bersinggungan dengan bulan ini
+            // (kalender Minggu–Sabtu)
+            $dayOfWeekFirst = (int)date('w', $firstDayOfMonth); // 0=Minggu, 1=Sen, ..., 6=Sab
+            // Mundur ke Minggu sebelumnya (atau tetap jika tgl 1 sudah Minggu)
+            $sundayOfFirstWeek = mktime(0, 0, 0, $mCode, 1 - $dayOfWeekFirst, $year);
 
             for ($w = 1; $w <= 5; $w++) {
-                $weekMonday = strtotime('+' . ($w - 1) . ' weeks', $mondayOfFirstWeek);
-                $weekSunday = strtotime('+6 days', $weekMonday);
+                $weekSunday  = strtotime('+' . ($w - 1) . ' weeks', $sundayOfFirstWeek);
+                $weekSaturday = strtotime('+6 days', $weekSunday);
 
                 // Pekan ini tidak beririsan dengan bulan sama sekali
-                if ($weekMonday > $lastDayOfMonth || $weekSunday < $firstDayOfMonth) {
+                if ($weekSunday > $lastDayOfMonth || $weekSaturday < $firstDayOfMonth) {
                     $weekStatus[$mCode][$w] = 'out_range';
                     continue;
                 }
@@ -2068,9 +2070,12 @@ class AdministrasiGuru extends BaseController
                 $holidayDaysInWeek = 0;
 
                 // Loop hari Senin–Jumat (atau Sabtu jika 6 hari sekolah) dalam minggu ini
-                $maxDay = ($schoolDays == 6) ? 6 : 5;
-                for ($d = 0; $d < $maxDay; $d++) {
-                    $dayTs  = strtotime('+' . $d . ' days', $weekMonday);
+                // Senin = hari ke-1 dari Minggu, Jumat = hari ke-5, Sabtu = hari ke-6
+                $startOffset = 1; // Senin
+                $endOffset   = ($schoolDays == 6) ? 6 : 5; // Jumat atau Sabtu
+
+                for ($d = $startOffset; $d <= $endOffset; $d++) {
+                    $dayTs   = strtotime('+' . $d . ' days', $weekSunday);
                     $dateStr = date('Y-m-d', $dayTs);
 
                     // Harus berada dalam bulan ini
