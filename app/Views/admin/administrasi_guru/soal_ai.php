@@ -121,7 +121,10 @@
                 </div>
                 <div class="col-12">
                     <button type="button" id="btn-generate" class="btn btn-primary" disabled>
-                        <i class="bi bi-stars me-1"></i> Generate Soal
+                        <i class="bi bi-stars me-1"></i> Generate Soal (API)
+                    </button>
+                    <button type="button" id="btn-manual-prompt" class="btn btn-outline-secondary" disabled>
+                        <i class="bi bi-clipboard me-1"></i> Generate Manual (Copy Prompt)
                     </button>
                 </div>
             </div>
@@ -170,6 +173,10 @@ let csrfHash = '<?= csrf_hash() ?>';
 let generatedSoal = [];
 let generatedTipe = '';
 
+function setGenerateButtons(disabled) {
+    document.getElementById('btn-generate').disabled = disabled;
+    document.getElementById('btn-manual-prompt').disabled = disabled;
+}
 // Data ATP untuk sumatif
 const allAtp = <?= json_encode($atp_list) ?>;
 
@@ -183,7 +190,7 @@ document.getElementById('jenis_asesmen')?.addEventListener('change', function() 
         document.getElementById('semester_id').dispatchEvent(new Event('change'));
     } else {
         document.getElementById('tp-list').innerHTML = '<span class="text-muted small">Pilih materi terlebih dahulu</span>';
-        document.getElementById('btn-generate').disabled = true;
+        setGenerateButtons(true);
     }
 });
 
@@ -197,7 +204,7 @@ document.getElementById('semester_id')?.addEventListener('change', function() {
 
     if (semAtps.length === 0) {
         container.innerHTML = '<span class="text-muted small">Tidak ada ATP di semester ini</span>';
-        document.getElementById('btn-generate').disabled = true;
+        setGenerateButtons(true);
         return;
     }
 
@@ -213,7 +220,7 @@ document.getElementById('semester_id')?.addEventListener('change', function() {
         html += '</div>';
     });
     container.innerHTML = html;
-    document.getElementById('btn-generate').disabled = false;
+    setGenerateButtons(false);
 });
 
 // Formatif: ATP change → load TP
@@ -235,7 +242,7 @@ document.getElementById('atp_id')?.addEventListener('change', function() {
         ).join('');
     }
 
-    document.getElementById('btn-generate').disabled = !this.value;
+    setGenerateButtons(!this.value);
 });
 
 // Generate
@@ -295,7 +302,7 @@ document.getElementById('btn-generate')?.addEventListener('click', async functio
     }
 
     btn.disabled = false;
-    btn.innerHTML = '<i class="bi bi-stars me-1"></i> Generate Soal';
+    btn.innerHTML = '<i class="bi bi-stars me-1"></i> Generate Soal (API)';
 });
 
 function renderHasil(soal) {
@@ -366,6 +373,145 @@ document.getElementById('btn-save')?.addEventListener('click', async function() 
     this.disabled = false;
     this.innerHTML = '<i class="bi bi-floppy me-1"></i> Simpan ke Bank Soal';
 });
+
+// === Manual Prompt ===
+document.getElementById('btn-manual-prompt')?.addEventListener('click', async function() {
+    const btn = this;
+    const jenis = document.getElementById('jenis_asesmen').value;
+    const subjectId = '<?= $selected_subject ?? '' ?>';
+    const classId = '<?= $selected_class ?? '' ?>';
+
+    // Gather tipe list
+    const tipeList = [];
+    document.querySelectorAll('.tipe-row').forEach(row => {
+        const tipe = row.querySelector('[name="tipe"]')?.value;
+        const jumlah = parseInt(row.querySelector('[name="jumlah"]')?.value || 0);
+        if (tipe && jumlah > 0) tipeList.push({ tipe, jumlah });
+    });
+    if (tipeList.length === 0) { alert('Pilih minimal satu tipe soal.'); return; }
+
+    const body = new FormData();
+    body.append('subject_id', subjectId);
+    body.append('class_id', classId);
+    body.append('tipe_list', JSON.stringify(tipeList));
+    body.append('jenis_asesmen', jenis);
+    body.append(CSRF_NAME, csrfHash);
+
+    if (jenis === 'formatif') {
+        const atpId = document.getElementById('atp_select')?.value;
+        if (!atpId) { alert('Pilih materi ATP.'); return; }
+        body.append('atp_id', atpId);
+        const tpChecks = document.querySelectorAll('.tp-check:checked');
+        tpChecks.forEach(c => body.append('tp_ids[]', c.value));
+    } else {
+        const semester = document.getElementById('semester_select')?.value;
+        body.append('semester', semester);
+        document.querySelectorAll('.sumatif-atp-check:checked').forEach(c => body.append('atp_ids[]', c.value));
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menyiapkan...';
+
+    try {
+        const res = await fetch('<?= base_url("admin/administrasi-guru/soal-ai/get-prompt") ?>', { method: 'POST', body });
+        const data = await res.json();
+        if (data.csrf) csrfHash = data.csrf;
+
+        if (data.success) {
+            document.getElementById('soalPromptText').value = data.prompt;
+            document.getElementById('soalPasteStep').style.display = 'none';
+            document.getElementById('soalPromptStep').style.display = 'block';
+            new bootstrap.Modal(document.getElementById('soalManualModal')).show();
+        } else {
+            alert('Error: ' + (data.error || 'Unknown'));
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-clipboard me-1"></i> Generate Manual (Copy Prompt)';
+});
+
+document.getElementById('copySoalPrompt')?.addEventListener('click', function() {
+    const ta = document.getElementById('soalPromptText');
+    ta.select();
+    document.execCommand('copy');
+    this.innerHTML = '<i class="bi bi-check me-1"></i>Tersalin!';
+    setTimeout(() => { this.innerHTML = '<i class="bi bi-clipboard-check me-1"></i>Copy Prompt'; }, 2000);
+});
+
+document.getElementById('goSoalPaste')?.addEventListener('click', function() {
+    document.getElementById('soalPromptStep').style.display = 'none';
+    document.getElementById('soalPasteStep').style.display = 'block';
+});
+
+document.getElementById('backSoalPrompt')?.addEventListener('click', function() {
+    document.getElementById('soalPasteStep').style.display = 'none';
+    document.getElementById('soalPromptStep').style.display = 'block';
+});
+
+document.getElementById('parseSoalManual')?.addEventListener('click', function() {
+    const raw = document.getElementById('soalPasteArea').value.trim();
+    if (!raw) { alert('Paste hasil AI terlebih dahulu.'); return; }
+
+    // Clean markdown code blocks if any
+    let cleaned = raw.replace(/```(?:json)?([\s\S]*?)```/g, '$1').trim();
+
+    try {
+        const soal = JSON.parse(cleaned);
+        if (!Array.isArray(soal)) throw new Error('Bukan array');
+        generatedSoal = soal;
+        renderHasil(soal);
+        bootstrap.Modal.getInstance(document.getElementById('soalManualModal')).hide();
+    } catch (e) {
+        alert('Gagal parse JSON. Pastikan output dari AI berupa JSON array yang valid.\n\nError: ' + e.message);
+    }
+});
 </script>
+
+<!-- Modal: Manual Prompt Soal -->
+<div class="modal fade" id="soalManualModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title"><i class="bi bi-clipboard me-2"></i>Generate Soal Manual</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Step 1 -->
+                <div id="soalPromptStep">
+                    <div class="alert alert-info py-2">
+                        <strong>Langkah 1:</strong> Copy prompt di bawah → paste ke ChatGPT / Gemini / AI lainnya.
+                    </div>
+                    <textarea id="soalPromptText" class="form-control mb-3" rows="10" readonly style="font-size:0.8rem; background:#f8f9fa;"></textarea>
+                    <div class="d-flex gap-2">
+                        <button type="button" id="copySoalPrompt" class="btn btn-success">
+                            <i class="bi bi-clipboard-check me-1"></i>Copy Prompt
+                        </button>
+                        <button type="button" id="goSoalPaste" class="btn btn-primary">
+                            <i class="bi bi-arrow-right me-1"></i>Selanjutnya: Paste Hasil
+                        </button>
+                    </div>
+                </div>
+                <!-- Step 2 -->
+                <div id="soalPasteStep" style="display:none;">
+                    <div class="alert alert-success py-2">
+                        <strong>Langkah 2:</strong> Paste hasil JSON dari AI, lalu klik "Parse & Tampilkan".
+                    </div>
+                    <textarea id="soalPasteArea" class="form-control mb-3" rows="10" placeholder='Paste JSON array hasil AI di sini... contoh: [{"type":"pg","question":"...","options":{...},"answer":"A"}]'></textarea>
+                    <div class="d-flex gap-2">
+                        <button type="button" id="backSoalPrompt" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Kembali
+                        </button>
+                        <button type="button" id="parseSoalManual" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>Parse & Tampilkan Soal
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?= $this->endSection() ?>

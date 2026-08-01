@@ -264,6 +264,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         // Pembuatan Soal AI
         $routes->get('soal-ai', 'AdministrasiGuru::soalAi');
         $routes->post('soal-ai/generate', 'AdministrasiGuru::generateSoalAi');
+        $routes->post('soal-ai/get-prompt', 'AdministrasiGuru::getSoalPrompt');
         $routes->post('soal-ai/save-to-bank', 'AdministrasiGuru::saveSoalToBank');
     });
 

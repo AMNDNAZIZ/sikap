@@ -2567,6 +2567,104 @@ class AdministrasiGuru extends BaseController
     }
 
     /**
+     * Generate prompt soal saja (tanpa panggil API) — user copy ke AI langsung
+     */
+    public function getSoalPrompt()
+    {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'], [1, 3])) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Akses ditolak.']);
+        }
+
+        $atpId = $this->request->getPost('atp_id');
+        $subjectId = $this->request->getPost('subject_id');
+        $classId = $this->request->getPost('class_id');
+        $tipeListJson = $this->request->getPost('tipe_list');
+        $selectedTps = $this->request->getPost('tp_ids');
+        $jenisAsesmen = $this->request->getPost('jenis_asesmen') ?? 'formatif';
+        $atpIds = $this->request->getPost('atp_ids');
+        $semester = $this->request->getPost('semester');
+
+        $tipeList = json_decode($tipeListJson, true);
+        if (empty($tipeList)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Pilih minimal satu tipe soal.']);
+        }
+
+        // Load data
+        $materiList = '';
+        if ($jenisAsesmen === 'sumatif' && !empty($atpIds)) {
+            $atps = $this->atpModel->whereIn('id', $atpIds)->findAll();
+            foreach ($atps as $a) {
+                $materiList .= "- " . $a['lingkup_materi'] . "\n";
+            }
+        } else {
+            $atp = $this->atpModel->find($atpId);
+            if (!$atp) {
+                return $this->response->setJSON(['success' => false, 'error' => 'ATP tidak ditemukan.']);
+            }
+            $materiList = $atp['lingkup_materi'] ?? '-';
+        }
+
+        $subject = $this->subjectModel->find($subjectId);
+        $school = $this->db->table('school_profile')->get()->getRowArray();
+        $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+
+        $tpDeskripsi = '';
+        if (!empty($selectedTps)) {
+            $tps = $this->db->table('tujuan_pembelajaran')
+                ->whereIn('id', $selectedTps)->get()->getResultArray();
+            foreach ($tps as $tp) {
+                $tpDeskripsi .= "- " . ($tp['kode_tp'] ? $tp['kode_tp'] . ': ' : '') . $tp['deskripsi'] . "\n";
+            }
+        }
+
+        $soalRequest = '';
+        $pgkOpsiCount = ($school['level'] == 3) ? 5 : 4;
+        $pgkOpsiLabel = ($pgkOpsiCount == 5) ? '5 opsi: A,B,C,D,E' : '4 opsi: A,B,C,D';
+
+        foreach ($tipeList as $t) {
+            $label = match($t['tipe']) {
+                'pg' => 'Pilihan Ganda (4 opsi: A,B,C,D)',
+                'pg_kompleks' => "Pilihan Ganda Kompleks ({$pgkOpsiLabel}, bisa lebih dari 1 jawaban benar)",
+                'benar_salah' => 'Benar/Salah',
+                'esai' => 'Esai/Uraian singkat',
+                default => $t['tipe']
+            };
+            $soalRequest .= "- {$t['jumlah']} soal tipe {$label}\n";
+        }
+
+        $jenjang = ($school['level'] == 1) ? 'SD' : (($school['level'] == 2) ? 'SMP' : 'SMA');
+        $kelasLevel = (int)($classInfo['level'] ?? 7);
+        $jenisLabel = ($jenisAsesmen === 'sumatif')
+            ? "SUMATIF SEMESTER {$semester}"
+            : "FORMATIF";
+
+        $prompt = "Buatkan soal ujian {$jenisLabel} untuk:\n"
+            . "- Jenjang: {$jenjang}, Kelas: " . ($classInfo['name'] ?? '-') . "\n"
+            . "- Mapel: " . ($subject['name'] ?? '-') . "\n"
+            . "- Materi:\n" . $materiList . "\n"
+            . (!empty($tpDeskripsi) ? "- Tujuan Pembelajaran:\n{$tpDeskripsi}\n" : '')
+            . "\nKomposisi soal:\n{$soalRequest}\n"
+            . "PANDUAN:\n"
+            . "- 20% soal C1-C2 (Mengingat & Memahami)\n"
+            . "- 30% soal C3 (Menerapkan)\n"
+            . "- 50% soal C4-C6 (HOTS: Menganalisis, Mengevaluasi, Mencipta)\n"
+            . "- Soal HOTS harus ada stimulus (teks/data/kasus)\n"
+            . "- Distraktor harus masuk akal dan homogen\n"
+            . "- Untuk mapel Bahasa: sertakan teks bacaan sebelum soal\n\n"
+            . "FORMAT OUTPUT: JSON ARRAY (tanpa markdown/backtick)\n"
+            . "Field per item: type, question, options (jika PG/PGK), answer\n"
+            . "Contoh:\n"
+            . '[{"type":"pg","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"},'
+            . '{"type":"esai","question":"...","answer":"kunci jawaban"}]';
+
+        return $this->response->setJSON([
+            'success' => true,
+            'prompt' => $prompt,
+        ]);
+    }
+
+    /**
      * Simpan soal hasil AI ke bank soal yang dipilih (multi-tipe)
      */
     public function saveSoalToBank()
