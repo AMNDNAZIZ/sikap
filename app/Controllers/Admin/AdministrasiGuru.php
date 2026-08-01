@@ -1539,9 +1539,10 @@ class AdministrasiGuru extends BaseController
 
         $prompt = "Buatkan Modul Ajar Kurikulum Merdeka DEEP LEARNING (MJM) 2025 dengan STRUKTUR PERSIS mengikuti rujukan 'Guru Karier' (Poin A sampai K).\n\n"
             . "ATURAN:\n"
-            . "1. Bagian A (Identitas): Tabel 2-kolom. Alokasi Waktu: '{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)'.\n"
-            . "2. Bagian B (Kompetensi Awal): Tulis HANYA CP.\n"
-            . "3. Bagian C (Tujuan Pembelajaran): Masukkan TP persis seperti input.\n"
+            . "0. FORMAT JUDUL BAGIAN: Gunakan <h3> dengan format LANGSUNG 'A. Identitas Modul', 'B. Kompetensi Awal', dst. JANGAN tulis kata 'Bagian'. Contoh BENAR: <h3>B. Kompetensi Awal</h3>.\n"
+            . "1. A. Identitas Modul: Tabel 2-kolom. Alokasi Waktu: '{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)'.\n"
+            . "2. B. Kompetensi Awal: Tulis HANYA CP.\n"
+            . "3. C. Tujuan Pembelajaran: Masukkan TP persis seperti input.\n"
             . "4. Bagian F (Langkah Pembelajaran): Buat TEPAT {$jumlahPertemuan} tabel pertemuan. Kolom: (Tahap | Sintaks | Deskripsi | Waktu). TOTAL waktu setiap pertemuan = {$menitPerPertemuan} menit.\n"
             . "5. Setiap pertemuan WAJIB mengandung MJM: Mindful (~10 menit), Meaningful (~" . max(10, $menitPerPertemuan - 25) . " menit), Joyful (~15 menit).\n"
             . "6. Bagian K (Penilaian): Buat spesifik (Penilaian Proses + Penilaian Hasil).\n"
@@ -1753,7 +1754,7 @@ class AdministrasiGuru extends BaseController
 
         $prompt = "Buatkan Modul Ajar Kurikulum Merdeka DEEP LEARNING (MJM) 2025 dengan STRUKTUR PERSIS mengikuti rujukan 'Guru Karier' (Poin A sampai K).\n\n"
                 . "ATURAN TATA LETAK (WAJIB & KETAT):\n"
-                . "1. JANGAN PERNAH menyatukan judul bagian dalam satu baris. Setiap bagian diawali tag <h3>.\n"
+                . "1. FORMAT JUDUL BAGIAN: Gunakan tag <h3> dengan format LANGSUNG huruf dan judul saja, TANPA kata 'Bagian'. Contoh yang BENAR: <h3>B. Kompetensi Awal</h3>. Contoh yang SALAH: <h3>Bagian B (Kompetensi Awal)</h3>.\n"
                 . "2. Bagian A (Identitas): Tabel 2-kolom. Kolom kiri (Label) WAJIB 'text-align: left; width: 170px; font-weight: bold;'. Isi baris Alokasi Waktu dengan '{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)'.\n"
                 . "3. Bagian B (Kompetensi Awal): Tuliskan HANYA Capaian Pembelajaran (CP) saja, jangan sertakan Tujuan Pembelajaran (TP).\n"
                 . "4. Bagian C (Tujuan Pembelajaran): Masukkan Tujuan Pembelajaran persis seperti input HTML, JANGAN buatkan penomoran list otomatis (1, 2) lagi karena sudah dimuat di teks.\n"
