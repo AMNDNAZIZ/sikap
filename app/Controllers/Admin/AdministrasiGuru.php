@@ -2500,9 +2500,10 @@ class AdministrasiGuru extends BaseController
             . "Contoh:\n"
             . '[{"type":"pg","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"},'
             . '{"type":"pg_kompleks","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."' . ($pgkOpsiCount == 5 ? ',"E":"..."' : '') . '},"answer":"A,C"},'
-            . '{"type":"benar_salah","question":"pernyataan...","answer":"Benar"},'
+            . '{"type":"benar_salah","question":"Pernyataan utama/stimulus soal","options":{"A":"pernyataan 1","B":"pernyataan 2","C":"pernyataan 3","D":"pernyataan 4"},"answer":"B,S,B,S"},'
             . '{"type":"esai","question":"...","answer":"kunci jawaban lengkap"}]' . "\n\n"
             . "ATURAN TAMBAHAN:\n"
+            . "- Untuk tipe benar_salah: question=stimulus utama, options=4 pernyataan (A-D), answer=status B atau S per opsi dipisah koma (contoh: 'B,S,B,B')\n"
             . "- Kelompokkan berurutan: PG dulu, lalu PGK, BS, terakhir Esai\n"
             . "- Untuk Esai: kunci jawaban harus lengkap (rubrik/poin yang diharapkan)\n"
             . "- Untuk BS: pernyataan harus spesifik, bukan opini\n"
@@ -2653,9 +2654,11 @@ class AdministrasiGuru extends BaseController
             . "- Distraktor harus masuk akal dan homogen\n"
             . "- Untuk mapel Bahasa: sertakan teks bacaan sebelum soal\n\n"
             . "FORMAT OUTPUT: JSON ARRAY (tanpa markdown/backtick)\n"
-            . "Field per item: type, question, options (jika PG/PGK), answer\n"
+            . "Field per item: type, question, options (jika PG/PGK/BS), answer\n"
+            . "PENTING untuk tipe benar_salah: question=stimulus utama, options={A:'pernyataan 1',B:'pernyataan 2',C:'pernyataan 3',D:'pernyataan 4'}, answer='B,S,B,S' (B=Benar, S=Salah per opsi)\n"
             . "Contoh:\n"
             . '[{"type":"pg","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"},'
+            . '{"type":"benar_salah","question":"Stimulus soal","options":{"A":"pernyataan 1","B":"pernyataan 2","C":"pernyataan 3","D":"pernyataan 4"},"answer":"B,S,B,B"},'
             . '{"type":"esai","question":"...","answer":"kunci jawaban"}]';
 
         return $this->response->setJSON([
