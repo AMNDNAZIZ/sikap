@@ -14,6 +14,8 @@ use App\Models\SchoolModel;
 use App\Models\ProsemDistributionModel;
 use App\Models\TeacherModel;
 use App\Models\TeachingAssignmentModel;
+use App\Models\AcademicYearModel;
+use App\Models\HolidayModel;
 
 class AdministrasiGuru extends BaseController
 {
@@ -28,6 +30,8 @@ class AdministrasiGuru extends BaseController
     protected $prosemModel;
     protected $teacherModel;
     protected $teachingAssignmentModel;
+    protected $yearModel;
+    protected $holidayModel;
     protected $db;
 
     public function __construct()
@@ -43,6 +47,8 @@ class AdministrasiGuru extends BaseController
         $this->prosemModel = new ProsemDistributionModel();
         $this->teacherModel = new TeacherModel();
         $this->teachingAssignmentModel = new TeachingAssignmentModel();
+        $this->yearModel = new AcademicYearModel();
+        $this->holidayModel = new HolidayModel();
         $this->db = \Config\Database::connect();
     }
 
