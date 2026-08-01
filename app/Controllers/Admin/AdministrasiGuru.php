@@ -1992,7 +1992,6 @@ class AdministrasiGuru extends BaseController
         $atpList       = $atpResult['list'];
 
         foreach ($atpList as &$atp) {
-            // Get existing distributions
             $dist = $this->prosemModel->where('atp_id', $atp['id'])->findAll();
             $atp['distributions'] = [];
             foreach ($dist as $d) {
@@ -2005,15 +2004,87 @@ class AdministrasiGuru extends BaseController
         // Define months based on semester
         if ($semester == 1) {
             $data['months'] = [
-                7 => 'Juli', 8 => 'Agustus', 9 => 'September', 
+                7 => 'Juli', 8 => 'Agustus', 9 => 'September',
                 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
             ];
         } else {
             $data['months'] = [
-                1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 
+                1 => 'Januari', 2 => 'Februari', 3 => 'Maret',
                 4 => 'April', 5 => 'Mei', 6 => 'Juni'
             ];
         }
+
+        // ═══ Hitung status pekan per bulan ═══
+        $activeYear = $this->yearModel->getActiveYear() ?: [];
+        $yearStart = $activeYear['start_date'] ?? null;
+        $yearEnd   = $activeYear['end_date'] ?? null;
+        $schoolDays = (int)($activeYear['school_days'] ?? 5);
+
+        // Ambil semua hari libur dalam rentang semester
+        $allHolidays = $this->holidayModel->findAll();
+        $holidayDates = array_flip(array_column($allHolidays, 'date'));
+
+        // Tentukan tahun
+        $yearForMonth = function(int $month) use ($activeYear): int {
+            $startYear = (int)date('Y', strtotime($activeYear['start_date'] ?? date('Y-01-01')));
+            // Semester 1: Juli-Des = tahun start, Semester 2: Jan-Jun = tahun start+1
+            return ($month >= 7) ? $startYear : $startYear + 1;
+        };
+
+        // weekStatus[month][week] = 'full_holiday' | 'has_holiday' | 'out_range' | 'normal'
+        $weekStatus = [];
+
+        foreach ($data['months'] as $mCode => $mName) {
+            $year = $yearForMonth($mCode);
+            $weekStatus[$mCode] = [];
+
+            for ($w = 1; $w <= 5; $w++) {
+                // Hitung rentang hari dalam pekan ini
+                // Pekan 1 = hari 1-7, pekan 2 = 8-14, pekan 3 = 15-21, pekan 4 = 22-28, pekan 5 = 29-akhir bulan
+                $weekStartDay = ($w - 1) * 7 + 1;
+                $weekEndDay   = min($w * 7, (int)date('t', mktime(0, 0, 0, $mCode, 1, $year)));
+
+                if ($weekStartDay > (int)date('t', mktime(0, 0, 0, $mCode, 1, $year))) {
+                    $weekStatus[$mCode][$w] = 'out_range';
+                    continue;
+                }
+
+                $effectiveDays = 0;
+                $holidayDaysInWeek = 0;
+
+                for ($day = $weekStartDay; $day <= $weekEndDay; $day++) {
+                    $dateStr = sprintf('%04d-%02d-%02d', $year, $mCode, $day);
+                    $dayOfWeek = (int)date('N', strtotime($dateStr));
+
+                    // Skip weekend berdasarkan school_days
+                    $isWeekend = ($schoolDays == 5 && $dayOfWeek >= 6) || ($schoolDays == 6 && $dayOfWeek == 7);
+                    if ($isWeekend) continue;
+
+                    // Cek out of academic year range
+                    if ($yearStart && $dateStr < $yearStart) continue;
+                    if ($yearEnd && $dateStr > $yearEnd) continue;
+
+                    $effectiveDays++;
+
+                    if (isset($holidayDates[$dateStr])) {
+                        $holidayDaysInWeek++;
+                    }
+                }
+
+                if ($effectiveDays === 0) {
+                    // Tidak ada hari efektif sama sekali (semua libur atau out of range)
+                    $weekStatus[$mCode][$w] = 'full_holiday';
+                } elseif ($holidayDaysInWeek > 0 && $holidayDaysInWeek >= $effectiveDays) {
+                    $weekStatus[$mCode][$w] = 'full_holiday';
+                } elseif ($holidayDaysInWeek > 0) {
+                    $weekStatus[$mCode][$w] = 'has_holiday';
+                } else {
+                    $weekStatus[$mCode][$w] = 'normal';
+                }
+            }
+        }
+
+        $data['week_status'] = $weekStatus;
 
         return view('admin/administrasi_guru/prosem_input', $data);
     }
