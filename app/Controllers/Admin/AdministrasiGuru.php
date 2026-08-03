@@ -693,13 +693,7 @@ class AdministrasiGuru extends BaseController
                     // Cek apakah ada >1 guru di level ini untuk mapel ini
                     $classInfo    = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
                     $classLevel   = (int)($classInfo['level'] ?? 0);
-                    $teacherCount = $this->db->table('teaching_assignments ta')
-                        ->distinct()->select('ta.teacher_id')
-                        ->join('classes c', 'c.id = ta.class_id')
-                        ->where('ta.subject_id', $subjectId)
-                        ->where('c.level', $classLevel)
-                        ->get()->getResultArray();
-                    $isMultiGuru = count($teacherCount) > 1;
+                    $isMultiGuru  = $this->isMultiGuruForLevel((int)$subjectId, $classLevel);
 
                     // Cek apakah kelas ini punya ATP sendiri
                     $ownAtpCount = $this->atpModel
@@ -1417,13 +1411,7 @@ class AdministrasiGuru extends BaseController
                     $classLevel  = (int)($classInfo['level'] ?? 0);
 
                     // Cek multi-guru di level yang sama (sama seperti logika ATP)
-                    $teacherCountRows = $this->db->table('teaching_assignments ta')
-                        ->distinct()->select('ta.teacher_id')
-                        ->join('classes c', 'c.id = ta.class_id')
-                        ->where('ta.subject_id', $subjectId)
-                        ->where('c.level', $classLevel)
-                        ->get()->getResultArray();
-                    $isMultiGuru = count($teacherCountRows) > 1;
+                    $isMultiGuru = $this->isMultiGuruForLevel((int)$subjectId, $classLevel);
 
                     // Untuk single-guru: kumpulkan semua class_id se-level
                     $classIdsAtLevel = [];
@@ -1970,13 +1958,7 @@ class AdministrasiGuru extends BaseController
         $data['teacher'] = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
 
         // Cek apakah ada >1 guru di level yang sama untuk mapel ini
-        $teacherCount = $this->db->table('teaching_assignments ta')
-            ->distinct()->select('ta.teacher_id')
-            ->join('classes c', 'c.id = ta.class_id')
-            ->where('ta.subject_id', $subjectId)
-            ->where('c.level', $level)
-            ->get()->getResultArray();
-        $isMultiGuru = count($teacherCount) > 1;
+        $isMultiGuru = $this->isMultiGuruForLevel((int)$subjectId, $level);
 
         if ($isMultiGuru) {
             // Cek apakah kelas ini punya ATP sendiri
@@ -2301,11 +2283,14 @@ class AdministrasiGuru extends BaseController
      */
     private function getTeacherClassFilter(int $subjectId, int $classLevel, ?int $overrideClassId = null): ?array
     {
+        $activeYearId = $this->yearModel->getActiveYear()['id'] ?? 0;
+
         $teacherCount = $this->db->table('teaching_assignments ta')
             ->distinct()->select('ta.teacher_id')
             ->join('classes c', 'c.id = ta.class_id')
             ->where('ta.subject_id', $subjectId)
             ->where('c.level', $classLevel)
+            ->where('ta.academic_year_id', $activeYearId)
             ->get()->getResultArray();
 
         if (count($teacherCount) <= 1) {
@@ -2325,12 +2310,31 @@ class AdministrasiGuru extends BaseController
                 ->select('class_id')
                 ->where('teacher_id', $user['related_id'])
                 ->where('subject_id', $subjectId)
+                ->where('academic_year_id', $activeYearId)
                 ->get()->getResultArray();
             return array_column($myClassIds, 'class_id') ?: [0];
         }
 
         // Admin/Kepsek tanpa override → tampilkan semua
         return null;
+    }
+
+    /**
+     * Helper terpusat: cek apakah ada >1 guru untuk mapel+level di tahun ajaran aktif
+     */
+    private function isMultiGuruForLevel(int $subjectId, int $classLevel): bool
+    {
+        $activeYearId = $this->yearModel->getActiveYear()['id'] ?? 0;
+
+        $count = $this->db->table('teaching_assignments ta')
+            ->distinct()->select('ta.teacher_id')
+            ->join('classes c', 'c.id = ta.class_id')
+            ->where('ta.subject_id', $subjectId)
+            ->where('c.level', $classLevel)
+            ->where('ta.academic_year_id', $activeYearId)
+            ->countAllResults();
+
+        return $count > 1;
     }
 
     /**
@@ -3070,14 +3074,8 @@ class AdministrasiGuru extends BaseController
             $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
             $classLevel = (int) ($classInfo['level'] ?? 0);
 
-            // Cek multi-guru
-            $teacherCount = $this->db->table('teaching_assignments ta')
-                ->distinct()->select('ta.teacher_id')
-                ->join('classes c', 'c.id = ta.class_id')
-                ->where('ta.subject_id', $subjectId)
-                ->where('c.level', $classLevel)
-                ->get()->getResultArray();
-            $isMultiGuru = count($teacherCount) > 1;
+            // Cek multi-guru (dengan filter tahun ajaran aktif)
+            $isMultiGuru = $this->isMultiGuruForLevel((int)$subjectId, $classLevel);
 
             // Tentukan class_ids untuk query
             if ($isMultiGuru) {
@@ -3222,13 +3220,7 @@ class AdministrasiGuru extends BaseController
 
         // Ambil KKTP (single guru → lintas kelas se-level)
         $kktpModel = new \App\Models\KktpModel();
-        $teacherCount = $this->db->table('teaching_assignments ta')
-            ->distinct()->select('ta.teacher_id')
-            ->join('classes c', 'c.id = ta.class_id')
-            ->where('ta.subject_id', $subjectId)
-            ->where('c.level', $classLevel)
-            ->get()->getResultArray();
-        $isMultiGuru = count($teacherCount) > 1;
+        $isMultiGuru = $this->isMultiGuruForLevel((int)$subjectId, $classLevel);
 
         if ($isMultiGuru) {
             $kktpList = $kktpModel->getByClassSubject((int)$classId, (int)$subjectId);
