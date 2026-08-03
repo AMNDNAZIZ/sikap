@@ -1413,13 +1413,10 @@ class AdministrasiGuru extends BaseController
                     // Cek multi-guru di level yang sama (sama seperti logika ATP)
                     $isMultiGuru = $this->isMultiGuruForLevel((int)$subjectId, $classLevel);
 
-                    // Untuk single-guru: kumpulkan semua class_id se-level
+                    // Untuk single-guru: kumpulkan semua class_id se-level (lintas tahun ajaran)
                     $classIdsAtLevel = [];
                     if (!$isMultiGuru) {
-                        $classIdsAtLevel = array_column(
-                            $this->db->table('classes')->select('id')->where('level', $classLevel)->get()->getResultArray(),
-                            'id'
-                        );
+                        $classIdsAtLevel = $this->getClassIdsForDocumentSearch($classLevel, (int)$classId);
                     }
 
                     $atpResult = $this->loadAtpWithElemen((int)$subjectId, $classLevel);
@@ -2338,6 +2335,27 @@ class AdministrasiGuru extends BaseController
     }
 
     /**
+     * Cari dokumen (ATP/Modul/KKTP) yang sudah ada di level yang sama
+     * lintas semua tahun ajaran — agar perangkat lama tetap bisa dipakai
+     * meski gurunya berganti di tahun ajaran berikutnya.
+     * 
+     * Prioritas: kelas yang sama dulu, lalu kelas lain se-level manapun.
+     */
+    private function getClassIdsForDocumentSearch(int $classLevel, ?int $preferClassId = null): array
+    {
+        $allClassIds = array_column(
+            $this->db->table('classes')->select('id')->where('level', $classLevel)->get()->getResultArray(),
+            'id'
+        );
+
+        if (!empty($preferClassId) && !in_array($preferClassId, $allClassIds)) {
+            array_unshift($allClassIds, $preferClassId);
+        }
+
+        return $allClassIds ?: [0];
+    }
+
+    /**
      * Helper: Query ATP list tanpa JOIN cp_master di header,
      * lalu load elemen_list (atp_elemen + cp_master + TP) untuk setiap ATP.
      * Backward compatible untuk data lama (tanpa atp_elemen).
@@ -3077,14 +3095,11 @@ class AdministrasiGuru extends BaseController
             // Cek multi-guru (dengan filter tahun ajaran aktif)
             $isMultiGuru = $this->isMultiGuruForLevel((int)$subjectId, $classLevel);
 
-            // Tentukan class_ids untuk query
+            // Tentukan class_ids untuk query (single-guru: lintas semua tahun ajaran)
             if ($isMultiGuru) {
                 $effectiveClassIds = [(int)$classId];
             } else {
-                $effectiveClassIds = array_column(
-                    $this->db->table('classes')->select('id')->where('level', $classLevel)->get()->getResultArray(),
-                    'id'
-                ) ?: [(int)$classId];
+                $effectiveClassIds = $this->getClassIdsForDocumentSearch($classLevel, (int)$classId);
             }
 
             // Ambil semua TP dari ATP yang sudah ada di level ini
