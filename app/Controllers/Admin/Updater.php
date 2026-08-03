@@ -792,25 +792,36 @@ class Updater extends BaseController
      */
     public function checkOnlineUpdate()
     {
+        set_time_limit(120);
+
         $manifestUrl = $this->githubRawUrl('update_manifest.json');
 
         $client = \Config\Services::curlrequest();
         try {
             $response = $client->get($manifestUrl, [
-                'timeout' => 15,
+                'timeout' => 30,
                 'http_errors' => false,
             ]);
         } catch (\Exception $e) {
             return redirect()->to(base_url('admin/updater'))->with('error', 'Gagal menghubungi server update: ' . $e->getMessage());
         }
 
-        if ($response->getStatusCode() !== 200) {
-            return redirect()->to(base_url('admin/updater'))->with('error', 'Manifest tidak ditemukan di server (HTTP ' . $response->getStatusCode() . '). Pastikan update_manifest.json sudah di-push ke GitHub.');
+        $statusCode = $response->getStatusCode();
+        if ($statusCode !== 200) {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Manifest tidak ditemukan di server (HTTP ' . $statusCode . '). Pastikan update_manifest.json sudah di-push ke GitHub.');
         }
 
-        $remoteManifest = json_decode($response->getBody(), true);
-        if (!$remoteManifest || empty($remoteManifest['files'])) {
-            return redirect()->to(base_url('admin/updater'))->with('error', 'Format manifest tidak valid.');
+        $body = $response->getBody();
+        if (empty($body)) {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Response server kosong. Coba lagi.');
+        }
+
+        $remoteManifest = json_decode($body, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Manifest tidak valid (JSON parse error: ' . json_last_error_msg() . ').');
+        }
+        if (empty($remoteManifest['files'])) {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Manifest kosong atau format tidak valid.');
         }
 
         // Compare with local files (normalize LF untuk text files agar konsisten dengan manifest)
@@ -838,11 +849,13 @@ class Updater extends BaseController
 
         $totalChanges = count($changedFiles) + count($newFiles);
 
-        // Store in session for apply step — JANGAN simpan remote_manifest (terlalu besar, bisa overflow session)
+        // Simpan di session — hindari data terlalu besar
         session()->set('online_update', [
-            'changed_files'   => $changedFiles,
-            'new_files'       => $newFiles,
+            'changed_files' => $changedFiles,
+            'new_files'     => $newFiles,
         ]);
+
+        log_message('info', '[checkOnlineUpdate] totalChanges=' . $totalChanges . ' changed=' . count($changedFiles) . ' new=' . count($newFiles));
 
         return view('admin/updater/online_update', [
             'title'         => 'Update Online',
