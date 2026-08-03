@@ -1415,33 +1415,75 @@ class AdministrasiGuru extends BaseController
                 } else {
                     $classInfo   = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
                     $classLevel  = (int)($classInfo['level'] ?? 0);
-                    $atpResult   = $this->loadAtpWithElemen((int)$subjectId, $classLevel);
-                    $atpList     = $atpResult['list'];
+
+                    // Cek multi-guru di level yang sama (sama seperti logika ATP)
+                    $teacherCountRows = $this->db->table('teaching_assignments ta')
+                        ->distinct()->select('ta.teacher_id')
+                        ->join('classes c', 'c.id = ta.class_id')
+                        ->where('ta.subject_id', $subjectId)
+                        ->where('c.level', $classLevel)
+                        ->get()->getResultArray();
+                    $isMultiGuru = count($teacherCountRows) > 1;
+
+                    // Untuk single-guru: kumpulkan semua class_id se-level
+                    $classIdsAtLevel = [];
+                    if (!$isMultiGuru) {
+                        $classIdsAtLevel = array_column(
+                            $this->db->table('classes')->select('id')->where('level', $classLevel)->get()->getResultArray(),
+                            'id'
+                        );
+                    }
+
+                    $atpResult = $this->loadAtpWithElemen((int)$subjectId, $classLevel);
+                    $atpList   = $atpResult['list'];
 
                     $modulModel = new \App\Models\ModulAjarModel();
                     foreach ($atpList as &$atp) {
-                        // Modul milik kelas ini
-                        $modul = $modulModel
-                            ->where('atp_id', $atp['id'])
-                            ->where('class_id', $classId)
-                            ->first();
-                        $atp['modul'] = $modul;
-
-                        // Jika kelas ini belum punya modul, cari modul dari kelas lain se-level
                         $atp['modul_source'] = null;
-                        if (!$modul) {
-                            $modulSource = $this->db->table('modul_ajar ma')
-                                ->select('ma.id, ma.class_id, c.name as class_name, ma.teacher_id')
-                                ->join('classes c', 'c.id = ma.class_id')
-                                ->where('ma.atp_id', $atp['id'])
-                                ->where('c.level', $classLevel)
-                                ->where('ma.class_id !=', $classId)
-                                ->get()->getRowArray();
-                            $atp['modul_source'] = $modulSource;
+
+                        if ($isMultiGuru) {
+                            // Multi-guru: modul spesifik milik kelas ini
+                            $modul = $modulModel
+                                ->where('atp_id', $atp['id'])
+                                ->where('class_id', $classId)
+                                ->first();
+                            $atp['modul'] = $modul;
+
+                            // Jika belum punya modul, cari dari kelas lain se-level (opsi salin)
+                            if (!$modul) {
+                                $modulSource = $this->db->table('modul_ajar ma')
+                                    ->select('ma.id, ma.class_id, c.name as class_name, ma.teacher_id')
+                                    ->join('classes c', 'c.id = ma.class_id')
+                                    ->where('ma.atp_id', $atp['id'])
+                                    ->where('c.level', $classLevel)
+                                    ->where('ma.class_id !=', $classId)
+                                    ->get()->getRowArray();
+                                $atp['modul_source'] = $modulSource;
+                            }
+                        } else {
+                            // Single-guru: modul berlaku lintas kelas se-level
+                            // Cari modul dari kelas manapun se-level untuk ATP ini
+                            $modul = null;
+                            if (!empty($classIdsAtLevel)) {
+                                $modul = $modulModel
+                                    ->where('atp_id', $atp['id'])
+                                    ->whereIn('class_id', $classIdsAtLevel)
+                                    ->first();
+                            }
+                            // Fallback: cari spesifik kelas ini
+                            if (!$modul) {
+                                $modul = $modulModel
+                                    ->where('atp_id', $atp['id'])
+                                    ->where('class_id', $classId)
+                                    ->first();
+                            }
+                            $atp['modul'] = $modul;
+                            // Tidak ada opsi salin untuk single-guru
                         }
                     }
                     unset($atp);
                     $data['atp_list'] = $atpList;
+                    $data['is_multi_guru'] = $isMultiGuru;
                 }
             }
         } else {

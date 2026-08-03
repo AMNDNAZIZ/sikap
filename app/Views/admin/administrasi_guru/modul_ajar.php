@@ -127,6 +127,12 @@
         </span>
     </div>
     <div class="card-body">
+        <?php if (!($is_multi_guru ?? true) && !empty($atp_list)): ?>
+        <div class="alert alert-primary py-2 mb-3">
+            <i class="bi bi-share-fill me-1"></i>
+            <strong>Mode Guru Tunggal:</strong> Modul berlaku untuk semua kelas se-level yang Anda ampu. Tidak perlu membuat modul terpisah per kelas.
+        </div>
+        <?php endif; ?>
         <table class="table table-bordered table-hover align-middle">
             <thead class="table-info text-center">
                 <tr>
