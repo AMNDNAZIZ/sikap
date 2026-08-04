@@ -157,7 +157,8 @@
                 <tbody>
                     <?php $tNo = 1; foreach ($teacher_summary as $tid => $ts): 
                         $pct = $ts['total'] > 0 ? round(($ts['complete'] / $ts['total']) * 100) : 0;
-                        $barColor = ($pct === 100) ? 'bg-success' : (($pct > 0) ? 'bg-warning' : 'bg-danger');
+                        $pct = (int) $pct; // pastikan integer untuk perbandingan
+                        $barColor = ($pct >= 100) ? 'bg-success' : (($pct > 0) ? 'bg-warning' : 'bg-danger');
                     ?>
                     <tr>
                         <td class="text-center"><?= $tNo++ ?></td>
@@ -172,7 +173,7 @@
                             </div>
                         </td>
                         <td class="text-center">
-                            <?php if ($pct === 100): ?>
+                            <?php if ($pct >= 100): ?>
                                 <span class="badge bg-success">✅ Selesai</span>
                             <?php elseif ($ts['empty'] === $ts['total']): ?>
                                 <span class="badge bg-danger">❌ Belum</span>
