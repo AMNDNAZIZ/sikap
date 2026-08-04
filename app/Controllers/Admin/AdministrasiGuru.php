@@ -280,10 +280,17 @@ class AdministrasiGuru extends BaseController
             }
 
             // Modul Ajar Status Logic
-            $modulCount = $this->db->table('modul_ajar')
-                ->where('class_id', $classId)
-                ->where('subject_id', $subjectId)
-                ->countAllResults();
+            // Single-guru: cari modul dari kelas manapun se-level (lintas tahun)
+            $modulQuery = $this->db->table('modul_ajar')
+                ->where('subject_id', $subjectId);
+
+            if ($isMultiGuru) {
+                $modulQuery->where('class_id', $classId);
+            } else {
+                $modulQuery->whereIn('class_id', $classIds);
+            }
+
+            $modulCount = $modulQuery->countAllResults();
 
             if ($modulCount == 0) {
                 $row['modul_status'] = 'empty';
