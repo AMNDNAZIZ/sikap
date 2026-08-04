@@ -1,7 +1,7 @@
 {
     "version": "1.2.8",
-    "generated": "2026-08-04 06:12:41",
-    "last_update": "2026-07-28 00:00",
+    "generated": "2026-08-04 07:28:30",
+    "last_update": "2026-08-04 07:00",
     "total_files": 803,
     "files": {
         "app/.htaccess": "0a949a74edc566be1e1944fbfab681a5",
@@ -17,7 +17,7 @@
         "app/Config/Boot/testing.php": "f762cf55203cf351ab14b426cc8f0fa1",
         "app/Config/CURLRequest.php": "25cb8216ca21482e2a741a4125dc43ca",
         "app/Config/Cache.php": "389279d19e9c97f5636c303ae1e20d0f",
-        "app/Config/Constants.php": "f304abc269da08e7f743b79e2d570322",
+        "app/Config/Constants.php": "9c6c1b34002a6f5ad7aad445482d939e",
         "app/Config/ContentSecurityPolicy.php": "1c58ba42d78f45ef1ccc7260fd1fae7e",
         "app/Config/Cookie.php": "8ce8ac7762e4c1b1fb15ef1e7465db42",
         "app/Config/Cors.php": "64ec76507e0b4bfe5c2d0887aad12ea4",
@@ -116,7 +116,7 @@
         "app/Controllers/Admin/Teachers.php": "05bcbe4716b45d3603f8139c65074277",
         "app/Controllers/Admin/TeachingAssignments.php": "c5f51e51ce47d0eb350ffb3c609cc59a",
         "app/Controllers/Admin/TeachingJournalController.php": "61199500145b2166dcc92aa3f9ec3d4f",
-        "app/Controllers/Admin/Updater.php": "dac717e349960a37f9d2394c1b914b02",
+        "app/Controllers/Admin/Updater.php": "74ddfd96db60546fcfebc36b7ebb201b",
         "app/Controllers/Admin/User.php": "36f2b1620f85059f48e341158d799c58",
         "app/Controllers/Admin/WaliKelasStudents.php": "81b117f7381a6780b8a58d4c8c568b5c",
         "app/Controllers/Api/DapodikApi.php": "e9f4087934e990be88a0b96724899878",
