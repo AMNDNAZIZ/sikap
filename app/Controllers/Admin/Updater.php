@@ -645,6 +645,8 @@ class Updater extends BaseController
      */
     private function syncVersionFromChangelogs(): string
     {
+        $currentVersion = defined('APP_VERSION') ? APP_VERSION : '1.0.0';
+
         try {
             $db = \Config\Database::connect();
             $changelog = $db->table('changelogs')
@@ -656,11 +658,24 @@ class Updater extends BaseController
                 ->getRowArray();
 
             if (!$changelog) {
-                return defined('APP_VERSION') ? APP_VERSION : '1.0.0';
+                return $currentVersion;
             }
 
-            $newVersion = $changelog['version'];
-            $newDate = date('Y-m-d H:i', strtotime($changelog['release_date']));
+            $dbVersion = $changelog['version'];
+
+            // Gunakan versi yang LEBIH TINGGI antara DB dan Constants.php
+            // Ini mencegah versi yang sudah di-bump manual di Constants.php
+            // ter-override oleh versi lama di tabel changelogs
+            if (version_compare($dbVersion, $currentVersion, '>')) {
+                $newVersion = $dbVersion;
+                $newDate = date('Y-m-d H:i', strtotime($changelog['release_date']));
+            } else {
+                // Constants.php sudah lebih baru, pertahankan
+                $newVersion = $currentVersion;
+                $newDate = defined('LAST_UPDATE') ? LAST_UPDATE : date('Y-m-d H:i');
+                log_message('info', "[syncVersionFromChangelogs] Keeping Constants.php version {$currentVersion} (DB has {$dbVersion})");
+                return $newVersion;
+            }
 
             // Update Constants.php
             $constantsPath = APPPATH . 'Config/Constants.php';
@@ -678,14 +693,13 @@ class Updater extends BaseController
             );
 
             file_put_contents($constantsPath, $content);
-
             log_message('info', "[syncVersionFromChangelogs] Updated Constants.php: APP_VERSION={$newVersion}, LAST_UPDATE={$newDate}");
 
             return $newVersion;
 
         } catch (\Exception $e) {
             log_message('error', '[syncVersionFromChangelogs] Failed: ' . $e->getMessage());
-            return defined('APP_VERSION') ? APP_VERSION : '1.0.0';
+            return $currentVersion;
         }
     }
 
