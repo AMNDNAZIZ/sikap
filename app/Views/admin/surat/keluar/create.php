@@ -112,6 +112,31 @@
                 <option value="Rahasia">Rahasia</option>
               </select>
             </div>
+
+            <!-- Penomoran Surat (Auto vs Manual) -->
+            <div class="col-12">
+              <label class="form-label fw-semibold">Penomoran Surat <span class="text-danger">*</span></label>
+              <div class="d-flex flex-wrap gap-3 mb-2">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="number_mode" id="num_mode_auto" value="auto" checked>
+                  <label class="form-check-label small fw-semibold" for="num_mode_auto">
+                    <i class="bi bi-hash me-1"></i>Otomatis / Teruskan (Estimasi: <span class="font-monospace text-primary"><?= esc($next_letter_number ?? 'Auto') ?></span>)
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="number_mode" id="num_mode_manual" value="manual">
+                  <label class="form-check-label small fw-semibold" for="num_mode_manual">
+                    <i class="bi bi-pencil me-1"></i>Input Manual
+                  </label>
+                </div>
+              </div>
+              <div id="manual-number-wrapper" style="display:none;" class="mt-2">
+                <input type="text" name="nomor_surat_manual" id="nomor_surat_manual" class="form-control font-monospace"
+                       placeholder="cth: 045.A/PK.01.01/2026" value="<?= old('nomor_surat_manual') ?>">
+                <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Ketik nomor surat manual jika ingin menggunakan nomor khusus.</small>
+              </div>
+            </div>
+
             <div class="col-12">
               <label class="form-label fw-semibold" for="subject">Perihal / Keperluan <span class="text-danger">*</span></label>
               <input type="text" name="subject" id="subject" class="form-control"
@@ -196,7 +221,96 @@
             </div>
           </div>
 
-          <!-- Penerima Internal (Undangan) -->
+          <!-- Penerima Undangan (5 opsi) -->
+          <div id="recipient-undangan-section" style="display:none;">
+            <label class="form-label fw-semibold mb-2"><i class="bi bi-people me-1"></i>Pilih Kategori Penerima <span class="text-danger">*</span></label>
+            <div class="d-flex flex-wrap gap-2 mb-3" id="undangan-recipient-options">
+              <input type="radio" class="btn-check" name="undangan_recipient_mode" id="undangan_mode_all" value="all" autocomplete="off" checked>
+              <label class="btn btn-outline-primary btn-sm" for="undangan_mode_all" style="font-size:0.82rem;">
+                <i class="bi bi-people-fill me-1"></i>Seluruh Guru & Pegawai
+              </label>
+
+              <input type="radio" class="btn-check" name="undangan_recipient_mode" id="undangan_mode_guru" value="guru" autocomplete="off">
+              <label class="btn btn-outline-primary btn-sm" for="undangan_mode_guru" style="font-size:0.82rem;">
+                <i class="bi bi-person-badge me-1"></i>Per Guru
+              </label>
+
+              <input type="radio" class="btn-check" name="undangan_recipient_mode" id="undangan_mode_pegawai" value="pegawai" autocomplete="off">
+              <label class="btn btn-outline-primary btn-sm" for="undangan_mode_pegawai" style="font-size:0.82rem;">
+                <i class="bi bi-person-workspace me-1"></i>Per Pegawai
+              </label>
+
+              <input type="radio" class="btn-check" name="undangan_recipient_mode" id="undangan_mode_wali" value="wali_murid" autocomplete="off">
+              <label class="btn btn-outline-primary btn-sm" for="undangan_mode_wali" style="font-size:0.82rem;">
+                <i class="bi bi-mortarboard me-1"></i>Wali Murid Kelas
+              </label>
+
+              <input type="radio" class="btn-check" name="undangan_recipient_mode" id="undangan_mode_dinamis" value="dinamis" autocomplete="off">
+              <label class="btn btn-outline-primary btn-sm" for="undangan_mode_dinamis" style="font-size:0.82rem;">
+                <i class="bi bi-pencil-square me-1"></i>Dinamis / Manual
+              </label>
+            </div>
+
+            <!-- Sub: Seluruh Guru & Pegawai -->
+            <div id="undangan-sub-all" class="undangan-sub-section">
+              <div class="alert alert-info py-2 mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                Penerima otomatis: <strong>Guru &amp; Tenaga Kependidikan <?= esc($school['name'] ?? 'SDN Mangga Besar 11 Pagi') ?></strong>
+              </div>
+            </div>
+
+            <!-- Sub: Per Guru -->
+            <div id="undangan-sub-guru" class="undangan-sub-section" style="display:none;">
+              <label class="form-label fw-semibold" for="undangan_search_guru">Cari Guru <span class="text-danger">*</span></label>
+              <div class="input-group position-relative">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" id="undangan_search_guru" class="form-control" placeholder="Ketik nama atau NIP guru..." autocomplete="off">
+                <div id="undangan-guru-autocomplete" class="autocomplete-suggestions list-group"></div>
+              </div>
+              <div id="undangan-guru-selected" class="mt-2"></div>
+            </div>
+
+            <!-- Sub: Per Pegawai -->
+            <div id="undangan-sub-pegawai" class="undangan-sub-section" style="display:none;">
+              <label class="form-label fw-semibold" for="undangan_search_pegawai">Cari Pegawai / Tendik <span class="text-danger">*</span></label>
+              <div class="input-group position-relative">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" id="undangan_search_pegawai" class="form-control" placeholder="Ketik nama atau NIP pegawai..." autocomplete="off">
+                <div id="undangan-pegawai-autocomplete" class="autocomplete-suggestions list-group"></div>
+              </div>
+              <div id="undangan-pegawai-selected" class="mt-2"></div>
+            </div>
+
+            <!-- Sub: Wali Murid Kelas -->
+            <div id="undangan-sub-wali" class="undangan-sub-section" style="display:none;">
+              <label class="form-label fw-semibold">Pilih Kelas <span class="text-danger">*</span></label>
+              <select id="undangan_wali_class" class="form-select">
+                <option value="semua">Seluruh Kelas (Semua Wali Murid)</option>
+                <?php foreach ($active_classes ?? [] as $cls): ?>
+                  <option value="<?= esc($cls['name']) ?>"><?= esc($cls['name']) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <small class="text-muted mt-1 d-block"><i class="bi bi-info-circle me-1"></i>Hanya kelas yang aktif yang ditampilkan.</small>
+            </div>
+
+            <!-- Sub: Dinamis / Manual (Multi-Penerima) -->
+            <div id="undangan-sub-dinamis" class="undangan-sub-section" style="display:none;">
+              <label class="form-label fw-semibold">Daftar Penerima <span class="text-danger">*</span></label>
+              <div id="undangan-dinamis-rows">
+                <div class="input-group mb-2 undangan-dinamis-row">
+                  <span class="input-group-text" style="font-size:0.82rem;">1</span>
+                  <input type="text" class="form-control undangan-dinamis-input" placeholder="Ketik nama penerima..." autocomplete="off">
+                  <button type="button" class="btn btn-outline-danger btn-sm btn-remove-dinamis" title="Hapus"><i class="bi bi-trash"></i></button>
+                </div>
+              </div>
+              <button type="button" class="btn btn-outline-primary btn-sm" id="btn-add-undangan-dinamis">
+                <i class="bi bi-plus me-1"></i>Tambah Penerima
+              </button>
+              <small class="text-muted mt-1 d-block"><i class="bi bi-info-circle me-1"></i>Gunakan format bebas. Semua penerima akan tercetak di surat.</small>
+            </div>
+          </div>
+
+          <!-- Penerima Internal Legacy (tetap ada untuk kompatibilitas jenis surat lain) -->
           <div id="recipient-internal-section" style="display:none;">
             <p class="text-muted mb-0"><i class="bi bi-info-circle me-1"></i>
               Penerima otomatis: <strong>Guru &amp; Tenaga Kependidikan SDN Mangga Besar 11 Pagi</strong>
@@ -549,6 +663,7 @@ const SCHOOL_ADDRESS  = <?= json_encode($school['address'] ?? '') ?>;
 const PRINCIPAL_NAME  = <?= json_encode($principal_name ?? '') ?>;
 const PRINCIPAL_NIP   = <?= json_encode($principal_nip ?? '') ?>;
 const ACTIVE_YEAR     = <?= json_encode($active_year ?? '') ?>;
+const NEXT_LETTER_NUMBER = <?= json_encode($next_letter_number ?? '') ?>;
 
 // Mapping: jenis surat → tipe penerima
 const RECIPIENT_MAP = {
@@ -558,7 +673,7 @@ const RECIPIENT_MAP = {
   'keterangan_lomba':        'multi',
   'keterangan_kjp':          'siswa',
   'surat_tugas':             'guru',
-  'undangan':                'internal',
+  'undangan':                'undangan',
   'surat_custom':            'custom',
 };
 
@@ -641,6 +756,7 @@ function updateRecipientSection() {
   $('#recipient-guru-section').toggle(rtype === 'guru');
   $('#recipient-internal-section').toggle(rtype === 'internal');
   $('#recipient-eksternal-section').toggle(rtype === 'eksternal');
+  $('#recipient-undangan-section').toggle(rtype === 'undangan');
 
   if (rtype === 'siswa') {
     $('#recipient_type').val('siswa');
@@ -660,12 +776,61 @@ function updateRecipientSection() {
     $('#siswa-detail-fields').hide();
     $('#guru-detail-fields').hide();
     $('#recipient_name').val('Guru & Tenaga Kependidikan SDN Mangga Besar 11 Pagi');
+  } else if (rtype === 'undangan') {
+    // Undangan: delegate to sub-mode handler
+    $('#siswa-detail-fields').hide();
+    $('#guru-detail-fields').hide();
+    updateUndanganRecipient();
   } else {
     // multi
     $('#recipient_type').val('siswa');
     $('#siswa-detail-fields').hide();
     $('#guru-detail-fields').hide();
   }
+}
+
+// Handle undangan sub-mode recipient logic
+function updateUndanganRecipient() {
+  const mode = $('input[name="undangan_recipient_mode"]:checked').val() || 'all';
+  $('.undangan-sub-section').hide();
+  $(`#undangan-sub-${mode === 'wali_murid' ? 'wali' : mode}`).show();
+
+  switch (mode) {
+    case 'all':
+      $('#recipient_type').val('internal');
+      $('#recipient_name').val('Guru & Tenaga Kependidikan ' + SCHOOL_NAME);
+      break;
+    case 'guru':
+      $('#recipient_type').val('guru');
+      // Will be set by autocomplete selection
+      break;
+    case 'pegawai':
+      $('#recipient_type').val('guru');
+      // Will be set by autocomplete selection
+      break;
+    case 'wali_murid':
+      $('#recipient_type').val('internal');
+      const kelasVal = $('#undangan_wali_class').val();
+      if (kelasVal === 'semua') {
+        $('#recipient_name').val('Orang Tua / Wali Murid ' + SCHOOL_NAME);
+      } else {
+        $('#recipient_name').val('Orang Tua / Wali Murid Kelas ' + kelasVal + ' ' + SCHOOL_NAME);
+      }
+      break;
+    case 'dinamis':
+      $('#recipient_type').val('eksternal');
+      updateUndanganDinamisRecipientName();
+      break;
+  }
+}
+
+function updateUndanganDinamisRecipientName() {
+  const names = [];
+  $('.undangan-dinamis-input').each(function() {
+    const v = $(this).val().trim();
+    if (v) names.push(v);
+  });
+  $('#recipient_name').val(names.join(' | '));
 }
 
 let selectedType = null;
@@ -974,6 +1139,118 @@ $(document).on('input', '#recipient_name_eksternal', function() {
   $('#recipient_name').val($(this).val());
 });
 
+// ─── Undangan Recipient Sub-Mode Logic ──────────────────────────────────
+
+// Mode change handler
+$('input[name="undangan_recipient_mode"]').on('change', function() {
+  updateUndanganRecipient();
+});
+
+// Wali murid kelas change handler
+$('#undangan_wali_class').on('change', function() {
+  updateUndanganRecipient();
+});
+
+// Undangan Guru autocomplete
+let undanganGuruTimer;
+$('#undangan_search_guru').on('input', function() {
+  clearTimeout(undanganGuruTimer);
+  const q = $(this).val();
+  if (q.length < 2) { $('#undangan-guru-autocomplete').empty().hide(); return; }
+  undanganGuruTimer = setTimeout(() => {
+    $.getJSON(GURU_SEARCH_URL, { q }, function(data) {
+      const list = $('#undangan-guru-autocomplete').empty();
+      data.forEach(t => {
+        list.append(`<a href="#" class="list-group-item list-group-item-action py-2 px-3 small undangan-guru-item"
+          data-name="${t.name}" data-nip="${t.nip || '-'}" data-jabatan="${t.jabatan}">
+          <i class="bi bi-person-badge me-2"></i><strong>${t.name}</strong> <span class="text-muted ms-1">(NIP: ${t.nip || '-'} - ${t.jabatan})</span>
+        </a>`);
+      });
+      list.toggle(data.length > 0);
+    });
+  }, 300);
+});
+
+$(document).on('click', '.undangan-guru-item', function(e) {
+  e.preventDefault();
+  const name = $(this).data('name');
+  const nip = $(this).data('nip') || '-';
+  const jabatan = $(this).data('jabatan') || 'Guru';
+  $('#undangan_search_guru').val(name);
+  $('#recipient_name').val(name);
+  $('#undangan-guru-autocomplete').empty().hide();
+  $('#undangan-guru-selected').html(`<span class="badge bg-success"><i class="bi bi-check me-1"></i>${name}</span> <span class="badge bg-light text-dark border ms-1">NIP: ${nip}</span> <span class="badge bg-light text-dark border ms-1">${jabatan}</span>`);
+});
+
+// Undangan Pegawai autocomplete (uses same guru search endpoint since tendik are in teachers table)
+let undanganPegawaiTimer;
+$('#undangan_search_pegawai').on('input', function() {
+  clearTimeout(undanganPegawaiTimer);
+  const q = $(this).val();
+  if (q.length < 2) { $('#undangan-pegawai-autocomplete').empty().hide(); return; }
+  undanganPegawaiTimer = setTimeout(() => {
+    $.getJSON(GURU_SEARCH_URL, { q }, function(data) {
+      const list = $('#undangan-pegawai-autocomplete').empty();
+      data.forEach(t => {
+        list.append(`<a href="#" class="list-group-item list-group-item-action py-2 px-3 small undangan-pegawai-item"
+          data-name="${t.name}" data-nip="${t.nip || '-'}" data-jabatan="${t.jabatan}">
+          <i class="bi bi-person-workspace me-2"></i><strong>${t.name}</strong> <span class="text-muted ms-1">(NIP: ${t.nip || '-'} - ${t.jabatan})</span>
+        </a>`);
+      });
+      list.toggle(data.length > 0);
+    });
+  }, 300);
+});
+
+$(document).on('click', '.undangan-pegawai-item', function(e) {
+  e.preventDefault();
+  const name = $(this).data('name');
+  const nip = $(this).data('nip') || '-';
+  const jabatan = $(this).data('jabatan') || 'Staf';
+  $('#undangan_search_pegawai').val(name);
+  $('#recipient_name').val(name);
+  $('#undangan-pegawai-autocomplete').empty().hide();
+  $('#undangan-pegawai-selected').html(`<span class="badge bg-success"><i class="bi bi-check me-1"></i>${name}</span> <span class="badge bg-light text-dark border ms-1">NIP: ${nip}</span> <span class="badge bg-light text-dark border ms-1">${jabatan}</span>`);
+});
+
+// Close undangan autocomplete on outside click
+$(document).on('click', function(e) {
+  if (!$(e.target).closest('#undangan-sub-guru').length) {
+    $('#undangan-guru-autocomplete').hide();
+  }
+  if (!$(e.target).closest('#undangan-sub-pegawai').length) {
+    $('#undangan-pegawai-autocomplete').hide();
+  }
+});
+
+// Dinamis / Manual: add row
+let undanganDinamisCount = 1;
+$('#btn-add-undangan-dinamis').on('click', function() {
+  undanganDinamisCount++;
+  const row = `<div class="input-group mb-2 undangan-dinamis-row">
+    <span class="input-group-text" style="font-size:0.82rem;">${undanganDinamisCount}</span>
+    <input type="text" class="form-control undangan-dinamis-input" placeholder="Ketik nama penerima..." autocomplete="off">
+    <button type="button" class="btn btn-outline-danger btn-sm btn-remove-dinamis" title="Hapus"><i class="bi bi-trash"></i></button>
+  </div>`;
+  $('#undangan-dinamis-rows').append(row);
+});
+
+// Dinamis / Manual: remove row
+$(document).on('click', '.btn-remove-dinamis', function() {
+  if ($('.undangan-dinamis-row').length > 1) {
+    $(this).closest('.undangan-dinamis-row').remove();
+    // Re-number
+    $('.undangan-dinamis-row').each((i, el) => $(el).find('.input-group-text').text(i + 1));
+    undanganDinamisCount = $('.undangan-dinamis-row').length;
+    updateUndanganDinamisRecipientName();
+  }
+});
+
+// Dinamis / Manual: sync recipient_name on input
+$(document).on('input', '.undangan-dinamis-input', function() {
+  updateUndanganDinamisRecipientName();
+});
+
 // Klik placeholder → sisipkan ke CKEditor 5
 $(document).on('click', '.placeholder-btn', function(e) {
   e.preventDefault();
@@ -1001,6 +1278,15 @@ $('#form-surat-keluar').on('submit', function(e) {
       e.preventDefault();
       return false;
     }
+  }
+});
+
+// Toggle manual vs auto letter number input
+$('input[name="number_mode"]').on('change', function() {
+  const isManual = (this.value === 'manual');
+  $('#manual-number-wrapper').toggle(isManual);
+  if (isManual) {
+    $('#nomor_surat_manual').focus();
   }
 });
 
@@ -1043,6 +1329,11 @@ $('#btn-preview-surat').on('click', function() {
   const issuedAt     = $('#issued_at').val();
   const subject      = $('#subject').val() || '-';
   const sifat        = $('#sifat').val() || 'Biasa';
+
+  // Determine letter number display
+  const numberMode   = $('input[name="number_mode"]:checked').val() || 'auto';
+  const manualNo     = $('#nomor_surat_manual').val().trim();
+  const displayLetterNo = (numberMode === 'manual' && manualNo) ? manualNo : (NEXT_LETTER_NUMBER || '[Auto-Generate]');
 
   // Data penerima
   const nisn    = $('#f_nisn').val()    || '-';
@@ -1089,7 +1380,7 @@ $('#btn-preview-surat').on('click', function() {
       '{ttl}':                ttl,
       '{nip}':                nip,
       '{jabatan}':            jabatan,
-      '{nomor_surat}':        '<em style="color:#999;">[Auto-Generate]</em>',
+      '{nomor_surat}':        displayLetterNo,
       '{tanggal_surat}':      tanggalSurat,
       '{tahun_pelajaran}':    ACTIVE_YEAR || '-',
       '{kepala_sekolah}':     PRINCIPAL_NAME || '-',
@@ -1105,7 +1396,7 @@ $('#btn-preview-surat').on('click', function() {
       headerHtml = `
         <div style="text-align:center;margin-bottom:24px;">
           <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">${escHtml(subject)}</div>
-          <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
+          <div style="font-size:15px;margin-top:5px;">Nomor: ${escHtml(displayLetterNo)}</div>
         </div>`;
     } else {
       headerHtml = `
@@ -1116,7 +1407,7 @@ $('#btn-preview-surat').on('click', function() {
                 <tr>
                   <td style="width:70px;padding:2px 0;">Nomor</td>
                   <td style="width:14px;text-align:center;padding:2px 0;">:</td>
-                  <td style="padding:2px 0;"><em style="color:#999;">[Auto-Generate]</em></td>
+                  <td style="padding:2px 0;">${escHtml(displayLetterNo)}</td>
                 </tr>
                 <tr>
                   <td style="padding:2px 0;">Sifat</td>
@@ -1147,7 +1438,7 @@ $('#btn-preview-surat').on('click', function() {
     headerHtml = `
       <div style="text-align:center;margin-bottom:24px;">
         <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">SURAT KETERANGAN</div>
-        <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
+        <div style="font-size:15px;margin-top:5px;">Nomor: ${escHtml(displayLetterNo)}</div>
       </div>`;
 
     bodyHtml = `
@@ -1181,7 +1472,7 @@ $('#btn-preview-surat').on('click', function() {
     headerHtml = `
       <div style="text-align:center;margin-bottom:24px;">
         <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">SURAT KETERANGAN</div>
-        <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
+        <div style="font-size:15px;margin-top:5px;">Nomor: ${escHtml(displayLetterNo)}</div>
       </div>`;
 
     bodyHtml = `
@@ -1222,7 +1513,7 @@ $('#btn-preview-surat').on('click', function() {
     headerHtml = `
       <div style="text-align:center;margin-bottom:24px;">
         <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">SURAT KETERANGAN</div>
-        <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
+        <div style="font-size:15px;margin-top:5px;">Nomor: ${escHtml(displayLetterNo)}</div>
       </div>`;
 
     bodyHtml = `
@@ -1257,7 +1548,7 @@ $('#btn-preview-surat').on('click', function() {
     headerHtml = `
       <div style="text-align:center;margin-bottom:24px;">
         <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">SURAT KETERANGAN</div>
-        <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
+        <div style="font-size:15px;margin-top:5px;">Nomor: ${escHtml(displayLetterNo)}</div>
       </div>`;
 
     let rowsHtml = '';
@@ -1310,7 +1601,7 @@ $('#btn-preview-surat').on('click', function() {
     headerHtml = `
       <div style="text-align:center;margin-bottom:24px;">
         <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">SURAT KETERANGAN</div>
-        <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
+        <div style="font-size:15px;margin-top:5px;">Nomor: ${escHtml(displayLetterNo)}</div>
       </div>`;
 
     bodyHtml = `
@@ -1344,7 +1635,7 @@ $('#btn-preview-surat').on('click', function() {
     headerHtml = `
       <div style="text-align:center;margin-bottom:24px;">
         <div style="font-size:18px;font-weight:bold;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;">SURAT TUGAS</div>
-        <div style="font-size:15px;margin-top:5px;">Nomor: <em style="color:#999;">[Auto-Generate]</em></div>
+        <div style="font-size:15px;margin-top:5px;">Nomor: ${escHtml(displayLetterNo)}</div>
       </div>`;
 
     const actDate = $('input[name="activity_date"]').val() ? formatIndoDate($('input[name="activity_date"]').val()) : '-';
@@ -1383,6 +1674,52 @@ $('#btn-preview-surat').on('click', function() {
     `;
 
   } else if (selectedType === 'undangan') {
+    // Determine recipient display based on undangan mode
+    const undanganMode = $('input[name="undangan_recipient_mode"]:checked').val() || 'all';
+    let previewRecipientLines = [];
+    let previewBodyRecipient = escHtml(recipientName);
+    let previewPlace = 'Tempat';
+
+    if (undanganMode === 'all') {
+      previewRecipientLines = ['Guru & Tendik', SCHOOL_NAME];
+      previewBodyRecipient = 'Bapak/Ibu Guru dan Tenaga Kependidikan ' + escHtml(SCHOOL_NAME);
+      previewPlace = 'Jakarta';
+    } else if (undanganMode === 'guru' || undanganMode === 'pegawai') {
+      previewRecipientLines = [recipientName || '-'];
+      previewBodyRecipient = escHtml(recipientName || '-');
+      previewPlace = 'Jakarta';
+    } else if (undanganMode === 'wali_murid') {
+      const kelasVal = $('#undangan_wali_class').val();
+      if (kelasVal === 'semua') {
+        previewRecipientLines = ['Orang Tua / Wali Murid', SCHOOL_NAME];
+        previewBodyRecipient = 'Bapak/Ibu Orang Tua / Wali Murid Siswa/i ' + escHtml(SCHOOL_NAME);
+      } else {
+        previewRecipientLines = ['Orang Tua / Wali Murid', 'Kelas ' + kelasVal + ' ' + SCHOOL_NAME];
+        previewBodyRecipient = 'Bapak/Ibu Orang Tua / Wali Murid Siswa/i Kelas ' + escHtml(kelasVal) + ' ' + escHtml(SCHOOL_NAME);
+      }
+      previewPlace = 'Tempat';
+    } else if (undanganMode === 'dinamis') {
+      // Multi-recipient: split by pipe
+      const dynamicNames = recipientName.split('|').map(s => s.trim()).filter(Boolean);
+      if (dynamicNames.length > 1) {
+        previewRecipientLines = dynamicNames;
+        previewBodyRecipient = dynamicNames.map(n => escHtml(n)).join(', ');
+      } else {
+        previewRecipientLines = [recipientName || '-'];
+        previewBodyRecipient = escHtml(recipientName || '-');
+      }
+      previewPlace = 'Tempat';
+    }
+
+    let recipientLinesHtml = '';
+    previewRecipientLines.forEach((line, idx) => {
+      if (idx === 0) {
+        recipientLinesHtml += `<strong>${escHtml(line)}</strong><br>`;
+      } else {
+        recipientLinesHtml += `${escHtml(line)}<br>`;
+      }
+    });
+
     headerHtml = `
       <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
         <tr>
@@ -1391,7 +1728,7 @@ $('#btn-preview-surat').on('click', function() {
               <tr>
                 <td style="width:70px;padding:2px 0;">Nomor</td>
                 <td style="width:14px;text-align:center;padding:2px 0;">:</td>
-                <td style="padding:2px 0;"><em style="color:#999;">[Auto-Generate]</em></td>
+                <td style="padding:2px 0;">${escHtml(displayLetterNo)}</td>
               </tr>
               <tr>
                 <td style="padding:2px 0;">Sifat</td>
@@ -1409,8 +1746,8 @@ $('#btn-preview-surat').on('click', function() {
             <div style="line-height:1.6;">
               ${escHtml(tanggalSurat)}<br><br>
               Kepada<br>
-              Yth. <strong>${escHtml(recipientName)}</strong><br>
-              di &nbsp;-&nbsp; <strong>${(recipientName.toLowerCase().includes('guru') || recipientName.toLowerCase().includes('kependidikan') || recipientName.toLowerCase().includes('tendik')) ? 'Jakarta' : 'Tempat'}</strong>
+              Yth. ${recipientLinesHtml}
+              di &nbsp;-&nbsp; <strong>${previewPlace}</strong>
             </div>
           </td>
         </tr>
@@ -1419,7 +1756,7 @@ $('#btn-preview-surat').on('click', function() {
     bodyHtml = `
       <p style="margin: 12px 0;">Dengan hormat,</p>
       <p style="margin: 12px 0;">
-          Dengan ini kami mengundang ${ recipientName === 'Guru & Tenaga Kependidikan SDN Mangga Besar 11 Pagi' ? 'Bapak/Ibu Guru dan Tenaga Kependidikan ' + SCHOOL_NAME : escHtml(recipientName) } untuk hadir pada :
+          Dengan ini kami mengundang ${previewBodyRecipient} untuk hadir pada :
       </p>
 
       <table style="margin: 12px 0 12px 30px; width:auto; border-collapse:collapse;" class="data-tabel">

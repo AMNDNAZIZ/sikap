@@ -70,16 +70,26 @@ class StudentModel extends Model
             ->first();
     }
 
-    public function getByClass($classId)
+    public function getByClass($classId, $academicYearId = null)
     {
-        return $this->select('students.*, classes.name AS class_name, student_records.class_id, users.username, users.password as user_password')
+        $builder = $this->select('students.*, classes.name AS class_name, student_records.class_id, users.username, users.password as user_password')
             ->join('student_records', 'student_records.student_id = students.id')
             ->join('classes', 'classes.id = student_records.class_id')
             ->join('users', 'users.id = students.user_id', 'left')
             ->where('student_records.class_id', $classId)
             ->where('student_records.status', 'aktif')
-            ->orderBy('students.name', 'ASC')
-            ->findAll();
+            ->where('classes.is_active', 1);
+
+        if ($academicYearId !== null) {
+            $builder->where('student_records.academic_year_id', $academicYearId);
+        } else {
+            $activeYear = (new AcademicYearModel())->getActiveYear();
+            if (!empty($activeYear['id'])) {
+                $builder->where('student_records.academic_year_id', $activeYear['id']);
+            }
+        }
+
+        return $builder->orderBy('students.name', 'ASC')->findAll();
     }
 }
 
