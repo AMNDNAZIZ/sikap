@@ -42,7 +42,7 @@ class Attendance extends BaseController
         }
 
         if ($roleId == 1 || $roleId == 2) { // Admin atau Kepala Sekolah
-            $classes = $this->classModel->orderBy('name', 'ASC')->findAll();
+            $classes = $this->classModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll();
 
             // Mobile + hanya 1 kelas → langsung ke daily
             if ($isMobile && count($classes) === 1) {
@@ -65,16 +65,21 @@ class Attendance extends BaseController
             $activeYear = $this->yearModel->getActiveYear() ?: [];
             $activeYearId = $activeYear['id'] ?? 0;
 
-            // Get classes where teacher is Wali Kelas
-            $waliClasses = $this->classModel->where('teacher_id', $teacherId)->findAll();
+            // Get classes where teacher is Wali Kelas (hanya kelas aktif)
+            $waliClasses = $this->classModel
+                ->where('teacher_id', $teacherId)
+                ->where('is_active', 1)
+                ->findAll();
 
-            // Get classes where teacher is Guru Mapel (tahun ajaran aktif)
+            // Get classes where teacher is Guru Mapel (tahun ajaran aktif & kelas aktif)
             $mapelClasses = $db->table('teaching_assignments ta')
-                ->select('c.id, c.name')
+                ->select('c.id, c.name, c.level, c.teacher_id, c.description, c.is_active')
                 ->join('classes c', 'c.id = ta.class_id')
                 ->where('ta.teacher_id', $teacherId)
                 ->where('ta.academic_year_id', $activeYearId)
+                ->where('c.is_active', 1)
                 ->groupBy('c.id')
+                ->orderBy('c.name', 'ASC')
                 ->get()
                 ->getResultArray();
 
@@ -1315,16 +1320,27 @@ class Attendance extends BaseController
             if (!$teacherId)
                 return false;
 
-            // Wali Kelas?
-            $isWali = $this->classModel->where('id', $classId)->where('teacher_id', $teacherId)->countAllResults();
+            // Ambil tahun ajaran aktif
+            $activeYear = $this->yearModel->getActiveYear() ?: [];
+            $activeYearId = $activeYear['id'] ?? 0;
+
+            // Wali Kelas? (harus kelas aktif)
+            $isWali = $this->classModel
+                ->where('id', $classId)
+                ->where('teacher_id', $teacherId)
+                ->where('is_active', 1)
+                ->countAllResults();
             if ($isWali > 0)
                 return true;
 
-            // Guru Mapel?
+            // Guru Mapel? (harus kelas aktif & di tahun ajaran aktif)
             $db = \Config\Database::connect();
-            $isMapel = $db->table('teaching_assignments')
-                ->where('class_id', $classId)
-                ->where('teacher_id', $teacherId)
+            $isMapel = $db->table('teaching_assignments ta')
+                ->join('classes c', 'c.id = ta.class_id')
+                ->where('ta.class_id', $classId)
+                ->where('ta.teacher_id', $teacherId)
+                ->where('ta.academic_year_id', $activeYearId)
+                ->where('c.is_active', 1)
                 ->countAllResults();
             if ($isMapel > 0)
                 return true;
