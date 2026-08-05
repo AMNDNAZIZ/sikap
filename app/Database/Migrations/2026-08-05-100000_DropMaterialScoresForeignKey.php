@@ -11,7 +11,6 @@ class DropMaterialScoresForeignKey extends Migration
         // Hapus FK constraint yang salah — material_scores.material_id
         // seharusnya mereferensi alur_tujuan_pembelajaran, bukan subject_materials
         try {
-            // Cek apakah FK constraint ada sebelum drop
             $db = \Config\Database::connect();
             $dbName = $db->database;
 
@@ -44,8 +43,20 @@ class DropMaterialScoresForeignKey extends Migration
                 log_message('info', '[Migration] Dropped FK ' . $fk['CONSTRAINT_NAME'] . ' from material_scores');
             }
 
+            // Ubah kolom type dari ENUM ke VARCHAR agar fleksibel (tidak terbatas tulis/lisan/projek/observasi)
+            $colType = $db->query("
+                SELECT DATA_TYPE FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = '{$dbName}'
+                  AND TABLE_NAME = 'material_scores'
+                  AND COLUMN_NAME = 'type'
+            ")->getRowArray();
+
+            if ($colType && strtolower($colType['DATA_TYPE']) === 'enum') {
+                $db->query("ALTER TABLE `material_scores` MODIFY COLUMN `type` VARCHAR(50) NOT NULL");
+                log_message('info', '[Migration] Changed material_scores.type from ENUM to VARCHAR(50)');
+            }
+
         } catch (\Throwable $e) {
-            // Jika tidak ada FK, lanjutkan tanpa error
             log_message('warning', '[Migration] DropMaterialScoresForeignKey: ' . $e->getMessage());
         }
     }
