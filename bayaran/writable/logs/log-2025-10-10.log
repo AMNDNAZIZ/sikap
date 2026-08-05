@@ -1,0 +1,233 @@
+ERROR - 2025-10-10 16:51:00 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2025-10-10 16:51:18 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2025-10-10 16:52:12 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2025-10-10 16:52:27 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2025-10-10 16:52:54 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2025-10-10 16:55:42 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2025-10-10 16:55:46 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2025-10-10 16:55:50 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2025-10-10 17:04:10 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+DEBUG - 2025-10-10 17:35:21 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2025-10-10 17:35:24 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2025-10-10 17:35:24 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2025-10-10 17:35:26 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2025-10-10 17:35:26 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$pembayaranModel is deprecated in APPPATH/Controllers/Pembayaran.php on line 23.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:35:26 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$session is deprecated in APPPATH/Controllers/Pembayaran.php on line 24.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:35:26 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$role is deprecated in APPPATH/Controllers/Pembayaran.php on line 25.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+DEBUG - 2025-10-10 17:35:28 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2025-10-10 17:35:28 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$pembayaranModel is deprecated in APPPATH/Controllers/Pembayaran.php on line 23.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:35:28 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$session is deprecated in APPPATH/Controllers/Pembayaran.php on line 24.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:35:28 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$role is deprecated in APPPATH/Controllers/Pembayaran.php on line 25.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+DEBUG - 2025-10-10 17:35:29 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2025-10-10 17:35:29 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$pembayaranModel is deprecated in APPPATH/Controllers/Pembayaran.php on line 23.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:35:29 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$session is deprecated in APPPATH/Controllers/Pembayaran.php on line 24.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:35:29 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$role is deprecated in APPPATH/Controllers/Pembayaran.php on line 25.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+DEBUG - 2025-10-10 17:35:31 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2025-10-10 17:35:31 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$pembayaranModel is deprecated in APPPATH/Controllers/Pembayaran.php on line 23.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:35:31 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$session is deprecated in APPPATH/Controllers/Pembayaran.php on line 24.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:35:31 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$role is deprecated in APPPATH/Controllers/Pembayaran.php on line 25.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+DEBUG - 2025-10-10 17:35:32 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2025-10-10 17:35:32 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$pembayaranModel is deprecated in APPPATH/Controllers/Pembayaran.php on line 23.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:35:32 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$session is deprecated in APPPATH/Controllers/Pembayaran.php on line 24.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:35:32 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$role is deprecated in APPPATH/Controllers/Pembayaran.php on line 25.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+DEBUG - 2025-10-10 17:35:35 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2025-10-10 17:35:35 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$pembayaranModel is deprecated in APPPATH/Controllers/Pembayaran.php on line 23.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:35:35 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$session is deprecated in APPPATH/Controllers/Pembayaran.php on line 24.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:35:35 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$role is deprecated in APPPATH/Controllers/Pembayaran.php on line 25.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+DEBUG - 2025-10-10 17:36:09 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2025-10-10 17:36:09 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$pembayaranModel is deprecated in APPPATH/Controllers/Pembayaran.php on line 23.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:36:09 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$session is deprecated in APPPATH/Controllers/Pembayaran.php on line 24.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:36:09 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$role is deprecated in APPPATH/Controllers/Pembayaran.php on line 25.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+ERROR - 2025-10-10 17:36:09 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+DEBUG - 2025-10-10 17:36:27 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2025-10-10 17:36:27 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$pembayaranModel is deprecated in APPPATH/Controllers/Pembayaran.php on line 23.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:36:27 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$session is deprecated in APPPATH/Controllers/Pembayaran.php on line 24.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:36:27 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$role is deprecated in APPPATH/Controllers/Pembayaran.php on line 25.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+DEBUG - 2025-10-10 17:36:27 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2025-10-10 17:36:27 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$pembayaranModel is deprecated in APPPATH/Controllers/Pembayaran.php on line 23.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:36:27 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$session is deprecated in APPPATH/Controllers/Pembayaran.php on line 24.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:36:27 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$role is deprecated in APPPATH/Controllers/Pembayaran.php on line 25.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+DEBUG - 2025-10-10 17:36:47 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2025-10-10 17:36:47 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$pembayaranModel is deprecated in APPPATH/Controllers/Pembayaran.php on line 23.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:36:47 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$session is deprecated in APPPATH/Controllers/Pembayaran.php on line 24.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+WARNING - 2025-10-10 17:36:47 --> [DEPRECATED] Creation of dynamic property App\Controllers\Pembayaran::$role is deprecated in APPPATH/Controllers/Pembayaran.php on line 25.
+ 1 SYSTEMPATH/CodeIgniter.php(903): App\Controllers\Pembayaran->__construct()
+ 2 SYSTEMPATH/CodeIgniter.php(498): CodeIgniter\CodeIgniter->createController()
+ 3 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 4 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 5 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 6 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))

@@ -113,6 +113,13 @@
       </div>
     </li>
 
+    <!-- Perpustakaan Digital -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/ebook*') ? 'active' : '' ?>" href="<?= base_url('admin/ebook') ?>">
+        📚 <span class="label">Perpustakaan Digital</span>
+      </a>
+    </li>
+
     <!-- Pengaturan Profil -->
     <li class="nav-item mt-2">
       <a class="nav-link <?= url_is('profile*') ? 'active' : '' ?>" href="<?= base_url('profile') ?>">
@@ -120,6 +127,7 @@
       </a>
     </li>
 
+    <?php if (is_school_swasta()): ?>
     <!-- Absensi Guru -->
     <li class="nav-item">
       <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#menuAbsensiGuru"
@@ -134,6 +142,7 @@
         </ul>
       </div>
     </li>
+    <?php endif; ?>
 
     <!-- Obrolan Staff -->
     <li class="nav-item">

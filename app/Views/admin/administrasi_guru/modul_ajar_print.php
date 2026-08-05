@@ -64,7 +64,13 @@
 
     <!-- Generated Content -->
     <div class="content-wrapper">
-        <?= $modul['content'] ?>
+        <?php
+            // Bersihkan format judul lama "Bagian X (Judul)" menjadi "X. Judul"
+            $content = $modul['content'];
+            $content = preg_replace('/<h3>\s*Bagian\s+([A-K])\s*\(([^)]+)\)\s*<\/h3>/i', '<h3>$1. $2</h3>', $content);
+            $content = preg_replace('/<h3>\s*Bagian\s+([A-K])\s*[:\-–]\s*(.+?)\s*<\/h3>/i', '<h3>$1. $2</h3>', $content);
+            echo $content;
+        ?>
     </div>
 
     <table class="footer-table">

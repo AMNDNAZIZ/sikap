@@ -4,7 +4,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h1 class="h3 mb-0 text-gray-800">📊 Monitoring Administrasi Guru</h1>
-        <p class="text-muted mb-0">Pantau status kelengkapan Alur Tujuan Pembelajaran (ATP) dan Distribusi Program Semester (Promes) guru.</p>
+        <p class="text-muted mb-0">Pantau status kelengkapan administrasi pembelajaran guru (ATP, KKTP, Promes, Modul Ajar).</p>
     </div>
     <a href="<?= base_url('admin/administrasi-guru') ?>" class="btn btn-sm btn-secondary">
         <i class="bi bi-arrow-left me-1"></i> Kembali
@@ -66,37 +66,129 @@
     <div class="col-lg-6 mb-4">
         <div class="card shadow border-0 h-100">
             <div class="card-header bg-white py-3">
-                <h6 class="m-0 font-weight-bold text-primary"><i class="bi bi-pie-chart-fill me-1"></i> Persentase Kelengkapan Distribusi Promes</h6>
+                <h6 class="m-0 font-weight-bold text-primary"><i class="bi bi-pie-chart-fill me-1"></i> Distribusi Promes</h6>
             </div>
             <div class="card-body d-flex flex-column align-items-center justify-content-center py-4">
                 <?php if ($total > 0): ?>
-                    <div style="position: relative; width: 220px; height: 220px;">
+                    <div style="position: relative; width: 180px; height: 180px;">
                         <canvas id="promesChart"></canvas>
                     </div>
-                    <div class="row w-100 mt-4 text-center">
-                        <div class="col-4">
-                            <span class="d-block fw-bold text-success" style="font-size: 1.1rem;"><?= $promes_stats['complete'] ?></span>
-                            <span class="text-xs text-muted">Selesai</span>
-                        </div>
-                        <div class="col-4">
-                            <span class="d-block fw-bold text-warning" style="font-size: 1.1rem;"><?= $promes_stats['partial'] ?></span>
-                            <span class="text-xs text-muted">Sebagian</span>
-                        </div>
-                        <div class="col-4">
-                            <span class="d-block fw-bold text-danger" style="font-size: 1.1rem;"><?= $promes_stats['empty'] ?></span>
-                            <span class="text-xs text-muted">Kosong</span>
-                        </div>
+                    <div class="row w-100 mt-3 text-center">
+                        <div class="col-4"><span class="d-block fw-bold text-success"><?= $promes_stats['complete'] ?></span><span class="text-xs text-muted">Selesai</span></div>
+                        <div class="col-4"><span class="d-block fw-bold text-warning"><?= $promes_stats['partial'] ?></span><span class="text-xs text-muted">Sebagian</span></div>
+                        <div class="col-4"><span class="d-block fw-bold text-danger"><?= $promes_stats['empty'] ?></span><span class="text-xs text-muted">Kosong</span></div>
                     </div>
                 <?php else: ?>
-                    <div class="text-center py-4 text-muted">
-                        <i class="bi bi-pie-chart display-4 mb-2"></i>
-                        <p class="mb-0">Tidak ada data plotting pengajaran</p>
+                    <div class="text-center py-3 text-muted"><i class="bi bi-pie-chart display-4 mb-2"></i><p class="mb-0">Tidak ada data</p></div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart KKTP -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow border-0 h-100">
+            <div class="card-header bg-white py-3">
+                <h6 class="m-0 font-weight-bold text-primary"><i class="bi bi-pie-chart-fill me-1"></i> KKTP</h6>
+            </div>
+            <div class="card-body d-flex flex-column align-items-center justify-content-center py-4">
+                <?php if ($total > 0): ?>
+                    <div style="position: relative; width: 180px; height: 180px;">
+                        <canvas id="kktpChart"></canvas>
                     </div>
+                    <div class="row w-100 mt-3 text-center">
+                        <div class="col-4"><span class="d-block fw-bold text-success"><?= $kktp_stats['complete'] ?></span><span class="text-xs text-muted">Selesai</span></div>
+                        <div class="col-4"><span class="d-block fw-bold text-warning"><?= $kktp_stats['partial'] ?></span><span class="text-xs text-muted">Sebagian</span></div>
+                        <div class="col-4"><span class="d-block fw-bold text-danger"><?= $kktp_stats['empty'] ?></span><span class="text-xs text-muted">Kosong</span></div>
+                    </div>
+                <?php else: ?>
+                    <div class="text-center py-3 text-muted"><i class="bi bi-pie-chart display-4 mb-2"></i><p class="mb-0">Tidak ada data</p></div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Modul Ajar -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow border-0 h-100">
+            <div class="card-header bg-white py-3">
+                <h6 class="m-0 font-weight-bold text-primary"><i class="bi bi-pie-chart-fill me-1"></i> Modul Ajar</h6>
+            </div>
+            <div class="card-body d-flex flex-column align-items-center justify-content-center py-4">
+                <?php if ($total > 0): ?>
+                    <div style="position: relative; width: 180px; height: 180px;">
+                        <canvas id="modulChart"></canvas>
+                    </div>
+                    <div class="row w-100 mt-3 text-center">
+                        <div class="col-4"><span class="d-block fw-bold text-success"><?= $modul_stats['complete'] ?></span><span class="text-xs text-muted">Selesai</span></div>
+                        <div class="col-4"><span class="d-block fw-bold text-warning"><?= $modul_stats['partial'] ?></span><span class="text-xs text-muted">Sebagian</span></div>
+                        <div class="col-4"><span class="d-block fw-bold text-danger"><?= $modul_stats['empty'] ?></span><span class="text-xs text-muted">Kosong</span></div>
+                    </div>
+                <?php else: ?>
+                    <div class="text-center py-3 text-muted"><i class="bi bi-pie-chart display-4 mb-2"></i><p class="mb-0">Tidak ada data</p></div>
                 <?php endif; ?>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Ringkasan Per Guru -->
+<?php if (!empty($teacher_summary ?? [])): ?>
+<div class="card shadow mb-4 border-0">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary"><i class="bi bi-people-fill me-1"></i> Ringkasan Per Guru</h6>
+        <span class="badge bg-secondary"><?= count($teacher_summary) ?> guru</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="40" class="text-center">No</th>
+                        <th>Nama Guru</th>
+                        <th width="80" class="text-center">Total Mapel</th>
+                        <th width="100" class="text-center">Selesai</th>
+                        <th width="100" class="text-center">Sebagian</th>
+                        <th width="100" class="text-center">Belum</th>
+                        <th width="120" class="text-center">Progress</th>
+                        <th width="100" class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php $tNo = 1; foreach ($teacher_summary as $tid => $ts): 
+                        $pct = $ts['total'] > 0 ? round(($ts['complete'] / $ts['total']) * 100) : 0;
+                        $pct = (int) $pct; // pastikan integer untuk perbandingan
+                        $barColor = ($pct >= 100) ? 'bg-success' : (($pct > 0) ? 'bg-warning' : 'bg-danger');
+                    ?>
+                    <tr>
+                        <td class="text-center"><?= $tNo++ ?></td>
+                        <td class="fw-bold"><?= esc($ts['name']) ?></td>
+                        <td class="text-center"><?= $ts['total'] ?></td>
+                        <td class="text-center"><span class="badge bg-success"><?= $ts['complete'] ?></span></td>
+                        <td class="text-center"><span class="badge bg-warning text-dark"><?= $ts['partial'] ?></span></td>
+                        <td class="text-center"><span class="badge bg-danger"><?= $ts['empty'] ?></span></td>
+                        <td>
+                            <div class="progress" style="height: 18px;">
+                                <div class="progress-bar <?= $barColor ?>" style="width: <?= $pct ?>%;" title="<?= $pct ?>%"><?= $pct ?>%</div>
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            <?php if ($pct >= 100): ?>
+                                <span class="badge bg-success">✅ Selesai</span>
+                            <?php elseif ($ts['empty'] === $ts['total']): ?>
+                                <span class="badge bg-danger">❌ Belum</span>
+                            <?php else: ?>
+                                <span class="badge bg-warning text-dark">🔄 Proses</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- Filter Card -->
 <div class="card shadow mb-4 border-0">
@@ -187,123 +279,77 @@
             <table class="table table-hover align-middle table-bordered" id="monitoringTable">
                 <thead class="table-light">
                     <tr>
-                        <th width="50" class="text-center">No</th>
+                        <th width="40" class="text-center">No</th>
                         <th>Nama Guru</th>
-                        <th width="120" class="text-center">Kelas</th>
+                        <th width="100" class="text-center">Kelas</th>
                         <th>Mata Pelajaran</th>
-                        <th width="280">Status Alur Pembelajaran (ATP)</th>
-                        <th width="280">Status Distribusi Promes</th>
-                        <th width="150" class="text-center">Aksi</th>
+                        <th width="200">ATP</th>
+                        <th width="200">KKTP</th>
+                        <th width="200">Promes</th>
+                        <th width="200">Modul Ajar</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($assignments)): ?>
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-5">
+                            <td colspan="8" class="text-center text-muted py-5">
                                 <i class="bi bi-file-earmark-x display-4 d-block mb-3"></i>
                                 Tidak ada data plotting pengajaran yang ditemukan untuk tahun ajaran aktif ini.
                             </td>
                         </tr>
                     <?php else: ?>
                         <?php 
-                        $no = 1;
-                        if (method_exists($pager, 'getCurrentPage')) {
-                            $no = 1 + (50 * ($pager->getCurrentPage() - 1));
-                        }
+                        $no = 1 + (($page ?? 1) - 1) * ($perPage ?? 50);
                         foreach ($assignments as $row): 
                         ?>
                             <tr>
-                                <td class="text-center fw-bold text-muted"><?= $no++ ?></td>
+                                <td class="text-center"><?= $no++ ?></td>
+                                <td><div class="fw-bold"><?= esc($row['teacher_name']) ?></div></td>
+                                <td class="text-center"><span class="badge bg-light text-dark border"><?= esc($row['class_name']) ?></span></td>
+                                <td><?= esc($row['subject_name']) ?></td>
+
+                                <!-- ATP -->
                                 <td>
-                                    <div class="fw-bold text-dark"><?= esc($row['teacher_name']) ?></div>
-                                </td>
-                                <td class="text-center">
-                                    <span class="badge bg-light text-dark border px-2 py-1"><?= esc($row['class_name']) ?></span>
-                                </td>
-                                <td>
-                                    <strong><?= esc($row['subject_name']) ?></strong>
-                                </td>
-                                <td>
-                                    <?php if ($row['atp_status'] == 'complete'): ?>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="badge bg-success rounded-circle p-1 d-inline-flex justify-content-center align-items-center" style="width: 24px; height: 24px;">
-                                                <i class="bi bi-check-lg text-white"></i>
-                                            </span>
-                                            <div>
-                                                <span class="fw-bold text-success small">Selesai</span>
-                                                <div class="text-muted" style="font-size: 0.75rem;"><?= esc($row['atp_info']) ?></div>
-                                            </div>
-                                        </div>
-                                    <?php elseif ($row['atp_status'] == 'partial'): ?>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="badge bg-warning text-dark rounded-circle p-1 d-inline-flex justify-content-center align-items-center" style="width: 24px; height: 24px;">
-                                                <i class="bi bi-exclamation text-dark fw-bold"></i>
-                                            </span>
-                                            <div>
-                                                <span class="fw-bold text-warning-emphasis small">Selesai sebagian</span>
-                                                <div class="text-muted" style="font-size: 0.75rem;"><?= esc($row['atp_info']) ?></div>
-                                            </div>
-                                        </div>
+                                    <?php if ($row['atp_status'] === 'complete'): ?>
+                                        <span class="badge bg-success"><?= esc($row['atp_info']) ?></span>
+                                    <?php elseif ($row['atp_status'] === 'partial'): ?>
+                                        <span class="badge bg-warning text-dark"><?= esc($row['atp_info']) ?></span>
                                     <?php else: ?>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="badge bg-danger rounded-circle p-1 d-inline-flex justify-content-center align-items-center" style="width: 24px; height: 24px;">
-                                                <i class="bi bi-x-lg text-white"></i>
-                                            </span>
-                                            <div>
-                                                <span class="fw-bold text-danger small">Belum dikerjakan</span>
-                                                <div class="text-muted" style="font-size: 0.75rem;">Kosong</div>
-                                            </div>
-                                        </div>
+                                        <span class="badge bg-danger"><?= esc($row['atp_info']) ?></span>
                                     <?php endif; ?>
                                 </td>
+
+                                <!-- KKTP -->
                                 <td>
-                                    <?php if ($row['promes_status'] == 'complete'): ?>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="badge bg-success rounded-circle p-1 d-inline-flex justify-content-center align-items-center" style="width: 24px; height: 24px;">
-                                                <i class="bi bi-check-lg text-white"></i>
-                                            </span>
-                                            <div>
-                                                <span class="fw-bold text-success small">Selesai</span>
-                                                <div class="text-muted" style="font-size: 0.75rem;"><?= esc($row['promes_info']) ?></div>
-                                            </div>
-                                        </div>
-                                    <?php elseif ($row['promes_status'] == 'partial'): ?>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="badge bg-warning text-dark rounded-circle p-1 d-inline-flex justify-content-center align-items-center" style="width: 24px; height: 24px;">
-                                                <i class="bi bi-exclamation text-dark fw-bold"></i>
-                                            </span>
-                                            <div>
-                                                <span class="fw-bold text-warning-emphasis small">Belum Lengkap</span>
-                                                <div class="text-muted" style="font-size: 0.75rem;"><?= esc($row['promes_info']) ?></div>
-                                            </div>
-                                        </div>
+                                    <?php if ($row['kktp_status'] === 'complete'): ?>
+                                        <span class="badge bg-success"><?= esc($row['kktp_info']) ?></span>
+                                    <?php elseif ($row['kktp_status'] === 'partial'): ?>
+                                        <span class="badge bg-warning text-dark"><?= esc($row['kktp_info']) ?></span>
                                     <?php else: ?>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="badge bg-danger rounded-circle p-1 d-inline-flex justify-content-center align-items-center" style="width: 24px; height: 24px;">
-                                                <i class="bi bi-x-lg text-white"></i>
-                                            </span>
-                                            <div>
-                                                <span class="fw-bold text-danger small">Belum dikerjakan</span>
-                                                <div class="text-muted" style="font-size: 0.75rem;">Kosong</div>
-                                            </div>
-                                        </div>
+                                        <span class="badge bg-danger"><?= esc($row['kktp_info']) ?></span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="text-center">
-                                    <div class="d-flex gap-1 justify-content-center">
-                                        <a href="<?= base_url('admin/administrasi-guru/atp?class_id=' . $row['class_id'] . '&subject_id=' . $row['subject_id']) ?>" 
-                                           class="btn btn-xs btn-outline-primary" 
-                                           title="Lihat ATP Guru"
-                                           target="_blank">
-                                            <i class="bi bi-signpost-2"></i> ATP
-                                        </a>
-                                        <a href="<?= base_url('admin/administrasi-guru/prota-prosem?class_id=' . $row['class_id'] . '&subject_id=' . $row['subject_id']) ?>" 
-                                           class="btn btn-xs btn-outline-info" 
-                                           title="Lihat Prota & Prosem Guru"
-                                           target="_blank">
-                                            <i class="bi bi-calendar3"></i> Promes
-                                        </a>
-                                    </div>
+
+                                <!-- Promes -->
+                                <td>
+                                    <?php if ($row['promes_status'] === 'complete'): ?>
+                                        <span class="badge bg-success"><?= esc($row['promes_info']) ?></span>
+                                    <?php elseif ($row['promes_status'] === 'partial'): ?>
+                                        <span class="badge bg-warning text-dark"><?= esc($row['promes_info']) ?></span>
+                                    <?php else: ?>
+                                        <span class="badge bg-danger"><?= esc($row['promes_info']) ?></span>
+                                    <?php endif; ?>
+                                </td>
+
+                                <!-- Modul Ajar -->
+                                <td>
+                                    <?php if ($row['modul_status'] === 'complete'): ?>
+                                        <span class="badge bg-success"><?= esc($row['modul_info']) ?></span>
+                                    <?php elseif ($row['modul_status'] === 'partial'): ?>
+                                        <span class="badge bg-warning text-dark"><?= esc($row['modul_info']) ?></span>
+                                    <?php else: ?>
+                                        <span class="badge bg-danger"><?= esc($row['modul_info']) ?></span>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -396,6 +442,40 @@ $(document).ready(function() {
             labels: ['Selesai', 'Selesai Sebagian', 'Belum Dikerjakan'],
             datasets: [{
                 data: [<?= $promes_stats['complete'] ?>, <?= $promes_stats['partial'] ?>, <?= $promes_stats['empty'] ?>],
+                backgroundColor: ['#1cc88a', '#f6c23e', '#e74a3b'],
+                hoverBackgroundColor: ['#17a673', '#dda20a', '#be2617'],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: chartOptions
+    });
+
+    // KKTP Chart
+    const kktpCtx = document.getElementById('kktpChart').getContext('2d');
+    new Chart(kktpCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Selesai', 'Selesai Sebagian', 'Belum Dikerjakan'],
+            datasets: [{
+                data: [<?= $kktp_stats['complete'] ?>, <?= $kktp_stats['partial'] ?>, <?= $kktp_stats['empty'] ?>],
+                backgroundColor: ['#1cc88a', '#f6c23e', '#e74a3b'],
+                hoverBackgroundColor: ['#17a673', '#dda20a', '#be2617'],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: chartOptions
+    });
+
+    // Modul Chart
+    const modulCtx = document.getElementById('modulChart').getContext('2d');
+    new Chart(modulCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Selesai', 'Selesai Sebagian', 'Belum Dikerjakan'],
+            datasets: [{
+                data: [<?= $modul_stats['complete'] ?>, <?= $modul_stats['partial'] ?>, <?= $modul_stats['empty'] ?>],
                 backgroundColor: ['#1cc88a', '#f6c23e', '#e74a3b'],
                 hoverBackgroundColor: ['#17a673', '#dda20a', '#be2617'],
                 borderWidth: 2,

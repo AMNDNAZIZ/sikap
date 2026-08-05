@@ -147,11 +147,13 @@ class Assessment extends BaseController
             return redirect()->to('admin/academic-years')->with('error', 'Belum ada tahun ajaran aktif.');
         }
 
-        // Default: semua siswa kelas
+        // Default: semua siswa kelas (filter tahun ajaran aktif)
         $studentsQuery = $this->studentModel
             ->select('students.*')
             ->join('student_records sr', 'sr.student_id = students.id')
-            ->where('sr.class_id', $classId);
+            ->where('sr.class_id', $classId)
+            ->where('sr.academic_year_id', $activeYear['id'])
+            ->where('sr.status', 'aktif');
 
         // --- LOGIC AGAMA ---
         $subjectInfo = $this->db->table('subjects')->where('id', $subjectId)->get()->getRowArray();
@@ -200,6 +202,8 @@ class Assessment extends BaseController
                     ->select('students.*')
                     ->join('student_records sr', 'sr.student_id = students.id')
                     ->where('sr.class_id', $classId)
+                    ->where('sr.academic_year_id', $activeYear['id'])
+                    ->where('sr.status', 'aktif')
                     ->where("students.id NOT IN (
                         SELECT student_id FROM material_scores 
                         WHERE material_id = " . (int) $materialId . " 
@@ -231,6 +235,8 @@ class Assessment extends BaseController
                     ->select('students.*')
                     ->join('student_records sr', 'sr.student_id = students.id')
                     ->where('sr.class_id', $classId)
+                    ->where('sr.academic_year_id', $activeYear['id'])
+                    ->where('sr.status', 'aktif')
                     ->where("students.id NOT IN (
                         SELECT student_id FROM summative_scores 
                         WHERE subject_id = {$subjectId} 
@@ -250,6 +256,8 @@ class Assessment extends BaseController
                     ->select('students.*')
                     ->join('student_records sr', 'sr.student_id = students.id')
                     ->where('sr.class_id', $classId)
+                    ->where('sr.academic_year_id', $activeYear['id'])
+                    ->where('sr.status', 'aktif')
                     ->where("students.id NOT IN (
                         SELECT student_id FROM final_exam_scores 
                         WHERE subject_id = {$subjectId} 

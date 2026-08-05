@@ -26,11 +26,11 @@ class CreateBukuTamuTable extends Migration
         $this->forge->addKey('id', true);
         $this->forge->addKey('guest_type');
         $this->forge->addKey('created_at');
-        $this->forge->createTable('buku_tamu');
+        $this->forge->createTable('buku_tamu', true);
     }
 
     public function down(): void
     {
-        $this->forge->dropTable('buku_tamu');
+        $this->forge->dropTable('buku_tamu', true);
     }
 }

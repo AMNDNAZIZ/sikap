@@ -16,6 +16,7 @@ class Students extends BaseController
     protected $yearModel;
     protected $recordModel;
     protected $userModel;
+    protected $db;
 
     public function __construct()
     {
@@ -24,6 +25,7 @@ class Students extends BaseController
         $this->yearModel = new AcademicYearModel();
         $this->recordModel = new StudentRecordModel();
         $this->userModel = new UserModel();
+        $this->db = \Config\Database::connect();
     }
 
     public function index()

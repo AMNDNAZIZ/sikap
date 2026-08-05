@@ -571,8 +571,28 @@ class Updater extends BaseController
      */
     public function generateManifest()
     {
-        set_time_limit(300);
+        set_time_limit(600);
 
+        $rootPath = rtrim(ROOTPATH, '/\\');
+        $git = '"C:\\Program Files\\Git\\cmd\\git.exe" -c safe.directory=C:/xampp/htdocs/siakad';
+        putenv('HOME=C:\\Users\\SAKA');
+        putenv('USERPROFILE=C:\\Users\\SAKA');
+        putenv('GIT_TERMINAL_PROMPT=0');
+
+        // Step 0: Sinkronkan APP_VERSION dari database changelogs
+        $syncedVersion = $this->syncVersionFromChangelogs();
+
+        // Step 1: Pull dari origin (skip jika gagal, lanjut generate dari state lokal)
+        $pullResult = [];
+        exec("cd /d \"{$rootPath}\" && {$git} pull origin main 2>&1", $pullResult, $pullCode);
+        $pullOutput = implode("\n", $pullResult);
+        log_message('info', '[GenerateManifest] Pull from origin: ' . $pullOutput);
+
+        if ($pullCode !== 0 && strpos($pullOutput, 'Already up to date') === false) {
+            return redirect()->back()->with('warning', 'Pull dari origin gagal: ' . $pullOutput . '. Manifest tetap digenerate dari state lokal.');
+        }
+
+        // Step 2: Generate manifest
         $folders = ['app', 'public'];
         $files = [];
 
@@ -585,7 +605,7 @@ class Updater extends BaseController
         ksort($files);
 
         $manifest = [
-            'version'     => defined('APP_VERSION') ? APP_VERSION : '1.0.0',
+            'version'     => $syncedVersion,
             'generated'   => date('Y-m-d H:i:s'),
             'last_update' => defined('LAST_UPDATE') ? LAST_UPDATE : date('Y-m-d H:i'),
             'total_files' => count($files),
@@ -595,35 +615,118 @@ class Updater extends BaseController
         $jsonPath = ROOTPATH . 'update_manifest.json';
         file_put_contents($jsonPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
-        // Auto push ke GitHub jika di localhost
+        // Step 3: Commit manifest + Constants.php ke origin
+        exec("cd /d \"{$rootPath}\" && {$git} add update_manifest.json app/Config/Constants.php 2>&1", $addResult);
+        exec("cd /d \"{$rootPath}\" && {$git} commit -m \"Regenerate manifest v{$syncedVersion}\" --allow-empty 2>&1", $commitResult);
+        exec("cd /d \"{$rootPath}\" && {$git} push origin main 2>&1", $pushOriginResult, $pushOriginCode);
+        log_message('info', '[GenerateManifest] Push to origin: ' . implode("\n", $pushOriginResult ?? []));
+
+        // Step 4: Push orphan ke update repo (Sakajaya/sikap-update)
         $pushResult = $this->pushToUpdateRepo();
 
-        $message = 'Manifest berhasil digenerate: ' . count($files) . ' file (v' . $manifest['version'] . ').';
+        $message = 'Manifest berhasil digenerate: ' . count($files) . ' file (v' . $syncedVersion . ').';
+        if ($pullCode === 0 || strpos($pullOutput, 'Already up to date') !== false) {
+            $message .= ' ✅ Sinkron dengan origin.';
+        }
         if ($pushResult['success']) {
-            $message .= ' ✅ Berhasil push ke GitHub.';
+            $message .= ' ✅ Push ke sikap-update berhasil.';
         } else {
-            $message .= ' ⚠️ Push gagal: ' . $pushResult['error'];
+            $message .= ' ⚠️ Push ke sikap-update gagal: ' . $pushResult['error'];
         }
 
         return redirect()->back()->with($pushResult['success'] ? 'success' : 'warning', $message);
     }
 
     /**
-     * Push current state (app/, public/, manifest, README) ke repo sikap-update sebagai orphan commit.
+     * Sinkronkan APP_VERSION dan LAST_UPDATE di Constants.php dari tabel changelogs.
+     * Ini memastikan versi manifest selalu sesuai dengan changelog terbaru.
+     * 
+     * @return string Versi terbaru yang disinkronkan
+     */
+    private function syncVersionFromChangelogs(): string
+    {
+        $currentVersion = defined('APP_VERSION') ? APP_VERSION : '1.0.0';
+
+        try {
+            $db = \Config\Database::connect();
+            $changelog = $db->table('changelogs')
+                ->select('version, release_date')
+                ->orderBy('release_date', 'DESC')
+                ->orderBy('id', 'DESC')
+                ->limit(1)
+                ->get()
+                ->getRowArray();
+
+            if (!$changelog) {
+                return $currentVersion;
+            }
+
+            $dbVersion = $changelog['version'];
+
+            // Gunakan versi yang LEBIH TINGGI antara DB dan Constants.php
+            // Ini mencegah versi yang sudah di-bump manual di Constants.php
+            // ter-override oleh versi lama di tabel changelogs
+            if (version_compare($dbVersion, $currentVersion, '>')) {
+                $newVersion = $dbVersion;
+                $newDate = date('Y-m-d H:i', strtotime($changelog['release_date']));
+            } else {
+                // Constants.php sudah lebih baru, pertahankan
+                $newVersion = $currentVersion;
+                $newDate = defined('LAST_UPDATE') ? LAST_UPDATE : date('Y-m-d H:i');
+                log_message('info', "[syncVersionFromChangelogs] Keeping Constants.php version {$currentVersion} (DB has {$dbVersion})");
+                return $newVersion;
+            }
+
+            // Update Constants.php
+            $constantsPath = APPPATH . 'Config/Constants.php';
+            $content = file_get_contents($constantsPath);
+
+            $content = preg_replace(
+                "/define\('APP_VERSION',\s*'[^']+'\);/",
+                "define('APP_VERSION', '{$newVersion}');",
+                $content
+            );
+            $content = preg_replace(
+                "/define\('LAST_UPDATE',\s*'[^']*'\);/",
+                "define('LAST_UPDATE', '{$newDate}');",
+                $content
+            );
+
+            file_put_contents($constantsPath, $content);
+            log_message('info', "[syncVersionFromChangelogs] Updated Constants.php: APP_VERSION={$newVersion}, LAST_UPDATE={$newDate}");
+
+            return $newVersion;
+
+        } catch (\Exception $e) {
+            log_message('error', '[syncVersionFromChangelogs] Failed: ' . $e->getMessage());
+            return $currentVersion;
+        }
+    }
+
+    /**
+     * Push current state ke repo sikap-update sebagai orphan commit.
      */
     private function pushToUpdateRepo(): array
     {
-        $rootPath = ROOTPATH;
+        $rootPath = rtrim(ROOTPATH, '/\\');
+        $git = '"C:\\Program Files\\Git\\cmd\\git.exe" -c safe.directory=C:/xampp/htdocs/siakad';
 
-        // Jalankan git commands secara sequential
+        // Stash uncommitted changes agar tidak hilang saat checkout
+        exec("cd /d \"{$rootPath}\" && {$git} stash --include-untracked 2>&1", $stashResult);
+        $didStash = !empty($stashResult) && strpos(implode("\n", $stashResult), 'No local changes') === false;
+        log_message('info', '[pushToUpdateRepo] Stash: ' . implode(" ", $stashResult));
+
+        // Baca versi dari Constants.php yang sudah di-sync (re-read file karena mungkin baru diupdate)
+        $constantsContent = file_get_contents(APPPATH . 'Config/Constants.php');
+        preg_match("/define\('APP_VERSION',\s*'([^']+)'\)/", $constantsContent, $vMatch);
+        $version = $vMatch[1] ?? (defined('APP_VERSION') ? APP_VERSION : '1.0.0');
+
         $commands = [
-            'git checkout --orphan _update_push 2>&1',
-            'git reset 2>&1',
-            'git add app/ public/ update_manifest.json README.md .gitattributes 2>&1',
-            'git commit -m "v' . (defined('APP_VERSION') ? APP_VERSION : '1.0.0') . ' - Auto release ' . date('Y-m-d H:i') . '" 2>&1',
-            'git push update _update_push:main --force 2>&1',
-            'git checkout main --force 2>&1',
-            'git branch -D _update_push 2>&1',
+            "{$git} checkout --orphan _update_push 2>&1",
+            "{$git} reset 2>&1",
+            "{$git} add app/ public/ update_manifest.json README.md .gitattributes 2>&1",
+            "{$git} commit -m \"v{$version} - Release " . date('Y-m-d H:i') . "\" 2>&1",
+            "{$git} push update _update_push:main --force 2>&1",
         ];
 
         $output = [];
@@ -633,20 +736,26 @@ class Updater extends BaseController
         foreach ($commands as $cmd) {
             $result = null;
             $exitCode = 0;
-            exec('cd "' . rtrim($rootPath, '/\\') . '" && ' . $cmd, $result, $exitCode);
+            exec("cd /d \"{$rootPath}\" && {$cmd}", $result, $exitCode);
 
             $resultStr = implode("\n", $result ?? []);
             $output[] = $cmd . ' => ' . $resultStr;
 
-            // Push command is critical
-            if (strpos($cmd, 'git push') !== false && $exitCode !== 0) {
+            if (strpos($cmd, 'push update') !== false && $exitCode !== 0) {
                 $success = false;
                 $error = $resultStr;
-                // Cleanup: go back to main
-                exec('cd "' . rtrim($rootPath, '/\\') . '" && git checkout main --force 2>&1');
-                exec('cd "' . rtrim($rootPath, '/\\') . '" && git branch -D _update_push 2>&1');
                 break;
             }
+        }
+
+        // Selalu kembali ke main dan restore stash
+        exec("cd /d \"{$rootPath}\" && {$git} checkout main --force 2>&1", $checkoutResult);
+        exec("cd /d \"{$rootPath}\" && {$git} branch -D _update_push 2>&1", $branchResult);
+
+        // Restore stash jika ada
+        if ($didStash) {
+            exec("cd /d \"{$rootPath}\" && {$git} stash pop 2>&1", $popResult);
+            log_message('info', '[pushToUpdateRepo] Stash pop: ' . implode(" ", $popResult ?? []));
         }
 
         log_message('info', 'Push to update repo: ' . ($success ? 'SUCCESS' : 'FAILED') . "\n" . implode("\n", $output));
@@ -659,6 +768,9 @@ class Updater extends BaseController
      */
     private function scanFilesForManifest(string $dir, string $rootPath, array &$files)
     {
+        // Extensions yang dianggap text file (perlu normalize line ending)
+        static $textExts = ['php', 'js', 'css', 'html', 'htm', 'json', 'xml', 'md', 'txt', 'yml', 'yaml', 'tpl', 'sql', 'htaccess', 'env'];
+
         $handle = opendir($dir);
         while (false !== ($f = readdir($handle))) {
             if ($f === '.' || $f === '..') continue;
@@ -672,7 +784,15 @@ class Updater extends BaseController
             if (strpos($relativePath, 'app/Config/.security_hash') !== false) continue;
 
             if (is_file($fullPath)) {
-                $files[$relativePath] = md5_file($fullPath);
+                // Normalize CRLF → LF untuk text files agar hash konsisten lintas OS
+                $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
+                if (in_array($ext, $textExts) || $ext === '') {
+                    $content = file_get_contents($fullPath);
+                    $content = str_replace("\r\n", "\n", $content);
+                    $files[$relativePath] = md5($content);
+                } else {
+                    $files[$relativePath] = md5_file($fullPath);
+                }
             } elseif (is_dir($fullPath)) {
                 $this->scanFilesForManifest($fullPath, $rootPath, $files);
             }
@@ -686,28 +806,40 @@ class Updater extends BaseController
      */
     public function checkOnlineUpdate()
     {
+        set_time_limit(120);
+
         $manifestUrl = $this->githubRawUrl('update_manifest.json');
 
         $client = \Config\Services::curlrequest();
         try {
             $response = $client->get($manifestUrl, [
-                'timeout' => 15,
+                'timeout' => 30,
                 'http_errors' => false,
             ]);
         } catch (\Exception $e) {
             return redirect()->to(base_url('admin/updater'))->with('error', 'Gagal menghubungi server update: ' . $e->getMessage());
         }
 
-        if ($response->getStatusCode() !== 200) {
-            return redirect()->to(base_url('admin/updater'))->with('error', 'Manifest tidak ditemukan di server (HTTP ' . $response->getStatusCode() . '). Pastikan update_manifest.json sudah di-push ke GitHub.');
+        $statusCode = $response->getStatusCode();
+        if ($statusCode !== 200) {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Manifest tidak ditemukan di server (HTTP ' . $statusCode . '). Pastikan update_manifest.json sudah di-push ke GitHub.');
         }
 
-        $remoteManifest = json_decode($response->getBody(), true);
-        if (!$remoteManifest || empty($remoteManifest['files'])) {
-            return redirect()->to(base_url('admin/updater'))->with('error', 'Format manifest tidak valid.');
+        $body = $response->getBody();
+        if (empty($body)) {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Response server kosong. Coba lagi.');
         }
 
-        // Compare with local files
+        $remoteManifest = json_decode($body, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Manifest tidak valid (JSON parse error: ' . json_last_error_msg() . ').');
+        }
+        if (empty($remoteManifest['files'])) {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Manifest kosong atau format tidak valid.');
+        }
+
+        // Compare with local files (normalize LF untuk text files agar konsisten dengan manifest)
+        $textExts = ['php', 'js', 'css', 'html', 'htm', 'json', 'xml', 'md', 'txt', 'yml', 'yaml', 'tpl', 'sql', 'htaccess', 'env'];
         $changedFiles = [];
         $newFiles = [];
 
@@ -715,18 +847,29 @@ class Updater extends BaseController
             $localPath = ROOTPATH . $relativePath;
             if (!is_file($localPath)) {
                 $newFiles[] = $relativePath;
-            } elseif (md5_file($localPath) !== $remoteHash) {
-                $changedFiles[] = $relativePath;
+            } else {
+                $ext = strtolower(pathinfo($localPath, PATHINFO_EXTENSION));
+                if (in_array($ext, $textExts) || $ext === '') {
+                    $content = file_get_contents($localPath);
+                    $localHash = md5(str_replace("\r\n", "\n", $content));
+                } else {
+                    $localHash = md5_file($localPath);
+                }
+                if ($localHash !== $remoteHash) {
+                    $changedFiles[] = $relativePath;
+                }
             }
         }
 
         $totalChanges = count($changedFiles) + count($newFiles);
 
-        // Store in session for apply step — JANGAN simpan remote_manifest (terlalu besar, bisa overflow session)
+        // Simpan di session — hindari data terlalu besar
         session()->set('online_update', [
-            'changed_files'   => $changedFiles,
-            'new_files'       => $newFiles,
+            'changed_files' => $changedFiles,
+            'new_files'     => $newFiles,
         ]);
+
+        log_message('info', '[checkOnlineUpdate] totalChanges=' . $totalChanges . ' changed=' . count($changedFiles) . ' new=' . count($newFiles));
 
         return view('admin/updater/online_update', [
             'title'         => 'Update Online',

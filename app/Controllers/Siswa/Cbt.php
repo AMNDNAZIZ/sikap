@@ -47,6 +47,8 @@ class Cbt extends BaseController
         $this->scoringService = new CbtScoringService();
         $this->sessionService = new CbtSessionService();
         $this->questionService = new CbtQuestionService();
+
+        helper('cache');
     }
 
     protected function getStudentId()
@@ -1625,7 +1627,10 @@ class Cbt extends BaseController
 
         $student = $this->studentModel
             ->select('students.*, classes.name AS class_name')
-            ->join('classes', 'classes.id = students.class_id', 'left')
+            ->join('student_records', 'student_records.student_id = students.id', 'left')
+            ->join('classes', 'classes.id = student_records.class_id', 'left')
+            ->where('student_records.status', 'aktif')
+            ->orderBy('student_records.id', 'DESC')
             ->find($studentId);
 
         $className = $student['class_name'] ?? '';
@@ -1725,7 +1730,10 @@ class Cbt extends BaseController
     {
         $student = $this->studentModel
             ->select('students.*, classes.name AS class_name')
-            ->join('classes', 'classes.id = students.class_id', 'left')
+            ->join('student_records', 'student_records.student_id = students.id', 'left')
+            ->join('classes', 'classes.id = student_records.class_id', 'left')
+            ->where('student_records.status', 'aktif')
+            ->orderBy('student_records.id', 'DESC')
             ->find($studentId);
 
         return $student['class_name'] ?? '-';

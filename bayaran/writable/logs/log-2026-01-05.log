@@ -1,0 +1,15 @@
+CRITICAL - 2026-01-05 02:24:20 --> CodeIgniter\HTTP\Exceptions\BadRequestException: The URI you submitted has disallowed characters: "leomessi=PANDA168"
+[Method: GET, Route: -/leomessi=PANDA168]
+in SYSTEMPATH/Router/Router.php on line 741.
+ 1 SYSTEMPATH/Router/Router.php(207): CodeIgniter\Router\Router->checkDisallowedChars('-/leomessi=PANDA168')
+ 2 SYSTEMPATH/CodeIgniter.php(832): CodeIgniter\Router\Router->handle('-/leomessi=PANDA168')
+ 3 SYSTEMPATH/CodeIgniter.php(455): CodeIgniter\CodeIgniter->tryToRouteIt(Object(CodeIgniter\Router\RouteCollection))
+ 4 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+ERROR - 2026-01-05 14:03:56 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2026-01-05 14:05:55 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2026-01-05 14:06:15 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2026-01-05 14:06:25 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."
+ERROR - 2026-01-05 14:06:33 --> Bayar gagal: "Angsuran ke-2 sudah tercatat."

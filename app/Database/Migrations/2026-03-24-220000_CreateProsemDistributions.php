@@ -45,11 +45,11 @@ class CreateProsemDistributions extends Migration
         ]);
         $this->forge->addKey('id', true);
         $this->forge->addForeignKey('atp_id', 'alur_tujuan_pembelajaran', 'id', 'CASCADE', 'CASCADE');
-        $this->forge->createTable('prosem_distributions');
+        $this->forge->createTable('prosem_distributions', true);
     }
 
     public function down()
     {
-        $this->forge->dropTable('prosem_distributions');
+        $this->forge->dropTable('prosem_distributions', true);
     }
 }

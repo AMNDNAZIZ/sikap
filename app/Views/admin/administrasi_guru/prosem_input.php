@@ -38,11 +38,17 @@
                         </tr>
                         <tr class="bg-light text-dark small">
                             <?php foreach ($months as $mCode => $mName): ?>
-                                <th width="30">1</th>
-                                <th width="30">2</th>
-                                <th width="30">3</th>
-                                <th width="30">4</th>
-                                <th width="30">5</th>
+                                <?php for ($w = 1; $w <= 5; $w++):
+                                    $status = $week_status[$mCode][$w] ?? 'normal';
+                                    $headerBg = match($status) {
+                                        'full_holiday' => 'style="background:#f8d7da; color:#842029;" title="Pekan libur/tidak efektif — tidak dapat diisi"',
+                                        'has_holiday'  => 'style="background:#fff3cd; color:#664d03;" title="Ada hari libur di pekan ini — perhatikan alokasi jam"',
+                                        'partial'      => 'style="background:#ffe0cc; color:#7c3500;" title="Pekan pendek (≤2 hari efektif) — perhatikan alokasi"',
+                                        default        => '',
+                                    };
+                                ?>
+                                    <th width="30" <?= $headerBg ?>><?= $w ?></th>
+                                <?php endfor; ?>
                             <?php endforeach; ?>
                         </tr>
                     </thead>
@@ -60,16 +66,44 @@
                                 <td class="text-center fw-bold bg-light"><?= $atp['alokasi_waktu'] ?></td>
                                 
                                 <?php foreach ($months as $mCode => $mName): ?>
-                                    <?php for ($w = 1; $w <= 5; $w++): ?>
-                                        <td class="p-0">
-                                            <input type="number" 
-                                                   name="dist[<?= $atp['id'] ?>][<?= $mCode ?>][<?= $w ?>]" 
-                                                   class="form-control form-control-sm border-0 text-center jp-input" 
-                                                   value="<?= $atp['distributions'][$mCode][$w] ?? '' ?>"
-                                                   min="0" 
-                                                   max="<?= $atp['alokasi_waktu'] ?>"
-                                                   onclick="this.select()"
-                                                   placeholder="0">
+                                    <?php for ($w = 1; $w <= 5; $w++):
+                                        $status = $week_status[$mCode][$w] ?? 'normal';
+                                        $isFullHoliday = in_array($status, ['full_holiday', 'out_range']);
+                                        $isHasHoliday  = ($status === 'has_holiday');
+                                        $isPartial     = ($status === 'partial');
+                                        
+                                        if ($isFullHoliday) {
+                                            $cellStyle = 'background:#f8d7da;';
+                                            $inputAttr = 'disabled readonly tabindex="-1"';
+                                            $cellTitle = 'title="Pekan libur/tidak efektif"';
+                                        } elseif ($isPartial) {
+                                            $cellStyle = 'background:#fff0e6;';
+                                            $inputAttr = '';
+                                            $cellTitle = 'title="Pekan pendek ≤2 hari efektif"';
+                                        } elseif ($isHasHoliday) {
+                                            $cellStyle = 'background:#fff9e6;';
+                                            $inputAttr = '';
+                                            $cellTitle = 'title="Ada hari libur di pekan ini"';
+                                        } else {
+                                            $cellStyle = '';
+                                            $inputAttr = '';
+                                            $cellTitle = '';
+                                        }
+                                    ?>
+                                        <td class="p-0" style="<?= $cellStyle ?>" <?= $cellTitle ?>>
+                                            <?php if ($isFullHoliday): ?>
+                                                <div class="text-center text-danger" style="line-height:38px; font-size:0.9rem;">—</div>
+                                                <input type="hidden" name="dist[<?= $atp['id'] ?>][<?= $mCode ?>][<?= $w ?>]" value="0">
+                                            <?php else: ?>
+                                                <input type="number"
+                                                       name="dist[<?= $atp['id'] ?>][<?= $mCode ?>][<?= $w ?>]"
+                                                       class="form-control form-control-sm border-0 text-center jp-input"
+                                                       value="<?= $atp['distributions'][$mCode][$w] ?? '' ?>"
+                                                       min="0"
+                                                       max="<?= $atp['alokasi_waktu'] ?>"
+                                                       onclick="this.select()"
+                                                       placeholder="0">
+                                            <?php endif; ?>
                                         </td>
                                     <?php endfor; ?>
                                 <?php endforeach; ?>
@@ -84,6 +118,11 @@
             <div class="mt-4 d-flex justify-content-between align-items-center p-3 bg-light rounded border">
                 <div class="small">
                     <span class="text-danger fw-bold">* Tips:</span> Masukkan angka JP pada kolom minggu yang direncanakan.
+                    <span class="ms-3">
+                        <span class="badge" style="background:#f8d7da; color:#842029; border:1px solid #f5c2c7;">■ Libur penuh / tidak efektif</span>
+                        <span class="badge ms-1" style="background:#ffe0cc; color:#7c3500; border:1px solid #ffcba4;">■ Pekan pendek (≤2 hari)</span>
+                        <span class="badge ms-1" style="background:#fff3cd; color:#664d03; border:1px solid #ffe69c;">■ Ada hari libur</span>
+                    </span>
                 </div>
                 <div>
                     <button type="submit" class="btn btn-primary px-5 shadow-sm">

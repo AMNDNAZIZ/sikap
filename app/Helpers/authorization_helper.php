@@ -3,14 +3,16 @@
 /**
  * Authorization Helper
  * 
- * Helper functions untuk role-based access control
+ * Helper functions untuk role-based access control (Dynamic RBAC)
+ * Permission disimpan di tabel `permissions` dan `role_permissions`.
+ * Admin bisa mengatur permission setiap role melalui halaman pengaturan.
  */
 
 if (!function_exists('has_permission')) {
     /**
      * Check if current user has permission
      * 
-     * @param string $permission Permission name (e.g., 'students.update', 'cbt.delete')
+     * @param string $permission Permission name (e.g., 'students.view', 'cbt.manage')
      * @return bool
      */
     function has_permission(string $permission): bool
@@ -20,102 +22,40 @@ if (!function_exists('has_permission')) {
             return false;
         }
 
-        $roleId = $user['role_id'] ?? null;
-        
-        // Permission mapping
-        $permissions = [
-            // Admin (role_id = 1) - Full access
-            1 => [
-                'students.*',
-                'teachers.*',
-                'classes.*',
-                'subjects.*',
-                'schedules.*',
-                'attendance.*',
-                'grades.*',
-                'cbt.*',
-                'users.*',
-                'school.*',
-                'academic_year.*',
-            ],
-            
-            // Kepala Sekolah (role_id = 2) - Read-only access
-            2 => [
-                'students.view',
-                'teachers.view',
-                'classes.view',
-                'subjects.view',
-                'schedules.view',
-                'attendance.view',
-                'grades.view',
-                'cbt.view',
-                'reports.*',
-            ],
-            
-            // Guru (role_id = 3) - Limited access
-            3 => [
-                'students.view',
-                'attendance.create',
-                'attendance.update',
-                'grades.create',
-                'grades.update',
-                'schedules.view',
-                'cbt.view',
-                'cbt.create',
-                'cbt.update',
-                'materials.create',
-                'materials.update',
-                'materials.delete',
-            ],
-            
-            // Orang Tua (role_id = 4) - View only their child
-            4 => [
-                'students.view_own',
-                'grades.view_own',
-                'attendance.view_own',
-            ],
-            
-            // Siswa (role_id = 5) - View only their own data
-            5 => [
-                'grades.view_own',
-                'attendance.view_own',
-                'cbt.take',
-            ],
-            
-            // Staf / Tata Usaha (role_id = 7) - Full access to student & teacher management
-            7 => [
-                'students.*',
-                'teachers.*',
-                'classes.*',
-                'subjects.*',
-                'schedules.view',
-                'attendance.view',
-                'grades.view',
-                'cbt.view',
-                'school.*',
-                'academic_year.*',
-                'reports.*',
-            ],
-        ];
+        $roleId = (int) ($user['role_id'] ?? 0);
+        if ($roleId === 0) {
+            return false;
+        }
 
-        $rolePermissions = $permissions[$roleId] ?? [];
-        
-        // Check exact match
-        if (in_array($permission, $rolePermissions)) {
+        // Admin (role 1) always has full access as a safety net
+        if ($roleId === 1) {
             return true;
         }
-        
-        // Check wildcard match (e.g., 'students.*' matches 'students.update')
-        foreach ($rolePermissions as $rolePermission) {
-            if (str_ends_with($rolePermission, '.*')) {
-                $prefix = substr($rolePermission, 0, -2);
-                if (str_starts_with($permission, $prefix . '.')) {
+
+        try {
+            $rolePerms = \App\Models\PermissionModel::getCachedRolePermissions();
+            $permsForRole = $rolePerms[$roleId] ?? [];
+
+            // Exact match
+            if (in_array($permission, $permsForRole)) {
+                return true;
+            }
+
+            // Check if role has 'module.manage' which grants all actions in that module
+            $parts = explode('.', $permission, 2);
+            if (count($parts) === 2) {
+                $module = $parts[0];
+                if (in_array($module . '.manage', $permsForRole)) {
                     return true;
                 }
             }
+
+            return false;
+        } catch (\Exception $e) {
+            // Fallback jika tabel belum ada (misal saat migration belum jalan)
+            log_message('warning', 'has_permission fallback: ' . $e->getMessage());
+            return false;
         }
-        
-        return false;
     }
 }
 
@@ -267,6 +207,63 @@ if (!function_exists('can_access_student')) {
         }
         
         return false;
+    }
+}
+
+if (!function_exists('is_school_swasta')) {
+    /**
+     * Check if the school status is "swasta" (private)
+     * Useful to conditionally enable/disable modules exclusive to private schools.
+     * 
+     * @return bool
+     */
+    function is_school_swasta(): bool
+    {
+        $cache = cache();
+        $cached = $cache->get('school_status');
+        
+        if ($cached !== null) {
+            return $cached === 'swasta';
+        }
+
+        $db = \Config\Database::connect();
+        $school = $db->table('school_profile')
+            ->select('status')
+            ->get()
+            ->getRowArray();
+
+        $status = $school['status'] ?? null;
+        $cache->save('school_status', $status, 3600); // cache 1 hour
+
+        return $status === 'swasta';
+    }
+}
+
+if (!function_exists('is_school_negeri')) {
+    /**
+     * Check if the school status is "negeri" (public)
+     * 
+     * @return bool
+     */
+    function is_school_negeri(): bool
+    {
+        $cache = cache();
+        $cached = $cache->get('school_status');
+        
+        if ($cached !== null) {
+            return $cached === 'negeri';
+        }
+
+        $db = \Config\Database::connect();
+        $school = $db->table('school_profile')
+            ->select('status')
+            ->get()
+            ->getRowArray();
+
+        $status = $school['status'] ?? null;
+        $cache->save('school_status', $status, 3600);
+
+        return $status === 'negeri';
     }
 }
 

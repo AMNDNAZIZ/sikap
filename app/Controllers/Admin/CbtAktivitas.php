@@ -144,7 +144,8 @@ class CbtAktivitas extends BaseController
                       cs.finished_at, cs.last_activity, cs.extra_time, cs.updated_at, cs.created_at,
                       st.name AS student_name, st.nis, st.username, c.name AS class_name')
             ->join('students st', 'st.id = cs.student_id', 'left')
-            ->join('classes c', 'c.id = st.class_id', 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('classes c', 'c.id = sr.class_id', 'left')
             ->where('cs.test_id', $testId)
             ->orderBy('cs.id', 'DESC') // Latest first
             ->get()->getResultArray();
@@ -1115,10 +1116,11 @@ class CbtAktivitas extends BaseController
             return $this->response->setBody('<div class="text-warning">Tidak ada kelas terkait ujian ini.</div>');
         }
 
-        // ✅ Ambil siswa berdasarkan students.class_id
+        // ✅ Ambil siswa berdasarkan student_records (aktif)
         $students = $db->table('students st')
             ->select('st.id, st.name AS student_name, c.name AS class_name')
-            ->join('classes c', 'c.id = st.class_id', 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('classes c', 'c.id = sr.class_id', 'left')
             ->whereIn('c.name', $classList)
             ->get()
             ->getResultArray();
@@ -1189,7 +1191,7 @@ class CbtAktivitas extends BaseController
         // Apply class filter in subquery if needed
         if ($classFilter !== 'all') {
             $subquery .= ' AND student_id IN (
-                SELECT id FROM students WHERE class_id = ' . (int) $classFilter . '
+                SELECT student_id FROM student_records WHERE class_id = ' . (int) $classFilter . ' AND status = "aktif"
             )';
         }
 
@@ -1201,7 +1203,8 @@ class CbtAktivitas extends BaseController
                       COALESCE(cs.total_score, cs.score, 0) as final_score, 
                       cs.status, cs.finished_at')
             ->join('students st', 'st.id = cs.student_id', 'left')
-            ->join('classes c', 'c.id = st.class_id', 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('classes c', 'c.id = sr.class_id', 'left')
             ->join($subquery, 'cs.id = latest.max_session_id', 'inner')
             ->where('cs.test_id', $testId)
             ->orderBy('c.name', 'ASC')
@@ -1589,15 +1592,16 @@ class CbtAktivitas extends BaseController
 
         // 🔹 Ambil sesi siswa — langsung join ke classes
         $sessions = $this->sessionModel
-            ->select('cs.*, st.name AS student_name, cl.name AS class_name, st.class_id')
+            ->select('cs.*, st.name AS student_name, cl.name AS class_name, sr.class_id')
             ->from('cbt_sessions cs')
             ->join('students st', 'st.id = cs.student_id', 'left')
-            ->join('classes cl', 'cl.id = st.class_id', 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('classes cl', 'cl.id = sr.class_id', 'left')
             ->join("($subquery) latest", 'cs.id = latest.max_id', 'inner')
             ->where('cs.test_id', $testId);
 
         if ($mode === 'kelas' && $classId) {
-            $sessions->where('st.class_id', $classId);
+            $sessions->where('sr.class_id', $classId);
         }
 
         $sessions = $sessions
@@ -1761,9 +1765,10 @@ class CbtAktivitas extends BaseController
 
         // ambil daftar siswa yang mengikuti tes: join langsung students -> classes
         $sessions = $this->sessionModel
-            ->select('cbt_sessions.*, st.username AS exam_number, st.name AS student_name, st.nis, st.class_id, cl.name AS class_name')
+            ->select('cbt_sessions.*, st.username AS exam_number, st.name AS student_name, st.nis, sr.class_id, cl.name AS class_name')
             ->join('students st', 'st.id = cbt_sessions.student_id', 'left')
-            ->join('classes cl', 'cl.id = st.class_id', 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('classes cl', 'cl.id = sr.class_id', 'left')
             ->join("($subquery) latest", 'cbt_sessions.id = latest.max_id', 'inner')
             ->where('cbt_sessions.test_id', $testId)
             ->orderBy('st.name', 'ASC')
@@ -2195,8 +2200,9 @@ class CbtAktivitas extends BaseController
 
         // 🔹 Ambil data siswa + kelas
         $student = $db->table('students st')
-            ->select('st.id, st.name, st.nis, st.class_id, cl.name AS class_name')
-            ->join('classes cl', 'cl.id = st.class_id', 'left')
+            ->select('st.id, st.name, st.nis, sr.class_id, cl.name AS class_name')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('classes cl', 'cl.id = sr.class_id', 'left')
             ->where('st.id', $studentId)
             ->get()
             ->getRowArray();

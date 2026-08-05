@@ -1186,8 +1186,17 @@ class CbtBankSoal extends BaseController
 
         $questions = $this->questionModel->where('bank_id', $id)->findAll();
 
+        // Enrich bank data with subject info for cross-app compatibility
+        $bankData = $bank;
+        $db = \Config\Database::connect();
+        $subject = $db->table('subjects')->select('name, code')->where('id', $bank['subject_id'])->get()->getRowArray();
+        if ($subject) {
+            $bankData['subject_name'] = $subject['name'];
+            $bankData['subject_code'] = $subject['code'] ?? null;
+        }
+
         $data = [
-            'bank' => $bank,
+            'bank' => $bankData,
             'questions' => $questions,
             'backup_at' => date('Y-m-d H:i:s'),
             'base_url' => base_url()
@@ -1337,6 +1346,27 @@ class CbtBankSoal extends BaseController
             // 1. Prepare Bank Soal Data
             $bankData = $data['bank'];
             unset($bankData['id']);
+
+            // Smart subject matching (kompatibilitas dengan CBTku)
+            $subjectModel = new \App\Models\SubjectModel();
+            $oldSubjectCode = $bankData['subject_code'] ?? null;
+            $oldSubjectName = $bankData['subject_name'] ?? null;
+
+            if ($oldSubjectCode || $oldSubjectName) {
+                $localSubject = null;
+                if ($oldSubjectCode) {
+                    $localSubject = $subjectModel->where('code', $oldSubjectCode)->first();
+                }
+                if (!$localSubject && $oldSubjectName) {
+                    $localSubject = $subjectModel->where('name', $oldSubjectName)->first();
+                }
+                if ($localSubject) {
+                    $bankData['subject_id'] = $localSubject['id'];
+                }
+            }
+
+            // Clean up meta-fields yang bukan kolom DB
+            unset($bankData['subject_name'], $bankData['subject_code'], $bankData['teacher_name']);
 
             // PENTING: Guru yang restore menjadi pemilik bank soal (bisa dari backup guru lain)
             if ($context['is_teacher'] && $context['teacher_id']) {

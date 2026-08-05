@@ -291,9 +291,17 @@ class Dashboard extends BaseController
 
             case 2: // Kepala Sekolah
                 $stats = [
-                    'total_students' => $db->table('students')->countAllResults(),
+                    'total_students' => $db->table('student_records')
+                        ->where('academic_year_id', $activeYear['id'])
+                        ->where('status', 'aktif')
+                        ->countAllResults(),
                     'total_teachers' => $db->table('teachers')->countAllResults(),
                     'total_classes' => $db->table('classes')->where('is_active', 1)->countAllResults(),
+                    'total_subjects' => $db->table('subjects')->countAllResults(),
+                    'active_students' => $db->table('student_records')
+                        ->where('academic_year_id', $activeYear['id'])
+                        ->where('status', 'aktif')
+                        ->countAllResults(),
                 ];
 
                 $upcomingAgendas = $db->table('agendas a')

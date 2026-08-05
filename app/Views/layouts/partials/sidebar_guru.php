@@ -23,10 +23,14 @@
               href="<?= base_url('admin/administrasi-guru/tp') ?>">🎯 <span class="label">Tujuan Pembelajaran</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/atp*') ? 'active' : '' ?>"
               href="<?= base_url('admin/administrasi-guru/atp') ?>">🛤️ <span class="label">Alur Pembelajaran</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/administrasi-guru/kktp*') ? 'active' : '' ?>"
+              href="<?= base_url('admin/administrasi-guru/kktp') ?>">📋 <span class="label">KKTP</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/prota-prosem*') ? 'active' : '' ?>"
               href="<?= base_url('admin/administrasi-guru/prota-prosem') ?>">📅 <span class="label">Prota & Prosem</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/modul-ajar*') ? 'active' : '' ?>"
               href="<?= base_url('admin/administrasi-guru/modul-ajar') ?>">📂 <span class="label">Modul Ajar</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/administrasi-guru/soal-ai*') ? 'active' : '' ?>"
+              href="<?= base_url('admin/administrasi-guru/soal-ai') ?>">🤖 <span class="label">Generate Soal AI</span></a></li>
         </ul>
       </div>
     </li>
@@ -92,11 +96,13 @@
       </a>
     </li>
 
+    <?php if (is_school_swasta()): ?>
     <li class="nav-item">
       <a class="nav-link <?= url_is('admin/teacher-attendance/my*') ? 'active' : '' ?>" href="<?= base_url('admin/teacher-attendance/my') ?>">
         🙋 <span class="label">Kehadiran Saya</span>
       </a>
     </li>
+    <?php endif; ?>
 
     <li class="nav-item">
       <a class="nav-link <?= url_is('admin/agendas*') ? 'active' : '' ?>" href="<?= base_url('admin/agendas') ?>">
@@ -122,6 +128,19 @@
         🗒️ <span class="label">Catatan Siswa</span>
       </a>
     </li>
+
+    <?php
+    // Perpustakaan Digital - hanya untuk wali kelas
+    $guruUserEbook = session()->get('user');
+    $guruClassIdEbook = $guruUserEbook['class_id'] ?? null;
+    if ($guruClassIdEbook):
+    ?>
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/ebook*') ? 'active' : '' ?>" href="<?= base_url('admin/ebook') ?>">
+        📚 <span class="label">Perpustakaan Digital</span>
+      </a>
+    </li>
+    <?php endif; ?>
 
     <li class="nav-item">
       <a class="nav-link <?= url_is('admin/student-map*') ? 'active' : '' ?>"

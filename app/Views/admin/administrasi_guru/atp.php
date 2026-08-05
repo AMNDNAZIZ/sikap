@@ -138,6 +138,16 @@
         </div>
     </div>
     <?php endif; ?>
+
+    <?php if (!($is_multi_guru ?? false) && !empty($atp_list)): ?>
+    <div class="alert alert-primary border-left-primary d-flex align-items-center mb-3 py-2">
+        <i class="bi bi-share-fill me-2 text-primary fs-5"></i>
+        <div>
+            <strong>ATP ini berlaku untuk semua kelas se-level yang Anda ampu.</strong>
+            Tidak perlu membuat ATP terpisah untuk setiap kelas. Cukup buat satu dan otomatis berlaku lintas kelas.
+        </div>
+    </div>
+    <?php endif; ?>
     <?php endif; ?>
 
     <div class="row">

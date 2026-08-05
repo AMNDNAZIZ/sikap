@@ -26,6 +26,13 @@
     </div>
 <?php endif; ?>
 
+<?php if (session()->getFlashdata('warning')): ?>
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <?= session()->getFlashdata('warning') ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
+
 <?php
 // Detect if running on localhost
 $isLocalhost = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'])

@@ -102,11 +102,11 @@ class CreateStudentMutations extends Migration
         $this->forge->addForeignKey('to_class_id', 'classes', 'id', 'SET NULL', 'SET NULL');
         $this->forge->addForeignKey('approved_by', 'users', 'id', 'SET NULL', 'SET NULL');
 
-        $this->forge->createTable('student_mutations');
+        $this->forge->createTable('student_mutations', true);
     }
 
     public function down(): void
     {
-        $this->forge->dropTable('student_mutations');
+        $this->forge->dropTable('student_mutations', true);
     }
 }

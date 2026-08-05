@@ -1,0 +1,86 @@
+CRITICAL - 2025-07-23 08:57:18 --> TypeError: App\Models\LaporanModel::terima_rentang(): Argument #3 ($posBayarId) must be of type ?int, string given, called in /home/smpi3426/public_html/bayaran.smpistora.sch.id/app/Controllers/LaporanLain.php on line 76
+[Method: GET, Route: admin/laporanlain/rentang]
+in APPPATH/Models/LaporanModel.php on line 40.
+ 1 APPPATH/Controllers/LaporanLain.php(76): App\Models\LaporanModel->terima_rentang('', '', '')
+ 2 SYSTEMPATH/CodeIgniter.php(933): App\Controllers\LaporanLain->terimaRentang()
+ 3 SYSTEMPATH/CodeIgniter.php(507): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\LaporanLain))
+ 4 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-07-23 08:58:53 --> TypeError: App\Models\LaporanModel::terima_rentang(): Argument #3 ($posBayarId) must be of type ?int, string given, called in /home/smpi3426/public_html/bayaran.smpistora.sch.id/app/Controllers/LaporanLain.php on line 76
+[Method: GET, Route: admin/laporanlain/rentang]
+in APPPATH/Models/LaporanModel.php on line 40.
+ 1 APPPATH/Controllers/LaporanLain.php(76): App\Models\LaporanModel->terima_rentang('2024-07-01', '2025-07-23', '')
+ 2 SYSTEMPATH/CodeIgniter.php(933): App\Controllers\LaporanLain->terimaRentang()
+ 3 SYSTEMPATH/CodeIgniter.php(507): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\LaporanLain))
+ 4 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 6 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 7 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-07-23 09:13:02 --> ErrorException: Undefined variable $export
+[Method: GET, Route: admin/laporanlain/export-rentang]
+in APPPATH/Controllers/LaporanLain.php on line 105.
+ 1 APPPATH/Controllers/LaporanLain.php(105): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $export', '/home/smpi3426/public_html/bayaran.smpistora.sch.id/app/Controllers/LaporanLain.php', 105)
+ 2 APPPATH/Controllers/LaporanLain.php(127): App\Controllers\LaporanLain->exportExcel([...], [...], 'laporan_rentang.xlsx')
+ 3 SYSTEMPATH/CodeIgniter.php(933): App\Controllers\LaporanLain->exportRentang()
+ 4 SYSTEMPATH/CodeIgniter.php(507): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\LaporanLain))
+ 5 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 6 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 7 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 8 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-07-23 09:13:04 --> ErrorException: Undefined variable $export
+[Method: GET, Route: admin/laporanlain/export-rentang]
+in APPPATH/Controllers/LaporanLain.php on line 105.
+ 1 APPPATH/Controllers/LaporanLain.php(105): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $export', '/home/smpi3426/public_html/bayaran.smpistora.sch.id/app/Controllers/LaporanLain.php', 105)
+ 2 APPPATH/Controllers/LaporanLain.php(127): App\Controllers\LaporanLain->exportExcel([...], [...], 'laporan_rentang.xlsx')
+ 3 SYSTEMPATH/CodeIgniter.php(933): App\Controllers\LaporanLain->exportRentang()
+ 4 SYSTEMPATH/CodeIgniter.php(507): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\LaporanLain))
+ 5 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 6 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 7 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 8 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-07-23 09:13:09 --> ErrorException: Undefined variable $export
+[Method: GET, Route: admin/laporanlain/export-rentang]
+in APPPATH/Controllers/LaporanLain.php on line 105.
+ 1 APPPATH/Controllers/LaporanLain.php(105): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $export', '/home/smpi3426/public_html/bayaran.smpistora.sch.id/app/Controllers/LaporanLain.php', 105)
+ 2 APPPATH/Controllers/LaporanLain.php(127): App\Controllers\LaporanLain->exportExcel([...], [...], 'laporan_rentang.xlsx')
+ 3 SYSTEMPATH/CodeIgniter.php(933): App\Controllers\LaporanLain->exportRentang()
+ 4 SYSTEMPATH/CodeIgniter.php(507): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\LaporanLain))
+ 5 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 6 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 7 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 8 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-07-23 09:13:23 --> ErrorException: Undefined variable $export
+[Method: GET, Route: admin/laporanlain/export-rentang]
+in APPPATH/Controllers/LaporanLain.php on line 105.
+ 1 APPPATH/Controllers/LaporanLain.php(105): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $export', '/home/smpi3426/public_html/bayaran.smpistora.sch.id/app/Controllers/LaporanLain.php', 105)
+ 2 APPPATH/Controllers/LaporanLain.php(127): App\Controllers\LaporanLain->exportExcel([...], [...], 'laporan_rentang.xlsx')
+ 3 SYSTEMPATH/CodeIgniter.php(933): App\Controllers\LaporanLain->exportRentang()
+ 4 SYSTEMPATH/CodeIgniter.php(507): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\LaporanLain))
+ 5 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 6 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 7 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 8 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-07-23 09:13:24 --> ErrorException: Undefined variable $export
+[Method: GET, Route: admin/laporanlain/export-rentang]
+in APPPATH/Controllers/LaporanLain.php on line 105.
+ 1 APPPATH/Controllers/LaporanLain.php(105): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $export', '/home/smpi3426/public_html/bayaran.smpistora.sch.id/app/Controllers/LaporanLain.php', 105)
+ 2 APPPATH/Controllers/LaporanLain.php(127): App\Controllers\LaporanLain->exportExcel([...], [...], 'laporan_rentang.xlsx')
+ 3 SYSTEMPATH/CodeIgniter.php(933): App\Controllers\LaporanLain->exportRentang()
+ 4 SYSTEMPATH/CodeIgniter.php(507): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\LaporanLain))
+ 5 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 6 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 7 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 8 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+CRITICAL - 2025-07-23 09:13:30 --> ErrorException: Undefined variable $export
+[Method: GET, Route: admin/laporanlain/export-rentang]
+in APPPATH/Controllers/LaporanLain.php on line 105.
+ 1 APPPATH/Controllers/LaporanLain.php(105): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $export', '/home/smpi3426/public_html/bayaran.smpistora.sch.id/app/Controllers/LaporanLain.php', 105)
+ 2 APPPATH/Controllers/LaporanLain.php(127): App\Controllers\LaporanLain->exportExcel([...], [...], 'laporan_rentang.xlsx')
+ 3 SYSTEMPATH/CodeIgniter.php(933): App\Controllers\LaporanLain->exportRentang()
+ 4 SYSTEMPATH/CodeIgniter.php(507): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\LaporanLain))
+ 5 SYSTEMPATH/CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 6 SYSTEMPATH/Boot.php(334): CodeIgniter\CodeIgniter->run()
+ 7 SYSTEMPATH/Boot.php(67): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+ 8 FCPATH/index.php(59): CodeIgniter\Boot::bootWeb(Object(Config\Paths))

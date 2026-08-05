@@ -48,17 +48,19 @@ class AddAtpElemenTable extends Migration
         $this->forge->createTable('atp_elemen', true);
 
         // 2. Tambah kolom atp_elemen_id ke tujuan_pembelajaran (setelah atp_id)
-        $fields = [
-            'atp_elemen_id' => [
-                'type'       => 'INT',
-                'constraint' => 11,
-                'unsigned'   => true,
-                'null'       => true,
-                'default'    => null,
-                'after'      => 'atp_id',
-            ],
-        ];
-        $this->forge->addColumn('tujuan_pembelajaran', $fields);
+        if (!$this->db->fieldExists('atp_elemen_id', 'tujuan_pembelajaran')) {
+            $fields = [
+                'atp_elemen_id' => [
+                    'type'       => 'INT',
+                    'constraint' => 11,
+                    'unsigned'   => true,
+                    'null'       => true,
+                    'default'    => null,
+                    'after'      => 'atp_id',
+                ],
+            ];
+            $this->forge->addColumn('tujuan_pembelajaran', $fields);
+        }
 
         // 3. Jadikan cp_master_id nullable di alur_tujuan_pembelajaran
         $this->forge->modifyColumn('alur_tujuan_pembelajaran', [
@@ -75,7 +77,9 @@ class AddAtpElemenTable extends Migration
     public function down()
     {
         // Hapus kolom atp_elemen_id dari tujuan_pembelajaran
-        $this->forge->dropColumn('tujuan_pembelajaran', 'atp_elemen_id');
+        if ($this->db->fieldExists('atp_elemen_id', 'tujuan_pembelajaran')) {
+            $this->forge->dropColumn('tujuan_pembelajaran', 'atp_elemen_id');
+        }
 
         // Drop tabel atp_elemen
         $this->forge->dropTable('atp_elemen', true);

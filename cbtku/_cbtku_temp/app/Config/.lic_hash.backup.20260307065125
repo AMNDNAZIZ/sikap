@@ -1,0 +1,13 @@
+{
+    "Filters\/LicenseFilter.php": "46be930231eedb85b18f8094f65823aac9f2f60b",
+    "Models\/LicenseModel.php": "f569f7608b91d02bb121ff6a66ac724378b94733",
+    "Controllers\/Activate.php": "75b6e45c12573a8fe243b9be6f0546cc0075c373",
+    "Controllers\/BaseController.php": "32fc46a6a0d9c5140a49af9bda5bd592bc7990e9",
+    "Controllers\/Admin\/License.php": "4374da4cc0d25817b5c9bc63ff8775d9edb44fca",
+    "Libraries\/LicenseGuard.php": "f6d7ddb4903b73eaa45f01a51fb01f5165bcca18",
+    "Libraries\/LicenseProtector.php": "ebfa0b154b0e4471b2caea1ccd05447979385088",
+    "Helpers\/license_helper.php": "854e47faf74dd49c3ac870139416aa6bf940e38c",
+    "Config\/Filters.php": "baaad8105bced876dcdac008b03615ce21b800b7",
+    "Config\/LService.php": "d29c3c6bcb615aea752643bcc8c1a162f1f3c352",
+    "Config\/Events.php": "ccdbc49f3677398e7a637d71cfcd41fefbd47dfa"
+}

@@ -53,6 +53,13 @@
       </a>
     </li>
 
+    <!-- Perpustakaan Digital -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('siswa/ebook*') ? 'active' : '' ?>" href="<?= site_url('siswa/ebook') ?>">
+        📚 <span class="label">Perpustakaan Digital</span>
+      </a>
+    </li>
+
     <!-- CBT -->
     <li class="nav-item">
       <a class="nav-link <?= url_is('siswa/cbt*') ? 'active' : '' ?>" href="<?= site_url('siswa/cbt') ?>">
@@ -66,6 +73,15 @@
         👤 <span class="label">Profil Saya</span>
       </a>
     </li>
+
+    <!-- Pembayaran (hanya sekolah swasta) -->
+    <?php if (is_school_swasta()): ?>
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('siswa/payment*') ? 'active' : '' ?>" href="<?= site_url('siswa/payment') ?>">
+        💳 <span class="label">Pembayaran</span>
+      </a>
+    </li>
+    <?php endif; ?>
 
     <!-- Lokasi Rumah -->
     <li class="nav-item">

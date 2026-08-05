@@ -44,7 +44,7 @@ class CreateKokurikulerRubrikAndPenilaian extends Migration
         $this->forge->addKey('id', true);
         $this->forge->addKey('document_id');
         $this->forge->addForeignKey('document_id', 'kokurikuler_documents', 'id', 'CASCADE', 'CASCADE');
-        $this->forge->createTable('kokurikuler_rubrik');
+        $this->forge->createTable('kokurikuler_rubrik', true);
 
         // Tabel Penilaian Per Siswa
         $this->forge->addField([
@@ -93,7 +93,7 @@ class CreateKokurikulerRubrikAndPenilaian extends Migration
         $this->forge->addForeignKey('document_id', 'kokurikuler_documents', 'id', 'CASCADE', 'CASCADE');
         $this->forge->addForeignKey('student_id', 'students', 'id', 'CASCADE', 'CASCADE');
         $this->forge->addForeignKey('created_by', 'users', 'id', 'CASCADE', 'CASCADE');
-        $this->forge->createTable('kokurikuler_penilaian');
+        $this->forge->createTable('kokurikuler_penilaian', true);
     }
 
     public function down()

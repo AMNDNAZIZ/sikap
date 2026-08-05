@@ -124,6 +124,42 @@
         </div>
     </div>
     <?php endif; ?>
+
+    <!-- Pembuatan Soal AI -->
+    <div class="col-xl-4 col-md-6 mb-4">
+        <div class="card border-left-dark shadow h-100 py-2" style="border-left: 4px solid #6f42c1;">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">Pembuatan Soal AI</div>
+                        <p class="mt-2 small text-muted">Generate soal otomatis berdasarkan TP & materi menggunakan AI.</p>
+                        <a href="<?= base_url('admin/administrasi-guru/soal-ai') ?>" class="btn btn-sm mt-2 text-white" style="background:#6f42c1;">Buat Soal</a>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-robot fa-2x text-gray-300" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KKTP -->
+    <div class="col-xl-4 col-md-6 mb-4">
+        <div class="card border-left-dark shadow h-100 py-2" style="border-left: 4px solid #e83e8c;">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">KKTP</div>
+                        <p class="mt-2 small text-muted">Kriteria Ketercapaian Tujuan Pembelajaran — pengganti KKM di Kurikulum Merdeka.</p>
+                        <a href="<?= base_url('admin/administrasi-guru/kktp') ?>" class="btn btn-sm mt-2 text-white" style="background:#e83e8c;">Kelola KKTP</a>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-clipboard-check fa-2x text-gray-300" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <?= $this->endSection() ?>

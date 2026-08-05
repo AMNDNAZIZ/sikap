@@ -82,6 +82,17 @@ class TeachingJournalController extends BaseController
         $data['selected_class'] = $this->request->getGet('class_id');
         $data['selected_subject'] = $this->request->getGet('subject_id');
 
+        // Deteksi apakah guru kelas (wali kelas)
+        $data['is_homeroom'] = false;
+        if ($user['role_id'] == 3) {
+            $teacherId = $user['related_id'] ?? null;
+            $homeroomClass = $this->classModel->where('teacher_id', $teacherId)->first();
+            $data['is_homeroom'] = !empty($homeroomClass);
+        } elseif (in_array($user['role_id'], [1, 2])) {
+            // Admin: cek berdasarkan class_id yang dipilih
+            $data['is_homeroom'] = false; // admin pilih sendiri mode-nya
+        }
+
         return view('admin/teaching_journal/form', $data);
     }
 
@@ -108,6 +119,19 @@ class TeachingJournalController extends BaseController
         
         $data['classes'] = $filters['classes'];
         $data['subjects'] = $filters['subjects'];
+
+        // Deteksi guru kelas
+        $data['is_homeroom'] = false;
+        if ($user['role_id'] == 3) {
+            $teacherId = $user['related_id'] ?? null;
+            $homeroomClass = $this->classModel->where('teacher_id', $teacherId)->first();
+            $data['is_homeroom'] = !empty($homeroomClass);
+        }
+
+        // Load existing multi-subjects jika ada
+        $data['journal_subjects'] = $this->db->table('teaching_journal_subjects')
+            ->where('journal_id', $id)
+            ->get()->getResultArray();
         
         return view('admin/teaching_journal/form', $data);
     }
@@ -117,6 +141,9 @@ class TeachingJournalController extends BaseController
         $user = session()->get('user');
         $id = $this->request->getPost('id');
 
+        // Cek apakah mode multi-subject (guru kelas)
+        $multiSubjects = $this->request->getPost('subjects'); // array of {subject_id, atp_id}
+
         $data = [
             'date'       => $this->request->getPost('date'),
             'class_id'   => $this->request->getPost('class_id'),
@@ -125,10 +152,18 @@ class TeachingJournalController extends BaseController
             'notes'      => $this->request->getPost('notes'),
         ];
 
+        // Jika mode multi-subject, gunakan subject pertama sebagai subject_id utama
+        if (!empty($multiSubjects) && is_array($multiSubjects)) {
+            $firstSubject = $multiSubjects[0] ?? null;
+            if ($firstSubject) {
+                $data['subject_id'] = $firstSubject['subject_id'] ?? $data['subject_id'];
+                $data['atp_id'] = $firstSubject['atp_id'] ?? $data['atp_id'];
+            }
+        }
+
         if (!$id) {
             $data['teacher_id'] = $user['role_id'] == 3 ? $user['related_id'] : $this->request->getPost('teacher_id');
             if (empty($data['teacher_id'])) {
-                // If admin doesn't provide teacher_id, try to resolve from assignment
                 $assignment = $this->teachingAssignmentModel
                     ->where('class_id', $data['class_id'])
                     ->where('subject_id', $data['subject_id'])
@@ -141,13 +176,47 @@ class TeachingJournalController extends BaseController
             }
 
             $this->journalModel->insert($data);
+            $journalId = $this->journalModel->getInsertID();
+
+            // Simpan multi-subject ke tabel pivot
+            if (!empty($multiSubjects) && is_array($multiSubjects)) {
+                $this->saveJournalSubjects($journalId, $multiSubjects);
+            }
+
             $msg = 'Jurnal berhasil disimpan.';
         } else {
             $this->journalModel->update($id, $data);
+
+            // Update multi-subject jika ada
+            if (!empty($multiSubjects) && is_array($multiSubjects)) {
+                // Hapus yang lama, insert yang baru
+                $this->db->table('teaching_journal_subjects')->where('journal_id', $id)->delete();
+                $this->saveJournalSubjects((int)$id, $multiSubjects);
+            }
+
             $msg = 'Jurnal berhasil diperbarui.';
         }
 
-        return redirect()->to(base_url('admin/teaching-journal?class_id=' . $data['class_id'] . '&subject_id=' . $data['subject_id']))->with('success', $msg);
+        return redirect()->to(base_url('admin/teaching-journal?class_id=' . $data['class_id']))->with('success', $msg);
+    }
+
+    /**
+     * Simpan multiple subjects untuk satu jurnal (guru kelas)
+     */
+    private function saveJournalSubjects(int $journalId, array $subjects): void
+    {
+        $batch = [];
+        foreach ($subjects as $item) {
+            if (empty($item['subject_id'])) continue;
+            $batch[] = [
+                'journal_id' => $journalId,
+                'subject_id' => (int) $item['subject_id'],
+                'atp_id'     => !empty($item['atp_id']) ? (int) $item['atp_id'] : null,
+            ];
+        }
+        if (!empty($batch)) {
+            $this->db->table('teaching_journal_subjects')->insertBatch($batch);
+        }
     }
 
     public function delete($id)

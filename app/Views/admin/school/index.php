@@ -86,6 +86,15 @@
                                 </select>
                             </div>
                             <div class="col-md-6">
+                                <label class="form-label fw-semibold">Status Sekolah</label>
+                                <select name="status" class="form-select" required>
+                                    <option value="">Pilih Status</option>
+                                    <option value="negeri" <?= ($school['status'] ?? '') == 'negeri' ? 'selected' : '' ?>>Negeri</option>
+                                    <option value="swasta" <?= ($school['status'] ?? '') == 'swasta' ? 'selected' : '' ?>>Swasta</option>
+                                </select>
+                                <small class="text-muted">Status ini digunakan sebagai acuan fitur khusus sekolah swasta.</small>
+                            </div>
+                            <div class="col-md-6">
                                 <label class="form-label fw-semibold">Kepala Sekolah</label>
                                 <input type="text" name="headmaster" class="form-control"
                                     value="<?= $school['headmaster'] ?? '' ?>" placeholder="Nama dan Gelar">

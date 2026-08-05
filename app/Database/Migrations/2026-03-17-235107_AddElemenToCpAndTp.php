@@ -37,7 +37,11 @@ class AddElemenToCpAndTp extends Migration
 
     public function down()
     {
-        $this->forge->dropColumn('tujuan_pembelajaran', 'elemen');
-        $this->forge->dropColumn('cp_master', 'elemen');
+        if ($this->db->fieldExists('elemen', 'tujuan_pembelajaran')) {
+            $this->forge->dropColumn('tujuan_pembelajaran', 'elemen');
+        }
+        if ($this->db->fieldExists('elemen', 'cp_master')) {
+            $this->forge->dropColumn('cp_master', 'elemen');
+        }
     }
 }

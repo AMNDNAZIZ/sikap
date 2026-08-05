@@ -19,27 +19,31 @@ class UpdateKokurikulerStructure extends Migration
         ]);
 
         // 2. Add bentuk_kegiatan_konkret field (kegiatan nyata yang dilakukan)
-        $this->forge->addColumn('kokurikuler_documents', [
-            'bentuk_kegiatan_konkret' => [
-                'type' => 'VARCHAR',
-                'constraint' => 500,
-                'null' => true,
-                'after' => 'jenis_kokurikuler',
-                'comment' => 'Bentuk kegiatan konkret, contoh: Membuat poster dan video edukasi digital',
-            ],
-        ]);
+        if (!$this->db->fieldExists('bentuk_kegiatan_konkret', 'kokurikuler_documents')) {
+            $this->forge->addColumn('kokurikuler_documents', [
+                'bentuk_kegiatan_konkret' => [
+                    'type' => 'VARCHAR',
+                    'constraint' => 500,
+                    'null' => true,
+                    'after' => 'jenis_kokurikuler',
+                    'comment' => 'Bentuk kegiatan konkret, contoh: Membuat poster dan video edukasi digital',
+                ],
+            ]);
+        }
 
         // 3. Add sub_dimensi field to kokurikuler_rubrik
         if ($this->db->tableExists('kokurikuler_rubrik')) {
-            $this->forge->addColumn('kokurikuler_rubrik', [
-                'sub_dimensi' => [
-                    'type' => 'VARCHAR',
-                    'constraint' => 255,
-                    'null' => true,
-                    'after' => 'dimensi_profil',
-                    'comment' => 'Sub dimensi profil lulusan, contoh: hubungan dengan sesama manusia',
-                ],
-            ]);
+            if (!$this->db->fieldExists('sub_dimensi', 'kokurikuler_rubrik')) {
+                $this->forge->addColumn('kokurikuler_rubrik', [
+                    'sub_dimensi' => [
+                        'type' => 'VARCHAR',
+                        'constraint' => 255,
+                        'null' => true,
+                        'after' => 'dimensi_profil',
+                        'comment' => 'Sub dimensi profil lulusan, contoh: hubungan dengan sesama manusia',
+                    ],
+                ]);
+            }
         }
     }
 
@@ -54,10 +58,14 @@ class UpdateKokurikulerStructure extends Migration
             ],
         ]);
 
-        $this->forge->dropColumn('kokurikuler_documents', 'bentuk_kegiatan_konkret');
+        if ($this->db->fieldExists('bentuk_kegiatan_konkret', 'kokurikuler_documents')) {
+            $this->forge->dropColumn('kokurikuler_documents', 'bentuk_kegiatan_konkret');
+        }
         
         if ($this->db->tableExists('kokurikuler_rubrik')) {
-            $this->forge->dropColumn('kokurikuler_rubrik', 'sub_dimensi');
+            if ($this->db->fieldExists('sub_dimensi', 'kokurikuler_rubrik')) {
+                $this->forge->dropColumn('kokurikuler_rubrik', 'sub_dimensi');
+            }
         }
     }
 }

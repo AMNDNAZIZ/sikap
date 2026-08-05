@@ -23,6 +23,8 @@ class AddCityRegencyToSchoolProfile extends Migration
 
     public function down()
     {
-        $this->forge->dropColumn('school_profile', 'city_regency');
+        if ($this->db->fieldExists('city_regency', 'school_profile')) {
+            $this->forge->dropColumn('school_profile', 'city_regency');
+        }
     }
 }

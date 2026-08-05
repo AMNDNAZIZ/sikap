@@ -14,6 +14,8 @@ use App\Models\SchoolModel;
 use App\Models\ProsemDistributionModel;
 use App\Models\TeacherModel;
 use App\Models\TeachingAssignmentModel;
+use App\Models\AcademicYearModel;
+use App\Models\HolidayModel;
 
 class AdministrasiGuru extends BaseController
 {
@@ -28,6 +30,8 @@ class AdministrasiGuru extends BaseController
     protected $prosemModel;
     protected $teacherModel;
     protected $teachingAssignmentModel;
+    protected $yearModel;
+    protected $holidayModel;
     protected $db;
 
     public function __construct()
@@ -43,6 +47,8 @@ class AdministrasiGuru extends BaseController
         $this->prosemModel = new ProsemDistributionModel();
         $this->teacherModel = new TeacherModel();
         $this->teachingAssignmentModel = new TeachingAssignmentModel();
+        $this->yearModel = new AcademicYearModel();
+        $this->holidayModel = new HolidayModel();
         $this->db = \Config\Database::connect();
     }
 
@@ -91,6 +97,8 @@ class AdministrasiGuru extends BaseController
             $data['pager'] = null;
             $data['atp_stats'] = ['complete' => 0, 'partial' => 0, 'empty' => 0];
             $data['promes_stats'] = ['complete' => 0, 'partial' => 0, 'empty' => 0];
+            $data['kktp_stats'] = ['complete' => 0, 'partial' => 0, 'empty' => 0];
+            $data['modul_stats'] = ['complete' => 0, 'partial' => 0, 'empty' => 0];
             return view('admin/administrasi_guru/monitoring', $data);
         }
 
@@ -134,6 +142,8 @@ class AdministrasiGuru extends BaseController
         // Statistics counters
         $atpStats = ['complete' => 0, 'partial' => 0, 'empty' => 0];
         $promesStats = ['complete' => 0, 'partial' => 0, 'empty' => 0];
+        $kktpStats = ['complete' => 0, 'partial' => 0, 'empty' => 0];
+        $modulStats = ['complete' => 0, 'partial' => 0, 'empty' => 0];
 
         // 7. Calculate status for all assignments
         foreach ($allAssignments as &$row) {
@@ -241,6 +251,60 @@ class AdministrasiGuru extends BaseController
                 $row['promes_info'] = "Selesai sebagian (Sem1: {$sem1Distributed}/{$sem1Allocated}, Sem2: {$sem2Distributed}/{$sem2Allocated} JP)";
                 $promesStats['partial']++;
             }
+
+            // KKTP Status Logic
+            $kktpQuery = $this->db->table('kktp');
+            if ($isMultiGuru) {
+                $kktpQuery->where('class_id', $classId);
+            } else {
+                $classIdsAtLevel = array_column(
+                    $this->db->table('classes')->select('id')->where('level', $classLevel)->get()->getResultArray(),
+                    'id'
+                ) ?: [0];
+                $kktpQuery->whereIn('class_id', $classIdsAtLevel);
+            }
+            $kktpCount = $kktpQuery->where('subject_id', $subjectId)->countAllResults();
+
+            if ($kktpCount == 0) {
+                $row['kktp_status'] = 'empty';
+                $row['kktp_info'] = 'Kosong';
+                $kktpStats['empty']++;
+            } elseif ($kktpCount >= 3) {
+                $row['kktp_status'] = 'complete';
+                $row['kktp_info'] = "Selesai ({$kktpCount} TP)";
+                $kktpStats['complete']++;
+            } else {
+                $row['kktp_status'] = 'partial';
+                $row['kktp_info'] = "Sebagian ({$kktpCount} TP)";
+                $kktpStats['partial']++;
+            }
+
+            // Modul Ajar Status Logic
+            // Single-guru: cari modul dari kelas manapun se-level (lintas tahun)
+            $modulQuery = $this->db->table('modul_ajar')
+                ->where('subject_id', $subjectId);
+
+            if ($isMultiGuru) {
+                $modulQuery->where('class_id', $classId);
+            } else {
+                $modulQuery->whereIn('class_id', $classIds);
+            }
+
+            $modulCount = $modulQuery->countAllResults();
+
+            if ($modulCount == 0) {
+                $row['modul_status'] = 'empty';
+                $row['modul_info'] = 'Kosong';
+                $modulStats['empty']++;
+            } elseif ($modulCount >= $atpCount && $atpCount > 0) {
+                $row['modul_status'] = 'complete';
+                $row['modul_info'] = "Selesai ({$modulCount} modul)";
+                $modulStats['complete']++;
+            } else {
+                $row['modul_status'] = 'partial';
+                $row['modul_info'] = "Sebagian ({$modulCount}" . ($atpCount > 0 ? "/{$atpCount}" : "") . " modul)";
+                $modulStats['partial']++;
+            }
         }
         unset($row);
 
@@ -264,6 +328,43 @@ class AdministrasiGuru extends BaseController
         $data['total'] = $totalItems;
         $data['atp_stats'] = $atpStats;
         $data['promes_stats'] = $promesStats;
+        $data['kktp_stats'] = $kktpStats;
+        $data['modul_stats'] = $modulStats;
+
+        // 9. Ringkasan per guru: hitung status keseluruhan administrasi
+        $teacherSummary = [];
+        foreach ($allAssignments as $row) {
+            $tid = $row['teacher_id'];
+            if (!isset($teacherSummary[$tid])) {
+                $teacherSummary[$tid] = [
+                    'name'     => $row['teacher_name'],
+                    'total'    => 0,
+                    'complete' => 0,
+                    'partial'  => 0,
+                    'empty'    => 0,
+                ];
+            }
+            $teacherSummary[$tid]['total']++;
+
+            // Hitung overall status per assignment (semua 4 komponen harus selesai)
+            $allComplete = ($row['atp_status'] === 'complete' && $row['kktp_status'] === 'complete' && $row['promes_status'] === 'complete' && $row['modul_status'] === 'complete');
+            $allEmpty = ($row['atp_status'] === 'empty' && $row['kktp_status'] === 'empty' && $row['promes_status'] === 'empty' && $row['modul_status'] === 'empty');
+
+            if ($allComplete) {
+                $teacherSummary[$tid]['complete']++;
+            } elseif ($allEmpty) {
+                $teacherSummary[$tid]['empty']++;
+            } else {
+                $teacherSummary[$tid]['partial']++;
+            }
+        }
+        // Urutkan berdasarkan persentase selesai (descending)
+        uasort($teacherSummary, function($a, $b) {
+            $pctA = $a['total'] > 0 ? ($a['complete'] / $a['total']) : 0;
+            $pctB = $b['total'] > 0 ? ($b['complete'] / $b['total']) : 0;
+            return $pctB <=> $pctA;
+        });
+        $data['teacher_summary'] = $teacherSummary;
 
         return view('admin/administrasi_guru/monitoring', $data);
     }
@@ -599,13 +700,7 @@ class AdministrasiGuru extends BaseController
                     // Cek apakah ada >1 guru di level ini untuk mapel ini
                     $classInfo    = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
                     $classLevel   = (int)($classInfo['level'] ?? 0);
-                    $teacherCount = $this->db->table('teaching_assignments ta')
-                        ->distinct()->select('ta.teacher_id')
-                        ->join('classes c', 'c.id = ta.class_id')
-                        ->where('ta.subject_id', $subjectId)
-                        ->where('c.level', $classLevel)
-                        ->get()->getResultArray();
-                    $isMultiGuru = count($teacherCount) > 1;
+                    $isMultiGuru  = $this->isMultiGuruForLevel((int)$subjectId, $classLevel);
 
                     // Cek apakah kelas ini punya ATP sendiri
                     $ownAtpCount = $this->atpModel
@@ -741,6 +836,45 @@ class AdministrasiGuru extends BaseController
         $semester      = $this->request->getPost('semester');
         $urutan        = $this->request->getPost('urutan');
         $kelas         = $this->request->getPost('kelas');
+
+        // ═══ PENCEGAHAN DUPLIKASI ═══
+        // Jika bukan edit (id kosong), cek apakah ATP dengan lingkup_materi + subject_id 
+        // sudah ada di level yang sama (oleh guru yang sama)
+        if (empty($id)) {
+            $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+            $classLevel = (int) ($classInfo['level'] ?? 0);
+
+            // Cek ATP yang sudah ada di level ini untuk mapel + lingkup materi yang sama
+            $existingAtp = $this->db->table('alur_tujuan_pembelajaran atp')
+                ->select('atp.id, atp.class_id, c.name as class_name')
+                ->join('classes c', 'c.id = atp.class_id')
+                ->where('atp.subject_id', $subjectId)
+                ->where('atp.lingkup_materi', $lingkupMateri)
+                ->where('atp.semester', $semester)
+                ->where('c.level', $classLevel)
+                ->get()->getRowArray();
+
+            if ($existingAtp) {
+                // Cek apakah guru yang sama mengajar di kelas sumber
+                $sameTeacher = true;
+                if ($user['role_id'] == 3) {
+                    $sameTeacher = $this->db->table('teaching_assignments')
+                        ->where('teacher_id', $user['related_id'])
+                        ->where('class_id', $existingAtp['class_id'])
+                        ->where('subject_id', $subjectId)
+                        ->countAllResults() > 0;
+                }
+
+                if ($sameTeacher) {
+                    // Guru yang sama — ATP sudah ada, tidak perlu buat baru
+                    return redirect()->back()->with('error', 
+                        'ATP dengan lingkup materi "' . esc($lingkupMateri) . '" semester ' . $semester . 
+                        ' sudah ada di ' . esc($existingAtp['class_name']) . 
+                        '. Karena Anda mengajar mapel ini di kelas se-level, ATP tersebut otomatis berlaku untuk semua kelas yang Anda ampu.');
+                }
+                // Guru berbeda — boleh buat ATP sendiri (salin manual atau buat baru)
+            }
+        }
 
         $this->db->transStart();
 
@@ -1282,33 +1416,66 @@ class AdministrasiGuru extends BaseController
                 } else {
                     $classInfo   = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
                     $classLevel  = (int)($classInfo['level'] ?? 0);
-                    $atpResult   = $this->loadAtpWithElemen((int)$subjectId, $classLevel);
-                    $atpList     = $atpResult['list'];
+
+                    // Cek multi-guru di level yang sama (sama seperti logika ATP)
+                    $isMultiGuru = $this->isMultiGuruForLevel((int)$subjectId, $classLevel);
+
+                    // Untuk single-guru: kumpulkan semua class_id se-level (lintas tahun ajaran)
+                    $classIdsAtLevel = [];
+                    if (!$isMultiGuru) {
+                        $classIdsAtLevel = $this->getClassIdsForDocumentSearch($classLevel, (int)$classId);
+                    }
+
+                    $atpResult = $this->loadAtpWithElemen((int)$subjectId, $classLevel);
+                    $atpList   = $atpResult['list'];
 
                     $modulModel = new \App\Models\ModulAjarModel();
                     foreach ($atpList as &$atp) {
-                        // Modul milik kelas ini
-                        $modul = $modulModel
-                            ->where('atp_id', $atp['id'])
-                            ->where('class_id', $classId)
-                            ->first();
-                        $atp['modul'] = $modul;
-
-                        // Jika kelas ini belum punya modul, cari modul dari kelas lain se-level
                         $atp['modul_source'] = null;
-                        if (!$modul) {
-                            $modulSource = $this->db->table('modul_ajar ma')
-                                ->select('ma.id, ma.class_id, c.name as class_name, ma.teacher_id')
-                                ->join('classes c', 'c.id = ma.class_id')
-                                ->where('ma.atp_id', $atp['id'])
-                                ->where('c.level', $classLevel)
-                                ->where('ma.class_id !=', $classId)
-                                ->get()->getRowArray();
-                            $atp['modul_source'] = $modulSource;
+
+                        if ($isMultiGuru) {
+                            // Multi-guru: modul spesifik milik kelas ini
+                            $modul = $modulModel
+                                ->where('atp_id', $atp['id'])
+                                ->where('class_id', $classId)
+                                ->first();
+                            $atp['modul'] = $modul;
+
+                            // Jika belum punya modul, cari dari kelas lain se-level (opsi salin)
+                            if (!$modul) {
+                                $modulSource = $this->db->table('modul_ajar ma')
+                                    ->select('ma.id, ma.class_id, c.name as class_name, ma.teacher_id')
+                                    ->join('classes c', 'c.id = ma.class_id')
+                                    ->where('ma.atp_id', $atp['id'])
+                                    ->where('c.level', $classLevel)
+                                    ->where('ma.class_id !=', $classId)
+                                    ->get()->getRowArray();
+                                $atp['modul_source'] = $modulSource;
+                            }
+                        } else {
+                            // Single-guru: modul berlaku lintas kelas se-level
+                            // Cari modul dari kelas manapun se-level untuk ATP ini
+                            $modul = null;
+                            if (!empty($classIdsAtLevel)) {
+                                $modul = $modulModel
+                                    ->where('atp_id', $atp['id'])
+                                    ->whereIn('class_id', $classIdsAtLevel)
+                                    ->first();
+                            }
+                            // Fallback: cari spesifik kelas ini
+                            if (!$modul) {
+                                $modul = $modulModel
+                                    ->where('atp_id', $atp['id'])
+                                    ->where('class_id', $classId)
+                                    ->first();
+                            }
+                            $atp['modul'] = $modul;
+                            // Tidak ada opsi salin untuk single-guru
                         }
                     }
                     unset($atp);
                     $data['atp_list'] = $atpList;
+                    $data['is_multi_guru'] = $isMultiGuru;
                 }
             }
         } else {
@@ -1331,6 +1498,178 @@ class AdministrasiGuru extends BaseController
             return redirect()->back()->with('success', 'Konfigurasi API AI Admin berhasil disimpan.');
         }
         return redirect()->back()->with('error', 'Anda tidak diizinkan menyimpan API Key.');
+    }
+
+    /**
+     * Generate prompt saja (tanpa panggil API) — user copy prompt ke AI langsung
+     */
+    public function getModulPrompt()
+    {
+        $atpId = $this->request->getPost('atp_id');
+        $subjectId = $this->request->getPost('subject_id');
+
+        $user = session()->get('user');
+        if (!in_array($user['role_id'], [1, 3])) {
+            return $this->response->setJSON(['error' => 'Tidak diizinkan.']);
+        }
+
+        // Load data ATP
+        $atpRaw = $this->atpModel->find($atpId);
+        if (!$atpRaw) {
+            return $this->response->setJSON(['error' => 'ATP tidak ditemukan.']);
+        }
+
+        $atpResult = $this->loadAtpWithElemen((int)$atpRaw['subject_id']);
+        $atpFull = null;
+        foreach ($atpResult['list'] as $a) {
+            if ($a['id'] == $atpId) { $atpFull = $a; break; }
+        }
+        $atp = $atpFull ?? $atpRaw;
+
+        $tps = $atp['tps'] ?? [];
+        $tpDeskripsi = "";
+        foreach ($tps as $tp) {
+            $kodeTp = !empty($tp['kode_tp']) ? $tp['kode_tp'] . '. ' : '';
+            $tpDeskripsi .= $kodeTp . $tp['deskripsi'] . "\n";
+        }
+
+        $cpDeskripsiAll = "";
+        foreach ($atp['elemen_list'] ?? [] as $el) {
+            $cpDeskripsiAll .= ($el['elemen'] ?? '') . ": " . ($el['cp_deskripsi'] ?? '') . "\n";
+        }
+
+        $subject = $this->subjectModel->find($subjectId);
+        $school = $this->schoolModel->getProfile();
+
+        // Resolve teacher
+        if ($user['role_id'] == 3) {
+            $teacher = $this->teacherModel->find($user['related_id']);
+        } else {
+            $assignment = $this->db->table('teaching_assignments')
+                ->where('subject_id', $subjectId)
+                ->where('class_id', $atpRaw['class_id'])
+                ->get()->getRowArray();
+            $teacher = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
+        }
+
+        $totalJp = (int) ($atp['alokasi_waktu'] ?? 4);
+
+        // JP per minggu dari promes
+        $prosemJpPerWeek = $this->db->table('prosem_distributions')
+            ->where('atp_id', $atpId)->where('jp >', 0)
+            ->orderBy('id', 'ASC')->limit(1)->get()->getRowArray();
+        $jpPerMinggu = (int) ($prosemJpPerWeek['jp'] ?? 0);
+
+        if ($jpPerMinggu <= 0) {
+            $totalDistributed = $this->db->table('prosem_distributions')
+                ->where('atp_id', $atpId)->where('jp >', 0)->countAllResults();
+            if ($totalDistributed > 0) {
+                $sumJp = $this->db->table('prosem_distributions')
+                    ->selectSum('jp')->where('atp_id', $atpId)->where('jp >', 0)->get()->getRowArray();
+                $jpPerMinggu = (int) round(($sumJp['jp'] ?? $totalJp) / $totalDistributed);
+            } else {
+                $jpPerMinggu = min($totalJp, 4);
+            }
+        }
+
+        $pertemuanPerMinggu = ($jpPerMinggu <= 3) ? 1 : 2;
+        $jpPerPertemuan = max(1, (int) round($jpPerMinggu / $pertemuanPerMinggu));
+        $jumlahPertemuan = max(1, (int) ceil($totalJp / $jpPerPertemuan));
+        $menitPerPertemuan = $jpPerPertemuan * 45;
+
+        $prompt = "Buatkan Modul Ajar Kurikulum Merdeka DEEP LEARNING (MJM) 2025 dengan STRUKTUR PERSIS mengikuti rujukan 'Guru Karier' (Poin A sampai K).\n\n"
+            . "ATURAN:\n"
+            . "0. FORMAT JUDUL BAGIAN: Gunakan <h3> dengan format LANGSUNG 'A. Identitas Modul', 'B. Kompetensi Awal', dst. JANGAN tulis kata 'Bagian'. Contoh BENAR: <h3>B. Kompetensi Awal</h3>.\n"
+            . "1. A. Identitas Modul: Tabel 2-kolom. Alokasi Waktu: '{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)'.\n"
+            . "2. B. Kompetensi Awal: Tulis HANYA CP.\n"
+            . "3. C. Tujuan Pembelajaran: Masukkan TP persis seperti input.\n"
+            . "4. Bagian F (Langkah Pembelajaran): Buat TEPAT {$jumlahPertemuan} tabel pertemuan. Kolom: (Tahap | Sintaks | Deskripsi | Waktu). TOTAL waktu setiap pertemuan = {$menitPerPertemuan} menit.\n"
+            . "5. Setiap pertemuan WAJIB mengandung MJM: Mindful (~10 menit), Meaningful (~" . max(10, $menitPerPertemuan - 25) . " menit), Joyful (~15 menit).\n"
+            . "6. Bagian K (Penilaian): Buat spesifik (Penilaian Proses + Penilaian Hasil).\n"
+            . "7. JANGAN buat bagian Tanda Tangan.\n\n"
+            . "DATA INPUT:\n"
+            . "Sekolah: " . ($school['name'] ?? '-') . "\n"
+            . "Penyusun: " . ($teacher['name'] ?? '-') . "\n"
+            . "Mapel: " . ($subject['name'] ?? '-') . "\n"
+            . "Materi: " . ($atp['lingkup_materi'] ?? '-') . "\n"
+            . "Kelas: " . ($tps[0]['kelas'] ?? '-') . "\n"
+            . "Alokasi: {$totalJp} JP → {$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP ({$menitPerPertemuan} menit)\n"
+            . "CP:\n" . $cpDeskripsiAll . "\n"
+            . "TP:\n" . $tpDeskripsi . "\n\n"
+            . "KEMBALIKAN HANYA PURE HTML (tanpa markdown, tanpa code block).";
+
+        return $this->response->setJSON([
+            'success' => true,
+            'prompt' => $prompt,
+            'info' => [
+                'materi' => $atp['lingkup_materi'] ?? '-',
+                'total_jp' => $totalJp,
+                'pertemuan' => $jumlahPertemuan,
+                'jp_per_pertemuan' => $jpPerPertemuan,
+            ],
+        ]);
+    }
+
+    /**
+     * Simpan modul hasil copy-paste dari AI (mode manual tanpa API)
+     */
+    public function saveManualModul()
+    {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'], [1, 3])) {
+            return redirect()->back()->with('error', 'Tidak diizinkan.');
+        }
+
+        $atpId = $this->request->getPost('atp_id');
+        $subjectId = $this->request->getPost('subject_id');
+        $content = $this->request->getPost('modul_content');
+
+        if (empty($content) || strlen(strip_tags($content)) < 50) {
+            return redirect()->back()->with('error', 'Konten modul terlalu pendek. Pastikan Anda paste hasil dari AI dengan benar.');
+        }
+
+        $atpRaw = $this->atpModel->find($atpId);
+        if (!$atpRaw) {
+            return redirect()->back()->with('error', 'ATP tidak ditemukan.');
+        }
+
+        $classId = $atpRaw['class_id'];
+
+        // Resolve teacher
+        if ($user['role_id'] == 3) {
+            $targetTeacherId = $user['related_id'];
+        } else {
+            $assignment = $this->db->table('teaching_assignments')
+                ->where('subject_id', $subjectId)
+                ->where('class_id', $classId)
+                ->get()->getRowArray();
+            $targetTeacherId = $assignment['teacher_id'] ?? null;
+        }
+
+        if (!$targetTeacherId) {
+            return redirect()->back()->with('error', 'Tidak dapat menentukan guru pengampu.');
+        }
+
+        $modulModel = new \App\Models\ModulAjarModel();
+
+        // Cek duplikat
+        $existing = $modulModel->where('atp_id', $atpId)->where('class_id', $classId)->first();
+        if ($existing) {
+            $modulModel->update($existing['id'], ['content' => $content]);
+            $msg = 'Modul berhasil diperbarui dari input manual.';
+        } else {
+            $modulModel->insert([
+                'atp_id'     => $atpId,
+                'subject_id' => $subjectId,
+                'class_id'   => $classId,
+                'teacher_id' => $targetTeacherId,
+                'content'    => $content,
+            ]);
+            $msg = 'Modul berhasil disimpan dari input manual.';
+        }
+
+        return redirect()->to(base_url("admin/administrasi-guru/modul-ajar?class_id={$classId}&subject_id={$subjectId}"))
+            ->with('success', $msg);
     }
 
     public function generateModulAjar()
@@ -1404,25 +1743,71 @@ class AdministrasiGuru extends BaseController
         $school = $this->schoolModel->getProfile();
 
         $totalJp = (int) ($atp['alokasi_waktu'] ?? 4);
-        $jumlahPertemuan = max(1, (int) ceil($totalJp / 2));
-        $menitPerPertemuan = 2 * 45; // 2 JP × 45 menit = 90 menit
+
+        // Ambil JP per minggu dari Program Semester (Promes)
+        // untuk menentukan jumlah pertemuan yang akurat
+        $prosemJpPerWeek = $this->db->table('prosem_distributions')
+            ->where('atp_id', $atpId)
+            ->where('jp >', 0)
+            ->orderBy('id', 'ASC')
+            ->limit(1)
+            ->get()->getRowArray();
+
+        $jpPerMinggu = (int) ($prosemJpPerWeek['jp'] ?? 0);
+
+        // Fallback: jika promes belum diisi, hitung dari total JP
+        if ($jpPerMinggu <= 0) {
+            // Estimasi dari total JP / jumlah minggu efektif (asumsi)
+            $totalDistributed = $this->db->table('prosem_distributions')
+                ->where('atp_id', $atpId)
+                ->where('jp >', 0)
+                ->countAllResults();
+            if ($totalDistributed > 0) {
+                $sumJp = $this->db->table('prosem_distributions')
+                    ->selectSum('jp')
+                    ->where('atp_id', $atpId)
+                    ->where('jp >', 0)
+                    ->get()->getRowArray();
+                $jpPerMinggu = (int) round(($sumJp['jp'] ?? $totalJp) / $totalDistributed);
+            } else {
+                // Tidak ada promes sama sekali, fallback ke alokasi_waktu
+                $jpPerMinggu = min($totalJp, 4);
+            }
+        }
+
+        // Hitung jumlah pertemuan per minggu berdasarkan JP per minggu
+        // Aturan: 1-3 JP = 1 pertemuan, 4-8 JP = 2 pertemuan
+        if ($jpPerMinggu <= 3) {
+            $pertemuanPerMinggu = 1;
+        } else {
+            $pertemuanPerMinggu = 2;
+        }
+
+        // JP per pertemuan
+        $jpPerPertemuan = max(1, (int) round($jpPerMinggu / $pertemuanPerMinggu));
+
+        // Total pertemuan untuk seluruh alokasi waktu ATP ini
+        $jumlahPertemuan = max(1, (int) ceil($totalJp / $jpPerPertemuan));
+
+        // Menit per pertemuan
+        $menitPerPertemuan = $jpPerPertemuan * 45;
 
         $prompt = "Buatkan Modul Ajar Kurikulum Merdeka DEEP LEARNING (MJM) 2025 dengan STRUKTUR PERSIS mengikuti rujukan 'Guru Karier' (Poin A sampai K).\n\n"
                 . "ATURAN TATA LETAK (WAJIB & KETAT):\n"
-                . "1. JANGAN PERNAH menyatukan judul bagian dalam satu baris. Setiap bagian diawali tag <h3>.\n"
-                . "2. Bagian A (Identitas): Tabel 2-kolom. Kolom kiri (Label) WAJIB 'text-align: left; width: 170px; font-weight: bold;'. Isi baris Alokasi Waktu dengan '{$totalJp} JP ({$jumlahPertemuan} Pertemuan)'.\n"
+                . "1. FORMAT JUDUL BAGIAN: Gunakan tag <h3> dengan format LANGSUNG huruf dan judul saja, TANPA kata 'Bagian'. Contoh yang BENAR: <h3>B. Kompetensi Awal</h3>. Contoh yang SALAH: <h3>Bagian B (Kompetensi Awal)</h3>.\n"
+                . "2. Bagian A (Identitas): Tabel 2-kolom. Kolom kiri (Label) WAJIB 'text-align: left; width: 170px; font-weight: bold;'. Isi baris Alokasi Waktu dengan '{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)'.\n"
                 . "3. Bagian B (Kompetensi Awal): Tuliskan HANYA Capaian Pembelajaran (CP) saja, jangan sertakan Tujuan Pembelajaran (TP).\n"
                 . "4. Bagian C (Tujuan Pembelajaran): Masukkan Tujuan Pembelajaran persis seperti input HTML, JANGAN buatkan penomoran list otomatis (1, 2) lagi karena sudah dimuat di teks.\n"
                 . "5. Bagian F (Langkah Pembelajaran): Pindahkan dan buat TEPAT {$jumlahPertemuan} tabel pertemuan di sini, masing-masing berlabel 'Pertemuan ke-1', 'Pertemuan ke-2', dst.\n"
                 . "   Setiap tabel pertemuan memiliki 4 kolom: (Tahap | Sintaks | Deskripsi | Waktu) dengan Header Cream (#fff9c4).\n"
-                . "   TOTAL waktu setiap pertemuan WAJIB {$menitPerPertemuan} menit (2 JP × 45 menit).\n"
+                . "   TOTAL waktu setiap pertemuan WAJIB {$menitPerPertemuan} menit ({$jpPerPertemuan} JP × 45 menit).\n"
                 . "6. Bagian K (Penilaian / Asesmen): Buat SPESIFIK. Jelaskan 'Penilaian Proses' (bentuknya) dan 'Penilaian Hasil' (instrumennya) yang benar-benar dapat mengukur Tujuan Pembelajaran tersebut.\n"
                 . "7. JANGAN MENGHASILKAN bagian Tanda Tangan (L, M, dst) sama sekali karena sistem pencetak otomatis telah menyediakan kolom tanda tangan di bawah modul.\n\n"
                 . "PANDUAN DEEP LEARNING MJM (SANGAT PENTING — WAJIB ADA DI SETIAP PERTEMUAN):\n"
                 . "Setiap pertemuan wajib mengandung ketiga elemen MJM dalam kolom 'Deskripsi' dengan proporsi waktu berikut:\n"
                 . "  a. MINDFUL (~10 menit): Tuliskan SCRIPT kata-kata guru untuk teknik STOP / mindfulness singkat.\n"
                 . "     Contoh: 'Guru mengajak siswa memejamkan mata 30 detik, fokus pada napas, lalu bertanya: Apa yang ingin kamu capai hari ini?'\n"
-                . "  b. MEANINGFUL (~65 menit): Eksplorasi → Diskusi Kolaboratif → Koneksi ke dunia nyata yang SPESIFIK untuk materi " . $atp['lingkup_materi'] . ".\n"
+                . "  b. MEANINGFUL (~" . max(10, $menitPerPertemuan - 25) . " menit): Eksplorasi → Diskusi Kolaboratif → Koneksi ke dunia nyata yang SPESIFIK untuk materi " . $atp['lingkup_materi'] . ".\n"
                 . "     Gunakan model: Motivasi → Eksplorasi Konsep → Diskusi Kelompok → Presentasi/Sintesis.\n"
                 . "     JANGAN gunakan kalimat normatif 'Guru menjelaskan'. Gunakan deskripsi aksi nyata.\n"
                 . "  c. JOYFUL (~15 menit): Rincikan AKTIVITAS/GAME/PROYEK MINI yang memancing emosi positif terkait materi.\n\n"
@@ -1432,7 +1817,7 @@ class AdministrasiGuru extends BaseController
                 . "Mapel: " . $subject['name'] . "\n"
                 . "Materi: " . $atp['lingkup_materi'] . "\n"
                 . "Kelas: " . ($tps[0]['kelas'] ?? '-') . "\n"
-                . "Alokasi Waktu: {$totalJp} JP → {$jumlahPertemuan} Pertemuan (masing-masing 2 JP / {$menitPerPertemuan} menit)\n"
+                . "Alokasi Waktu: {$totalJp} JP → {$jumlahPertemuan} Pertemuan (masing-masing {$jpPerPertemuan} JP / {$menitPerPertemuan} menit)\n"
                 . "CP: " . $cpDeskripsiAll . "\n"
                 . "TP:\n" . $tpDeskripsi . "\n\n"
                 . "KEMBALIKAN HANYA PURE HTML (TANPA MARKDOWN). Pastikan esensi MJM terlihat kuat dalam deskripsi kegiatan.";
@@ -1577,13 +1962,7 @@ class AdministrasiGuru extends BaseController
         $data['teacher'] = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
 
         // Cek apakah ada >1 guru di level yang sama untuk mapel ini
-        $teacherCount = $this->db->table('teaching_assignments ta')
-            ->distinct()->select('ta.teacher_id')
-            ->join('classes c', 'c.id = ta.class_id')
-            ->where('ta.subject_id', $subjectId)
-            ->where('c.level', $level)
-            ->get()->getResultArray();
-        $isMultiGuru = count($teacherCount) > 1;
+        $isMultiGuru = $this->isMultiGuruForLevel((int)$subjectId, $level);
 
         if ($isMultiGuru) {
             // Cek apakah kelas ini punya ATP sendiri
@@ -1647,7 +2026,6 @@ class AdministrasiGuru extends BaseController
         $atpList       = $atpResult['list'];
 
         foreach ($atpList as &$atp) {
-            // Get existing distributions
             $dist = $this->prosemModel->where('atp_id', $atp['id'])->findAll();
             $atp['distributions'] = [];
             foreach ($dist as $d) {
@@ -1660,15 +2038,104 @@ class AdministrasiGuru extends BaseController
         // Define months based on semester
         if ($semester == 1) {
             $data['months'] = [
-                7 => 'Juli', 8 => 'Agustus', 9 => 'September', 
+                7 => 'Juli', 8 => 'Agustus', 9 => 'September',
                 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
             ];
         } else {
             $data['months'] = [
-                1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 
+                1 => 'Januari', 2 => 'Februari', 3 => 'Maret',
                 4 => 'April', 5 => 'Mei', 6 => 'Juni'
             ];
         }
+
+        // ═══ Hitung status pekan per bulan ═══
+        $activeYear = $this->yearModel->getActiveYear() ?: [];
+        $yearStart = $activeYear['start_date'] ?? null;
+        $yearEnd   = $activeYear['end_date'] ?? null;
+        $schoolDays = (int)($activeYear['school_days'] ?? 5);
+
+        // Ambil semua hari libur dalam rentang semester
+        $allHolidays = $this->holidayModel->findAll();
+        $holidayDates = array_flip(array_column($allHolidays, 'date'));
+
+        // Tentukan tahun
+        $yearForMonth = function(int $month) use ($activeYear): int {
+            $startYear = (int)date('Y', strtotime($activeYear['start_date'] ?? date('Y-01-01')));
+            // Semester 1: Juli-Des = tahun start, Semester 2: Jan-Jun = tahun start+1
+            return ($month >= 7) ? $startYear : $startYear + 1;
+        };
+
+        // weekStatus[month][week] = 'full_holiday' | 'has_holiday' | 'partial' | 'out_range' | 'normal'
+        $weekStatus = [];
+
+        foreach ($data['months'] as $mCode => $mName) {
+            $year = $yearForMonth($mCode);
+            $weekStatus[$mCode] = [];
+
+            // Cari minggu-minggu (Senin–Minggu) yang beririsan dengan bulan ini
+            // Mulai dari Senin pertama sebelum atau pada tanggal 1 bulan
+            $firstDayOfMonth  = mktime(0, 0, 0, $mCode, 1, $year);
+            $lastDayOfMonth   = mktime(0, 0, 0, $mCode, (int)date('t', $firstDayOfMonth), $year);
+            $daysInMonth      = (int)date('t', $firstDayOfMonth);
+
+            // Cari Minggu awal pekan pertama yang bersinggungan dengan bulan ini
+            // (kalender Minggu–Sabtu)
+            $dayOfWeekFirst = (int)date('w', $firstDayOfMonth); // 0=Minggu, 1=Sen, ..., 6=Sab
+            // Mundur ke Minggu sebelumnya (atau tetap jika tgl 1 sudah Minggu)
+            $sundayOfFirstWeek = mktime(0, 0, 0, $mCode, 1 - $dayOfWeekFirst, $year);
+
+            for ($w = 1; $w <= 5; $w++) {
+                $weekSunday  = strtotime('+' . ($w - 1) . ' weeks', $sundayOfFirstWeek);
+                $weekSaturday = strtotime('+6 days', $weekSunday);
+
+                // Pekan ini tidak beririsan dengan bulan sama sekali
+                if ($weekSunday > $lastDayOfMonth || $weekSaturday < $firstDayOfMonth) {
+                    $weekStatus[$mCode][$w] = 'out_range';
+                    continue;
+                }
+
+                $effectiveDays = 0;
+                $holidayDaysInWeek = 0;
+
+                // Loop hari Senin–Jumat (atau Sabtu jika 6 hari sekolah) dalam minggu ini
+                // Senin = hari ke-1 dari Minggu, Jumat = hari ke-5, Sabtu = hari ke-6
+                $startOffset = 1; // Senin
+                $endOffset   = ($schoolDays == 6) ? 6 : 5; // Jumat atau Sabtu
+
+                for ($d = $startOffset; $d <= $endOffset; $d++) {
+                    $dayTs   = strtotime('+' . $d . ' days', $weekSunday);
+                    $dateStr = date('Y-m-d', $dayTs);
+
+                    // Harus berada dalam bulan ini
+                    if ((int)date('n', $dayTs) !== $mCode) continue;
+
+                    // Cek out of academic year range
+                    if ($yearStart && $dateStr < $yearStart) continue;
+                    if ($yearEnd   && $dateStr > $yearEnd)   continue;
+
+                    $effectiveDays++;
+
+                    if (isset($holidayDates[$dateStr])) {
+                        $holidayDaysInWeek++;
+                    }
+                }
+
+                if ($effectiveDays === 0) {
+                    $weekStatus[$mCode][$w] = 'full_holiday';
+                } elseif ($holidayDaysInWeek > 0 && $holidayDaysInWeek >= $effectiveDays) {
+                    $weekStatus[$mCode][$w] = 'full_holiday';
+                } elseif ($effectiveDays <= 2) {
+                    // Pekan pendek — awal/akhir TA atau sebagian besar di luar bulan
+                    $weekStatus[$mCode][$w] = 'partial';
+                } elseif ($holidayDaysInWeek > 0) {
+                    $weekStatus[$mCode][$w] = 'has_holiday';
+                } else {
+                    $weekStatus[$mCode][$w] = 'normal';
+                }
+            }
+        }
+
+        $data['week_status'] = $weekStatus;
 
         return view('admin/administrasi_guru/prosem_input', $data);
     }
@@ -1820,11 +2287,14 @@ class AdministrasiGuru extends BaseController
      */
     private function getTeacherClassFilter(int $subjectId, int $classLevel, ?int $overrideClassId = null): ?array
     {
+        $activeYearId = $this->yearModel->getActiveYear()['id'] ?? 0;
+
         $teacherCount = $this->db->table('teaching_assignments ta')
             ->distinct()->select('ta.teacher_id')
             ->join('classes c', 'c.id = ta.class_id')
             ->where('ta.subject_id', $subjectId)
             ->where('c.level', $classLevel)
+            ->where('ta.academic_year_id', $activeYearId)
             ->get()->getResultArray();
 
         if (count($teacherCount) <= 1) {
@@ -1844,12 +2314,52 @@ class AdministrasiGuru extends BaseController
                 ->select('class_id')
                 ->where('teacher_id', $user['related_id'])
                 ->where('subject_id', $subjectId)
+                ->where('academic_year_id', $activeYearId)
                 ->get()->getResultArray();
             return array_column($myClassIds, 'class_id') ?: [0];
         }
 
         // Admin/Kepsek tanpa override → tampilkan semua
         return null;
+    }
+
+    /**
+     * Helper terpusat: cek apakah ada >1 guru untuk mapel+level di tahun ajaran aktif
+     */
+    private function isMultiGuruForLevel(int $subjectId, int $classLevel): bool
+    {
+        $activeYearId = $this->yearModel->getActiveYear()['id'] ?? 0;
+
+        $count = $this->db->table('teaching_assignments ta')
+            ->distinct()->select('ta.teacher_id')
+            ->join('classes c', 'c.id = ta.class_id')
+            ->where('ta.subject_id', $subjectId)
+            ->where('c.level', $classLevel)
+            ->where('ta.academic_year_id', $activeYearId)
+            ->countAllResults();
+
+        return $count > 1;
+    }
+
+    /**
+     * Cari dokumen (ATP/Modul/KKTP) yang sudah ada di level yang sama
+     * lintas semua tahun ajaran — agar perangkat lama tetap bisa dipakai
+     * meski gurunya berganti di tahun ajaran berikutnya.
+     * 
+     * Prioritas: kelas yang sama dulu, lalu kelas lain se-level manapun.
+     */
+    private function getClassIdsForDocumentSearch(int $classLevel, ?int $preferClassId = null): array
+    {
+        $allClassIds = array_column(
+            $this->db->table('classes')->select('id')->where('level', $classLevel)->get()->getResultArray(),
+            'id'
+        );
+
+        if (!empty($preferClassId) && !in_array($preferClassId, $allClassIds)) {
+            array_unshift($allClassIds, $preferClassId);
+        }
+
+        return $allClassIds ?: [0];
     }
 
     /**
@@ -1944,6 +2454,461 @@ class AdministrasiGuru extends BaseController
         unset($atp);
 
         return ['list' => $atpList, 'all_tps' => $allTps];
+    }
+
+    // =========================================================================
+    // PEMBUATAN SOAL AI
+    // =========================================================================
+
+    /**
+     * Halaman Pembuatan Soal AI
+     */
+    public function soalAi()
+    {
+        $data['title'] = 'Pembuatan Soal AI';
+        
+        $filters = $this->getAvailableFilters();
+        $data['classes'] = $filters['classes'];
+        $data['subjects'] = $filters['subjects'];
+        $data['readonly'] = $filters['readonly'];
+        $data['auto_class'] = $filters['auto_class'];
+        
+        $classId = $filters['selected_class'];
+        $subjectId = $this->request->getGet('subject_id');
+        $data['selected_class'] = $classId;
+        $data['selected_subject'] = $subjectId;
+
+        // AI config
+        $user = session()->get('user');
+        $data['gemini_api_key'] = '';
+        $data['ai_provider'] = 'gemini';
+        if ($user['role_id'] == 3) {
+            $teacher = $this->teacherModel->find($user['related_id']);
+            $data['gemini_api_key'] = $teacher['gemini_api_key'] ?? '';
+            $data['ai_provider'] = $teacher['ai_provider'] ?? 'gemini';
+        } elseif ($user['role_id'] == 1) {
+            $userData = $this->db->table('users')->where('id', $user['id'])->get()->getRowArray();
+            $data['gemini_api_key'] = $userData['gemini_api_key'] ?? '';
+            $data['ai_provider'] = $userData['ai_provider'] ?? 'gemini';
+        }
+
+        // ATP list + Bank Soal
+        $data['atp_list'] = [];
+        $data['bank_soal'] = [];
+
+        if ($subjectId && $classId) {
+            $school = $this->db->table('school_profile')->get()->getRowArray();
+            $schoolLevel = $school['level'] ?? 1;
+            $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+            $classLevel = (int)($classInfo['level'] ?? 0);
+
+            $atpResult = $this->loadAtpWithElemen((int)$subjectId, $classLevel);
+            $data['atp_list'] = $atpResult['list'];
+
+            // Bank soal milik guru ini untuk mapel ini
+            $context = get_cbt_user_context();
+            $bankQuery = $this->db->table('cbt_question_banks')
+                ->select('id, code, total_questions')
+                ->where('subject_id', $subjectId);
+            if (!empty($context['teacher_id'])) {
+                $bankQuery->where('teacher_id', $context['teacher_id']);
+            }
+            $data['bank_soal'] = $bankQuery->get()->getResultArray();
+        }
+
+        return view('admin/administrasi_guru/soal_ai', $data);
+    }
+
+    /**
+     * Generate soal menggunakan AI (multi-tipe sekaligus)
+     */
+    public function generateSoalAi()
+    {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'], [1, 3])) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Akses ditolak.']);
+        }
+
+        // Get AI config
+        if ($user['role_id'] == 3) {
+            $teacher = $this->teacherModel->find($user['related_id']);
+            $apiKey = $teacher['gemini_api_key'] ?? '';
+            $aiProvider = $teacher['ai_provider'] ?? 'gemini';
+        } else {
+            $userData = $this->db->table('users')->where('id', $user['id'])->get()->getRowArray();
+            $apiKey = $userData['gemini_api_key'] ?? '';
+            $aiProvider = $userData['ai_provider'] ?? 'gemini';
+        }
+
+        if (empty($apiKey)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'API Key AI belum dikonfigurasi.']);
+        }
+
+        $atpId = $this->request->getPost('atp_id');
+        $subjectId = $this->request->getPost('subject_id');
+        $classId = $this->request->getPost('class_id');
+        $tipeListJson = $this->request->getPost('tipe_list');
+        $selectedTps = $this->request->getPost('tp_ids');
+        $jenisAsesmen = $this->request->getPost('jenis_asesmen') ?? 'formatif';
+        $atpIds = $this->request->getPost('atp_ids'); // untuk sumatif
+        $semester = $this->request->getPost('semester');
+
+        $tipeList = json_decode($tipeListJson, true);
+        if (empty($tipeList)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Pilih minimal satu tipe soal.']);
+        }
+
+        // Load data ATP - formatif (1) atau sumatif (banyak)
+        $materiList = '';
+        if ($jenisAsesmen === 'sumatif' && !empty($atpIds)) {
+            $atps = $this->atpModel->whereIn('id', $atpIds)->findAll();
+            foreach ($atps as $a) {
+                $materiList .= "- " . $a['lingkup_materi'] . "\n";
+            }
+        } else {
+            $atp = $this->atpModel->find($atpId);
+            if (!$atp) {
+                return $this->response->setJSON(['success' => false, 'error' => 'ATP tidak ditemukan.']);
+            }
+            $materiList = $atp['lingkup_materi'] ?? '-';
+        }
+
+        $subject = $this->subjectModel->find($subjectId);
+        $school = $this->db->table('school_profile')->get()->getRowArray();
+        $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+
+        // Get TP descriptions
+        $tpDeskripsi = '';
+        if (!empty($selectedTps)) {
+            $tps = $this->db->table('tujuan_pembelajaran')
+                ->whereIn('id', $selectedTps)
+                ->get()->getResultArray();
+            foreach ($tps as $tp) {
+                $tpDeskripsi .= "- " . ($tp['kode_tp'] ? $tp['kode_tp'] . ': ' : '') . $tp['deskripsi'] . "\n";
+            }
+        }
+
+        // Build soal request per tipe
+        $soalRequest = '';
+        // SD/SMP: PGK tetap 4 opsi (A-D), SMA: 5 opsi (A-E)
+        $pgkOpsiCount = ($school['level'] == 3) ? 5 : 4;
+        $pgkOpsiLabel = ($pgkOpsiCount == 5) ? '5 opsi: A,B,C,D,E' : '4 opsi: A,B,C,D';
+
+        foreach ($tipeList as $t) {
+            $label = match($t['tipe']) {
+                'pg' => 'Pilihan Ganda (4 opsi: A,B,C,D — pilih 1 jawaban benar)',
+                'pg_kompleks' => "Pilihan Ganda Kompleks ({$pgkOpsiLabel}, bisa lebih dari 1 jawaban benar)",
+                'benar_salah' => 'Benar/Salah (1 stimulus + 4 PERNYATAAN yang masing-masing dinilai Benar atau Salah secara INDEPENDEN)',
+                'esai' => 'Esai/Uraian singkat',
+                default => $t['tipe']
+            };
+            $soalRequest .= "- {$t['jumlah']} soal tipe {$label}\n";
+        }
+
+        $jenjang = ($school['level'] == 1) ? 'SD' : (($school['level'] == 2) ? 'SMP' : 'SMA');
+        $kelasLevel = (int)($classInfo['level'] ?? 7);
+
+        // Label jenis asesmen untuk prompt
+        $jenisLabel = ($jenisAsesmen === 'sumatif')
+            ? "SUMATIF SEMESTER {$semester} (mencakup seluruh materi semester)"
+            : "FORMATIF (fokus pada satu materi spesifik)";
+
+        // Tentukan karakteristik soal berdasarkan jenjang dan level kelas
+        $karakteristikLevel = '';
+        if ($jenjang === 'SD') {
+            if ($kelasLevel <= 3) {
+                $karakteristikLevel = "Kelas rendah (1-3 SD): gunakan kalimat sederhana, konkret, dekat kehidupan sehari-hari anak.";
+            } else {
+                $karakteristikLevel = "Kelas tinggi (4-6 SD): boleh abstrak ringan, hubungkan dengan pengalaman nyata, mulai penalaran sederhana.";
+            }
+        } elseif ($jenjang === 'SMP') {
+            if ($kelasLevel <= 7) {
+                $karakteristikLevel = "Kelas 7 SMP: transisi dari SD, mulai analisis sederhana, kontekstual dengan kehidupan remaja awal.";
+            } elseif ($kelasLevel == 8) {
+                $karakteristikLevel = "Kelas 8 SMP: penalaran lebih dalam, bisa bandingkan konsep, analisis teks/data sederhana.";
+            } else {
+                $karakteristikLevel = "Kelas 9 SMP: persiapan ujian akhir, penalaran tinggi, evaluasi, dan sintesis antar konsep.";
+            }
+        } else {
+            $karakteristikLevel = "Jenjang SMA: penalaran tinggi, analisis mendalam, evaluasi kritis, dan kreativitas berpikir.";
+        }
+
+        $prompt = "Kamu adalah pembuat soal ujian profesional berpengalaman untuk jenjang {$jenjang}.\n"
+            . "Buatkan soal ujian BERKUALITAS TINGGI dengan komposisi:\n{$soalRequest}\n"
+            . "JENIS ASESMEN: {$jenisLabel}\n\n"
+            . "KONTEKS PEMBELAJARAN:\n"
+            . "- Jenjang: {$jenjang}\n"
+            . "- Kelas: " . ($classInfo['name'] ?? '-') . " (Level {$kelasLevel})\n"
+            . "- Mata Pelajaran: " . ($subject['name'] ?? '-') . "\n"
+            . "- Materi/Lingkup:\n" . $materiList . "\n"
+            . "- Karakteristik: {$karakteristikLevel}\n"
+            . (!empty($tpDeskripsi) ? "- Tujuan Pembelajaran:\n{$tpDeskripsi}\n" : '')
+            . "\nPANDUAN KUALITAS SOAL (WAJIB DIPATUHI):\n"
+            . "1. DISTRIBUSI LEVEL KOGNITIF (Taksonomi Bloom Revisi):\n"
+            . "   - 20% soal C1-C2 (Mengingat & Memahami): definisi, fakta, konsep dasar\n"
+            . "   - 30% soal C3 (Menerapkan): aplikasi konsep dalam situasi baru\n"
+            . "   - 50% soal C4-C6 (HOTS - Menganalisis, Mengevaluasi, Mencipta): analisis data/teks, membandingkan, menyimpulkan, menilai argumen\n"
+            . "2. SOAL HOTS harus mengandung STIMULUS (teks bacaan, data, tabel, situasi, kasus) yang harus dianalisis siswa sebelum menjawab.\n"
+            . "3. Untuk mapel BAHASA (Indonesia/Inggris/Daerah):\n"
+            . "   - WAJIB sertakan WACANA/TEKS BACAAN yang relevan sebelum soal (dalam field 'question')\n"
+            . "   - Format: tuliskan wacana dulu dengan label 'Bacalah teks berikut!' lalu soalnya\n"
+            . "   - Teks harus sesuai panjang dan kompleksitas level kelas\n"
+            . "4. Untuk soal yang IDEALNYA memerlukan GAMBAR/ILUSTRASI:\n"
+            . "   - Sertakan deskripsi dalam kurung siku: [Gambar: deskripsi gambar yang diperlukan]\n"
+            . "   - Contoh: [Gambar: Peta Indonesia dengan panah menunjukkan arah angin muson barat]\n"
+            . "5. DISTRAKTOR (opsi salah) harus MASUK AKAL dan homogen — jangan opsi yang jelas salah\n"
+            . "6. Soal TIDAK BOLEH mengandung petunjuk jawabannya di soal lain\n"
+            . "7. Stem soal harus JELAS dan tidak ambigu\n"
+            . "8. Hindari soal yang jawabannya 'semua benar' atau 'tidak ada yang benar'\n\n"
+            . "FORMAT OUTPUT WAJIB JSON ARRAY (tanpa markdown, tanpa backtick):\n"
+            . "Setiap item memiliki field: type, question, options (jika PG/PGK), answer\n"
+            . "Contoh:\n"
+            . '[{"type":"pg","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"},'
+            . '{"type":"pg_kompleks","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."' . ($pgkOpsiCount == 5 ? ',"E":"..."' : '') . '},"answer":"A,C"},'
+            . '{"type":"benar_salah","question":"Pernyataan utama/stimulus soal","options":{"A":"pernyataan 1","B":"pernyataan 2","C":"pernyataan 3","D":"pernyataan 4"},"answer":"B,S,B,S"},'
+            . '{"type":"esai","question":"...","answer":"kunci jawaban lengkap"}]' . "\n\n"
+            . "ATURAN TAMBAHAN:\n"
+            . "- Untuk tipe benar_salah: question=stimulus utama, options=4 pernyataan (A-D), answer=status B atau S per opsi dipisah koma (contoh: 'B,S,B,B')\n"
+            . "- PENTING SOAL BS: Opsi A-D adalah PERNYATAAN BERBEDA yang masing-masing dinilai Benar/Salah secara INDEPENDEN. INI BUKAN pilihan ganda! Setiap pernyataan harus berdiri sendiri dan bisa dinilai kebenarannya. Campurkan pernyataan benar dan salah (jangan semua benar atau semua salah).\n"
+            . "- Contoh BS BENAR: question='Perhatikan pernyataan tentang Pancasila berikut!', options: A='Pancasila terdiri dari 5 sila' (B), B='Sila pertama tentang kemanusiaan' (S), C='Pancasila adalah dasar negara' (B), D='Pancasila ditetapkan tanggal 1 Juni 1945' (S)\n"
+            . "- Kelompokkan berurutan: PG dulu, lalu PGK, BS, terakhir Esai\n"
+            . "- Untuk Esai: kunci jawaban harus lengkap (rubrik/poin yang diharapkan)\n"
+            . "- Untuk BS: pernyataan harus spesifik, bukan opini\n"
+            . ($jenisAsesmen === 'sumatif'
+                ? "- SUMATIF: soal harus MERATA mencakup SEMUA materi yang tercantum, jangan fokus 1 materi saja\n"
+                  . "- SUMATIF: soal boleh menghubungkan antar-materi (integrasi konsep)\n"
+                : "- FORMATIF: soal fokus pada materi spesifik yang dipilih, eksplorasi mendalam\n")
+            . "- KEMBALIKAN HANYA JSON ARRAY MURNI, tanpa backtick, tanpa markdown";
+
+        // Call AI
+        if ($aiProvider === 'groq') {
+            $url = 'https://api.groq.com/openai/v1/chat/completions';
+            $payload = json_encode([
+                "model" => "llama-3.3-70b-versatile",
+                "messages" => [["role" => "user", "content" => $prompt]],
+                "temperature" => 0.7
+            ]);
+            $headers = ['Authorization: Bearer ' . $apiKey, 'Content-Type: application/json'];
+        } else {
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=' . $apiKey;
+            $payload = json_encode(["contents" => [["parts" => [["text" => $prompt]]]]]);
+            $headers = ['Content-Type: application/json'];
+        }
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 90);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode != 200) {
+            $errRes = json_decode($response, true);
+            $errMsg = $errRes['error']['message'] ?? 'HTTP ' . $httpCode;
+            return $this->response->setJSON(['success' => false, 'error' => "AI error: {$errMsg}"]);
+        }
+
+        $resData = json_decode($response, true);
+        if ($aiProvider === 'groq') {
+            $content = $resData['choices'][0]['message']['content'] ?? '';
+        } else {
+            $content = $resData['candidates'][0]['content']['parts'][0]['text'] ?? '';
+        }
+
+        $content = preg_replace('/```(?:json)?(.*?)```/s', '$1', $content);
+        $content = trim($content);
+
+        $soalList = json_decode($content, true);
+        if (!is_array($soalList)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Gagal parse response AI. Coba generate ulang.']);
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'soal' => $soalList,
+            'jumlah' => count($soalList),
+        ]);
+    }
+
+    /**
+     * Generate prompt soal saja (tanpa panggil API) — user copy ke AI langsung
+     */
+    public function getSoalPrompt()
+    {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'], [1, 3])) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Akses ditolak.']);
+        }
+
+        $atpId = $this->request->getPost('atp_id');
+        $subjectId = $this->request->getPost('subject_id');
+        $classId = $this->request->getPost('class_id');
+        $tipeListJson = $this->request->getPost('tipe_list');
+        $selectedTps = $this->request->getPost('tp_ids');
+        $jenisAsesmen = $this->request->getPost('jenis_asesmen') ?? 'formatif';
+        $atpIds = $this->request->getPost('atp_ids');
+        $semester = $this->request->getPost('semester');
+
+        $tipeList = json_decode($tipeListJson, true);
+        if (empty($tipeList)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Pilih minimal satu tipe soal.']);
+        }
+
+        // Load data
+        $materiList = '';
+        if ($jenisAsesmen === 'sumatif' && !empty($atpIds)) {
+            $atps = $this->atpModel->whereIn('id', $atpIds)->findAll();
+            foreach ($atps as $a) {
+                $materiList .= "- " . $a['lingkup_materi'] . "\n";
+            }
+        } else {
+            $atp = $this->atpModel->find($atpId);
+            if (!$atp) {
+                return $this->response->setJSON(['success' => false, 'error' => 'ATP tidak ditemukan.']);
+            }
+            $materiList = $atp['lingkup_materi'] ?? '-';
+        }
+
+        $subject = $this->subjectModel->find($subjectId);
+        $school = $this->db->table('school_profile')->get()->getRowArray();
+        $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+
+        $tpDeskripsi = '';
+        if (!empty($selectedTps)) {
+            $tps = $this->db->table('tujuan_pembelajaran')
+                ->whereIn('id', $selectedTps)->get()->getResultArray();
+            foreach ($tps as $tp) {
+                $tpDeskripsi .= "- " . ($tp['kode_tp'] ? $tp['kode_tp'] . ': ' : '') . $tp['deskripsi'] . "\n";
+            }
+        }
+
+        $soalRequest = '';
+        $pgkOpsiCount = ($school['level'] == 3) ? 5 : 4;
+        $pgkOpsiLabel = ($pgkOpsiCount == 5) ? '5 opsi: A,B,C,D,E' : '4 opsi: A,B,C,D';
+
+        foreach ($tipeList as $t) {
+            $label = match($t['tipe']) {
+                'pg' => 'Pilihan Ganda (4 opsi: A,B,C,D — pilih 1 jawaban benar)',
+                'pg_kompleks' => "Pilihan Ganda Kompleks ({$pgkOpsiLabel}, bisa lebih dari 1 jawaban benar)",
+                'benar_salah' => 'Benar/Salah (1 stimulus + 4 PERNYATAAN independen, masing-masing dinilai B/S)',
+                'esai' => 'Esai/Uraian singkat',
+                default => $t['tipe']
+            };
+            $soalRequest .= "- {$t['jumlah']} soal tipe {$label}\n";
+        }
+
+        $jenjang = ($school['level'] == 1) ? 'SD' : (($school['level'] == 2) ? 'SMP' : 'SMA');
+        $kelasLevel = (int)($classInfo['level'] ?? 7);
+        $jenisLabel = ($jenisAsesmen === 'sumatif')
+            ? "SUMATIF SEMESTER {$semester}"
+            : "FORMATIF";
+
+        $prompt = "Buatkan soal ujian {$jenisLabel} untuk:\n"
+            . "- Jenjang: {$jenjang}, Kelas: " . ($classInfo['name'] ?? '-') . "\n"
+            . "- Mapel: " . ($subject['name'] ?? '-') . "\n"
+            . "- Materi:\n" . $materiList . "\n"
+            . (!empty($tpDeskripsi) ? "- Tujuan Pembelajaran:\n{$tpDeskripsi}\n" : '')
+            . "\nKomposisi soal:\n{$soalRequest}\n"
+            . "PANDUAN:\n"
+            . "- 20% soal C1-C2 (Mengingat & Memahami)\n"
+            . "- 30% soal C3 (Menerapkan)\n"
+            . "- 50% soal C4-C6 (HOTS: Menganalisis, Mengevaluasi, Mencipta)\n"
+            . "- Soal HOTS harus ada stimulus (teks/data/kasus)\n"
+            . "- Distraktor harus masuk akal dan homogen\n"
+            . "- Untuk mapel Bahasa: sertakan teks bacaan sebelum soal\n\n"
+            . "FORMAT OUTPUT: JSON ARRAY (tanpa markdown/backtick)\n"
+            . "Field per item: type, question, options (jika PG/PGK/BS), answer\n"
+            . "PENTING untuk tipe benar_salah: question=stimulus utama, options={A:'pernyataan 1',B:'pernyataan 2',C:'pernyataan 3',D:'pernyataan 4'}, answer='B,S,B,S' (B=Benar, S=Salah per opsi)\n"
+            . "Soal BS BUKAN pilihan ganda! Setiap opsi adalah PERNYATAAN INDEPENDEN yang dinilai B/S. Campurkan pernyataan benar dan salah.\n"
+            . "Contoh:\n"
+            . '[{"type":"pg","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"},'
+            . '{"type":"benar_salah","question":"Stimulus soal","options":{"A":"pernyataan 1","B":"pernyataan 2","C":"pernyataan 3","D":"pernyataan 4"},"answer":"B,S,B,B"},'
+            . '{"type":"esai","question":"...","answer":"kunci jawaban"}]';
+
+        return $this->response->setJSON([
+            'success' => true,
+            'prompt' => $prompt,
+        ]);
+    }
+
+    /**
+     * Simpan soal hasil AI ke bank soal yang dipilih (multi-tipe)
+     */
+    public function saveSoalToBank()
+    {
+        $bankId = $this->request->getPost('bank_id');
+        $soalJson = $this->request->getPost('soal_json');
+
+        if (!$bankId || !$soalJson) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Data tidak lengkap.']);
+        }
+
+        helper('cbt');
+        if (!can_access_cbt_bank($bankId)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Akses ditolak ke bank soal ini.']);
+        }
+
+        $soalList = json_decode($soalJson, true);
+        if (!is_array($soalList) || empty($soalList)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Data soal kosong atau tidak valid.']);
+        }
+
+        $questionModel = new \App\Models\CbtQuestionModel();
+        $bankModel = new \App\Models\CbtBankSoalModel();
+        $inserted = 0;
+
+        foreach ($soalList as $soal) {
+            $tipe = $soal['type'] ?? 'pg';
+
+            // Normalisasi tipe dari berbagai variasi output AI
+            $tipe = match(strtolower(trim($tipe))) {
+                'pg', 'pilihan_ganda', 'pilgan', 'multiple_choice' => 'pg',
+                'pg_kompleks', 'pgk', 'pilihan_ganda_kompleks', 'multiple_choice_complex', 'pg kompleks' => 'pg_kompleks',
+                'benar_salah', 'bs', 'true_false', 'betul_salah' => 'benar_salah',
+                'esai', 'essay', 'uraian' => 'esai',
+                default => $tipe,
+            };
+
+            $data = [
+                'bank_id' => $bankId,
+                'question_text' => $soal['question'] ?? '',
+                'question_type' => $tipe,
+                'score' => ($tipe === 'esai') ? 0 : 1,
+                'option_a' => $soal['options']['A'] ?? null,
+                'option_b' => $soal['options']['B'] ?? null,
+                'option_c' => $soal['options']['C'] ?? null,
+                'option_d' => $soal['options']['D'] ?? null,
+                'option_e' => $soal['options']['E'] ?? null,
+                'correct_option' => ($tipe !== 'esai') ? ($soal['answer'] ?? null) : null,
+                'essay_answer' => ($tipe === 'esai') ? ($soal['answer'] ?? '') : null,
+            ];
+            $questionModel->insert($data);
+            $inserted++;
+        }
+
+        // Update totals
+        $total = $questionModel->where('bank_id', $bankId)->countAllResults();
+        $totalPg = $questionModel->where('bank_id', $bankId)->where('question_type', 'pg')->countAllResults();
+        $totalPgk = $questionModel->where('bank_id', $bankId)->where('question_type', 'pg_kompleks')->countAllResults();
+        $totalBs = $questionModel->where('bank_id', $bankId)->where('question_type', 'benar_salah')->countAllResults();
+        $totalEsai = $questionModel->where('bank_id', $bankId)->where('question_type', 'esai')->countAllResults();
+
+        $bankModel->update($bankId, [
+            'total_questions' => $total,
+            'total_pg' => $totalPg,
+            'total_pg_kompleks' => $totalPgk,
+            'total_bs' => $totalBs,
+            'total_esai' => $totalEsai,
+        ]);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => "{$inserted} soal berhasil ditambahkan ke bank soal.",
+        ]);
     }
 
     private function getAvailableFilters()
@@ -2105,5 +3070,198 @@ class AdministrasiGuru extends BaseController
 
         return redirect()->to(base_url("admin/administrasi-guru/modul-ajar?class_id=$targetClassId&subject_id=$subjectId"))
             ->with('success', 'Modul berhasil disalin. Anda dapat mengeditnya jika diperlukan.');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // KKTP (Kriteria Ketercapaian Tujuan Pembelajaran)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function kktp()
+    {
+        $data['title'] = 'Kriteria Ketercapaian Tujuan Pembelajaran (KKTP)';
+
+        $filters = $this->getAvailableFilters();
+        $data['classes'] = $filters['classes'];
+        $data['subjects'] = $filters['subjects'];
+        $data['readonly'] = $filters['readonly'];
+        $data['auto_class'] = $filters['auto_class'];
+
+        $classId = $filters['selected_class'];
+        $subjectId = $this->request->getGet('subject_id');
+        $data['selected_class'] = $classId;
+        $data['selected_subject'] = $subjectId;
+        $data['kktp_list'] = [];
+        $data['available_tps'] = [];
+
+        if ($classId && $subjectId) {
+            $kktpModel = new \App\Models\KktpModel();
+
+            $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+            $classLevel = (int) ($classInfo['level'] ?? 0);
+
+            // Cek multi-guru (dengan filter tahun ajaran aktif)
+            $isMultiGuru = $this->isMultiGuruForLevel((int)$subjectId, $classLevel);
+
+            // Tentukan class_ids untuk query (single-guru: lintas semua tahun ajaran)
+            if ($isMultiGuru) {
+                $effectiveClassIds = [(int)$classId];
+            } else {
+                $effectiveClassIds = $this->getClassIdsForDocumentSearch($classLevel, (int)$classId);
+            }
+
+            // Ambil semua TP dari ATP yang sudah ada di level ini
+            $tpList = $this->db->table('tujuan_pembelajaran tp')
+                ->select('tp.id, tp.kode_tp, tp.deskripsi, tp.lingkup_materi, tp.atp_id')
+                ->join('alur_tujuan_pembelajaran atp', 'atp.id = tp.atp_id')
+                ->where('tp.subject_id', $subjectId)
+                ->whereIn('atp.class_id', $effectiveClassIds)
+                ->groupBy('tp.id')
+                ->orderBy('tp.kode_tp', 'ASC')
+                ->get()->getResultArray();
+
+            $data['available_tps'] = $tpList;
+
+            // Auto-generate KKTP untuk TP yang belum ada
+            if (!$data['readonly'] && !empty($tpList)) {
+                foreach ($tpList as $tp) {
+                    $exists = $kktpModel
+                        ->where('subject_id', $subjectId)
+                        ->where('tp_id', $tp['id'])
+                        ->whereIn('class_id', $effectiveClassIds)
+                        ->first();
+
+                    if (!$exists) {
+                        $kktpModel->insert([
+                            'class_id'              => (int)$classId,
+                            'subject_id'            => (int)$subjectId,
+                            'tp_id'                 => (int)$tp['id'],
+                            'tujuan_pembelajaran'   => $tp['kode_tp'] . ' - ' . $tp['deskripsi'],
+                            'kriteria_1_interval'   => '0-40%',
+                            'kriteria_1_label'      => 'Belum Tercapai',
+                            'kriteria_1_intervensi' => 'Remedial di seluruh bagian',
+                            'kriteria_2_interval'   => '41-65%',
+                            'kriteria_2_label'      => 'Mulai Tercapai',
+                            'kriteria_2_intervensi' => 'Remedial di bagian yang diperlukan',
+                            'kriteria_3_interval'   => '66-85%',
+                            'kriteria_3_label'      => 'Tercapai',
+                            'kriteria_3_intervensi' => 'Tidak perlu remedial',
+                            'kriteria_4_interval'   => '86-100%',
+                            'kriteria_4_label'      => 'Melampaui',
+                            'kriteria_4_intervensi' => 'Diberikan pengayaan',
+                        ]);
+                    }
+                }
+            }
+
+            // Load KKTP yang sudah ada
+            $data['kktp_list'] = $kktpModel
+                ->where('subject_id', $subjectId)
+                ->whereIn('class_id', $effectiveClassIds)
+                ->orderBy('id', 'ASC')
+                ->findAll();
+        }
+
+        return view('admin/administrasi_guru/kktp', $data);
+    }
+
+    public function kktpStore()
+    {
+        $user = session()->get('user');
+        if ($user['role_id'] == 2) {
+            return redirect()->back()->with('error', 'Kepala Sekolah tidak memiliki akses untuk menambah data.');
+        }
+
+        $classId = $this->request->getPost('class_id');
+        $subjectId = $this->request->getPost('subject_id');
+
+        if (empty($classId) || empty($subjectId)) {
+            return redirect()->back()->with('error', 'Kelas dan Mata Pelajaran wajib dipilih.');
+        }
+
+        $id = $this->request->getPost('id');
+        $kktpModel = new \App\Models\KktpModel();
+
+        $data = [
+            'class_id'              => $classId,
+            'subject_id'            => $subjectId,
+            'tp_id'                 => $this->request->getPost('tp_id') ?: null,
+            'tujuan_pembelajaran'   => $this->request->getPost('tujuan_pembelajaran'),
+            'kriteria_1_interval'   => $this->request->getPost('kriteria_1_interval') ?: '0-40%',
+            'kriteria_1_label'      => $this->request->getPost('kriteria_1_label') ?: 'Belum Tercapai',
+            'kriteria_1_intervensi' => $this->request->getPost('kriteria_1_intervensi') ?: 'Remedial di seluruh bagian',
+            'kriteria_2_interval'   => $this->request->getPost('kriteria_2_interval') ?: '41-65%',
+            'kriteria_2_label'      => $this->request->getPost('kriteria_2_label') ?: 'Mulai Tercapai',
+            'kriteria_2_intervensi' => $this->request->getPost('kriteria_2_intervensi') ?: 'Remedial di bagian yang diperlukan',
+            'kriteria_3_interval'   => $this->request->getPost('kriteria_3_interval') ?: '66-85%',
+            'kriteria_3_label'      => $this->request->getPost('kriteria_3_label') ?: 'Tercapai',
+            'kriteria_3_intervensi' => $this->request->getPost('kriteria_3_intervensi') ?: 'Tidak perlu remedial',
+            'kriteria_4_interval'   => $this->request->getPost('kriteria_4_interval') ?: '86-100%',
+            'kriteria_4_label'      => $this->request->getPost('kriteria_4_label') ?: 'Melampaui',
+            'kriteria_4_intervensi' => $this->request->getPost('kriteria_4_intervensi') ?: 'Diberikan pengayaan',
+        ];
+
+        if ($id) {
+            $kktpModel->update($id, $data);
+            $msg = 'KKTP berhasil diperbarui.';
+        } else {
+            $kktpModel->insert($data);
+            $msg = 'KKTP berhasil disimpan.';
+        }
+
+        return redirect()->to(base_url("admin/administrasi-guru/kktp?class_id={$classId}&subject_id={$subjectId}"))
+            ->with('success', $msg);
+    }
+
+    public function kktpDelete($id)
+    {
+        $kktpModel = new \App\Models\KktpModel();
+        $kktp = $kktpModel->find($id);
+        if ($kktp) {
+            $kktpModel->delete($id);
+            return redirect()->to(base_url("admin/administrasi-guru/kktp?class_id={$kktp['class_id']}&subject_id={$kktp['subject_id']}"))
+                ->with('success', 'KKTP berhasil dihapus.');
+        }
+        return redirect()->back();
+    }
+
+    public function kktpPrint($classId, $subjectId)
+    {
+        $subject = $this->subjectModel->find($subjectId);
+        if (!$subject) return redirect()->back();
+
+        $school = $this->schoolModel->getProfile();
+        $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+        $classLevel = (int) ($classInfo['level'] ?? 0);
+
+        // Guru pengampu
+        $assignment = $this->teachingAssignmentModel
+            ->where('subject_id', $subjectId)
+            ->where('class_id', $classId)
+            ->first();
+        $teacher = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
+
+        // Ambil KKTP (single guru → lintas kelas se-level)
+        $kktpModel = new \App\Models\KktpModel();
+        $isMultiGuru = $this->isMultiGuruForLevel((int)$subjectId, $classLevel);
+
+        if ($isMultiGuru) {
+            $kktpList = $kktpModel->getByClassSubject((int)$classId, (int)$subjectId);
+        } else {
+            $classIds = array_column(
+                $this->db->table('classes')->select('id')->where('level', $classLevel)->get()->getResultArray(),
+                'id'
+            );
+            $kktpList = !empty($classIds)
+                ? $kktpModel->where('subject_id', $subjectId)->whereIn('class_id', $classIds)->orderBy('id')->findAll()
+                : [];
+        }
+
+        return view('admin/administrasi_guru/kktp_print', [
+            'school'   => $school,
+            'subject'  => $subject,
+            'teacher'  => $teacher,
+            'classInfo'=> $classInfo,
+            'kktpList' => $kktpList,
+        ]);
     }
 }

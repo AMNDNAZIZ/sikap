@@ -34,7 +34,7 @@
     $inKonseling = url_is('admin/student-notes*') || url_is('admin/behaviors*');
     $inKomunikasi= url_is('admin/announcements*') || url_is('admin/chat*') || url_is('admin/staff-chat*');
     $inCms       = url_is('admin/cms*') || url_is('admin/changelogs*');
-    $inAkun      = url_is('admin/users*') || url_is('profile*') || url_is('admin/updater*');
+    $inAkun      = url_is('admin/users*') || url_is('admin/role-permission*') || url_is('profile*') || url_is('admin/updater*');
     ?>
 
     <!-- ══ SETUP ══ -->
@@ -143,8 +143,10 @@
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/cp') && !url_is('admin/administrasi-guru/cp-master*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/cp') ?>">📖 <span class="label">Lihat Capaian (CP)</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/tp*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/tp') ?>">🎯 <span class="label">Tujuan Pembelajaran</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/atp*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/atp') ?>">🛤️ <span class="label">Alur Pembelajaran (ATP)</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/administrasi-guru/kktp*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/kktp') ?>">📋 <span class="label">KKTP</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/prota-prosem*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/prota-prosem') ?>">📅 <span class="label">Prota & Prosem</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/modul-ajar*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/modul-ajar') ?>">📂 <span class="label">Modul Ajar</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/administrasi-guru/soal-ai*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/soal-ai') ?>">🤖 <span class="label">Generate Soal AI</span></a></li>
         </ul>
       </div>
     </li>
@@ -180,7 +182,9 @@
       <div class="collapse <?= $inPresensi ? 'show' : '' ?>" id="menuPresensi">
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/attendance*') ? 'active' : '' ?>" href="<?= base_url('admin/attendance') ?>">🎓 <span class="label">Absensi Siswa</span></a></li>
+          <?php if (is_school_swasta()): ?>
           <li><a class="nav-link <?= url_is('admin/teacher-attendance*') ? 'active' : '' ?>" href="<?= base_url('admin/teacher-attendance') ?>">👨‍🏫 <span class="label">Absensi Guru</span></a></li>
+          <?php endif; ?>
         </ul>
       </div>
     </li>
@@ -239,6 +243,13 @@
           <li><a class="nav-link <?= url_is('admin/cbt/convertnilai*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/convertnilai') ?>">📊 <span class="label">Konversi Nilai</span></a></li>
         </ul>
       </div>
+    </li>
+
+    <!-- Perpustakaan Digital -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/ebook*') ? 'active' : '' ?>" href="<?= base_url('admin/ebook') ?>">
+        📚 <span class="label">Perpustakaan Digital</span>
+      </a>
     </li>
 
     <!-- ══ KONSELING & KOMUNIKASI ══ -->
@@ -325,7 +336,12 @@
       <div class="collapse <?= $inAkun ? 'show' : '' ?>" id="menuAkun">
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/users*') ? 'active' : '' ?>" href="<?= base_url('admin/users') ?>">👤 <span class="label">User Management</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/role-permission*') ? 'active' : '' ?>" href="<?= base_url('admin/role-permission') ?>">🛡️ <span class="label">Role & Permission</span></a></li>
           <li><a class="nav-link <?= url_is('profile*') ? 'active' : '' ?>" href="<?= base_url('profile') ?>">⚙️ <span class="label">Pengaturan Profil</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/settings/session*') ? 'active' : '' ?>" href="<?= base_url('admin/settings/session') ?>">🚀 <span class="label">Cache CBT</span></a></li>
+          <?php if (is_school_swasta()): ?>
+          <li><a class="nav-link <?= url_is('admin/settings/payment*') ? 'active' : '' ?>" href="<?= base_url('admin/settings/payment') ?>">💳 <span class="label">Integrasi Pembayaran</span></a></li>
+          <?php endif; ?>
           <li><a class="nav-link <?= url_is('admin/updater*') ? 'active' : '' ?>" href="<?= base_url('admin/updater') ?>">🔄 <span class="label">Update Sistem</span></a></li>
         </ul>
       </div>

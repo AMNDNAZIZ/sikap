@@ -75,6 +75,13 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('users/delete/(:num)', 'User::delete/$1', $auth12);
     $routes->get('users/reset-password/(:num)', 'User::resetPassword/$1', $auth12);
 
+    // Role & Permission Management (Admin Only)
+    $routes->get('role-permission', 'RolePermission::index', $auth1);
+    $routes->get('role-permission/edit/(:num)', 'RolePermission::edit/$1', $auth1);
+    $routes->post('role-permission/update/(:num)', 'RolePermission::update/$1', $auth1);
+    $routes->post('role-permission/create-role', 'RolePermission::createRole', $auth1);
+    $routes->get('role-permission/delete/(:num)', 'RolePermission::deleteRole/$1', $auth1);
+
     // 2. Identitas & Pengaturan
     $routes->get('school', 'School::index', $auth127);
     $routes->post('school/update', 'School::update', $auth127);
@@ -240,11 +247,25 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->get('modul-ajar', 'AdministrasiGuru::modulAjar');
         $routes->post('modul-ajar/saveApiKey', 'AdministrasiGuru::saveApiKey');
         $routes->post('modul-ajar/generate', 'AdministrasiGuru::generateModulAjar');
+        $routes->post('modul-ajar/get-prompt', 'AdministrasiGuru::getModulPrompt');
+        $routes->post('modul-ajar/save-manual', 'AdministrasiGuru::saveManualModul');
         $routes->get('modul-ajar/edit/(:num)/(:num)', 'AdministrasiGuru::editModulAjar/$1/$2');
         $routes->post('modul-ajar/update', 'AdministrasiGuru::updateModulAjar');
         $routes->get('modul-ajar/print/(:num)/(:num)', 'AdministrasiGuru::printModulAjar/$1/$2');
         $routes->get('modul-ajar/delete/(:num)/(:num)/(:num)', 'AdministrasiGuru::deleteModulAjar/$1/$2/$3');
         $routes->post('modul-ajar/copy', 'AdministrasiGuru::copyModulAjar');
+
+        // KKTP (Kriteria Ketercapaian Tujuan Pembelajaran)
+        $routes->get('kktp', 'AdministrasiGuru::kktp');
+        $routes->post('kktp/store', 'AdministrasiGuru::kktpStore');
+        $routes->get('kktp/delete/(:num)', 'AdministrasiGuru::kktpDelete/$1');
+        $routes->get('kktp/print/(:num)/(:num)', 'AdministrasiGuru::kktpPrint/$1/$2');
+
+        // Pembuatan Soal AI
+        $routes->get('soal-ai', 'AdministrasiGuru::soalAi');
+        $routes->post('soal-ai/generate', 'AdministrasiGuru::generateSoalAi');
+        $routes->post('soal-ai/get-prompt', 'AdministrasiGuru::getSoalPrompt');
+        $routes->post('soal-ai/save-to-bank', 'AdministrasiGuru::saveSoalToBank');
     });
 
     // 5.9 Kokurikuler (Kurikulum Merdeka) - Admin, Kepsek & Guru Kelas
@@ -309,6 +330,15 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('settings/kop-surat', 'SettingsController::kopSurat', $auth127);
     $routes->post('settings/kop-surat/upload', 'SettingsController::uploadKopSurat', $auth127);
 
+    // Integrasi Pembayaran (Admin Only)
+    $routes->get('settings/payment', 'SettingsController::payment', $auth1);
+    $routes->post('settings/payment/save', 'SettingsController::savePayment', $auth1);
+
+    // Cache CBT Settings (Admin Only)
+    $routes->get('settings/session', 'SessionSettings::index', $auth1);
+    $routes->post('settings/session/update', 'SessionSettings::update', $auth1);
+    $routes->post('settings/session/flush', 'SessionSettings::flushCache', $auth1);
+
     // Surat Masuk
     $routes->get('surat-masuk', 'SuratMasuk::index', $auth127);
     $routes->get('surat-masuk/create', 'SuratMasuk::create', $auth127);
@@ -354,6 +384,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('attendance/rekapPdf', 'Attendance::rekapPdf', $auth123);
     $routes->get('attendance/rekapExcel', 'Attendance::rekapExcel', $auth123);
     $routes->get('attendance/week', 'Attendance::week', $auth123);
+    $routes->get('attendance/daily', 'Attendance::daily', $auth123);
     $routes->get('attendance/report/semester', 'Attendance::reportSemester', $auth123);
     $routes->get('attendance/report/year', 'Attendance::reportYear', $auth123);
 
@@ -592,6 +623,22 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('changelogs/save', 'Changelogs::save');
     $routes->get('changelogs/delete/(:num)', 'Changelogs::delete/$1');
 
+    // ── Perpustakaan Digital (Admin, Guru Wali Kelas, Staf TU) ──────────────
+    $auth137 = ['filter' => 'auth:1,3,7'];
+    $routes->get('ebook', 'Ebook::index', $auth137);
+    $routes->get('ebook/create', 'Ebook::create', $auth137);
+    $routes->post('ebook/store', 'Ebook::store', $auth137);
+    $routes->get('ebook/edit/(:num)', 'Ebook::edit/$1', $auth137);
+    $routes->post('ebook/update/(:num)', 'Ebook::update/$1', $auth137);
+    $routes->post('ebook/replace/(:num)', 'Ebook::replace/$1', $auth137);
+    $routes->post('ebook/delete/(:num)', 'Ebook::delete/$1', $auth137);
+    $routes->get('ebook/get-religion/(:num)', 'Ebook::getSubjectReligion/$1', $auth137);
+
+    // File serving (all authenticated roles with ebook access)
+    $auth1357 = ['filter' => 'auth:1,3,5,7'];
+    $routes->get('ebook/file/read/(:num)', 'EbookFile::read/$1', $auth1357);
+    $routes->get('ebook/file/download/(:num)', 'EbookFile::download/$1', $auth1357);
+
     // ── Absensi Guru ──────────────────────────────────────────────────────────
     $routes->get('teacher-attendance', 'TeacherAttendance::index', ['filter' => 'auth:1,7']);
     $routes->post('teacher-attendance/save', 'TeacherAttendance::save', ['filter' => 'auth:1,7']);
@@ -630,6 +677,9 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
     $routes->get('profile', 'Profile::index');
     $routes->post('profile/update', 'Profile::update');
 
+    // Pembayaran (integrasi web pembayaran eksternal)
+    $routes->get('payment', 'Payment::index');
+
     $routes->get('cbt', 'Cbt::index');
     $routes->post('cbt/verifyToken/(:num)', 'Cbt::verifyToken/$1');
     $routes->post('cbt/ping', 'Cbt::ping');
@@ -642,6 +692,11 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
     $routes->get('cbt/hasil/(:num)', 'Cbt::hasil/$1');
     $routes->post('cbt/saveAnswersBulk', 'Cbt::saveAnswersBulk');
     $routes->get('cbt/saveAnswersBulk', 'Cbt::saveAnswersBulk');
+
+    // Perpustakaan Digital Siswa
+    $routes->get('ebook', 'Ebook::index');
+    $routes->get('ebook/read/(:num)', 'Ebook::read/$1');
+    $routes->get('ebook/download/(:num)', 'Ebook::download/$1');
 });
 
 // ==================== OTHER ROUTES ====================

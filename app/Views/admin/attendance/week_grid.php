@@ -46,10 +46,16 @@
     <input type="hidden" name="class_id" value="<?= (int) $class['id'] ?>">
     <button class="btn btn-secondary">Tampilkan</button>
   </form>
-  <a href="<?= base_url('admin/attendance/view?class_id=' . (int) $class['id'] . '&month=' . date('Y-m', strtotime($weekDates[0]))) ?>"
-    class="btn btn-secondary">
-    <i class="bi bi-calendar-month"></i> Lihat Bulanan
-  </a>
+  <div class="d-flex gap-2">
+    <a href="<?= base_url('admin/attendance/daily?class_id=' . (int) $class['id'] . '&date=' . date('Y-m-d')) ?>"
+      class="btn btn-outline-success">
+      <i class="bi bi-phone"></i> Mode Harian
+    </a>
+    <a href="<?= base_url('admin/attendance/view?class_id=' . (int) $class['id'] . '&month=' . date('Y-m', strtotime($weekDates[0]))) ?>"
+      class="btn btn-secondary">
+      <i class="bi bi-calendar-month"></i> Lihat Bulanan
+    </a>
+  </div>
 </div>
 
 
