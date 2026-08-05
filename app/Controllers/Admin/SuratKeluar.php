@@ -10,6 +10,7 @@ use App\Models\SchoolModel;
 use App\Models\StudentModel;
 use App\Models\TeacherModel;
 use App\Models\SettingsModel;
+use App\Models\ClassModel;
 use App\Libraries\PdfGenerator;
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\PngWriter;
@@ -80,25 +81,46 @@ class SuratKeluar extends BaseController
         $settings = new SettingsModel();
         $school   = (new SchoolModel())->first();
 
-        // Ambil data kepala sekolah dari settings
-        $principalName = $settings->getValue('principal_name') ?? ($school['principal_name'] ?? '');
-        $principalNip  = $settings->getValue('principal_nip')  ?? ($school['principal_nip']  ?? '');
+        // Ambil data kepala sekolah dari settings / school secara robust
+        $pName = trim($settings->getValue('principal_name') ?? '');
+        if ($pName === '') {
+            $pName = trim($school['principal_name'] ?? '');
+        }
+        $principalName = $pName !== '' ? $pName : '-';
+
+        $pNip = trim($settings->getValue('principal_nip') ?? '');
+        if ($pNip === '') {
+            $pNip = trim($school['principal_nip'] ?? '');
+        }
+        $principalNip = $pNip !== '' ? $pNip : '-';
 
         // Untuk preview client-side
         $pdfGen     = new PdfGenerator();
         $kopBase64  = $pdfGen->getKopBase64();
         $activeYear = $settings->getValue('active_school_year') ?? (date('Y') . '/' . (date('Y') + 1));
 
+        // Kelas aktif untuk pilihan penerima Surat Undangan (Wali Murid)
+        $activeClasses = (new ClassModel())->where('is_active', 1)->orderBy('name', 'ASC')->findAll();
+
+        // Estimasi nomor surat berikutnya (untuk preview auto-generate)
+        $year = (int) date('Y');
+        $padding = (int) ($settings->getValue('letter_number_padding') ?? 3);
+        $seqRow = $this->model->db->table('letter_number_sequences')->where('year', $year)->get()->getRowArray();
+        $nextSeq = ($seqRow['last_sequence'] ?? 0) + 1;
+        $nextLetterNumber = OutgoingLetterModel::buildLetterNumber($nextSeq, $year, $padding);
+
         return view('admin/surat/keluar/create', [
-            'title'          => 'Buat Surat Keluar',
-            'letter_types'   => self::LETTER_TYPES,
-            'students'       => $students,
-            'teachers'       => $teachers,
-            'school'         => $school,
-            'principal_name' => $principalName,
-            'principal_nip'  => $principalNip,
-            'kop_base64'     => $kopBase64,
-            'active_year'    => $activeYear,
+            'title'              => 'Buat Surat Keluar',
+            'letter_types'       => self::LETTER_TYPES,
+            'students'           => $students,
+            'teachers'           => $teachers,
+            'school'             => $school,
+            'principal_name'     => $principalName,
+            'principal_nip'      => $principalNip,
+            'kop_base64'         => $kopBase64,
+            'active_year'        => $activeYear,
+            'active_classes'     => $activeClasses,
+            'next_letter_number' => $nextLetterNumber,
         ]);
     }
 
@@ -131,14 +153,40 @@ class SuratKeluar extends BaseController
         $school   = (new SchoolModel())->first();
         $settings = new SettingsModel();
 
-        $principalName = $settings->getValue('principal_name') ?? ($school['principal_name'] ?? '-');
-        $principalNip  = $settings->getValue('principal_nip')  ?? ($school['principal_nip']  ?? '-');
+        // Robust principal name & NIP fallback
+        $pName = trim($settings->getValue('principal_name') ?? '');
+        if ($pName === '') {
+            $pName = trim($school['principal_name'] ?? '');
+        }
+        $principalName = $pName !== '' ? $pName : '-';
 
-        // Nomor surat otomatis
-        $year     = (int) date('Y', strtotime($this->request->getPost('issued_at')));
-        $seq      = $this->model->getNextSequenceNumber($year);
-        $padding  = (int) ($settings->getValue('letter_number_padding') ?? 3);
-        $letterNo = OutgoingLetterModel::buildLetterNumber($seq, $year, $padding);
+        $pNip = trim($settings->getValue('principal_nip') ?? '');
+        if ($pNip === '') {
+            $pNip = trim($school['principal_nip'] ?? '');
+        }
+        $principalNip = $pNip !== '' ? $pNip : '-';
+
+        // Opsi Nomor Surat: Auto-Generate vs Input Manual
+        $numberMode  = $this->request->getPost('number_mode') ?? 'auto';
+        $nomorManual = trim($this->request->getPost('nomor_surat_manual') ?? '');
+        $year        = (int) date('Y', strtotime($this->request->getPost('issued_at')));
+
+        if ($numberMode === 'manual' || !empty($nomorManual)) {
+            if (empty($nomorManual)) {
+                return redirect()->back()->withInput()->with('error', 'Nomor surat manual wajib diisi jika memilih opsi input manual.');
+            }
+            // Cek duplikasi nomor surat
+            $existing = $this->model->where('letter_number', $nomorManual)->first();
+            if ($existing) {
+                return redirect()->back()->withInput()->with('error', 'Nomor surat <strong>' . esc($nomorManual) . '</strong> sudah digunakan. Gunakan nomor lain atau pilih nomor otomatis.');
+            }
+            $letterNo = $nomorManual;
+            $seq      = 0;
+        } else {
+            $seq      = $this->model->getNextSequenceNumber($year);
+            $padding  = (int) ($settings->getValue('letter_number_padding') ?? 3);
+            $letterNo = OutgoingLetterModel::buildLetterNumber($seq, $year, $padding);
+        }
 
         // UUID
         $qrCodeId = $this->generateUuid4();
@@ -458,7 +506,28 @@ class SuratKeluar extends BaseController
             $result    = $writer->write($qrCode);
             $qrDataUrl = $result->getDataUri();
 
-            $activeYear = $settings->getValue('active_school_year') ?? (date('Y') . '/' . (date('Y') + 1));
+            // Robust principal name & NIP fallback for PDF generation
+            $pName = trim($letter['principal_name_snapshot'] ?? '');
+            if ($pName === '' || $pName === '-') {
+                $pName = trim($school['principal_name'] ?? '');
+            }
+            if ($pName === '' || $pName === '-') {
+                $pName = trim($settings->getValue('principal_name') ?? '');
+            }
+            if ($pName !== '') {
+                $letter['principal_name_snapshot'] = $pName;
+            }
+
+            $pNip = trim($letter['principal_nip_snapshot'] ?? '');
+            if ($pNip === '' || $pNip === '-') {
+                $pNip = trim($school['principal_nip'] ?? '');
+            }
+            if ($pNip === '' || $pNip === '-') {
+                $pNip = trim($settings->getValue('principal_nip') ?? '');
+            }
+            if ($pNip !== '') {
+                $letter['principal_nip_snapshot'] = $pNip;
+            }
 
             $viewData = [
                 'letter'      => $letter,
