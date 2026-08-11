@@ -2,7 +2,7 @@
 // Detect if running from root or public folder
 $publicPrefix = (strpos(FCPATH, 'public') === false && is_dir(FCPATH . 'public')) ? 'public/' : '';
 ?>
-const CACHE_NAME = 'siakad-cbt-v1';
+const CACHE_NAME = 'siakad-cbt-v2';
 const OFFLINE_URL = './offline.html';
 
 // Assets to cache on install
@@ -84,8 +84,26 @@ return;
 
 // Navigate requests - try network, fallback to cache, then offline page
 if (request.mode === 'navigate') {
+// Skip authenticated/dynamic routes — let browser handle them directly.
+// These pages require session cookies and must not be cached or intercepted.
+const skipRoutes = [
+'/siswa/payment',
+'/siswa/grades',
+'/siswa/attendance',
+'/siswa/cbt',
+'/admin/',
+'/index.php/siswa/payment',
+'/index.php/siswa/grades',
+'/index.php/siswa/attendance',
+'/index.php/siswa/cbt',
+'/index.php/admin/',
+];
+if (skipRoutes.some(route => url.pathname.startsWith(route))) {
+return; // Let browser fetch natively with full cookie/session support
+}
+
 event.respondWith(
-fetch(request)
+fetch(request, { credentials: 'same-origin' })
 .catch(() => {
 return caches.match(request).then((cached) => {
 return cached || caches.match(OFFLINE_URL);

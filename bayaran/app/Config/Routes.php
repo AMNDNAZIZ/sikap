@@ -131,6 +131,7 @@ $routes->group('admin', ['filter' => 'auth'], function ($routes) {
 
 	$routes->get('laporan/harian', 'Laporan::harian');
 	$routes->get('laporan/periode', 'Laporan::periode');
+	$routes->get('laporan/yayasan', 'Laporan::yayasan');
 	$routes->get('laporan/tagihan', 'Laporan::tagihan');
 	$routes->get('laporan/tagihan/cetak/(:num)', 'Laporan::cetakTagihan/$1');
 	$routes->get('laporan/tagihan-detail/(:num)', 'Laporan::tagihanDetail/$1');

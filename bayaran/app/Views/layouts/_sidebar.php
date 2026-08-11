@@ -51,6 +51,7 @@ $menus = [
       ['text' => '📆 Harian', 'url' => 'admin/laporan/harian'],
       ['text' => '🗓️ Periode', 'url' => 'admin/laporan/periode'],
       ['text' => '📄 Tagihan Siswa', 'url' => 'admin/laporan/tagihan'],
+      ['text' => '🏢 SPP Yayasan', 'url' => 'admin/laporan/yayasan'],
     ]
   ],
   [

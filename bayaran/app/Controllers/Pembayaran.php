@@ -105,8 +105,7 @@ class Pembayaran extends BaseController
 
             // Filter by role
             if (
-                ($role === 'admin' && $tipe !== 'bulanan') ||
-                ($role === 'operator' && $tipe !== 'bebas')
+                ($role === 'admin' && $tipe !== 'bulanan')
             ) {
                 continue;
             }
@@ -150,7 +149,7 @@ class Pembayaran extends BaseController
         $data['summary'] = $summary;
         $data['siswa'] = $siswa;
 
-        $data['bulanan'] = ($role === 'operator') ? [] : array_values($grouped['bulanan']);
+        $data['bulanan'] = array_values($grouped['bulanan']);
         $data['bebas'] = ($role === 'admin') ? [] : array_values($grouped['bebas']);
 
         return view('admin/pembayaran/index', $data);

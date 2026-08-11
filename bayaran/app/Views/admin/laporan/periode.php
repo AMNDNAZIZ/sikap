@@ -31,6 +31,7 @@
 <?php if (empty($data)): ?>
   <div class="alert alert-info">Tidak ada data untuk periode ini.</div>
 <?php else: ?>
+  <?php $totalKeseluruhan = 0; ?>
   <?php foreach ($data as $kelas => $siswaList): ?>
     <div class="card mb-4">
       <div class="card-header bg-light fw-bold">Kelas: <?= esc($kelas) ?></div>
@@ -49,7 +50,10 @@
             <?php $no=1; $subTotal = 0; ?>
             <?php foreach ($siswaList as $siswa => $transList): ?>
               <?php foreach ($transList as $jenis => $row): ?>
-                <?php $subTotal += $row['jumlah']; ?>
+                <?php
+                  $subTotal += $row['jumlah'];
+                  $totalKeseluruhan += $row['jumlah'];
+                ?>
                 <tr>
                   <td><?= $no++; ?></td>
                   <td><?= esc($siswa) ?></td>
@@ -67,6 +71,13 @@
       </div>
     </div>
   <?php endforeach ?>
+  
+  <div class="alert alert-success mt-3 shadow-sm border-success">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0 fw-bold">Total Keseluruhan Periode Ini</h5>
+      <h4 class="mb-0 fw-bold">Rp <?= number_format($totalKeseluruhan, 0, ',', '.') ?></h4>
+    </div>
+  </div>
 <?php endif ?>
 
 <div class="d-flex justify-content-end gap-2 mb-3">

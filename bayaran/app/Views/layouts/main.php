@@ -245,6 +245,7 @@
                 ['text' => '📆 Harian', 'url' => 'admin/laporan/harian'],
                 ['text' => '🗓️ Periode', 'url' => 'admin/laporan/periode'],
                 ['text' => '📄 Tagihan Siswa', 'url' => 'admin/laporan/tagihan'],
+                ['text' => '🏢 SPP Yayasan', 'url' => 'admin/laporan/yayasan'],
                 ['text' => '📄 Tagihan Filter', 'url' => 'admin/laporan/filter-tagihan'],
                 ['text' => '📊 Rekap Tunggakan', 'url' => 'admin/laporan/rekap-tunggakan'],
                 ['text' => '🗓️ Per Tahun', 'url' => 'admin/laporanlain/per-tahun'],

@@ -26,6 +26,7 @@
 
 <hr>
 
+<?php if ($kasbon['status'] !== 'lunas'): ?>
 <h5>Tambah Angsuran</h5>
 <form method="post" action="<?= site_url('admin/kasbon/bayar') ?>" class="row g-2 mb-4">
   <?= csrf_field() ?>
@@ -51,6 +52,7 @@
     <button class="btn btn-success w-100">Bayar</button>
   </div>
 </form>
+<?php endif; ?>
 
 <!-- Riwayat Angsuran -->
 <h5>Riwayat Pembayaran</h5>

@@ -102,6 +102,27 @@
             </div>
           </div>
         </div>
+
+        <?php if (session()->get('role') === 'superadmin'): ?>
+        <div class="card border-0 shadow-sm mt-4" style="border-radius: 15px;">
+          <div class="card-header bg-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+            <h6 class="mb-0 fw-bold"><i class="bi bi-percent me-2 text-primary"></i>Pengaturan Khusus Yayasan</h6>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label small fw-bold text-muted">Persentase SPP Yayasan (%)</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light border-0"><i class="bi bi-pie-chart text-primary"></i></span>
+                  <input type="number" min="0" max="100" name="persentase_yayasan" value="<?= esc($setting['persentase_yayasan'] ?? '0') ?>"
+                    class="form-control border-light bg-light" placeholder="0 - 100">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <?php endif; ?>
+
       </div>
 
       <!-- Kolom Kanan: Logo & Action -->

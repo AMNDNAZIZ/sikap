@@ -9,7 +9,7 @@
     </tr>
   </thead>
   <tbody>
-    <?php $i = 1 ?>
+    <?php $i = 1; $totalKeseluruhan = 0; ?>
     <?php foreach ($data as $kelas => $siswaData): ?>
       <tr><td colspan="5"><strong>Kelas: <?= $kelas ?></strong></td></tr>
       <?php $sub = 0 ?>
@@ -22,10 +22,14 @@
             <td><?= $jenis ?></td>
             <td><?= $jumlah ?></td>
           </tr>
-          <?php $sub += $jumlah ?>
+          <?php 
+            $sub += $jumlah; 
+            $totalKeseluruhan += $jumlah;
+          ?>
         <?php endforeach ?>
       <?php endforeach ?>
       <tr><td colspan="4"><strong>Total Kelas</strong></td><td><strong><?= $sub ?></strong></td></tr>
     <?php endforeach ?>
+    <tr><td colspan="4"><strong>Total Keseluruhan</strong></td><td><strong><?= $totalKeseluruhan ?></strong></td></tr>
   </tbody>
 </table>

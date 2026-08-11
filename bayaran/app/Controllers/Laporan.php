@@ -95,8 +95,8 @@ class Laporan extends BaseController
             ->join('tagihan_siswa', 'tagihan_siswa.id = pembayaran.tagihan_id')
             ->join('siswa', 'siswa.id = tagihan_siswa.siswa_id')
             ->join('jenis_bayar', 'jenis_bayar.id = tagihan_siswa.jenis_bayar_id')
-            ->join('kelas_siswa', 'kelas_siswa.siswa_id = siswa.id')
-            ->join('kelas', 'kelas.id = kelas_siswa.kelas_id')
+            ->join('kelas_siswa', 'kelas_siswa.siswa_id = siswa.id AND kelas_siswa.tahun_ajaran_id = tagihan_siswa.tahun_ajaran_id', 'left')
+            ->join('kelas', 'kelas.id = kelas_siswa.kelas_id', 'left')
             ->where('pembayaran.tanggal >=', $start)
             ->where('pembayaran.tanggal <=', $end);
 
@@ -148,6 +148,88 @@ class Laporan extends BaseController
             'start' => $start,
             'end' => $end,
             'data' => $data
+        ]);
+    }
+
+    public function yayasan()
+    {
+        $tahunAjaranId = $this->request->getGet('tahun_ajaran_id');
+
+        $tahunAjaranModel = new \App\Models\TahunAjaranModel();
+        $semuaTahunAjaran = $tahunAjaranModel->orderBy('urutan', 'DESC')->findAll();
+
+        // Ambil tahun ajaran terpilih atau default ke aktif
+        if ($tahunAjaranId) {
+            $tahunTerpilih = $tahunAjaranModel->find($tahunAjaranId);
+        } else {
+            $tahunTerpilih = $tahunAjaranModel->where('aktif', 1)->first();
+        }
+
+        // Ambil filter bulan (angka 1-12)
+        $bulanFilter = $this->request->getGet('bulan');
+        if (!$bulanFilter) {
+            $bulanFilter = date('n');
+        }
+        $bulanFilterInt = (int) $bulanFilter;
+
+        // Ambil tahun dari format "2023/2024"
+        $parts = explode('/', $tahunTerpilih['nama']);
+        if (count($parts) == 2) {
+            $tahunAwal = (int) $parts[0];
+            $tahunAkhir = (int) $parts[1];
+        } else {
+            $tahunAwal = (int) date('Y');
+            $tahunAkhir = $tahunAwal + 1;
+        }
+
+        // Juli - Desember ikut tahun pertama, Januari - Juni ikut tahun kedua
+        if ($bulanFilterInt >= 7 && $bulanFilterInt <= 12) {
+            $tahunBulan = $tahunAwal;
+        } else {
+            $tahunBulan = $tahunAkhir;
+        }
+
+        $bulanStr = str_pad($bulanFilterInt, 2, '0', STR_PAD_LEFT);
+        $start = date('Y-m-01', strtotime("$tahunBulan-$bulanStr-01"));
+        $end = date('Y-m-t', strtotime("$tahunBulan-$bulanStr-01"));
+
+        $setting = (new \App\Models\SettingModel())->first();
+        $persentase = $setting['persentase_yayasan'] ?? 0;
+
+        $query = (new \App\Models\PembayaranModel())
+            ->select('pembayaran.*, siswa.nama, siswa.nis, kelas.nama_kelas, kelas.id as kelas_id, jenis_bayar.nama_jenis_bayar, tagihan_siswa.bulan as tagihan_bulan')
+            ->join('tagihan_siswa', 'tagihan_siswa.id = pembayaran.tagihan_id')
+            ->join('siswa', 'siswa.id = tagihan_siswa.siswa_id')
+            ->join('jenis_bayar', 'jenis_bayar.id = tagihan_siswa.jenis_bayar_id')
+            ->join('kelas_siswa', 'kelas_siswa.siswa_id = siswa.id AND kelas_siswa.tahun_ajaran_id = tagihan_siswa.tahun_ajaran_id', 'left')
+            ->join('kelas', 'kelas.id = kelas_siswa.kelas_id', 'left')
+            ->where('jenis_bayar.tipe', 'bulanan')
+            ->where('pembayaran.tanggal >=', $start)
+            ->where('pembayaran.tanggal <=', $end);
+
+        if ($tahunTerpilih) {
+            $query->where('tagihan_siswa.tahun_ajaran_id', $tahunTerpilih['id']);
+        }
+
+        $result = $query->orderBy('pembayaran.tanggal', 'DESC')->findAll();
+
+        $totalPenerimaan = 0;
+        foreach ($result as $row) {
+            $totalPenerimaan += $row['jumlah_bayar'];
+        }
+
+        $totalYayasan = ($totalPenerimaan * $persentase) / 100;
+
+        return view('admin/laporan/yayasan', [
+            'bulan' => $bulanFilterInt,
+            'tahunBulan' => $tahunBulan,
+            'data' => $result,
+            'totalPenerimaan' => $totalPenerimaan,
+            'persentase' => $persentase,
+            'totalYayasan' => $totalYayasan,
+            'tahunTerpilih' => $tahunTerpilih,
+            'semuaTahunAjaran' => $semuaTahunAjaran,
+            'tahunAjaranId' => $tahunAjaranId ?: ($tahunTerpilih['id'] ?? '')
         ]);
     }
 

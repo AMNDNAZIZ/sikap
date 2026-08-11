@@ -15,29 +15,39 @@ $role      = session('role');
 <!-- Filter -->
 <form method="get" class="row g-2 align-items-end mb-3">
   <input type="hidden" name="pos_bayar_id" value="<?= $pos['id'] ?>">
-  <div class="col-md-3">
-    <label>Tanggal Mulai</label>
-    <input type="date" name="start" class="form-control" value="<?= esc($start ?? '') ?>">
-  </div>
-  <div class="col-md-3">
-    <label>Tanggal Akhir</label>
-    <input type="date" name="end" class="form-control" value="<?= esc($end ?? '') ?>">
+  <div class="col-md-2">
+    <label>Tahun Ajaran</label>
+    <select name="tahun_ajaran_id" class="form-select">
+      <?php foreach ($semuaTahunAjaran as $ta): ?>
+        <option value="<?= $ta['id'] ?>" <?= $tahunAjaranId == $ta['id'] ? 'selected' : '' ?>>
+          <?= esc($ta['nama']) ?> <?= $ta['aktif'] ? '(Aktif)' : '' ?>
+        </option>
+      <?php endforeach; ?>
+    </select>
   </div>
   <div class="col-md-2">
-    <label>Bulan (Tahun Ajaran)</label>
+    <label>Bulan (Filter)</label>
     <select name="bulan" class="form-select">
       <option value="">-- Semua --</option>
       <?php foreach ($bulanList as $bl): ?>
-        <option value="<?= $bl ?>" <?= ($filterBulan === $bl ? 'selected' : '') ?>>
-          <?= date('F Y', strtotime($bl . '-01')) ?>
+        <option value="<?= $bl['value'] ?>" <?= ($filterBulan === $bl['value'] ? 'selected' : '') ?>>
+          <?= esc($bl['label']) ?>
         </option>
       <?php endforeach ?>
     </select>
   </div>
   <div class="col-md-2">
-    <button class="btn btn-primary w-100">Filter</button>
+    <label>Tanggal Mulai</label>
+    <input type="date" name="start" class="form-control" value="<?= esc($start ?? '') ?>">
   </div>
   <div class="col-md-2">
+    <label>Tanggal Akhir</label>
+    <input type="date" name="end" class="form-control" value="<?= esc($end ?? '') ?>">
+  </div>
+  <div class="col-md-1">
+    <button class="btn btn-primary w-100">Filter</button>
+  </div>
+  <div class="col-md-1">
     <a href="<?= current_url() ?>" class="btn btn-secondary w-100">Reset</a>
   </div>
   <div class="col-md-2">
@@ -62,7 +72,7 @@ $role      = session('role');
 <!-- Ringkasan Bulanan -->
 <?php if (!empty($ringkasanBulanan)): ?>
 <div class="card mb-3">
-  <div class="card-header">Ringkasan Bulanan (Sesuai Tahun Ajaran Aktif)</div>
+  <div class="card-header">Ringkasan Bulanan</div>
   <div class="card-body">
     <table class="table table-sm table-bordered text-center">
       <thead class="table-light">
@@ -73,14 +83,35 @@ $role      = session('role');
         </tr>
       </thead>
       <tbody>
+        <?php 
+          $totalMasukTA = 0;
+          $totalKeluarTA = 0;
+        ?>
         <?php foreach ($ringkasanBulanan as $rb): ?>
+          <?php 
+            $totalMasukTA += $rb['total_masuk'];
+            $totalKeluarTA += $rb['total_keluar'];
+          ?>
           <tr>
-            <td><?= date('F Y', strtotime($rb['bulan'] . '-01')) ?></td>
+            <td><?= esc($rb['nama_bulan']) ?></td>
             <td class="text-end">Rp <?= number_format($rb['total_masuk'], 0, ',', '.') ?></td>
             <td class="text-end">Rp <?= number_format($rb['total_keluar'], 0, ',', '.') ?></td>
           </tr>
         <?php endforeach ?>
       </tbody>
+      <tfoot class="table-light">
+        <tr>
+          <th class="text-end">Total:</th>
+          <th class="text-end">Rp <?= number_format($totalMasukTA, 0, ',', '.') ?></th>
+          <th class="text-end">Rp <?= number_format($totalKeluarTA, 0, ',', '.') ?></th>
+        </tr>
+        <tr>
+          <th class="text-end">Selisih (Saldo Tahun Ajaran):</th>
+          <th colspan="2" class="text-center text-primary fs-6">
+            Rp <?= number_format($totalMasukTA - $totalKeluarTA, 0, ',', '.') ?>
+          </th>
+        </tr>
+      </tfoot>
     </table>
   </div>
 </div>
@@ -91,6 +122,7 @@ $role      = session('role');
   <input type="hidden" name="start" value="<?= esc($start ?? '') ?>">
   <input type="hidden" name="end" value="<?= esc($end ?? '') ?>">
   <input type="hidden" name="bulan" value="<?= esc($filterBulan ?? '') ?>">
+  <input type="hidden" name="tahun_ajaran_id" value="<?= esc($tahunAjaranId ?? '') ?>">
   <div class="input-group">
     <input type="text" name="search" class="form-control" placeholder="Cari berdasarkan keterangan..." value="<?= esc($search ?? '') ?>">
     <button class="btn btn-outline-secondary" type="submit">Cari</button>

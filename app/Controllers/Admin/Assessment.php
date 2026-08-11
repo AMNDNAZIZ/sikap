@@ -112,23 +112,55 @@ class Assessment extends BaseController
         $class = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
         $subject = $this->db->table('subjects')->where('id', $subjectId)->get()->getRowArray();
 
-        $materials = $this->db->table('alur_tujuan_pembelajaran atp')
+        if (!$class || !$subject) {
+            return redirect()->to('admin/assessments')->with('error', 'Kelas atau Mata Pelajaran tidak ditemukan.');
+        }
+
+        $classLevel = (int) ($class['level'] ?? 0);
+
+        // Cek apakah mapel ini diampu oleh lebih dari 1 guru di level yang sama.
+        // Jika single-guru: ATP disimpan di salah satu kelas se-level → ambil semua se-level.
+        // Jika multi-guru: tiap guru punya ATP per kelas sendiri → filter spesifik per class_id.
+        $guruCount = $this->db->table('teaching_assignments ta')
+            ->distinct()->select('ta.teacher_id')
+            ->join('classes c', 'c.id = ta.class_id')
+            ->where('ta.subject_id', $subjectId)
+            ->where('c.level', $classLevel)
+            ->where('ta.academic_year_id', $activeYear['id'])
+            ->countAllResults();
+
+        $isMultiGuru = $guruCount > 1;
+
+        $atpBuilder = $this->db->table('alur_tujuan_pembelajaran atp')
             ->select('atp.id, atp.lingkup_materi as title, atp.semester,
                      GROUP_CONCAT(DISTINCT ms.type) as metode_terpakai,
                      COUNT(ms.id) as jumlah_nilai')
             ->join('material_scores ms', 'ms.material_id = atp.id', 'left')
-            ->where('atp.subject_id', $subjectId)
-            ->where('atp.class_id', $classId)
+            ->join('classes c_atp', 'c_atp.id = atp.class_id', 'left')
+            ->where('atp.subject_id', $subjectId);
+
+        if ($isMultiGuru) {
+            // Multi-guru: filter ketat per kelas
+            $atpBuilder->where('atp.class_id', $classId);
+        } else {
+            // Single-guru: ambil semua ATP se-level (ATP mungkin tersimpan di kelas lain)
+            $atpBuilder->where('c_atp.level', $classLevel);
+        }
+
+        $materials = $atpBuilder
             ->groupBy('atp.id')
+            ->orderBy('atp.semester', 'ASC')
+            ->orderBy('atp.urutan', 'ASC')
             ->get()
             ->getResultArray();
 
         return view('admin/assessments/formatif_list', [
-            'class' => $class,
-            'subject' => $subject,
-            'classId' => $classId,
-            'subjectId' => $subjectId,
-            'materials' => $materials
+            'class'      => $class,
+            'subject'    => $subject,
+            'classId'    => $classId,
+            'subjectId'  => $subjectId,
+            'materials'  => $materials,
+            'isMultiGuru' => $isMultiGuru,
         ]);
     }
 
@@ -187,12 +219,32 @@ class Assessment extends BaseController
         $methodStatus = [];
 
         if ($type === 'formatif') {
-            // Ambil materi dari ATP
-            $materials = $this->db->table('alur_tujuan_pembelajaran')
-                ->select('id, lingkup_materi as title')
-                ->where('subject_id', $subjectId)
-                ->where('class_id', $classId)
-                ->orderBy('urutan', 'ASC')
+            // Ambil materi dari ATP — single-guru: ambil se-level, multi-guru: per kelas
+            $classInfo  = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+            $classLevel = (int) ($classInfo['level'] ?? 0);
+
+            $guruCount = $this->db->table('teaching_assignments ta')
+                ->distinct()->select('ta.teacher_id')
+                ->join('classes c', 'c.id = ta.class_id')
+                ->where('ta.subject_id', $subjectId)
+                ->where('c.level', $classLevel)
+                ->where('ta.academic_year_id', $activeYear['id'])
+                ->countAllResults();
+
+            $matBuilder = $this->db->table('alur_tujuan_pembelajaran atp')
+                ->select('atp.id, atp.lingkup_materi as title')
+                ->join('classes c_atp', 'c_atp.id = atp.class_id', 'left')
+                ->where('atp.subject_id', $subjectId);
+
+            if ($guruCount > 1) {
+                $matBuilder->where('atp.class_id', $classId);
+            } else {
+                $matBuilder->where('c_atp.level', $classLevel);
+            }
+
+            $materials = $matBuilder
+                ->orderBy('atp.semester', 'ASC')
+                ->orderBy('atp.urutan', 'ASC')
                 ->get()
                 ->getResultArray();
 

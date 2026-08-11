@@ -212,20 +212,43 @@ class TransaksiPos extends BaseController
     
         $db = db_connect();
     
-        /*
-         *  Buat daftar bulan yang ada pada transaksi_pos untuk POS ini
-         *  Format: YYYY-MM
-         */
-        $bulanRows = $db->table('transaksi_pos')
-            ->select("DATE_FORMAT(tanggal, '%Y-%m') AS bulan", false)
-            ->where('pos_bayar_id', $posId)
-            ->groupBy("DATE_FORMAT(tanggal, '%Y-%m')")
-            ->orderBy('bulan', 'desc')
-            ->get()
-            ->getResultArray();
-    
-        $bulanList = array_column($bulanRows, 'bulan');
-    
+        // Tahun Ajaran
+        $tahunAjaranModel = new \App\Models\TahunAjaranModel();
+        $semuaTahunAjaran = $tahunAjaranModel->orderBy('urutan', 'DESC')->findAll();
+        $tahunAjaranId = $this->request->getGet('tahun_ajaran_id');
+        
+        if ($tahunAjaranId) {
+            $tahunTerpilih = $tahunAjaranModel->find($tahunAjaranId);
+        } else {
+            $tahunTerpilih = $tahunAjaranModel->where('aktif', 1)->first();
+            $tahunAjaranId = $tahunTerpilih['id'] ?? null;
+        }
+
+        // Ambil tahun dari format "2023/2024"
+        $parts = explode('/', $tahunTerpilih['nama'] ?? '');
+        if (count($parts) == 2) {
+            $tahunAwal = (int) $parts[0];
+            $tahunAkhir = (int) $parts[1];
+        } else {
+            $tahunAwal = (int) date('Y');
+            $tahunAkhir = $tahunAwal + 1;
+        }
+
+        $bulanListAkademik = [
+            ['nama' => 'Juli', 'bulan' => '07', 'tahun' => $tahunAwal],
+            ['nama' => 'Agustus', 'bulan' => '08', 'tahun' => $tahunAwal],
+            ['nama' => 'September', 'bulan' => '09', 'tahun' => $tahunAwal],
+            ['nama' => 'Oktober', 'bulan' => '10', 'tahun' => $tahunAwal],
+            ['nama' => 'November', 'bulan' => '11', 'tahun' => $tahunAwal],
+            ['nama' => 'Desember', 'bulan' => '12', 'tahun' => $tahunAwal],
+            ['nama' => 'Januari', 'bulan' => '01', 'tahun' => $tahunAkhir],
+            ['nama' => 'Februari', 'bulan' => '02', 'tahun' => $tahunAkhir],
+            ['nama' => 'Maret', 'bulan' => '03', 'tahun' => $tahunAkhir],
+            ['nama' => 'April', 'bulan' => '04', 'tahun' => $tahunAkhir],
+            ['nama' => 'Mei', 'bulan' => '05', 'tahun' => $tahunAkhir],
+            ['nama' => 'Juni', 'bulan' => '06', 'tahun' => $tahunAkhir],
+        ];
+
         // Ambil pilihan bulan dari request
         $filterBulan = $this->request->getGet('bulan');
     
@@ -235,18 +258,43 @@ class TransaksiPos extends BaseController
             $end   = date('Y-m-t', strtotime($start)); // last day of month
         }
     
-        // Ringkasan bulanan (semua bulan untuk POS) — dapat ditampilkan pada view
-        $ringkasanBulanan = $db->table('transaksi_pos')
+        // Ringkasan bulanan (sesuai tahun ajaran)
+        $startAjaran = "$tahunAwal-07-01";
+        $endAjaran   = "$tahunAkhir-06-30";
+
+        $ringkasanQuery = $db->table('transaksi_pos')
             ->select("
-                DATE_FORMAT(tanggal, '%Y-%m') AS bulan,
+                DATE_FORMAT(tanggal, '%Y-%m') AS bulan_tahun,
                 SUM(IF(tipe='masuk', jumlah, 0)) AS total_masuk,
                 SUM(IF(tipe='keluar', jumlah, 0)) AS total_keluar
             ", false)
             ->where('pos_bayar_id', $posId)
+            ->where('tanggal >=', $startAjaran)
+            ->where('tanggal <=', $endAjaran)
             ->groupBy("DATE_FORMAT(tanggal, '%Y-%m')")
-            ->orderBy('bulan', 'asc')
             ->get()
             ->getResultArray();
+            
+        $ringkasanMap = [];
+        foreach($ringkasanQuery as $r) {
+            $ringkasanMap[$r['bulan_tahun']] = $r;
+        }
+        
+        $ringkasanBulanan = [];
+        $bulanList = []; // dropdown
+        foreach($bulanListAkademik as $bln) {
+            $bt = $bln['tahun'] . '-' . $bln['bulan'];
+            $ringkasanBulanan[] = [
+                'nama_bulan' => $bln['nama'] . ' ' . $bln['tahun'],
+                'bulan_tahun' => $bt,
+                'total_masuk' => $ringkasanMap[$bt]['total_masuk'] ?? 0,
+                'total_keluar' => $ringkasanMap[$bt]['total_keluar'] ?? 0,
+            ];
+            $bulanList[] = [
+                'value' => $bt,
+                'label' => $bln['nama'] . ' ' . $bln['tahun']
+            ];
+        }
     
         // Ambil semua transaksi ASC untuk hitung saldo berjalan (menggunakan start/end/search)
         $saldoQuery = $model->where('pos_bayar_id', $posId);
@@ -286,17 +334,14 @@ class TransaksiPos extends BaseController
             'pager'            => $pager,
             'start'            => $start,
             'end'              => $end,
-            'page'             => $page,
             'search'           => $search,
-    
-            // Tambahan untuk view bulan & ringkasan
-            'bulanList'        => $bulanList,
             'filterBulan'      => $filterBulan,
+            'bulanList'        => $bulanList,
             'ringkasanBulanan' => $ringkasanBulanan,
-    
-            // Untuk hak akses/view logic
             'bulananPosIds'    => $bulananPosIds,
             'bebasPosIds'      => $bebasPosIds,
+            'tahunAjaranId'    => $tahunAjaranId,
+            'semuaTahunAjaran' => $semuaTahunAjaran,
         ]);
     }
 

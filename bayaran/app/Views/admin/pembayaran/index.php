@@ -195,14 +195,24 @@
                                 <?php elseif ($item['status'] === 'lunas'): ?>
                                   <span class="text-muted">-</span>
                                 <?php else: ?>
-                                  <input type="date" name="tanggal" class="form-control form-control-sm"
-                                    value="<?= date('Y-m-d') ?>">
+                                  <?php if (session('role') === 'operator'): ?>
+                                    <span class="text-muted small">Hanya Lihat</span>
+                                  <?php else: ?>
+                                    <input type="date" name="tanggal" class="form-control form-control-sm"
+                                      value="<?= date('Y-m-d') ?>">
+                                  <?php endif; ?>
                                 <?php endif ?>
                               </td>
                               <td class="cara <?= $c ?>">
-                                <?= $item['status'] === 'lunas'
-                                  ? esc(ucfirst($item['cara_bayar'] ?? '-'))
-                                  : '<select name="cara_bayar" class="form-select form-select-sm"><option>Tunai</option><option>Transfer</option><option>KJP</option><option>BPMS</option></select>' ?>
+                                <?php if ($item['status'] === 'lunas'): ?>
+                                  <?= esc(ucfirst($item['cara_bayar'] ?? '-')) ?>
+                                <?php else: ?>
+                                  <?php if (session('role') === 'operator'): ?>
+                                    <span class="text-muted small">-</span>
+                                  <?php else: ?>
+                                    <select name="cara_bayar" class="form-select form-select-sm"><option>Tunai</option><option>Transfer</option><option>KJP</option><option>BPMS</option></select>
+                                  <?php endif; ?>
+                                <?php endif; ?>
                               </td>
                               <td class="aksi">
                                 <?php if ($item['jumlah'] == 0): ?>
@@ -210,15 +220,21 @@
                                 <?php elseif ($item['status'] === 'lunas' && !empty($item['pembayaran_id'])): ?>
                                   <a href="<?= site_url("admin/pembayaran/cetak/" . esc($item['pembayaran_id'])) ?>"
                                     target="_blank" class="btn btn-sm btn-info">Cetak</a>
-                                  <button class="btn btn-sm btn-danger btn-hapus"
-                                    data-id="<?= esc($item['pembayaran_id']) ?>">Hapus</button>
+                                  <?php if (session('role') !== 'operator'): ?>
+                                    <button class="btn btn-sm btn-danger btn-hapus"
+                                      data-id="<?= esc($item['pembayaran_id']) ?>">Hapus</button>
+                                  <?php endif; ?>
                                 <?php else: ?>
-                                  <form class="form-bayar d-flex gap-1 align-items-center">
-                                    <?= csrf_field() ?>
-                                    <input type="hidden" name="siswa_id" value="<?= $siswa['id'] ?>">
-                                    <input type="hidden" name="jenis_bayar_id" value="<?= $b['id'] ?>">
-                                    <button class="btn btn-sm btn-success">Bayar</button>
-                                  </form>
+                                  <?php if (session('role') === 'operator'): ?>
+                                    <span class="badge bg-secondary">Terkunci</span>
+                                  <?php else: ?>
+                                    <form class="form-bayar d-flex gap-1 align-items-center">
+                                      <?= csrf_field() ?>
+                                      <input type="hidden" name="siswa_id" value="<?= $siswa['id'] ?>">
+                                      <input type="hidden" name="jenis_bayar_id" value="<?= $b['id'] ?>">
+                                      <button class="btn btn-sm btn-success">Bayar</button>
+                                    </form>
+                                  <?php endif; ?>
                                 <?php endif ?>
                               </td>
                             </tr>

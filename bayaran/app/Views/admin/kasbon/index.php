@@ -62,6 +62,7 @@
           <a href="<?= site_url('admin/kasbon/riwayat/' . $k['id']) ?>" class="btn btn-sm btn-warning">Bayar</a>
         <?php endif ?>
         <?php if ($k['status'] === 'lunas'): ?>
+          <a href="<?= site_url('admin/kasbon/riwayat/' . $k['id']) ?>" class="btn btn-sm btn-info">Rincian</a>
           <form method="post" action="<?= site_url('admin/kasbon/delete/' . $k['id']) ?>" style="display:inline" onsubmit="return confirm('Hapus kasbon?')">
             <?= csrf_field() ?>
             <button class="btn btn-sm btn-danger">Hapus</button>
