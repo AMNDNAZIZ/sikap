@@ -1826,7 +1826,7 @@ class AdministrasiGuru extends BaseController
             $url = 'https://api.groq.com/openai/v1/chat/completions';
             $ch = curl_init($url);
             $payload = json_encode([
-                "model" => "llama-3.3-70b-versatile",
+                "model" => "meta-llama/llama-4-scout-17b-16e-instruct",
                 "messages" => [
                     ["role" => "user", "content" => $prompt]
                 ],
@@ -1837,7 +1837,7 @@ class AdministrasiGuru extends BaseController
                 'Content-Type: application/json'
             ]);
         } else {
-            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=' . $apiKey;
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' . $apiKey;
             $ch = curl_init($url);
             $payload = json_encode([
                 "contents" => [
@@ -1846,11 +1846,12 @@ class AdministrasiGuru extends BaseController
             ]);
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
         }
-        
+
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 120);
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
@@ -1860,14 +1861,11 @@ class AdministrasiGuru extends BaseController
             log_message('error', "Modul Ajar AI ($aiProvider) Failed. HTTP: $httpCode. Curl Error: $curlError. Response: $response");
             $errorMsg = "Gagal memanggil API $aiProvider (HTTP $httpCode). ";
             if ($response) {
-                // Try parsing the error object
                 $errRes = json_decode($response, true);
-                if ($aiProvider === 'groq' && isset($errRes['error']['message'])) {
-                    $errorMsg .= "Error API: " . $errRes['error']['message'];
-                } elseif (isset($errRes['error']['message'])) {
+                if (isset($errRes['error']['message'])) {
                     $errorMsg .= "Error API: " . $errRes['error']['message'];
                 } else {
-                    $errorMsg .= "Pastikan API Key valid atau batas kuota.";
+                    $errorMsg .= "Pastikan API Key valid atau cek batas kuota.";
                 }
             } elseif ($curlError) {
                 $errorMsg .= "cURL: $curlError";
@@ -2684,13 +2682,13 @@ class AdministrasiGuru extends BaseController
         if ($aiProvider === 'groq') {
             $url = 'https://api.groq.com/openai/v1/chat/completions';
             $payload = json_encode([
-                "model" => "llama-3.3-70b-versatile",
+                "model" => "meta-llama/llama-4-scout-17b-16e-instruct",
                 "messages" => [["role" => "user", "content" => $prompt]],
                 "temperature" => 0.7
             ]);
             $headers = ['Authorization: Bearer ' . $apiKey, 'Content-Type: application/json'];
         } else {
-            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=' . $apiKey;
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' . $apiKey;
             $payload = json_encode(["contents" => [["parts" => [["text" => $prompt]]]]]);
             $headers = ['Content-Type: application/json'];
         }
