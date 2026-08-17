@@ -64,6 +64,13 @@
     </li>
 
     <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/tugas*') ? 'active' : '' ?>"
+        href="<?= base_url('admin/tugas') ?>">
+        📋 <span class="label">Kirim Tugas</span>
+      </a>
+    </li>
+
+    <li class="nav-item">
       <a class="nav-link <?= url_is('admin/erapor*') ? 'active' : '' ?>"
         href="<?= base_url('admin/erapor') ?>">
         📋 <span class="label">Nilai Erapor</span>

@@ -29,6 +29,13 @@
       </a>
     </li>
 
+    <!-- Kirim Tugas -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('siswa/tugas*') ? 'active' : '' ?>" href="<?= site_url('siswa/tugas') ?>">
+        📋 <span class="label">Kirim Tugas</span>
+      </a>
+    </li>
+
     <!-- Catatan Siswa -->
     <li class="nav-item">
       <a class="nav-link <?= url_is('siswa/student-notes*') ? 'active' : '' ?>"
