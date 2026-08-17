@@ -12,23 +12,17 @@ class App extends BaseConfig
      * --------------------------------------------------------------------------
      *
      * URL to your CodeIgniter root. Typically, this will be your base URL,
-     * WITH a trailing slash:
+     * WITH a trailing slash.
      *
-     * E.g., http://example.com/
-     *
-     * If this is not set, CI4 will attempt to auto-detect the base URL.
-     * Leave empty for auto-detection (recommended for multi-environment).
+     * Di-set dinamis di constructor berdasarkan HTTP_HOST agar
+     * berjalan di semua environment tanpa konfigurasi manual.
+     * Override via .env: app.baseURL = 'https://smpistora.sch.id/'
      */
-    public string $baseURL = '';
+    public string $baseURL = 'http://localhost/siakad/';
 
     /**
      * Allowed Hostnames in the Site URL other than the hostname in the baseURL.
      * If you want to accept multiple Hostnames, set this.
-     *
-     * E.g.,
-     * When your site URL ($baseURL) is 'http://example.com/', and your site
-     * also accepts 'http://media.example.com/' and 'http://accounts.example.com/':
-     *     ['media.example.com', 'accounts.example.com']
      *
      * @var list<string>
      */
@@ -39,14 +33,54 @@ class App extends BaseConfig
      * Index File
      * --------------------------------------------------------------------------
      *
-     * Typically, this will be your `index.php` file, unless you've renamed it to
-     * something else. If you have configured your web server to remove this file
-     * from your site URIs, set this variable to an empty string.
-     *
-     * Set to empty string karena .htaccess sudah handle rewrite,
-     * sehingga URL bersih tanpa index.php di semua environment.
+     * Set kosong karena .htaccess sudah handle rewrite —
+     * URL bersih tanpa index.php di semua environment.
      */
     public string $indexPage = '';
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        // Jika baseURL sudah di-set via .env, gunakan itu (prioritas tertinggi).
+        // Jika masih default localhost, auto-detect dari request saat ini.
+        $envBaseURL = env('app.baseURL', '');
+        if (!empty($envBaseURL) && $envBaseURL !== 'http://localhost/siakad/') {
+            $this->baseURL = rtrim($envBaseURL, '/') . '/';
+            return;
+        }
+
+        // Auto-detect: bangun baseURL dari HTTP_HOST + path prefix
+        if (!isset($_SERVER['HTTP_HOST'])) {
+            // CLI / spark — gunakan fallback
+            return;
+        }
+
+        $host = $_SERVER['HTTP_HOST'];
+
+        // Deteksi protokol (termasuk reverse proxy / cPanel hosting)
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (int)($_SERVER['SERVER_PORT'] ?? 80) === 443
+            || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])
+                && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+
+        $scheme = $isHttps ? 'https' : 'http';
+
+        // Deteksi subfolder dari SCRIPT_NAME
+        // localhost/siakad/ → SCRIPT_NAME = /siakad/index.php
+        // hosting root      → SCRIPT_NAME = /index.php
+        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '/index.php';
+        $basePath   = rtrim(dirname($scriptName), '/\\');
+
+        // Strip /public di akhir jika entry point adalah public/index.php langsung
+        $basePath = preg_replace('#/public$#i', '', $basePath);
+
+        if ($basePath !== '' && $basePath !== '/' && $basePath !== '.') {
+            $this->baseURL = $scheme . '://' . $host . $basePath . '/';
+        } else {
+            $this->baseURL = $scheme . '://' . $host . '/';
+        }
+    }
 
     /**
      * --------------------------------------------------------------------------
