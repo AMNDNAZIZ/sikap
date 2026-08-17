@@ -1,6 +1,6 @@
 {
     "version": "1.2.8",
-    "generated": "2026-08-17 09:17:06",
+    "generated": "2026-08-17 12:39:18",
     "last_update": "2026-08-04 07:00",
     "total_files": 804,
     "files": {
@@ -91,7 +91,7 @@
         "app/Controllers/Admin/Holidays.php": "f8bee30e3a2152e6a25d78352a8ed5fb",
         "app/Controllers/Admin/JenjangMaster.php": "a246d1ac3abfd3fad12e1c89c00edf59",
         "app/Controllers/Admin/KartuPeserta.php": "a6a08e5bbe414462ddc48c7a067d575b",
-        "app/Controllers/Admin/Kokurikuler.php": "0206cd0621f393181e02f6d173d2856e",
+        "app/Controllers/Admin/Kokurikuler.php": "85d720760b5de531d554ea34f14664b3",
         "app/Controllers/Admin/MapelMaster.php": "0d2839d2596124dd8a342e7be4aede87",
         "app/Controllers/Admin/Materials.php": "b262fa734178b43539428fb7d24b3120",
         "app/Controllers/Admin/Placement.php": "fca788aaf1a5c90c65e5d5737fe7fcb4",
@@ -225,7 +225,7 @@
         "app/Libraries/AnswerNormalizer.php": "11fef1cd67e94a76d183503705e2f2c5",
         "app/Libraries/EbookAccessService.php": "db5e3d16f9770c3e76bdd9ca528f4f28",
         "app/Libraries/ExcelGenerator.php": "ac481bd74f64ace6c98dc10294a91eb9",
-        "app/Libraries/LicenseGuard.php": "c39f314d1b4ac423e87334789c5e9594",
+        "app/Libraries/LicenseGuard.php": "2b63916b639e198a6f9b0753cf5899fb",
         "app/Libraries/PdfGenerator.php": "2b741920071268dc354c0ed74bde65c4",
         "app/Libraries/SecureConfig.php": "1c01eecbf78bb6a906c0b059951d2096",
         "app/Libraries/SecurityGuard.php": "da32fe85c45c6b79ee1f8e51f8565601",
