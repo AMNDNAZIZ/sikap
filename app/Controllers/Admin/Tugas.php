@@ -5,9 +5,7 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Models\TugasModel;
 use App\Models\TugasSubmissionModel;
-use App\Models\TeachingAssignmentModel;
 use App\Models\AcademicYearModel;
-use App\Models\StudentModel;
 
 class Tugas extends BaseController
 {
@@ -38,6 +36,55 @@ class Tugas extends BaseController
         return ($user['role_id'] ?? 0) == 3 ? (int) $user['related_id'] : null;
     }
 
+    /**
+     * Ambil daftar kelas dan mapel yang bisa dipilih saat buat/edit tugas.
+     * Admin → semua kelas & mapel.
+     * Guru  → hanya kelas & mapel yang diampu di tahun ajaran aktif.
+     * Menggunakan GROUP BY untuk menghindari DISTINCT-pada-alias yang error di CI4.
+     */
+    private function getClassesAndSubjects(): array
+    {
+        if ($this->isAdmin()) {
+            return [
+                'classes'  => $this->db->table('classes')
+                    ->where('is_active', 1)->orderBy('name')->get()->getResultArray(),
+                'subjects' => $this->db->table('subjects')
+                    ->orderBy('name')->get()->getResultArray(),
+            ];
+        }
+
+        $teacherId  = $this->getTeacherId();
+        $activeYear = (new AcademicYearModel())->getActiveYear();
+
+        $rows = $this->db->table('teaching_assignments ta')
+            ->select('c.id as class_id, c.name as class_name, s.id as subject_id, s.name as subject_name')
+            ->join('classes c', 'c.id = ta.class_id')
+            ->join('subjects s', 's.id = ta.subject_id')
+            ->where('ta.teacher_id', $teacherId)
+            ->where('ta.academic_year_id', $activeYear['id'] ?? 0)
+            ->groupBy('c.id, s.id')
+            ->orderBy('c.name')
+            ->get()->getResultArray();
+
+        $classes     = [];
+        $subjects    = [];
+        $seenClass   = [];
+        $seenSubject = [];
+
+        foreach ($rows as $r) {
+            if (!isset($seenClass[$r['class_id']])) {
+                $classes[]                  = ['id' => $r['class_id'], 'name' => $r['class_name']];
+                $seenClass[$r['class_id']]  = true;
+            }
+            if (!isset($seenSubject[$r['subject_id']])) {
+                $subjects[]                      = ['id' => $r['subject_id'], 'name' => $r['subject_name']];
+                $seenSubject[$r['subject_id']]   = true;
+            }
+        }
+
+        return compact('classes', 'subjects');
+    }
+
     // ─────────────────────────────────────────────
     // INDEX — daftar tugas
     // ─────────────────────────────────────────────
@@ -46,7 +93,6 @@ class Tugas extends BaseController
         $teacherId = $this->isAdmin() ? null : $this->getTeacherId();
         $tugasList = $this->tugasModel->getForTeacher($teacherId);
 
-        $now = date('Y-m-d H:i:s');
         foreach ($tugasList as &$t) {
             $t['status'] = TugasModel::getStatus($t);
         }
@@ -64,27 +110,7 @@ class Tugas extends BaseController
     // ─────────────────────────────────────────────
     public function create()
     {
-        $user      = $this->getUser();
-        $teacherId = $this->getTeacherId();
-        $activeYear = (new AcademicYearModel())->getActiveYear();
-
-        // Ambil kelas & mapel yang diampu
-        if ($this->isAdmin()) {
-            $classes  = $this->db->table('classes')->where('is_active', 1)->orderBy('name')->get()->getResultArray();
-            $subjects = $this->db->table('subjects')->orderBy('name')->get()->getResultArray();
-        } else {
-            $assignments = $this->db->table('teaching_assignments ta')
-                ->select('DISTINCT c.id as class_id, c.name as class_name, s.id as subject_id, s.name as subject_name')
-                ->join('classes c', 'c.id = ta.class_id')
-                ->join('subjects s', 's.id = ta.subject_id')
-                ->where('ta.teacher_id', $teacherId)
-                ->where('ta.academic_year_id', $activeYear['id'] ?? 0)
-                ->orderBy('c.name')
-                ->get()->getResultArray();
-
-            $classes  = array_values(array_unique(array_map(fn($a) => ['id' => $a['class_id'], 'name' => $a['class_name']], $assignments), SORT_REGULAR));
-            $subjects = array_values(array_unique(array_map(fn($a) => ['id' => $a['subject_id'], 'name' => $a['subject_name']], $assignments), SORT_REGULAR));
-        }
+        ['classes' => $classes, 'subjects' => $subjects] = $this->getClassesAndSubjects();
 
         return view('admin/tugas/create', [
             'title'    => 'Buat Tugas Baru',
@@ -145,14 +171,12 @@ class Tugas extends BaseController
             return redirect()->to('admin/tugas')->with('error', 'Tugas tidak ditemukan.');
         }
 
-        // Pastikan guru hanya bisa lihat tugasnya sendiri
         if (!$this->isAdmin() && $tugas['teacher_id'] != $this->getTeacherId()) {
             return redirect()->to('admin/tugas')->with('error', 'Akses ditolak.');
         }
 
         $activeYear = (new AcademicYearModel())->getActiveYear();
 
-        // Ambil semua siswa di kelas tersebut
         $students = $this->db->table('students st')
             ->select('st.id, st.name, st.nis')
             ->join('student_records sr', 'sr.student_id = st.id')
@@ -162,8 +186,7 @@ class Tugas extends BaseController
             ->orderBy('st.name')
             ->get()->getResultArray();
 
-        // Ambil semua submission
-        $submissions = $this->submissionModel->getByTugas($id);
+        $submissions   = $this->submissionModel->getByTugas($id);
         $submissionMap = array_column($submissions, null, 'student_id');
 
         $tugas['status'] = TugasModel::getStatus($tugas);
@@ -188,31 +211,14 @@ class Tugas extends BaseController
     public function edit($id)
     {
         $tugas = $this->tugasModel->find($id);
-        if (!$tugas) return redirect()->to('admin/tugas')->with('error', 'Tugas tidak ditemukan.');
+        if (!$tugas) {
+            return redirect()->to('admin/tugas')->with('error', 'Tugas tidak ditemukan.');
+        }
         if (!$this->isAdmin() && $tugas['teacher_id'] != $this->getTeacherId()) {
             return redirect()->to('admin/tugas')->with('error', 'Akses ditolak.');
         }
 
-        $user      = $this->getUser();
-        $teacherId = $this->getTeacherId();
-        $activeYear = (new AcademicYearModel())->getActiveYear();
-
-        if ($this->isAdmin()) {
-            $classes  = $this->db->table('classes')->where('is_active', 1)->orderBy('name')->get()->getResultArray();
-            $subjects = $this->db->table('subjects')->orderBy('name')->get()->getResultArray();
-        } else {
-            $assignments = $this->db->table('teaching_assignments ta')
-                ->select('DISTINCT c.id as class_id, c.name as class_name, s.id as subject_id, s.name as subject_name')
-                ->join('classes c', 'c.id = ta.class_id')
-                ->join('subjects s', 's.id = ta.subject_id')
-                ->where('ta.teacher_id', $teacherId)
-                ->where('ta.academic_year_id', $activeYear['id'] ?? 0)
-                ->orderBy('c.name')
-                ->get()->getResultArray();
-
-            $classes  = array_values(array_unique(array_map(fn($a) => ['id' => $a['class_id'], 'name' => $a['class_name']], $assignments), SORT_REGULAR));
-            $subjects = array_values(array_unique(array_map(fn($a) => ['id' => $a['subject_id'], 'name' => $a['subject_name']], $assignments), SORT_REGULAR));
-        }
+        ['classes' => $classes, 'subjects' => $subjects] = $this->getClassesAndSubjects();
 
         return view('admin/tugas/create', [
             'title'    => 'Edit Tugas',
@@ -229,7 +235,9 @@ class Tugas extends BaseController
     public function update($id)
     {
         $tugas = $this->tugasModel->find($id);
-        if (!$tugas) return redirect()->to('admin/tugas')->with('error', 'Tugas tidak ditemukan.');
+        if (!$tugas) {
+            return redirect()->to('admin/tugas')->with('error', 'Tugas tidak ditemukan.');
+        }
         if (!$this->isAdmin() && $tugas['teacher_id'] != $this->getTeacherId()) {
             return redirect()->to('admin/tugas')->with('error', 'Akses ditolak.');
         }
@@ -259,7 +267,9 @@ class Tugas extends BaseController
     public function delete($id)
     {
         $tugas = $this->tugasModel->find($id);
-        if (!$tugas) return redirect()->to('admin/tugas')->with('error', 'Tugas tidak ditemukan.');
+        if (!$tugas) {
+            return redirect()->to('admin/tugas')->with('error', 'Tugas tidak ditemukan.');
+        }
         if (!$this->isAdmin() && $tugas['teacher_id'] != $this->getTeacherId()) {
             return redirect()->to('admin/tugas')->with('error', 'Akses ditolak.');
         }
@@ -276,14 +286,16 @@ class Tugas extends BaseController
     public function nilai($tugasId, $studentId)
     {
         $tugas = $this->tugasModel->find($tugasId);
-        if (!$tugas) return redirect()->back()->with('error', 'Tugas tidak ditemukan.');
+        if (!$tugas) {
+            return redirect()->back()->with('error', 'Tugas tidak ditemukan.');
+        }
         if (!$this->isAdmin() && $tugas['teacher_id'] != $this->getTeacherId()) {
             return redirect()->back()->with('error', 'Akses ditolak.');
         }
 
-        $nilai       = $this->request->getPost('nilai');
-        $catatanGuru = $this->request->getPost('catatan_guru');
-        $user        = $this->getUser();
+        $nilai      = $this->request->getPost('nilai');
+        $catatan    = $this->request->getPost('catatan_guru');
+        $user       = $this->getUser();
 
         $nilaiValid = ['sangat_bagus', 'bagus', 'kurang', 'belajar_lagi'];
         if (!in_array($nilai, $nilaiValid)) {
@@ -297,7 +309,7 @@ class Tugas extends BaseController
 
         $this->submissionModel->update($existing['id'], [
             'nilai'        => $nilai,
-            'catatan_guru' => $catatanGuru,
+            'catatan_guru' => $catatan,
             'dinilai_at'   => date('Y-m-d H:i:s'),
             'dinilai_oleh' => $user['id'],
         ]);
@@ -306,7 +318,7 @@ class Tugas extends BaseController
     }
 
     // ─────────────────────────────────────────────
-    // UPLOAD IMAGE — untuk CKEditor di form tugas
+    // UPLOAD IMAGE — CKEditor
     // ─────────────────────────────────────────────
     public function uploadImage()
     {
