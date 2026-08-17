@@ -104,37 +104,67 @@
   </form>
 </div>
 
-<!-- CKEditor 5 -->
-<script src="https://cdn.ckeditor.com/ckeditor5/42.0.0/ckeditor5.umd.js"></script>
+<!-- CKEditor 5 Superbuild -->
+<script src="https://cdn.ckeditor.com/ckeditor5/41.1.0/super-build/ckeditor.js"></script>
 <script>
-const { ClassicEditor, Essentials, Bold, Italic, Underline, Strikethrough,
-        Paragraph, Heading, Image, ImageUpload, ImageCaption, ImageStyle,
-        ImageToolbar, ImageResize, Link, BlockQuote, List, Indent,
-        MediaEmbed, Table, TableToolbar, Alignment, Font } = CKEDITOR;
-
-ClassicEditor.create(document.querySelector('#deskripsi'), {
-  plugins: [Essentials, Bold, Italic, Underline, Strikethrough,
-            Paragraph, Heading, Image, ImageUpload, ImageCaption,
-            ImageStyle, ImageToolbar, ImageResize, Link, BlockQuote,
-            List, Indent, Table, TableToolbar, Alignment, Font],
-  toolbar: {
-    items: ['heading', '|', 'bold', 'italic', 'underline', 'strikethrough', '|',
-            'alignment', '|', 'bulletedList', 'numberedList', 'outdent', 'indent', '|',
-            'link', 'blockQuote', 'insertTable', '|',
-            'uploadImage', '|', 'undo', 'redo'],
-  },
-  simpleUpload: {
-    uploadUrl: '<?= site_url('admin/tugas/upload-image') ?>',
-    withCredentials: true,
-    headers: {
-      'X-CSRF-TOKEN': '<?= csrf_hash() ?>',
+$(function () {
+  CKEDITOR.ClassicEditor.create(document.querySelector('#deskripsi'), {
+    toolbar: {
+      items: [
+        'undo', 'redo', '|',
+        'heading', '|',
+        'bold', 'italic', 'underline', 'strikethrough', '|',
+        'fontSize', 'fontColor', '|',
+        'link', 'uploadImage', 'insertTable', 'blockQuote', '|',
+        'bulletedList', 'numberedList', 'outdent', 'indent', '|',
+        'alignment', '|',
+        'removeFormat'
+      ],
+      shouldNotGroupWhenFull: true
     },
-  },
-  image: {
-    toolbar: ['imageStyle:inline', 'imageStyle:block', 'imageStyle:side', '|',
-              'toggleImageCaption', 'imageTextAlternative', '|', 'resizeImage'],
-  },
-}).catch(err => console.error(err));
+    image: {
+      toolbar: ['imageTextAlternative', 'imageStyle:inline', 'imageStyle:block', 'imageStyle:side']
+    },
+    table: {
+      contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells']
+    },
+    removePlugins: [
+      'AIAssistant', 'AIAssistantUI', 'AIAdapter', 'CKBox', 'CKBoxImageEdit',
+      'CKBoxUtils', 'CloudServices', 'CloudServicesUploadAdapter', 'EasyImage',
+      'Comments', 'RealTimeCollaborativeComments', 'TrackChanges',
+      'RealTimeCollaborativeTrackChanges', 'RevisionHistory',
+      'RealTimeCollaborativeRevisionHistory', 'PresenceList',
+      'RealTimeCollaboration', 'Pagination', 'WProofreader', 'MathType',
+      'ChemType', 'Mentions', 'SlashCommand', 'Template', 'DocumentOutline',
+      'FormatPainter', 'TableOfContents', 'PasteFromOfficeEnhanced',
+      'CaseChange', 'ExportPdf', 'ExportWord'
+    ],
+  })
+  .then(editor => {
+    editor.editing.view.change(writer => {
+      writer.setStyle('min-height', '250px', editor.editing.view.document.getRoot());
+    });
+
+    editor.plugins.get('FileRepository').createUploadAdapter = (loader) => ({
+      upload: () => loader.file.then(file => new Promise((resolve, reject) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
+        $.ajax({
+          url: '<?= site_url('admin/tugas/upload-image') ?>',
+          type: 'POST',
+          data: formData,
+          processData: false,
+          contentType: false,
+          success: (r) => r.success ? resolve({ default: r.url }) : reject(r.message),
+          error: (xhr) => reject('Upload gagal: ' + xhr.statusText)
+        });
+      }))
+    });
+  })
+  .catch(err => console.error('CKEditor error:', err));
+});
 </script>
 
 <?= $this->endSection() ?>
