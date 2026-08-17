@@ -584,7 +584,7 @@ class Kokurikuler extends BaseController
             $url = 'https://api.groq.com/openai/v1/chat/completions';
             $ch = curl_init($url);
             $payload = json_encode([
-                "model" => "llama-3.3-70b-versatile",
+                "model" => "openai/gpt-oss-120b",
                 "messages" => [
                     ["role" => "user", "content" => $prompt]
                 ],
@@ -596,7 +596,7 @@ class Kokurikuler extends BaseController
             ]);
         } else {
             // Gemini
-            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=' . $apiKey;
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' . $apiKey;
             $ch = curl_init($url);
             $payload = json_encode([
                 "contents" => [
