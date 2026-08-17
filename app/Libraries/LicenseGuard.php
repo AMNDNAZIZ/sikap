@@ -216,64 +216,90 @@ class LicenseGuard
 
         $storedDomain  = $license['domain'];
 
-        // Normalisasi: strip www. untuk perbandingan
+        // Normalisasi: strip www. untuk perbandingan base domain
         $normalize = fn($d) => preg_replace('/^www\./i', '', strtolower(trim($d)));
 
-        if ($normalize($storedDomain) !== $normalize($currentDomain)) {
-            log_message('warning', 'Domain mismatch: stored=' . $storedDomain . ', current=' . $currentDomain . '. Attempting server re-verify...');
+        $normalizedStored  = $normalize($storedDomain);
+        $normalizedCurrent = $normalize($currentDomain);
 
-            // Coba update domain di server sebelum block
-            // Mungkin domain berubah (www vs non-www, atau perubahan subdomain)
-            $model = new LicenseModel();
-            $lic   = $model->first();
+        // Cek 1: exact match (setelah strip www)
+        if ($normalizedStored === $normalizedCurrent) {
+            return;
+        }
 
-            if ($lic) {
-                $serverUrl = self::getServerURL();
-                helper('license');
-                $machineId = generate_machine_id();
+        // Cek 2: subdomain dari domain yang sama
+        // misal stored=www.smpistora.sch.id, current=mail.smpistora.sch.id
+        // keduanya berbagi base domain smpistora.sch.id → izinkan
+        if (str_ends_with($normalizedCurrent, '.' . $normalizedStored) ||
+            str_ends_with($normalizedStored,  '.' . $normalizedCurrent) ||
+            $normalizedCurrent === $normalizedStored) {
+            log_message('info', 'Domain subdomain match allowed: stored=' . $storedDomain . ', current=' . $currentDomain);
+            return;
+        }
 
-                try {
-                    $client   = \Config\Services::curlrequest();
-                    $response = $client->post($serverUrl, [
-                        'form_params' => [
-                            'license_key' => $lic['license_key'],
-                            'domain'      => $currentDomain,
-                            'machine_id'  => $machineId,
-                            'action'      => 'verify',
-                        ],
-                        'timeout'     => 8,
-                        'http_errors' => false,
+        log_message('warning', 'Domain mismatch: stored=' . $storedDomain . ', current=' . $currentDomain . '. Attempting server re-verify...');
+
+        // Coba update domain di server sebelum block
+        $model = new LicenseModel();
+        $lic   = $model->first();
+
+        if ($lic) {
+            $serverUrl = self::getServerURL();
+            helper('license');
+            $machineId = generate_machine_id();
+
+            try {
+                $client   = \Config\Services::curlrequest();
+                $response = $client->post($serverUrl, [
+                    'form_params' => [
+                        'license_key' => $lic['license_key'],
+                        'domain'      => $currentDomain,
+                        'machine_id'  => $machineId,
+                        'action'      => 'verify',
+                    ],
+                    'timeout'     => 8,
+                    'http_errors' => false,
+                ]);
+
+                $result = json_decode($response->getBody(), true);
+
+                if (isset($result['status']) && $result['status'] === 'success') {
+                    // Server terima domain baru — update DB
+                    $expiresAt = $result['data']['expiry'] ?? $lic['expires_at'];
+                    $secret    = self::getHashSecret();
+                    $newHash   = hash('sha256', $lic['license_key'] . $expiresAt . $machineId . $secret);
+
+                    $model->update($lic['id'], [
+                        'domain'     => $currentDomain,
+                        'hash'       => $newHash,
+                        'expires_at' => $expiresAt,
+                        'machine_id' => $machineId,
+                        'last_check' => date('Y-m-d H:i:s'),
+                        'status'     => 'active',
                     ]);
 
-                    $result = json_decode($response->getBody(), true);
+                    self::regenerateAllHashesSync();
+                    log_message('info', 'Domain updated to: ' . $currentDomain);
+                    return; // Domain berhasil diupdate, lanjutkan
+                }
+            } catch (\Exception $e) {
+                log_message('error', 'Domain re-verify failed: ' . $e->getMessage());
 
-                    if (isset($result['status']) && $result['status'] === 'success') {
-                        // Server terima domain baru — update DB
-                        $expiresAt = $result['data']['expiry'] ?? $lic['expires_at'];
-                        $secret    = self::getHashSecret();
-                        $newHash   = hash('sha256', $lic['license_key'] . $expiresAt . $machineId . $secret);
+                // Server tidak dapat dihubungi (bukan domain benar-benar salah) —
+                // gunakan grace period agar aplikasi tetap bisa diakses sementara
+                $cache     = \Config\Services::cache();
+                $failCount = (int)($cache->get('domain_verify_fail') ?? 0);
 
-                        $model->update($lic['id'], [
-                            'domain'     => $currentDomain,
-                            'hash'       => $newHash,
-                            'expires_at' => $expiresAt,
-                            'machine_id' => $machineId,
-                            'last_check' => date('Y-m-d H:i:s'),
-                            'status'     => 'active',
-                        ]);
-
-                        self::regenerateAllHashesSync();
-                        log_message('info', 'Domain updated to: ' . $currentDomain);
-                        return; // Domain berhasil diupdate, lanjutkan
-                    }
-                } catch (\Exception $e) {
-                    log_message('error', 'Domain re-verify failed: ' . $e->getMessage());
+                if ($failCount < 10) {
+                    $cache->save('domain_verify_fail', $failCount + 1, 3600);
+                    log_message('warning', 'Domain re-verify: server unreachable, grace period ' . ($failCount + 1) . '/10, allowing continue.');
+                    return; // Beri toleransi, jangan lock
                 }
             }
-
-            // Server tidak menerima domain baru — lock
-            self::lock("INVALID DOMAIN: expected={$storedDomain}, got={$currentDomain}", true);
         }
+
+        // Server tidak menerima domain baru — lock
+        self::lock("INVALID DOMAIN: expected={$storedDomain}, got={$currentDomain}", true);
     }
 
     private static function validateExpiry($license)
