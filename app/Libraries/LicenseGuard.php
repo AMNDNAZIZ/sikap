@@ -402,28 +402,24 @@ class LicenseGuard
      */
     private static function lock($message, $shouldRedirect = true)
     {
-        // Selalu redirect ke halaman aktivasi, tidak pernah die/block
         log_message('critical', 'LicenseGuard lock triggered: ' . $message);
 
-        // Simpan pesan error ke session jika memungkinkan
-        // Gunakan session_status() agar tidak memaksa inisialisasi session
-        // yang bisa menyebabkan konflik dengan CSRF filter di PHP 8.2
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            try {
-                $session = \Config\Services::session();
-                $session->setFlashdata('license_error', $message);
-            } catch (\Exception $e) {
-                // Abaikan jika session tidak tersedia
-            }
+        // Gunakan header() native PHP — lock() bisa dipanggil sangat awal
+        // (dari BaseController::initController, sebelum CI4 response cycle selesai).
+        // Menggunakan CI4 $response->send() di fase ini menghasilkan blank page
+        // karena CI4 belum selesai menyiapkan output buffer dan headers.
+        // header() native selalu aman selama output belum dikirim.
+        $activateUrl = base_url('activate');
+
+        if (!headers_sent()) {
+            header('Location: ' . $activateUrl, true, 302);
+            exit;
         }
 
-        // Gunakan CI4 response object, BUKAN header() native PHP.
-        // header() native akan mengirim headers langsung ke browser dan merusak
-        // state PHP sehingga request berikutnya gagal dengan
-        // "ini_set(): Session ini settings cannot be changed after headers already sent"
-        $response = \Config\Services::response();
-        $response->redirect(base_url('activate'));
-        $response->send();
+        // Fallback jika headers sudah terlanjur terkirim (jarang terjadi)
+        // — keluarkan meta refresh agar tetap terarahkan
+        echo '<meta http-equiv="refresh" content="0;url=' . htmlspecialchars($activateUrl) . '">';
+        echo '<script>window.location.href=' . json_encode($activateUrl) . ';</script>';
         exit;
     }
 
