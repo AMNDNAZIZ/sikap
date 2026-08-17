@@ -1205,7 +1205,7 @@ class Kokurikuler extends BaseController
                         $oldFiles = json_decode($oldData['dokumentasi'], true);
                         if (is_array($oldFiles)) {
                             foreach ($oldFiles as $oldFile) {
-                                $oldFilePath = WRITEPATH . $oldFile;
+                                $oldFilePath = FCPATH . $oldFile;
                                 if (file_exists($oldFilePath)) {
                                     @unlink($oldFilePath);
                                 }
@@ -1246,7 +1246,7 @@ class Kokurikuler extends BaseController
                 $oldFiles = json_decode($oldData['dokumentasi'], true);
                 if (is_array($oldFiles)) {
                     foreach ($oldFiles as $oldFile) {
-                        $oldFilePath = WRITEPATH . $oldFile;
+                        $oldFilePath = FCPATH . $oldFile;
                         if (file_exists($oldFilePath)) {
                             @unlink($oldFilePath);
                         }
@@ -1266,7 +1266,7 @@ class Kokurikuler extends BaseController
                 $oldFiles = json_decode($oldData['dokumentasi'], true);
                 if (is_array($oldFiles)) {
                     foreach ($oldFiles as $oldFile) {
-                        $oldFilePath = WRITEPATH . $oldFile;
+                        $oldFilePath = FCPATH . $oldFile;
                         if (file_exists($oldFilePath)) {
                             @unlink($oldFilePath);
                         }

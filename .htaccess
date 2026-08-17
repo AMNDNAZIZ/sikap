@@ -16,23 +16,23 @@ Options -Indexes
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
 
-    # Arahkan asset dari public/ agar bisa diakses langsung di root
-    # (berlaku di skenario localhost subfolder)
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{DOCUMENT_ROOT}/%{REQUEST_URI} !-f
-    RewriteCond %{REQUEST_URI} ^/(assets|uploads|css|js|img|tinymce)/
-    RewriteRule ^(.*)$ public/$1 [L,NC]
-
-    # File statis di root public/ (manifest, robots, dll)
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^(manifest\.json|robots\.txt|offline\.html|favicon\.ico|service-worker\.js)$ public/$1 [L,NC]
-
-    # Lewati file/folder yang benar-benar ada
+    # Lewati file/folder yang benar-benar ada di root
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
+
+    # Forward semua asset publik ke public/
+    # Ini diperlukan di localhost subfolder (http://localhost/siakad/)
+    # agar base_url('uploads/...') tetap bekerja meski file ada di public/
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} !-f
+    RewriteRule ^(uploads|assets|img|css|js|tinymce)/(.*) public/$1/$2 [L,NC]
+
+    # File statis di root public/
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(manifest\.json|robots\.txt|offline\.html|favicon\.ico|service-worker\.js)$ public/$1 [L,NC]
 
     # Semua request lain → index.php (CI4 front controller)
     RewriteRule ^([\s\S]*)$ index.php/$1 [L,NC,QSA]
