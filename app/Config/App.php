@@ -15,8 +15,11 @@ class App extends BaseConfig
      * WITH a trailing slash:
      *
      * E.g., http://example.com/
+     *
+     * If this is not set, CI4 will attempt to auto-detect the base URL.
+     * Leave empty for auto-detection (recommended for multi-environment).
      */
-    public string $baseURL = 'http://localhost/siakad/';
+    public string $baseURL = '';
 
     /**
      * Allowed Hostnames in the Site URL other than the hostname in the baseURL.
@@ -39,8 +42,11 @@ class App extends BaseConfig
      * Typically, this will be your `index.php` file, unless you've renamed it to
      * something else. If you have configured your web server to remove this file
      * from your site URIs, set this variable to an empty string.
+     *
+     * Set to empty string karena .htaccess sudah handle rewrite,
+     * sehingga URL bersih tanpa index.php di semua environment.
      */
-    public string $indexPage = 'index.php';
+    public string $indexPage = '';
 
     /**
      * --------------------------------------------------------------------------

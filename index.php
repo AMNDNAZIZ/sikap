@@ -2,18 +2,19 @@
 
 /*
  *---------------------------------------------------------------
- * ROOT INDEX.PHP - PROXY TO PUBLIC/INDEX.PHP
+ * ROOT INDEX.PHP — PROXY KE PUBLIC/INDEX.PHP
  *---------------------------------------------------------------
- * 
- * This file acts as a proxy to redirect all requests to the
- * actual front controller in the public/ directory.
- * 
- * This ensures FCPATH is correctly set to public/ directory,
- * which is critical for file uploads and asset management.
- * 
- * DO NOT modify this file to define FCPATH here, as it will
- * cause uploads to go to the wrong directory.
+ *
+ * File ini menjadi entry point saat aplikasi berjalan dari root
+ * (baik localhost/siakad/ maupun hosting public_html/).
+ *
+ * Ia mendelegasikan eksekusi ke public/index.php agar FCPATH
+ * selalu menunjuk ke direktori public/, sehingga:
+ * - Upload file tersimpan di public/uploads/ (bukan root)
+ * - Asset (CSS/JS/img) ditemukan dengan benar
+ * - Behavior identik di semua environment
+ *
+ * JANGAN definisikan FCPATH di sini.
  */
 
-// Redirect to the actual front controller in public/ directory
 require __DIR__ . '/public/index.php';

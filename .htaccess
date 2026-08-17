@@ -3,47 +3,53 @@ Options -Indexes
 
 # ----------------------------------------------------------------------
 # Rewrite engine
+# Mendukung DUA skenario:
+# 1. Localhost subfolder: http://localhost/siakad/
+# 2. Hosting root: https://smpistora.sch.id/
 # ----------------------------------------------------------------------
-
-# Turning on the rewrite engine is necessary for the following rules and features.
-# FollowSymLinks must be enabled for this to work.
 <IfModule mod_rewrite.c>
-	Options +FollowSymlinks
-	RewriteEngine On
+    Options +FollowSymlinks
+    RewriteEngine On
 
-	# Optional RewriteBase if needed
-	# RewriteBase /
+    # Redirect trailing slash (kecuali folder nyata)
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
 
-	# Robust redirection for assets folder to public/assets
-	RewriteCond %{REQUEST_FILENAME} !-f
-	RewriteCond %{REQUEST_FILENAME} !-d
-	RewriteCond %{DOCUMENT_ROOT}/public/$1 -f [OR]
-	RewriteCond %{REQUEST_URI} !^/public/
-	RewriteRule ^(assets/.*|uploads/.*|css/.*|js/.*|offline.html|robots.txt|manifest.json)$ public/$1 [L,NC]
+    # Arahkan asset dari public/ agar bisa diakses langsung di root
+    # (berlaku di skenario localhost subfolder)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{DOCUMENT_ROOT}/%{REQUEST_URI} !-f
+    RewriteCond %{REQUEST_URI} ^/(assets|uploads|css|js|img|tinymce)/
+    RewriteRule ^(.*)$ public/$1 [L,NC]
 
-	RewriteCond %{REQUEST_FILENAME} !-f
-	RewriteCond %{REQUEST_FILENAME} !-d
-	RewriteRule ^([\s\S]*)$ index.php/$1 [L,NC,QSA]
+    # File statis di root public/ (manifest, robots, dll)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(manifest\.json|robots\.txt|offline\.html|favicon\.ico|service-worker\.js)$ public/$1 [L,NC]
 
-	# Ensure Authorization header is passed along
-	RewriteCond %{HTTP:Authorization} .
-	RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    # Lewati file/folder yang benar-benar ada
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Semua request lain → index.php (CI4 front controller)
+    RewriteRule ^([\s\S]*)$ index.php/$1 [L,NC,QSA]
+
+    # Pastikan Authorization header diteruskan ke PHP
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 </IfModule>
 
 <IfModule !mod_rewrite.c>
-	# If we don't have mod_rewrite installed, all 404's
-	# can be sent to index.php, and everything works as normal.
-	ErrorDocument 404 index.php
+    ErrorDocument 404 index.php
 </IfModule>
 
-# Disable server signature start
 ServerSignature Off
-# Disable server signature end
 
 # ----------------------------------------------------------------------
-# PHP Settings — wajib untuk form dengan banyak input (Dapodik sync)
-# max_input_vars default 1000, form syncStudents bisa kirim 8000+ vars
-# (325 siswa x 25 hidden fields = ~8125 vars)
+# PHP Settings
 # ----------------------------------------------------------------------
 <IfModule mod_php.c>
     php_value output_buffering 4096
@@ -61,13 +67,12 @@ ServerSignature Off
 </IfModule>
 
 # ----------------------------------------------------------------------
-# Gzip / Deflate Compression (Apache level — lebih aman dari ob_gzhandler)
+# Gzip / Deflate Compression
 # ----------------------------------------------------------------------
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
     AddOutputFilterByType DEFLATE text/javascript application/javascript application/x-javascript
     AddOutputFilterByType DEFLATE application/json application/xml application/xhtml+xml
     AddOutputFilterByType DEFLATE image/svg+xml font/ttf font/otf font/woff font/woff2
-    # Jangan compress file yang sudah terkompresi
     SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|webp|zip|gz|bz2|rar|7z)$ no-gzip dont-vary
 </IfModule>
