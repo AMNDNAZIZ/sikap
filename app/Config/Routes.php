@@ -455,6 +455,17 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('assessments/deleteBatch/sumatif/(:num)/(:num)/(:segment)', 'Assessment::deleteBatch/sumatif/$1/$2/$3', $auth123);
     $routes->get('assessments/deleteBatch/final/(:num)/(:num)', 'Assessment::deleteBatch/final/$1/$2', $auth123);
 
+    // ─── Kirim Tugas ───
+    $routes->get('tugas', 'Tugas::index', $auth123);
+    $routes->get('tugas/create', 'Tugas::create', $auth123);
+    $routes->post('tugas/store', 'Tugas::store', $auth123);
+    $routes->get('tugas/(:num)', 'Tugas::show/$1', $auth123);
+    $routes->get('tugas/edit/(:num)', 'Tugas::edit/$1', $auth123);
+    $routes->post('tugas/update/(:num)', 'Tugas::update/$1', $auth123);
+    $routes->get('tugas/delete/(:num)', 'Tugas::delete/$1', $auth123);
+    $routes->post('tugas/(:num)/nilai/(:num)', 'Tugas::nilai/$1/$2', $auth123);
+    $routes->post('tugas/upload-image', 'Tugas::uploadImage', $auth123);
+
     // Nilai Erapor (prerogratif guru) — Admin, Kepsek, Guru
     $routes->get('erapor', 'Erapor::index', $auth123);
     $routes->get('erapor/subjects', 'Erapor::subjectList', $auth123);
@@ -679,6 +690,12 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
 
     // Pembayaran (integrasi web pembayaran eksternal)
     $routes->get('payment', 'Payment::index');
+
+    // Kirim Tugas
+    $routes->get('tugas', 'Tugas::index');
+    $routes->get('tugas/(:num)', 'Tugas::show/$1');
+    $routes->post('tugas/(:num)/submit', 'Tugas::submit/$1');
+    $routes->post('tugas/upload-image', 'Tugas::uploadImage');
 
     $routes->get('cbt', 'Cbt::index');
     $routes->post('cbt/verifyToken/(:num)', 'Cbt::verifyToken/$1');
