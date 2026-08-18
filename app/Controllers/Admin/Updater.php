@@ -724,7 +724,8 @@ class Updater extends BaseController
         $commands = [
             "{$git} checkout --orphan _update_push 2>&1",
             "{$git} reset 2>&1",
-            "{$git} add app/ public/ update_manifest.json README.md .gitattributes 2>&1",
+            // Gunakan --all agar file baru (untracked di main) juga ikut masuk
+            "{$git} add --all app/ public/ update_manifest.json README.md .gitattributes 2>&1",
             "{$git} commit -m \"v{$version} - Release " . date('Y-m-d H:i') . "\" 2>&1",
             "{$git} push update _update_push:main --force 2>&1",
         ];
