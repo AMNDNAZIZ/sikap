@@ -1,6 +1,6 @@
 {
     "version": "1.2.9",
-    "generated": "2026-08-18 22:10:32",
+    "generated": "2026-08-18 22:28:35",
     "last_update": "2026-08-18 00:00",
     "total_files": 815,
     "files": {
@@ -117,7 +117,7 @@
         "app/Controllers/Admin/TeachingAssignments.php": "d7e81b76e49292d601c91188c6ff4a96",
         "app/Controllers/Admin/TeachingJournalController.php": "dc716dfa9c93f4ee9bb06fc81aafea59",
         "app/Controllers/Admin/Tugas.php": "2c201c22131a37802ca52ac584fabae5",
-        "app/Controllers/Admin/Updater.php": "74ddfd96db60546fcfebc36b7ebb201b",
+        "app/Controllers/Admin/Updater.php": "bcceab83d18bada4261f0a0628073f59",
         "app/Controllers/Admin/User.php": "36f2b1620f85059f48e341158d799c58",
         "app/Controllers/Admin/WaliKelasStudents.php": "81b117f7381a6780b8a58d4c8c568b5c",
         "app/Controllers/Api/DapodikApi.php": "e9f4087934e990be88a0b96724899878",
