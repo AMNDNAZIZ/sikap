@@ -89,7 +89,8 @@ class AdministrasiGuru extends BaseController
 
         // 4. Dropdowns data (all teachers, classes, and mapped subjects)
         $data['teachers'] = $this->teacherModel->orderBy('name', 'ASC')->findAll();
-        $data['classes']  = $this->db->table('classes')->orderBy('name', 'ASC')->get()->getResultArray();
+        $classModel = new \App\Models\ClassModel();
+        $data['classes']  = $classModel->getClassesByAcademicYear((int)$activeYearId);
         $data['subjects'] = $this->subjectModel->where('mapel_master_id !=', null)->orderBy('name', 'ASC')->findAll();
 
         if (!$activeYearId) {
@@ -1932,7 +1933,25 @@ class AdministrasiGuru extends BaseController
         $data['subject'] = $this->subjectModel->find($modul['subject_id']);
         $data['school'] = $this->schoolModel->getProfile();
 
-        $assignment = $this->teachingAssignmentModel->where('class_id', $classId)->where('subject_id', $modul['subject_id'])->first();
+        // Ambil tahun ajaran aktif untuk memastikan data guru sesuai tahun ajaran yang berlaku
+        $activeYear = $this->yearModel->getActiveYear();
+        $activeYearId = $activeYear ? $activeYear['id'] : null;
+
+        // Query assignment dengan filter tahun ajaran aktif, kelas, dan mata pelajaran
+        $assignment = $this->teachingAssignmentModel
+            ->where('class_id', $classId)
+            ->where('subject_id', $modul['subject_id'])
+            ->where('academic_year_id', $activeYearId)
+            ->first();
+
+        // Fallback: jika tidak ditemukan di tahun ajaran aktif, cari tanpa filter tahun ajaran
+        if (!$assignment) {
+            $assignment = $this->teachingAssignmentModel
+                ->where('class_id', $classId)
+                ->where('subject_id', $modul['subject_id'])
+                ->first();
+        }
+
         $data['teacher'] = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
         
         return view('admin/administrasi_guru/modul_ajar_print', $data);
@@ -2926,8 +2945,11 @@ class AdministrasiGuru extends BaseController
         $classId = $this->request->getGet('class_id');
 
         if (in_array($roleId, [1, 2])) {
-            // Admin or Kepsek: All classes
-            $classes = $this->db->table('classes')->get()->getResultArray();
+            // Admin or Kepsek: kelas aktif di tahun ajaran aktif
+            $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+            $activeYearId = $activeYear['id'] ?? 0;
+            $classModel = new \App\Models\ClassModel();
+            $classes = $classModel->getClassesByAcademicYear($activeYearId);
             
             // Admin & Kepsek can see ALL subjects regardless of teaching assignments
             $subjects = $this->subjectModel->where('mapel_master_id !=', null)->findAll();

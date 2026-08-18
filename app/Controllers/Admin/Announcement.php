@@ -33,7 +33,7 @@ class Announcement extends BaseController
 
         // class map untuk menampilkan nama kelas di view
         $classMap = [];
-        foreach ($this->classModel->findAll() as $c) {
+        foreach ($this->classModel->getActiveClasses() as $c) {
             $classMap[$c['id']] = $c['name'];
         }
 
@@ -215,7 +215,7 @@ class Announcement extends BaseController
 
         if (in_array($roleId, [1, 2])) {
             // Admin / Kepsek
-            $classes = $this->classModel->findAll();
+            $classes = $this->classModel->getActiveClasses();
         } elseif ($roleId == 3) {
             // cari teacher record dari user_id
             $teacher = $this->teacherModel->where('user_id', $user['id'])->first();
@@ -365,7 +365,7 @@ class Announcement extends BaseController
     public function edit($id)
     {
         $announcement = $this->announcementModel->find($id);
-        $classes = $this->classModel->findAll();
+        $classes = $this->classModel->getActiveClasses();
 
         return view('admin/announcements/edit', [
             'announcement' => $announcement,

@@ -23,18 +23,26 @@ class Grades extends BaseController
             return redirect()->to('/login');
         }
 
-        // admin & kepala sekolah → semua kelas
+        // admin & kepala sekolah → kelas aktif di tahun ajaran aktif
         if (in_array($user['role_id'], [1,2])) {
-            $classes = $this->db->table('classes')->get()->getResultArray();
-            $subjects = $this->db->table('subjects')->get()->getResultArray();
+            $activeYear = $this->db->table('academic_years')->where('is_active', 1)->get()->getRowArray();
+            $activeYearId = $activeYear['id'] ?? 0;
+            $classModel = new \App\Models\ClassModel();
+            $classes = $activeYearId
+                ? $classModel->getClassesByAcademicYear($activeYearId)
+                : $classModel->getActiveClasses();
+            $subjects = $this->db->table('subjects')->orderBy('name', 'ASC')->get()->getResultArray();
         }
-        // guru → kelas & mapel sesuai teaching_assignments
+        // guru → kelas & mapel sesuai teaching_assignments tahun ajaran aktif
         elseif ($user['role_id'] == 3) {
+            $activeYear = $this->db->table('academic_years')->where('is_active', 1)->get()->getRowArray();
+            $activeYearId = $activeYear['id'] ?? 0;
             $assignments = $this->db->table('teaching_assignments ta')
                 ->select('c.id as class_id, c.name as class_name, s.id as subject_id, s.name as subject_name')
                 ->join('classes c', 'c.id = ta.class_id')
                 ->join('subjects s', 's.id = ta.subject_id')
                 ->where('ta.teacher_id', $user['related_id'])
+                ->where('ta.academic_year_id', $activeYearId)
                 ->get()->getResultArray();
 
             $classes = array_unique(array_map(function($a){ 

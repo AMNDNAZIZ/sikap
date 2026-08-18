@@ -121,6 +121,58 @@ class Tugas extends BaseController
     }
 
     // ─────────────────────────────────────────────
+    // AJAX — ambil mapel berdasarkan kelas
+    // ─────────────────────────────────────────────
+    public function getSubjectsByClass()
+    {
+        if (!$this->request->isAJAX()) {
+            return $this->response->setStatusCode(403)->setJSON(['success' => false]);
+        }
+
+        $classId   = (int) $this->request->getGet('class_id');
+        $teacherId = $this->getTeacherId();
+
+        if (!$classId) {
+            return $this->response->setJSON(['success' => true, 'subjects' => []]);
+        }
+
+        if ($this->isAdmin()) {
+            // Admin: semua mapel yang diajarkan di kelas ini (dari teaching_assignments tahun aktif)
+            $activeYear = (new AcademicYearModel())->getActiveYear();
+            $rows = $this->db->table('teaching_assignments ta')
+                ->select('s.id, s.name')
+                ->join('subjects s', 's.id = ta.subject_id')
+                ->where('ta.class_id', $classId)
+                ->where('ta.academic_year_id', $activeYear['id'] ?? 0)
+                ->groupBy('s.id')
+                ->orderBy('s.name')
+                ->get()->getResultArray();
+
+            // Fallback: jika belum ada assignment, tampilkan semua mapel
+            if (empty($rows)) {
+                $rows = $this->db->table('subjects')
+                    ->select('id, name')
+                    ->orderBy('name')
+                    ->get()->getResultArray();
+            }
+        } else {
+            // Guru: hanya mapel yang dia ampu di kelas ini, tahun ajaran aktif
+            $activeYear = (new AcademicYearModel())->getActiveYear();
+            $rows = $this->db->table('teaching_assignments ta')
+                ->select('s.id, s.name')
+                ->join('subjects s', 's.id = ta.subject_id')
+                ->where('ta.class_id', $classId)
+                ->where('ta.teacher_id', $teacherId)
+                ->where('ta.academic_year_id', $activeYear['id'] ?? 0)
+                ->groupBy('s.id')
+                ->orderBy('s.name')
+                ->get()->getResultArray();
+        }
+
+        return $this->response->setJSON(['success' => true, 'subjects' => $rows]);
+    }
+
+    // ─────────────────────────────────────────────
     // STORE — simpan tugas baru
     // ─────────────────────────────────────────────
     public function store()

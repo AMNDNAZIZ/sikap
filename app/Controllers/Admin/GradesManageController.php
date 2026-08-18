@@ -1096,8 +1096,9 @@ class GradesManageController extends BaseController
 
         // Get classes based on role
         if (in_array($roleId, [1, 2])) {
-            // Admin/Kepsek: all classes
-            $classes = $db->table('classes')->orderBy('level', 'ASC')->orderBy('name', 'ASC')->get()->getResultArray();
+            // Admin/Kepsek: kelas aktif yang terdaftar di tahun ajaran yang dipilih
+            $classModel = new \App\Models\ClassModel();
+            $classes = $classModel->getClassesByAcademicYear((int)$yearId);
         } else {
             // Guru: hanya kelas yang diwalikan
             $teacherId = $user['related_id'] ?? 0;

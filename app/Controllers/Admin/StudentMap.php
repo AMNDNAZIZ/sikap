@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\StudentModel;
 use App\Models\ClassModel;
 use App\Models\SchoolModel;
+use App\Models\AcademicYearModel;
 
 class StudentMap extends BaseController
 {
@@ -48,8 +49,10 @@ class StudentMap extends BaseController
         $schoolLat = $school['latitude'] ?? -6.200000;
         $schoolLng = $school['longitude'] ?? 106.816666;
 
-        // Get all classes for filter
-        $classes = $this->classModel->findAll();
+        // Get all active classes for filter (kelas aktif di tahun ajaran aktif)
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $activeYearId = $activeYear ? $activeYear['id'] : 0;
+        $classes = $this->classModel->getClassesByAcademicYear($activeYearId);
         
         // Get unique levels from classes
         $levels = $this->classModel->select('level')->distinct()->orderBy('level', 'ASC')->findAll();

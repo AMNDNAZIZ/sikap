@@ -43,11 +43,11 @@ class Chat extends BaseController
         $db = \Config\Database::connect();
 
         if ($user['role_id'] == 1) {
-            // Admin → lihat semua kelas
-            $classes = $classModel->findAll();
+            // Admin → lihat semua kelas aktif
+            $classes = $classModel->getActiveClasses();
         } elseif ($user['role_id'] == 2) {
-            // Kepala Sekolah → lihat semua kelas
-            $classes = $classModel->findAll();
+            // Kepala Sekolah → lihat semua kelas aktif
+            $classes = $classModel->getActiveClasses();
         } elseif ($user['role_id'] == 3) {
             // Guru → cek apakah dia wali kelas
             $teacher = $db->table('teachers')

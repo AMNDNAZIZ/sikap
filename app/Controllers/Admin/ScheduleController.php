@@ -44,8 +44,9 @@ class ScheduleController extends BaseController
         $school = $this->schoolModel->getProfile();
 
         if (in_array($user['role_id'], [1, 2])) {
-            // Admin / Kepsek: semua kelas aktif
-            $data['classes'] = $this->classModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll();
+            // Admin / Kepsek: kelas aktif di tahun ajaran aktif
+            $activeYearId = $activeYear['id'] ?? 0;
+            $data['classes'] = $this->classModel->getClassesByAcademicYear($activeYearId);
         } elseif ($user['role_id'] == 3) {
             // Guru: hanya kelas yang diampu di tahun ajaran aktif
             $teacherId = $user['related_id'];

@@ -305,12 +305,16 @@ class TeachingJournalController extends BaseController
         $classId = $this->request->getGet('class_id');
 
         if (in_array($roleId, [1, 2])) {
-            $classes = $this->classModel->findAll();
+            // Admin/Kepsek: kelas aktif di tahun ajaran aktif
+            $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+            $activeYearId = $activeYear['id'] ?? 0;
+            $classes = $this->classModel->getClassesByAcademicYear($activeYearId);
             if ($classId) {
                 $subjects = $this->db->table('teaching_assignments ta')
                     ->select('s.id, s.name')
                     ->join('subjects s', 's.id = ta.subject_id')
                     ->where('ta.class_id', $classId)
+                    ->where('ta.academic_year_id', $activeYearId)
                     ->groupBy('s.id')
                     ->get()->getResultArray();
             } else {

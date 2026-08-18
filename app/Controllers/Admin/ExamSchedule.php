@@ -37,7 +37,7 @@ class ExamSchedule extends BaseController
     {
         $data = [
             'subjects' => $this->subjectModel->findAll(),
-            'classes'  => $this->classModel->findAll()
+            'classes'  => $this->classModel->getActiveClasses()
         ];
         return view('admin/exam_schedule/create', $data);
     }
@@ -62,7 +62,7 @@ class ExamSchedule extends BaseController
         $data = [
             'schedule' => $this->scheduleModel->find($id),
             'subjects' => $this->subjectModel->findAll(),
-            'classes'  => $this->classModel->findAll()
+            'classes'  => $this->classModel->getActiveClasses()
         ];
 
         return view('admin/exam_schedule/edit', $data);

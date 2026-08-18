@@ -33,14 +33,61 @@ class Teachers extends BaseController
     {
         // ✅ Authorization check
         require_permission('teachers.view');
-        
-        $data['title'] = 'Manajemen Guru';
-        $data['teachers'] = $this->teacherModel
+
+        $statusFilter = $this->request->getGet('status') ?? 'active'; // 'active' | 'inactive' | 'all'
+
+        $query = $this->teacherModel
             ->select('teachers.*, users.username, users.email as user_email')
-            ->join('users', 'users.id = teachers.user_id', 'left')
-            ->findAll();
+            ->join('users', 'users.id = teachers.user_id', 'left');
+
+        if ($statusFilter === 'active') {
+            $query->where('teachers.is_active', 1);
+        } elseif ($statusFilter === 'inactive') {
+            $query->where('teachers.is_active', 0);
+        }
+        // 'all' = no filter
+
+        $data['title']        = 'Manajemen Guru';
+        $data['teachers']     = $query->orderBy('teachers.name', 'ASC')->findAll();
+        $data['statusFilter'] = $statusFilter;
 
         return view('admin/teachers/index', $data);
+    }
+
+    /**
+     * Toggle status aktif/nonaktif guru via AJAX atau redirect
+     */
+    public function toggleActive($id)
+    {
+        require_permission('teachers.update');
+
+        $teacher = $this->teacherModel->find($id);
+        if (!$teacher) {
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON(['success' => false, 'message' => 'Guru tidak ditemukan.']);
+            }
+            return redirect()->to('/admin/teachers')->with('error', 'Guru tidak ditemukan.');
+        }
+
+        $newStatus = $teacher['is_active'] ? 0 : 1;
+        $this->teacherModel->update($id, ['is_active' => $newStatus]);
+
+        // Nonaktifkan akun user jika guru dinonaktifkan
+        if (!empty($teacher['user_id'])) {
+            $this->userModel->update($teacher['user_id'], ['is_active' => $newStatus]);
+        }
+
+        $statusLabel = $newStatus ? 'diaktifkan' : 'dinonaktifkan';
+
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON([
+                'success'   => true,
+                'is_active' => $newStatus,
+                'message'   => "Guru berhasil {$statusLabel}.",
+            ]);
+        }
+
+        return redirect()->to('/admin/teachers')->with('success', "Guru berhasil {$statusLabel}.");
     }
 
     public function create()

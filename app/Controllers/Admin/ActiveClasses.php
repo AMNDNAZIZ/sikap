@@ -50,7 +50,7 @@ class ActiveClasses extends BaseController
             'title'        => 'Kelas Aktif',
             'activeYear'   => $year,
             'records'      => $records,
-            'classes'      => $this->classModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll(),
+            'classes'      => $this->classModel->getClassesByAcademicYear((int)$year['id']),
             'selectedClass'=> $classId,
         ]);
     }

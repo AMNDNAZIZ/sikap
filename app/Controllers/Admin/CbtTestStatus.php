@@ -58,7 +58,8 @@ class CbtTestStatus extends BaseController
 
         // Ambil daftar kelas - guru hanya kelas yang diampu
         if ($context['is_admin']) {
-            $classes = $this->classModel->orderBy('name', 'ASC')->findAll();
+            $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+            $classes = $this->classModel->getClassesByAcademicYear((int)($activeYear['id'] ?? 0));
         } elseif ($context['is_teacher'] && $context['teacher_id']) {
             $classes = get_teacher_classes($context['teacher_id']);
         } else {
@@ -139,7 +140,8 @@ class CbtTestStatus extends BaseController
 
         // Ambil classes - filter untuk guru (hanya kelas yang diampu)
         if ($context['is_admin']) {
-            $classes = $this->classModel->findAll();
+            $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+            $classes = $this->classModel->getClassesByAcademicYear((int)($activeYear['id'] ?? 0));
         } elseif ($context['is_teacher'] && $context['teacher_id']) {
             $classes = get_teacher_classes($context['teacher_id']);
         } else {

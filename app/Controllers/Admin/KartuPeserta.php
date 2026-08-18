@@ -16,7 +16,10 @@ class KartuPeserta extends BaseController
     public function index()
     {
         $db = db_connect();
-        $classes = $db->table('classes')->orderBy('name', 'ASC')->get()->getResultArray();
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $activeYearId = $activeYear['id'] ?? 0;
+        $classModel = new \App\Models\ClassModel();
+        $classes = $classModel->getClassesByAcademicYear($activeYearId);
         $exams   = $db->table('cbt_exam_names')->orderBy('name', 'ASC')->get()->getResultArray();
     
         return view('admin/cbt/kartu_peserta_index', [

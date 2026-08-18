@@ -134,6 +134,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('teachers/addTraining/(:num)', 'Teachers::addTraining/$1', $auth127);
     $routes->post('teachers/addCareer/(:num)', 'Teachers::addCareer/$1', $auth127);
     $routes->get('teachers/deleteSub/(:segment)/(:num)', 'Teachers::deleteSub/$1/$2', $auth127);
+    $routes->post('teachers/toggle-active/(:num)', 'Teachers::toggleActive/$1', $auth127);
 
     $routes->get('students', 'Students::index', $auth127);
     $routes->get('students/create', 'Students::create', $auth127);
@@ -459,6 +460,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('tugas', 'Tugas::index', $auth123);
     $routes->get('tugas/create', 'Tugas::create', $auth123);
     $routes->post('tugas/store', 'Tugas::store', $auth123);
+    $routes->get('tugas/subjects-by-class', 'Tugas::getSubjectsByClass', $auth123);
     $routes->get('tugas/(:num)', 'Tugas::show/$1', $auth123);
     $routes->get('tugas/edit/(:num)', 'Tugas::edit/$1', $auth123);
     $routes->post('tugas/update/(:num)', 'Tugas::update/$1', $auth123);

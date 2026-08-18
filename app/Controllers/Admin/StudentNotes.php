@@ -61,9 +61,11 @@ class StudentNotes extends BaseController
 
         $classes = [];
 
-        // 🔹 Admin & Kepala Sekolah -> semua kelas
+        // 🔹 Admin & Kepala Sekolah -> kelas aktif di tahun ajaran aktif
         if (in_array($roleId, [1, 2])) {
-            $classes = $this->classModel->findAll();
+            $activeYear = $yearModel->getActiveYear();
+            $activeYearId = $activeYear ? $activeYear['id'] : 0;
+            $classes = $this->classModel->getClassesByAcademicYear($activeYearId);
         }
         // 🔹 Guru (wali kelas atau guru mapel)
         elseif ($roleId == 3) {
@@ -73,11 +75,14 @@ class StudentNotes extends BaseController
                 // wali kelas -> langsung ke kelasnya
                 $classId = $class['id'];
             } else {
-                // guru mapel -> pilih kelas yang dia ampu
+                // guru mapel -> pilih kelas yang dia ampu di tahun ajaran aktif
+                $activeYear = $yearModel->getActiveYear();
+                $activeYearId = $activeYear ? $activeYear['id'] : 0;
                 $classes = $this->assignmentModel
                     ->select('classes.id, classes.name')
                     ->join('classes', 'classes.id = teaching_assignments.class_id')
                     ->where('teaching_assignments.teacher_id', $teacherId)
+                    ->where('teaching_assignments.academic_year_id', $activeYearId)
                     ->groupBy('classes.id')
                     ->findAll();
             }

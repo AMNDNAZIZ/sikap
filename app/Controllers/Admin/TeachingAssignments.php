@@ -66,7 +66,7 @@ class TeachingAssignments extends BaseController
     {
         $data = [
             'teachers' => $this->teacherModel->findAll(),
-            'classes'  => $this->classModel->findAll(),
+            'classes'  => $this->classModel->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll(),
             'subjects' => $this->subjectModel->findAll(),
             'years'    => $this->yearModel->findAll(),
         ];
@@ -167,7 +167,7 @@ class TeachingAssignments extends BaseController
         $data = [
             'assignment' => $this->assignmentModel->find($id),
             'teachers'   => $this->teacherModel->findAll(),
-            'classes'    => $this->classModel->findAll(),
+            'classes'    => $this->classModel->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll(),
             'subjects'   => $this->subjectModel->findAll(),
             'years'      => $this->yearModel->findAll(),
         ];

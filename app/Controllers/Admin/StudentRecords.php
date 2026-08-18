@@ -86,7 +86,9 @@ class StudentRecords extends BaseController
                 'records'       => $records,
                 'pager'         => $this->recordModel->pager,
                 'years'         => $this->yearModel->orderBy('start_date', 'DESC')->findAll(),
-                'classes'       => $this->classModel->orderBy('name', 'ASC')->findAll(),
+                'classes'       => $this->classModel->getClassesByAcademicYear(
+                    $allYears ? 0 : (int)($year['id'] ?? 0)
+                ),
                 'selectedYear'  => $allYears ? 'all' : ($year['id'] ?? null),
                 'selectedClass' => $classId,
                 'search'        => $search,
