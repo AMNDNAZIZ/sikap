@@ -1,6 +1,6 @@
 {
     "version": "1.2.9",
-    "generated": "2026-08-19 00:30:47",
+    "generated": "2026-08-19 06:23:49",
     "last_update": "2026-08-18 00:00",
     "total_files": 815,
     "files": {
@@ -545,7 +545,7 @@
         "app/Views/admin/teaching_assignments/index.php": "d4d6c5d0129cc1db6245b1611eb49511",
         "app/Views/admin/teaching_journal/form.php": "03bcc673f37c88b1e1cf9f593587849f",
         "app/Views/admin/teaching_journal/index.php": "848ef28fa7405623f095f04a610b675a",
-        "app/Views/admin/tugas/create.php": "02ca94188580d8a428553e9a29c9ca20",
+        "app/Views/admin/tugas/create.php": "73ead353fc2e1f41e41422f35d5d2613",
         "app/Views/admin/tugas/index.php": "b417c547140bd53916395633e67aa92a",
         "app/Views/admin/tugas/show.php": "ea2ffbc95dee7a0f22c9aa79e16ffa78",
         "app/Views/admin/updater/index.php": "2682dccc61980bc995e44779f5ab7e30",
