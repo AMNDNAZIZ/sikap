@@ -237,15 +237,13 @@ CKEDITOR.ClassicEditor.create(document.querySelector('#deskripsi'), {
     contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells']
   },
   removePlugins: [
-    'AIAssistant', 'AIAssistantUI', 'AIAdapter', 'CKBox', 'CKBoxImageEdit',
-    'CKBoxUtils', 'CloudServices', 'CloudServicesUploadAdapter', 'EasyImage',
-    'Comments', 'RealTimeCollaborativeComments', 'TrackChanges',
-    'RealTimeCollaborativeTrackChanges', 'RevisionHistory',
-    'RealTimeCollaborativeRevisionHistory', 'PresenceList',
-    'RealTimeCollaboration', 'Pagination', 'WProofreader', 'MathType',
-    'ChemType', 'Mentions', 'SlashCommand', 'Template', 'DocumentOutline',
-    'FormatPainter', 'TableOfContents', 'PasteFromOfficeEnhanced',
-    'CaseChange', 'ExportPdf', 'ExportWord'
+    'AIAssistant', 'AIAssistantUI', 'AIAdapter', 'CKBox', 'CKBoxImageEdit', 'CKBoxImageEditEditing',
+    'CKBoxUtils', 'CloudServices', 'CloudServicesUploadAdapter', 'EasyImage', 'Comments', 'CommentsRepository',
+    'RealTimeCollaborativeComments', 'TrackChanges', 'TrackChangesEditing', 'TrackChangesData',
+    'RealTimeCollaborativeTrackChanges', 'RevisionHistory', 'RealTimeCollaborativeRevisionHistory',
+    'PresenceList', 'RealTimeCollaboration', 'Pagination', 'WProofreader', 'MathType', 'ChemType',
+    'Mentions', 'SlashCommand', 'Template', 'DocumentOutline', 'FormatPainter', 'TableOfContents',
+    'PasteFromOfficeEnhanced', 'CaseChange', 'WideSidebar', 'ExportPdf', 'ExportWord'
   ],
 })
 .then(editor => {

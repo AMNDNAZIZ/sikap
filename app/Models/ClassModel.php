@@ -37,14 +37,16 @@ class ClassModel extends Model
 
         // Ambil class_id unik yang muncul di teaching_assignments tahun ajaran tsb
         $taClassIds = $db->table('teaching_assignments')
-            ->select('DISTINCT class_id')
+            ->select('class_id')
             ->where('academic_year_id', $academicYearId)
+            ->groupBy('class_id')
             ->get()->getResultArray();
 
         // Ambil class_id unik dari student_records tahun ajaran tsb
         $srClassIds = $db->table('student_records')
-            ->select('DISTINCT class_id')
+            ->select('class_id')
             ->where('academic_year_id', $academicYearId)
+            ->groupBy('class_id')
             ->get()->getResultArray();
 
         $classIds = array_unique(array_merge(
