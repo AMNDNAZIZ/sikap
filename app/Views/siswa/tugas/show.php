@@ -159,9 +159,17 @@
 
 </div>
 
-<!-- CKEditor 5 Superbuild -->
+<!-- CKEditor dimuat di scripts section agar jQuery sudah tersedia -->
 <?php if ($bisaKerjakan): ?>
 <script src="https://cdn.ckeditor.com/ckeditor5/41.1.0/super-build/ckeditor.js"></script>
+<?php endif; ?>
+
+</div>
+
+<?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<?php if ($bisaKerjakan): ?>
 <script>
 $(function () {
   CKEDITOR.ClassicEditor.create(document.querySelector('#jawaban'), {
@@ -219,5 +227,3 @@ $(function () {
 });
 </script>
 <?php endif; ?>
-
-<?= $this->endSection() ?>

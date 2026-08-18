@@ -106,6 +106,10 @@
 
 <!-- CKEditor 5 Superbuild -->
 <script src="https://cdn.ckeditor.com/ckeditor5/41.1.0/super-build/ckeditor.js"></script>
+
+<?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
 <script>
 $(function () {
   CKEDITOR.ClassicEditor.create(document.querySelector('#deskripsi'), {
@@ -166,5 +170,3 @@ $(function () {
   .catch(err => console.error('CKEditor error:', err));
 });
 </script>
-
-<?= $this->endSection() ?>
