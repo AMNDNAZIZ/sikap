@@ -1,6 +1,6 @@
 {
     "version": "1.2.9",
-    "generated": "2026-08-19 00:08:18",
+    "generated": "2026-08-19 00:23:31",
     "last_update": "2026-08-18 00:00",
     "total_files": 815,
     "files": {
@@ -257,7 +257,7 @@
         "app/Models/ChatMentionModel.php": "57712c591b1110b75dcd0e8290561df7",
         "app/Models/ChatMessageModel.php": "e0bb6a69b3aeacaaa7a08ba7987efdd1",
         "app/Models/ChatRoomModel.php": "f0e6fcce1335f19b483d295226eb44fa",
-        "app/Models/ClassModel.php": "95cf4585a3d404823556665f31877f4b",
+        "app/Models/ClassModel.php": "1df1296aea8650a153b1b2631e366e24",
         "app/Models/CpMasterModel.php": "3c361e5ce481a9b23a104392608996fa",
         "app/Models/EbookModel.php": "bfd9281a53a2027f09d880cd3e72557e",
         "app/Models/ExamScheduleModel.php": "9242c54e9ac2740601cbff5a49036833",
