@@ -44,8 +44,10 @@ if (!empty($letter['recipient_name'])) {
         font-weight: bold;
         text-align: center;
     }
+    /* Paragraf: margin-bottom default 12px, tetapi jika ada inline style dari editor, inline style menang */
     .surat-custom-body p {
-        margin: 8px 0;
+        margin-top: 0;
+        margin-bottom: 12px;
         line-height: 1.6;
     }
     .surat-custom-body ul, .surat-custom-body ol {
@@ -93,12 +95,8 @@ if (!empty($letter['recipient_name'])) {
                     <?= $tgl ?><br><br>
                     Kepada<br>
                     Yth. <?php if (!empty($recipientLines)): ?>
-                        <?php foreach ($recipientLines as $idx => $line): ?>
-                            <?php if ($idx === 0): ?>
-                                <strong><?= esc($line) ?></strong><br>
-                            <?php else: ?>
-                                <?= esc($line) ?><br>
-                            <?php endif; ?>
+                        <?php foreach ($recipientLines as $line): ?>
+                            <?= esc($line) ?><br>
                         <?php endforeach; ?>
                     <?php else: ?>
                         -

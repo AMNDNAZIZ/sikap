@@ -116,12 +116,8 @@ $diTempat = ($isGuruTendik || str_contains(strtolower($recipientName), 'guru') |
                     <?= $tgl ?><br><br>
                     Kepada<br>
                     Yth. <?php if (!empty($recipientLines)): ?>
-                        <?php foreach ($recipientLines as $idx => $line): ?>
-                            <?php if ($idx === 0): ?>
-                                <strong><?= esc($line) ?></strong><br>
-                            <?php else: ?>
-                                <?= esc($line) ?><br>
-                            <?php endif; ?>
+                        <?php foreach ($recipientLines as $line): ?>
+                            <?= esc($line) ?><br>
                         <?php endforeach; ?>
                     <?php else: ?>
                         -

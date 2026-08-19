@@ -609,11 +609,33 @@
             <!-- CKEditor -->
             <div class="col-12">
               <label class="form-label fw-semibold">Isi Surat <span class="text-danger">*</span></label>
+
+              <!-- Toolbar Spasi Paragraf Kustom -->
+              <div class="d-flex align-items-center gap-2 flex-wrap mb-2 p-2 bg-light border rounded" id="custom-spacing-toolbar" style="display:none !important;">
+                <small class="text-secondary fw-semibold me-1" style="font-size:0.76rem;"><i class="bi bi-arrows-expand me-1"></i>Spasi Paragraf Aktif:</small>
+                <div class="btn-group btn-group-sm" role="group" aria-label="Paragraph spacing">
+                  <button type="button" class="btn btn-outline-secondary btn-spacing" data-margin="0" title="Tanpa Jarak (0px)">0</button>
+                  <button type="button" class="btn btn-outline-secondary btn-spacing" data-margin="4" title="Sangat Rapat (4px)">4px</button>
+                  <button type="button" class="btn btn-outline-secondary btn-spacing" data-margin="8" title="Rapat (8px)">8px</button>
+                  <button type="button" class="btn btn-outline-secondary btn-spacing active" data-margin="12" title="Normal (12px)">12px</button>
+                  <button type="button" class="btn btn-outline-secondary btn-spacing" data-margin="18" title="Longgar (18px)">18px</button>
+                  <button type="button" class="btn btn-outline-secondary btn-spacing" data-margin="24" title="Sangat Longgar (24px)">24px</button>
+                  <button type="button" class="btn btn-outline-secondary btn-spacing" data-margin="36" title="Double Space (36px)">36px</button>
+                </div>
+                <span class="text-muted" style="font-size:0.72rem; border-left:1px solid #ccc; padding-left:8px;">
+                  <i class="bi bi-keyboard me-1"></i><kbd>Enter</kbd> = paragraf baru &nbsp;|&nbsp; <kbd>Shift+Enter</kbd> = pindah baris (tanpa jarak)
+                </span>
+              </div>
+
               <!-- Hidden input to hold the actual value on submit -->
               <input type="hidden" name="body_html" id="body_html_hidden">
               <div id="editor-surat-custom-container" style="min-height: 300px;">
                 <div id="editor-surat-custom"></div>
               </div>
+              <small class="text-muted mt-1 d-block" style="font-size:0.73rem;">
+                <i class="bi bi-info-circle me-1"></i>
+                Gunakan <kbd>Shift+Enter</kbd> untuk ganti baris tanpa jarak. Gunakan tombol <strong>Spasi Paragraf</strong> di atas untuk mengatur jarak setiap paragraf secara berbeda.
+              </small>
             </div>
 
           </div>
@@ -790,9 +812,79 @@ function initCKEditor() {
       editor.editing.view.change(writer => {
         writer.setStyle('min-height', '320px', editor.editing.view.document.getRoot());
       });
+
+      // Show custom spacing toolbar once editor is ready
+      document.getElementById('custom-spacing-toolbar').style.removeProperty('display');
+      document.getElementById('custom-spacing-toolbar').style.display = 'flex';
+
+      // Track cursor/selection change to reflect current paragraph's margin in toolbar
+      editor.model.document.selection.on('change', () => {
+        const pos = editor.model.document.selection.getFirstPosition();
+        if (!pos) return;
+        const block = pos.parent;
+        // Read current margin-bottom from the DOM view element
+        const viewEl = editor.editing.mapper.toViewElement(block);
+        if (!viewEl) return;
+        const marginVal = viewEl.getStyle('margin-bottom') || '';
+        const numMatch  = marginVal.match(/(\d+)/);
+        const curMargin = numMatch ? numMatch[1] : '12';
+        document.querySelectorAll('.btn-spacing').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.margin === curMargin);
+        });
+      });
     })
     .catch(error => console.error(error));
 }
+
+// ─── Custom Paragraph Spacing Toolbar Handlers ───────────────────────────────
+$(document).on('click', '.btn-spacing', function() {
+  if (!editorInstance) return;
+
+  const marginPx = $(this).data('margin') + 'px';
+
+  editorInstance.model.change(writer => {
+    const selection = editorInstance.model.document.selection;
+    const ranges    = [...selection.getRanges()];
+
+    // Collect all block elements in selection
+    const blocks = new Set();
+    for (const range of ranges) {
+      for (const item of range.getItems()) {
+        if (item.is('element')) {
+          blocks.add(item);
+        }
+      }
+      // Always include anchor/focus block
+      const start = range.start.parent;
+      const end   = range.end.parent;
+      if (start.is('element')) blocks.add(start);
+      if (end.is('element'))   blocks.add(end);
+    }
+
+    // If nothing, apply to current paragraph
+    if (blocks.size === 0) {
+      const pos = selection.getFirstPosition();
+      if (pos && pos.parent.is('element')) blocks.add(pos.parent);
+    }
+
+    blocks.forEach(block => {
+      if ($(this).data('margin') === 0 || $(this).data('margin') === '0') {
+        writer.removeAttribute('htmlAttributes', block);
+        writer.setAttribute('htmlAttributes', {
+          styles: { 'margin-bottom': '0px', 'margin-top': '0px' }
+        }, block);
+      } else {
+        writer.setAttribute('htmlAttributes', {
+          styles: { 'margin-bottom': marginPx, 'margin-top': '0px' }
+        }, block);
+      }
+    });
+  });
+
+  // Update active button
+  document.querySelectorAll('.btn-spacing').forEach(btn => btn.classList.remove('active'));
+  this.classList.add('active');
+});
 
 // Update recipient section based on selected type
 function updateRecipientSection() {
@@ -1510,9 +1602,7 @@ function formatRecipientLinesForPreview(str) {
   if (!str || str === '-') return '-';
   const parts = str.split(/\s*\|\s*/).filter(Boolean);
   if (parts.length === 0) return '-';
-  return parts.map((line, idx) => {
-    return idx === 0 ? `<strong>${escHtml(line)}</strong>` : escHtml(line);
-  }).join('<br>');
+  return parts.map(line => escHtml(line)).join('<br>');
 }
 
 // Tampilkan/sembunyikan tombol Preview sesuai tipe surat yang dipilih
