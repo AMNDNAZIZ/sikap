@@ -164,8 +164,6 @@
 <script src="https://cdn.ckeditor.com/ckeditor5/41.1.0/super-build/ckeditor.js"></script>
 <?php endif; ?>
 
-</div>
-
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
@@ -189,15 +187,13 @@ $(function () {
       toolbar: ['imageTextAlternative', 'imageStyle:inline', 'imageStyle:block', 'imageStyle:side']
     },
     removePlugins: [
-      'AIAssistant', 'AIAssistantUI', 'AIAdapter', 'CKBox', 'CKBoxImageEdit',
-      'CKBoxUtils', 'CloudServices', 'CloudServicesUploadAdapter', 'EasyImage',
-      'Comments', 'RealTimeCollaborativeComments', 'TrackChanges',
-      'RealTimeCollaborativeTrackChanges', 'RevisionHistory',
-      'RealTimeCollaborativeRevisionHistory', 'PresenceList',
-      'RealTimeCollaboration', 'Pagination', 'WProofreader', 'MathType',
-      'ChemType', 'Mentions', 'SlashCommand', 'Template', 'DocumentOutline',
-      'FormatPainter', 'TableOfContents', 'PasteFromOfficeEnhanced',
-      'CaseChange', 'ExportPdf', 'ExportWord'
+      'AIAssistant', 'AIAssistantUI', 'AIAdapter', 'CKBox', 'CKBoxImageEdit', 'CKBoxImageEditEditing',
+      'CKBoxUtils', 'CloudServices', 'CloudServicesUploadAdapter', 'EasyImage', 'Comments', 'CommentsRepository',
+      'RealTimeCollaborativeComments', 'TrackChanges', 'TrackChangesEditing', 'TrackChangesData',
+      'RealTimeCollaborativeTrackChanges', 'RevisionHistory', 'RealTimeCollaborativeRevisionHistory',
+      'PresenceList', 'RealTimeCollaboration', 'Pagination', 'WProofreader', 'MathType', 'ChemType',
+      'Mentions', 'SlashCommand', 'Template', 'DocumentOutline', 'FormatPainter', 'TableOfContents',
+      'PasteFromOfficeEnhanced', 'CaseChange', 'WideSidebar', 'ExportPdf', 'ExportWord'
     ],
   })
   .then(editor => {
@@ -227,3 +223,4 @@ $(function () {
 });
 </script>
 <?php endif; ?>
+<?= $this->endSection() ?>
