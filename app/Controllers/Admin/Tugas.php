@@ -38,21 +38,40 @@ class Tugas extends BaseController
 
     /**
      * Ambil daftar kelas dan mapel yang bisa dipilih saat buat/edit tugas.
-     * Admin → semua kelas & mapel.
-     * Guru  → hanya kelas & mapel yang diampu di tahun ajaran aktif.
-     * Menggunakan GROUP BY untuk menghindari DISTINCT-pada-alias yang error di CI4.
+     * Admin → semua kelas & mapel (mapel diisi AJAX per kelas).
+     * Guru  → hanya kelas yang diampu + mapping class_id→subjects dari ploting
+     *         tahun ajaran aktif. Tidak perlu AJAX tambahan.
      */
-    private function getClassesAndSubjects(): array
+    private function getClassesAndSubjects(?int $forClassId = null): array
     {
         if ($this->isAdmin()) {
+            // Admin: semua kelas aktif; subjects untuk pre-populate edit mode
+            $subjects = [];
+            if ($forClassId) {
+                $activeYear = (new AcademicYearModel())->getActiveYear();
+                $subjects   = $this->db->table('teaching_assignments ta')
+                    ->select('s.id, s.name')
+                    ->join('subjects s', 's.id = ta.subject_id')
+                    ->where('ta.class_id', $forClassId)
+                    ->where('ta.academic_year_id', $activeYear['id'] ?? 0)
+                    ->groupBy('s.id')->orderBy('s.name')
+                    ->get()->getResultArray();
+                // Fallback jika belum ada assignment
+                if (empty($subjects)) {
+                    $subjects = $this->db->table('subjects')
+                        ->select('id, name')->orderBy('name')
+                        ->get()->getResultArray();
+                }
+            }
             return [
-                'classes'  => $this->db->table('classes')
+                'classes'       => $this->db->table('classes')
                     ->where('is_active', 1)->orderBy('name')->get()->getResultArray(),
-                'subjects' => $this->db->table('subjects')
-                    ->orderBy('name')->get()->getResultArray(),
+                'subjects'      => $subjects,
+                'assignmentMap' => null, // admin: gunakan AJAX
             ];
         }
 
+        // ── Guru: filter berdasarkan ploting pembelajaran ──────────────────
         $teacherId  = $this->getTeacherId();
         $activeYear = (new AcademicYearModel())->getActiveYear();
 
@@ -63,26 +82,29 @@ class Tugas extends BaseController
             ->where('ta.teacher_id', $teacherId)
             ->where('ta.academic_year_id', $activeYear['id'] ?? 0)
             ->groupBy('c.id, s.id')
-            ->orderBy('c.name')
+            ->orderBy('c.name, s.name')
             ->get()->getResultArray();
 
-        $classes     = [];
-        $subjects    = [];
-        $seenClass   = [];
-        $seenSubject = [];
+        $classes       = [];
+        $assignmentMap = []; // class_id => [ ['id'=>..,'name'=>..], .. ]
+        $seenClass     = [];
 
         foreach ($rows as $r) {
             if (!isset($seenClass[$r['class_id']])) {
-                $classes[]                  = ['id' => $r['class_id'], 'name' => $r['class_name']];
-                $seenClass[$r['class_id']]  = true;
+                $classes[]                 = ['id' => $r['class_id'], 'name' => $r['class_name']];
+                $seenClass[$r['class_id']] = true;
             }
-            if (!isset($seenSubject[$r['subject_id']])) {
-                $subjects[]                      = ['id' => $r['subject_id'], 'name' => $r['subject_name']];
-                $seenSubject[$r['subject_id']]   = true;
-            }
+            $assignmentMap[$r['class_id']][] = ['id' => $r['subject_id'], 'name' => $r['subject_name']];
         }
 
-        return compact('classes', 'subjects');
+        // subjects: ambil dari kelas yang sudah dipilih (edit/old) agar pre-populate benar
+        $subjects = $forClassId ? ($assignmentMap[$forClassId] ?? []) : [];
+
+        return [
+            'classes'       => $classes,
+            'subjects'      => $subjects,
+            'assignmentMap' => $assignmentMap,
+        ];
     }
 
     // ─────────────────────────────────────────────
@@ -110,13 +132,14 @@ class Tugas extends BaseController
     // ─────────────────────────────────────────────
     public function create()
     {
-        ['classes' => $classes, 'subjects' => $subjects] = $this->getClassesAndSubjects();
+        $data = $this->getClassesAndSubjects();
 
         return view('admin/tugas/create', [
-            'title'    => 'Buat Tugas Baru',
-            'classes'  => $classes,
-            'subjects' => $subjects,
-            'isAdmin'  => $this->isAdmin(),
+            'title'         => 'Buat Tugas Baru',
+            'classes'       => $data['classes'],
+            'subjects'      => $data['subjects'],
+            'assignmentMap' => $data['assignmentMap'],
+            'isAdmin'       => $this->isAdmin(),
         ]);
     }
 
@@ -192,17 +215,34 @@ class Tugas extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $mulai   = $this->request->getPost('mulai_at');
-        $selesai = $this->request->getPost('selesai_at');
+        $classId   = (int) $this->request->getPost('class_id');
+        $subjectId = (int) $this->request->getPost('subject_id');
+        $mulai     = $this->request->getPost('mulai_at');
+        $selesai   = $this->request->getPost('selesai_at');
 
         if ($selesai <= $mulai) {
             return redirect()->back()->withInput()->with('error', 'Waktu selesai harus setelah waktu mulai.');
         }
 
+        // Validasi server-side: guru hanya boleh buat tugas sesuai ploting-nya
+        if (!$this->isAdmin()) {
+            $activeYear = (new AcademicYearModel())->getActiveYear();
+            $valid = $this->db->table('teaching_assignments')
+                ->where('teacher_id',      $teacherId)
+                ->where('class_id',        $classId)
+                ->where('subject_id',      $subjectId)
+                ->where('academic_year_id', $activeYear['id'] ?? 0)
+                ->countAllResults();
+            if (!$valid) {
+                return redirect()->back()->withInput()
+                    ->with('error', 'Anda tidak memiliki ploting mengajar untuk kelas dan mata pelajaran yang dipilih.');
+            }
+        }
+
         $this->tugasModel->insert([
             'teacher_id' => $teacherId,
-            'class_id'   => $this->request->getPost('class_id'),
-            'subject_id' => $this->request->getPost('subject_id'),
+            'class_id'   => $classId,
+            'subject_id' => $subjectId,
             'judul'      => $this->request->getPost('judul'),
             'deskripsi'  => $this->request->getPost('deskripsi'),
             'mulai_at'   => $mulai,
@@ -270,14 +310,16 @@ class Tugas extends BaseController
             return redirect()->to('admin/tugas')->with('error', 'Akses ditolak.');
         }
 
-        ['classes' => $classes, 'subjects' => $subjects] = $this->getClassesAndSubjects();
+        // Kirim class_id agar subjects langsung ter-pre-populate di view
+        $data = $this->getClassesAndSubjects((int) $tugas['class_id']);
 
         return view('admin/tugas/create', [
-            'title'    => 'Edit Tugas',
-            'tugas'    => $tugas,
-            'classes'  => $classes,
-            'subjects' => $subjects,
-            'isAdmin'  => $this->isAdmin(),
+            'title'         => 'Edit Tugas',
+            'tugas'         => $tugas,
+            'classes'       => $data['classes'],
+            'subjects'      => $data['subjects'],
+            'assignmentMap' => $data['assignmentMap'],
+            'isAdmin'       => $this->isAdmin(),
         ]);
     }
 

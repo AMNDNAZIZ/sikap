@@ -142,21 +142,55 @@
   const selectKelas  = document.getElementById('selectKelas');
   const selectMapel  = document.getElementById('selectMapel');
   const mapelLoading = document.getElementById('mapelLoading');
-  const baseUrl      = '<?= site_url('admin/tugas/subjects-by-class') ?>';
-  const csrfHeader   = '<?= csrf_token() ?>';
-  const csrfValue    = '<?= csrf_hash() ?>';
 
   // Simpan selected value dari server (edit / old)
   const preselectedSubject = '<?= $selectedSubjectId ?>';
   const preselectedClass   = '<?= $selectedClassId ?>';
 
-  function loadMapel(classId, preselectId) {
+  // assignmentMap dari server (hanya diisi untuk guru, null untuk admin)
+  // Format: { "classId": [ {id, name}, ... ], ... }
+  const assignmentMap = <?= isset($assignmentMap) && $assignmentMap !== null
+    ? json_encode($assignmentMap)
+    : 'null' ?>;
+
+  // ── Admin: gunakan AJAX seperti sebelumnya ──────────────────────────────
+  const baseUrl    = '<?= site_url('admin/tugas/subjects-by-class') ?>';
+  const csrfHeader = '<?= csrf_token() ?>';
+  const csrfValue  = '<?= csrf_hash() ?>';
+
+  function renderOptions(subjects, preselectId) {
+    selectMapel.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
+    if (subjects && subjects.length) {
+      subjects.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        if (String(preselectId) === String(s.id)) opt.selected = true;
+        selectMapel.appendChild(opt);
+      });
+      selectMapel.disabled = false;
+    } else {
+      selectMapel.innerHTML = '<option value="">Tidak ada mapel tersedia</option>';
+      selectMapel.disabled = true;
+    }
+  }
+
+  function loadMapelFromMap(classId, preselectId) {
     if (!classId) {
       selectMapel.innerHTML = '<option value="">-- Pilih Kelas dulu --</option>';
       selectMapel.disabled  = true;
       return;
     }
+    const subjects = assignmentMap[classId] || [];
+    renderOptions(subjects, preselectId);
+  }
 
+  function loadMapelFromAjax(classId, preselectId) {
+    if (!classId) {
+      selectMapel.innerHTML = '<option value="">-- Pilih Kelas dulu --</option>';
+      selectMapel.disabled  = true;
+      return;
+    }
     mapelLoading.style.display = '';
     selectMapel.disabled = true;
 
@@ -167,38 +201,25 @@
       }
     })
     .then(r => r.json())
-    .then(data => {
-      selectMapel.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
-      if (data.success && data.subjects.length) {
-        data.subjects.forEach(s => {
-          const opt = document.createElement('option');
-          opt.value = s.id;
-          opt.textContent = s.name;
-          if (String(preselectId) === String(s.id)) opt.selected = true;
-          selectMapel.appendChild(opt);
-        });
-      } else {
-        selectMapel.innerHTML = '<option value="">Tidak ada mapel tersedia</option>';
-      }
-    })
+    .then(data => renderOptions(data.success ? data.subjects : [], preselectId))
     .catch(() => {
       selectMapel.innerHTML = '<option value="">Gagal memuat mapel</option>';
     })
     .finally(() => {
       mapelLoading.style.display = 'none';
-      selectMapel.disabled = false;
     });
   }
+
+  const loadMapel = assignmentMap !== null ? loadMapelFromMap : loadMapelFromAjax;
 
   // Load saat kelas berubah
   selectKelas.addEventListener('change', function () {
     loadMapel(this.value, '');
   });
 
-  // Jika ada kelas yang sudah terpilih (edit/old) tapi mapel belum dimuat via AJAX
-  // (karena render server-side sudah isi, kita tidak perlu load ulang — tapi set disabled false)
+  // Pre-populate saat halaman pertama load (mode edit / validasi gagal)
   if (preselectedClass) {
-    selectMapel.disabled = false;
+    loadMapel(preselectedClass, preselectedSubject);
   } else {
     selectMapel.disabled = true;
   }
