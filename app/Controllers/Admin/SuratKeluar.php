@@ -81,18 +81,10 @@ class SuratKeluar extends BaseController
         $settings = new SettingsModel();
         $school   = (new SchoolModel())->first();
 
-        // Ambil data kepala sekolah dari settings / school secara robust
-        $pName = trim($settings->getValue('principal_name') ?? '');
-        if ($pName === '') {
-            $pName = trim($school['principal_name'] ?? '');
-        }
-        $principalName = $pName !== '' ? $pName : '-';
-
-        $pNip = trim($settings->getValue('principal_nip') ?? '');
-        if ($pNip === '') {
-            $pNip = trim($school['principal_nip'] ?? '');
-        }
-        $principalNip = $pNip !== '' ? $pNip : '-';
+        // Ambil data kepala sekolah dari settings / school / teacher secara robust
+        $pInfo         = $this->getPrincipalInfo($school, $settings);
+        $principalName = $pInfo['name'];
+        $principalNip  = $pInfo['nip'];
 
         // Untuk preview client-side
         $pdfGen     = new PdfGenerator();
@@ -154,17 +146,9 @@ class SuratKeluar extends BaseController
         $settings = new SettingsModel();
 
         // Robust principal name & NIP fallback
-        $pName = trim($settings->getValue('principal_name') ?? '');
-        if ($pName === '') {
-            $pName = trim($school['principal_name'] ?? '');
-        }
-        $principalName = $pName !== '' ? $pName : '-';
-
-        $pNip = trim($settings->getValue('principal_nip') ?? '');
-        if ($pNip === '') {
-            $pNip = trim($school['principal_nip'] ?? '');
-        }
-        $principalNip = $pNip !== '' ? $pNip : '-';
+        $pInfo         = $this->getPrincipalInfo($school, $settings);
+        $principalName = $pInfo['name'];
+        $principalNip  = $pInfo['nip'];
 
         // Opsi Nomor Surat: Auto-Generate vs Input Manual
         $numberMode  = $this->request->getPost('number_mode') ?? 'auto';
@@ -513,27 +497,25 @@ class SuratKeluar extends BaseController
             $qrDataUrl = $result->getDataUri();
 
             // Robust principal name & NIP fallback for PDF generation
+            $pInfo = $this->getPrincipalInfo($school, $settings);
+
             $pName = trim($letter['principal_name_snapshot'] ?? '');
             if ($pName === '' || $pName === '-') {
-                $pName = trim($school['principal_name'] ?? '');
+                $pName = $pInfo['name'];
             }
-            if ($pName === '' || $pName === '-') {
-                $pName = trim($settings->getValue('principal_name') ?? '');
-            }
-            if ($pName !== '') {
-                $letter['principal_name_snapshot'] = $pName;
-            }
+            $letter['principal_name_snapshot'] = $pName;
 
             $pNip = trim($letter['principal_nip_snapshot'] ?? '');
             if ($pNip === '' || $pNip === '-') {
-                $pNip = trim($school['principal_nip'] ?? '');
+                $pNip = $pInfo['nip'];
             }
-            if ($pNip === '' || $pNip === '-') {
-                $pNip = trim($settings->getValue('principal_nip') ?? '');
-            }
-            if ($pNip !== '') {
-                $letter['principal_nip_snapshot'] = $pNip;
-            }
+            $letter['principal_nip_snapshot'] = $pNip;
+
+            // Update database snapshot if previously empty or '-'
+            $this->model->update($letterId, [
+                'principal_name_snapshot' => $pName,
+                'principal_nip_snapshot'  => $pNip,
+            ]);
 
             $activeYear = $settings->getValue('active_school_year') ?? (date('Y') . '/' . (date('Y') + 1));
 
@@ -615,9 +597,14 @@ class SuratKeluar extends BaseController
         $recipientDetail = $letter['recipient_detail'] ?? [];
 
         $activeYear = $settings->getValue('active_school_year') ?? (date('Y') . '/' . (date('Y') + 1));
-        
+        $recName = $letter['recipient_name'] ?? '-';
+        if (str_contains($recName, '|')) {
+            $parts   = array_map('trim', explode('|', $recName));
+            $recName = implode(', ', array_filter($parts));
+        }
+
         $placeholders = [
-            '{nama_penerima}'      => $letter['recipient_name'] ?? '-',
+            '{nama_penerima}'      => $recName,
             '{nisn}'               => $recipientDetail['nisn'] ?? '-',
             '{kelas}'              => $recipientDetail['kelas'] ?? '-',
             '{ttl}'                => $recipientDetail['ttl'] ?? '-',
@@ -691,8 +678,9 @@ class SuratKeluar extends BaseController
         $settings = new SettingsModel();
         $school   = (new SchoolModel())->first();
 
-        $principalName = $settings->getValue('principal_name') ?? ($school['principal_name'] ?? '');
-        $principalNip  = $settings->getValue('principal_nip')  ?? ($school['principal_nip']  ?? '');
+        $pInfo         = $this->getPrincipalInfo($school, $settings);
+        $principalName = $pInfo['name'];
+        $principalNip  = $pInfo['nip'];
         $activeYear    = $settings->getValue('active_school_year') ?? (date('Y') . '/' . (date('Y') + 1));
 
         $year  = (int) date('Y');
@@ -749,8 +737,9 @@ class SuratKeluar extends BaseController
         $school   = (new SchoolModel())->first();
         $settings = new SettingsModel();
 
-        $principalName = $settings->getValue('principal_name') ?? ($school['principal_name'] ?? '-');
-        $principalNip  = $settings->getValue('principal_nip')  ?? ($school['principal_nip']  ?? '-');
+        $pInfo         = $this->getPrincipalInfo($school, $settings);
+        $principalName = $pInfo['name'];
+        $principalNip  = $pInfo['nip'];
 
         $issuedAt = $this->request->getPost('issued_at');
         $year     = (int) date('Y', strtotime($issuedAt));
@@ -898,5 +887,40 @@ class SuratKeluar extends BaseController
         $data[6] = chr(ord($data[6]) & 0x0f | 0x40); // set version to 4
         $data[8] = chr(ord($data[8]) & 0x3f | 0x80); // set bits 6-7 to 10
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+    }
+
+    private function getPrincipalInfo(?array $school, SettingsModel $settings): array
+    {
+        $pName = trim($settings->getValue('principal_name') ?? '');
+        if ($pName === '' || $pName === '-') {
+            $pName = trim($school['headmaster'] ?? '');
+        }
+        if ($pName === '' || $pName === '-') {
+            $pName = trim($school['principal_name'] ?? '');
+        }
+        if ($pName === '' || $pName === '-') {
+            $kepsek = (new TeacherModel())->like('functional_position', 'Kepala Sekolah')->first();
+            if ($kepsek) {
+                $pName = trim($kepsek['name']);
+            }
+        }
+
+        $pNip = trim($settings->getValue('principal_nip') ?? '');
+        if ($pNip === '' || $pNip === '-') {
+            $pNip = trim($school['principal_nip'] ?? '');
+        }
+        if ($pNip === '' || $pNip === '-') {
+            if (!isset($kepsek)) {
+                $kepsek = (new TeacherModel())->like('functional_position', 'Kepala Sekolah')->first();
+            }
+            if ($kepsek && !empty($kepsek['nip'])) {
+                $pNip = trim($kepsek['nip']);
+            }
+        }
+
+        return [
+            'name' => ($pName !== '' && $pName !== '-') ? $pName : '-',
+            'nip'  => ($pNip !== '' && $pNip !== '-') ? $pNip : '-',
+        ];
     }
 }

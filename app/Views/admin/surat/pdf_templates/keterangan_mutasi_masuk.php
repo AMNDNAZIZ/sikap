@@ -15,8 +15,8 @@ $tgl   = date('d', strtotime($letter['issued_at'])) . ' ' . $bulan[(int)date('m'
     <div class="pembuka">Yang bertanda tangan di bawah ini :</div>
 
     <table class="data-tabel" style="margin-bottom:8px;">
-        <tr><td class="label">Nama</td><td class="colon">:</td><td><?= esc($letter['principal_name_snapshot']) ?></td></tr>
-        <tr><td class="label">NIP</td><td class="colon">:</td><td><?= esc($letter['principal_nip_snapshot']) ?></td></tr>
+        <tr><td class="label">Nama</td><td class="colon">:</td><td><?= esc((!empty($letter['principal_name_snapshot']) && $letter['principal_name_snapshot'] !== '-') ? $letter['principal_name_snapshot'] : ($school['headmaster'] ?? '-')) ?></td></tr>
+        <tr><td class="label">NIP</td><td class="colon">:</td><td><?= esc((!empty($letter['principal_nip_snapshot']) && $letter['principal_nip_snapshot'] !== '-') ? $letter['principal_nip_snapshot'] : ($school['principal_nip'] ?? '-')) ?></td></tr>
         <tr><td class="label">Jabatan</td><td class="colon">:</td><td>Kepala Sekolah</td></tr>
         <tr><td class="label">Tempat Tugas</td><td class="colon">:</td><td><?= esc($school['name'] ?? 'SD Negeri Mangga Besar 11 Pagi') ?></td></tr>
     </table>
@@ -48,8 +48,8 @@ $tgl   = date('d', strtotime($letter['issued_at'])) . ' ' . $bulan[(int)date('m'
         Jakarta, <?= $tgl ?><br>
         Kepala <?= esc($school['name'] ?? 'SDN Mangga Besar 11 Pagi') ?>
         <span class="ttd-line"></span>
-        <strong><?= esc($letter['principal_name_snapshot']) ?></strong><br>
-        NIP. <?= esc($letter['principal_nip_snapshot']) ?>
+        <strong><?= esc((!empty($letter['principal_name_snapshot']) && $letter['principal_name_snapshot'] !== '-') ? $letter['principal_name_snapshot'] : ($school['headmaster'] ?? '-')) ?></strong><br>
+        NIP. <?= esc((!empty($letter['principal_nip_snapshot']) && $letter['principal_nip_snapshot'] !== '-') ? $letter['principal_nip_snapshot'] : ($school['principal_nip'] ?? '-')) ?>
     </div>
     <div class="ttd-clearfix"></div>
 
