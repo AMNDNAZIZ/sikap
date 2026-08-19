@@ -317,12 +317,58 @@
             </p>
           </div>
 
-          <!-- Penerima Eksternal (Surat Custom) -->
+          <!-- Multi Guru Section (Pilih Lebih Dari 1 Guru) -->
+          <div id="recipient-multi-guru-section" class="position-relative" style="display:none;">
+            <label class="form-label fw-semibold" for="recipient_search_multi_guru">Cari &amp; Tambah Guru / Tendik <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" id="recipient_search_multi_guru" class="form-control" placeholder="Ketik nama atau NIP guru untuk menambah penerima..." autocomplete="off">
+            </div>
+            <div id="multi-guru-autocomplete-result" class="autocomplete-suggestions list-group"></div>
+            
+            <div class="mt-2 p-2 bg-light rounded border" id="multi-guru-selected-wrapper">
+              <small class="fw-semibold text-secondary d-block mb-1"><i class="bi bi-people me-1"></i>Daftar Penerima Guru Ditambahkan:</small>
+              <div id="multi-guru-selected-chips" class="d-flex flex-wrap gap-1">
+                <span class="text-muted small fst-italic" id="multi-guru-empty-msg">Belum ada guru dipilih. Cari nama guru di atas.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Multi Siswa Section (Pilih Lebih Dari 1 Siswa) -->
+          <div id="recipient-multi-siswa-section" class="position-relative" style="display:none;">
+            <label class="form-label fw-semibold" for="recipient_search_multi_siswa">Cari &amp; Tambah Siswa <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" id="recipient_search_multi_siswa" class="form-control" placeholder="Ketik nama atau NISN siswa untuk menambah penerima..." autocomplete="off">
+            </div>
+            <div id="multi-siswa-autocomplete-result" class="autocomplete-suggestions list-group"></div>
+            
+            <div class="mt-2 p-2 bg-light rounded border" id="multi-siswa-selected-wrapper">
+              <small class="fw-semibold text-secondary d-block mb-1"><i class="bi bi-people me-1"></i>Daftar Penerima Siswa Ditambahkan:</small>
+              <div id="multi-siswa-selected-chips" class="d-flex flex-wrap gap-1">
+                <span class="text-muted small fst-italic" id="multi-siswa-empty-msg">Belum ada siswa dipilih. Cari nama siswa di atas.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Penerima Eksternal / Custom Multi-Penerima -->
           <div id="recipient-eksternal-section" style="display:none;">
-            <label class="form-label fw-semibold" for="recipient_name_eksternal">Nama Penerima <span class="text-danger">*</span></label>
-            <input type="text" id="recipient_name_eksternal" class="form-control"
-                   placeholder="cth: Kepala Dinas Pendidikan Kota Jakarta" autocomplete="off">
-            <small class="text-muted">Ketik nama penerima surat secara bebas.</small>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="form-label fw-semibold mb-0"><i class="bi bi-card-checklist me-1"></i>Daftar Nama Penerima <span class="text-danger">*</span></label>
+              <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Dapat menambah 1 atau lebih penerima</small>
+            </div>
+            
+            <div id="eksternal-dinamis-rows">
+              <div class="input-group mb-2 eksternal-dinamis-row">
+                <span class="input-group-text bg-light text-secondary fw-semibold row-idx" style="font-size:0.82rem; min-width:36px; justify-content:center;">1</span>
+                <input type="text" class="form-control eksternal-dinamis-input" id="recipient_name_eksternal" placeholder="cth: Kepala Dinas Pendidikan Kota Jakarta" autocomplete="off">
+                <button type="button" class="btn btn-outline-danger btn-sm btn-remove-eksternal" title="Hapus"><i class="bi bi-trash"></i></button>
+              </div>
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-sm mt-1" id="btn-add-eksternal-row">
+              <i class="bi bi-plus-circle me-1"></i>Tambah Baris Penerima Baru
+            </button>
+            <small class="text-muted mt-1 d-block" style="font-size:0.75rem;"><i class="bi bi-info-circle me-1"></i>Setiap baris penerima akan otomatis dicetak rapi di bagian header "Kepada Yth." surat custom.</small>
           </div>
         </div>
       </div>
@@ -527,9 +573,12 @@
             <div class="col-md-6">
               <label class="form-label fw-semibold" for="custom_recipient_type">Tipe Penerima Surat <span class="text-danger">*</span></label>
               <select id="custom_recipient_type" class="form-select">
-                <option value="siswa">Siswa (Data Siswa)</option>
-                <option value="guru">Guru / Tenaga Kependidikan</option>
-                <option value="eksternal">Eksternal (Ketik Bebas)</option>
+                <option value="eksternal">Multi-Penerima Custom (Input 1 atau Lebih Baris)</option>
+                <option value="multi_guru">Banyak Guru / Tendik (Pilih Beberapa Guru)</option>
+                <option value="multi_siswa">Banyak Siswa (Pilih Beberapa Siswa)</option>
+                <option value="guru">Guru / Tenaga Kependidikan (Tunggal)</option>
+                <option value="siswa">Siswa (Data Siswa Tunggal)</option>
+                <option value="undangan">Massal (Seluruh Guru / Wali Murid Kelas)</option>
               </select>
             </div>
 
@@ -754,6 +803,8 @@ function updateRecipientSection() {
 
   $('#recipient-siswa-section').toggle(rtype === 'siswa');
   $('#recipient-guru-section').toggle(rtype === 'guru');
+  $('#recipient-multi-guru-section').toggle(rtype === 'multi_guru');
+  $('#recipient-multi-siswa-section').toggle(rtype === 'multi_siswa');
   $('#recipient-internal-section').toggle(rtype === 'internal');
   $('#recipient-eksternal-section').toggle(rtype === 'eksternal');
   $('#recipient-undangan-section').toggle(rtype === 'undangan');
@@ -766,23 +817,31 @@ function updateRecipientSection() {
     $('#recipient_type').val('guru');
     $('#siswa-detail-fields').hide();
     $('#guru-detail-fields').show();
+  } else if (rtype === 'multi_guru') {
+    $('#recipient_type').val('guru');
+    $('#siswa-detail-fields').hide();
+    $('#guru-detail-fields').hide();
+    syncMultiGuruRecipientName();
+  } else if (rtype === 'multi_siswa') {
+    $('#recipient_type').val('siswa');
+    $('#siswa-detail-fields').hide();
+    $('#guru-detail-fields').hide();
+    syncMultiSiswaRecipientName();
   } else if (rtype === 'eksternal') {
     $('#recipient_type').val('eksternal');
     $('#siswa-detail-fields').hide();
     $('#guru-detail-fields').hide();
-    $('#recipient_name').val($('#recipient_name_eksternal').val());
+    syncEksternalRecipientName();
   } else if (rtype === 'internal') {
     $('#recipient_type').val('internal');
     $('#siswa-detail-fields').hide();
     $('#guru-detail-fields').hide();
-    $('#recipient_name').val('Guru & Tenaga Kependidikan SDN Mangga Besar 11 Pagi');
+    $('#recipient_name').val('Guru & Tenaga Kependidikan ' + SCHOOL_NAME);
   } else if (rtype === 'undangan') {
-    // Undangan: delegate to sub-mode handler
     $('#siswa-detail-fields').hide();
     $('#guru-detail-fields').hide();
     updateUndanganRecipient();
   } else {
-    // multi
     $('#recipient_type').val('siswa');
     $('#siswa-detail-fields').hide();
     $('#guru-detail-fields').hide();
@@ -1135,9 +1194,144 @@ $(document).on('change', '#custom_recipient_type', function() {
 });
 
 // Sinkronisasi nama penerima eksternal ke field hidden
-$(document).on('input', '#recipient_name_eksternal', function() {
-  $('#recipient_name').val($(this).val());
+function syncEksternalRecipientName() {
+  const names = [];
+  $('.eksternal-dinamis-input').each(function() {
+    const val = $(this).val().trim();
+    if (val) names.push(val);
+  });
+  $('#recipient_name').val(names.join(' | '));
+}
+
+let eksternalRowCount = 1;
+$('#btn-add-eksternal-row').on('click', function() {
+  eksternalRowCount++;
+  const rowHtml = `<div class="input-group mb-2 eksternal-dinamis-row">
+    <span class="input-group-text bg-light text-secondary fw-semibold row-idx" style="font-size:0.82rem; min-width:36px; justify-content:center;">${eksternalRowCount}</span>
+    <input type="text" class="form-control eksternal-dinamis-input" placeholder="cth: Kepala Suku Dinas Pendidikan" autocomplete="off">
+    <button type="button" class="btn btn-outline-danger btn-sm btn-remove-eksternal" title="Hapus"><i class="bi bi-trash"></i></button>
+  </div>`;
+  $('#eksternal-dinamis-rows').append(rowHtml);
 });
+
+$(document).on('click', '.btn-remove-eksternal', function() {
+  if ($('.eksternal-dinamis-row').length > 1) {
+    $(this).closest('.eksternal-dinamis-row').remove();
+    $('.eksternal-dinamis-row').each((idx, el) => {
+      $(el).find('.row-idx').text(idx + 1);
+    });
+    eksternalRowCount = $('.eksternal-dinamis-row').length;
+    syncEksternalRecipientName();
+  }
+});
+
+$(document).on('input', '.eksternal-dinamis-input', function() {
+  syncEksternalRecipientName();
+});
+
+// ─── Multi Guru Handlers ────────────────────────────────────────────────
+let multiGuruTimer;
+$('#recipient_search_multi_guru').on('input', function() {
+  clearTimeout(multiGuruTimer);
+  const q = $(this).val();
+  if (q.length < 2) { $('#multi-guru-autocomplete-result').empty().hide(); return; }
+  multiGuruTimer = setTimeout(() => {
+    $.getJSON(GURU_SEARCH_URL, { q }, function(data) {
+      const list = $('#multi-guru-autocomplete-result').empty();
+      data.forEach(t => {
+        list.append(`<a href="#" class="list-group-item list-group-item-action py-2 px-3 small multi-guru-item"
+          data-name="${t.name}">
+          <i class="bi bi-person-badge me-2"></i><strong>${t.name}</strong> <span class="text-muted ms-1">(NIP: ${t.nip || '-'} - ${t.jabatan})</span>
+        </a>`);
+      });
+      list.toggle(data.length > 0);
+    });
+  }, 300);
+});
+
+$(document).on('click', '.multi-guru-item', function(e) {
+  e.preventDefault();
+  const name = $(this).data('name');
+  $('#recipient_search_multi_guru').val('');
+  $('#multi-guru-autocomplete-result').empty().hide();
+  $('#multi-guru-empty-msg').hide();
+  
+  $('#multi-guru-selected-chips').append(
+    `<span class="badge bg-primary d-inline-flex align-items-center py-1 px-2 me-1 mb-1 multi-guru-chip" data-name="${name}">
+      ${name}
+      <button type="button" class="btn-close btn-close-white ms-2 btn-remove-multi-guru-chip" style="font-size:0.65rem;" aria-label="Remove"></button>
+    </span>`
+  );
+  syncMultiGuruRecipientName();
+});
+
+$(document).on('click', '.btn-remove-multi-guru-chip', function() {
+  $(this).closest('.multi-guru-chip').remove();
+  if ($('.multi-guru-chip').length === 0) {
+    $('#multi-guru-empty-msg').show();
+  }
+  syncMultiGuruRecipientName();
+});
+
+function syncMultiGuruRecipientName() {
+  const names = [];
+  $('.multi-guru-chip').each(function() {
+    names.push($(this).data('name'));
+  });
+  $('#recipient_name').val(names.join(' | '));
+}
+
+// ─── Multi Siswa Handlers ────────────────────────────────────────────────
+let multiSiswaTimer;
+$('#recipient_search_multi_siswa').on('input', function() {
+  clearTimeout(multiSiswaTimer);
+  const q = $(this).val();
+  if (q.length < 2) { $('#multi-siswa-autocomplete-result').empty().hide(); return; }
+  multiSiswaTimer = setTimeout(() => {
+    $.getJSON(SISWA_SEARCH_URL, { q }, function(data) {
+      const list = $('#multi-siswa-autocomplete-result').empty();
+      data.forEach(s => {
+        list.append(`<a href="#" class="list-group-item list-group-item-action py-2 px-3 small multi-siswa-item"
+          data-name="${s.name}">
+          <i class="bi bi-person me-2"></i><strong>${s.name}</strong> <span class="text-muted ms-1">(NISN: ${s.nisn} - Kelas: ${s.kelas})</span>
+        </a>`);
+      });
+      list.toggle(data.length > 0);
+    });
+  }, 300);
+});
+
+$(document).on('click', '.multi-siswa-item', function(e) {
+  e.preventDefault();
+  const name = $(this).data('name');
+  $('#recipient_search_multi_siswa').val('');
+  $('#multi-siswa-autocomplete-result').empty().hide();
+  $('#multi-siswa-empty-msg').hide();
+  
+  $('#multi-siswa-selected-chips').append(
+    `<span class="badge bg-success d-inline-flex align-items-center py-1 px-2 me-1 mb-1 multi-siswa-chip" data-name="${name}">
+      ${name}
+      <button type="button" class="btn-close btn-close-white ms-2 btn-remove-multi-siswa-chip" style="font-size:0.65rem;" aria-label="Remove"></button>
+    </span>`
+  );
+  syncMultiSiswaRecipientName();
+});
+
+$(document).on('click', '.btn-remove-multi-siswa-chip', function() {
+  $(this).closest('.multi-siswa-chip').remove();
+  if ($('.multi-siswa-chip').length === 0) {
+    $('#multi-siswa-empty-msg').show();
+  }
+  syncMultiSiswaRecipientName();
+});
+
+function syncMultiSiswaRecipientName() {
+  const names = [];
+  $('.multi-siswa-chip').each(function() {
+    names.push($(this).data('name'));
+  });
+  $('#recipient_name').val(names.join(' | '));
+}
 
 // ─── Undangan Recipient Sub-Mode Logic ──────────────────────────────────
 
@@ -1312,6 +1506,15 @@ function formatIndoDate(dateStr) {
   return d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
 }
 
+function formatRecipientLinesForPreview(str) {
+  if (!str || str === '-') return '-';
+  const parts = str.split(/\s*\|\s*/).filter(Boolean);
+  if (parts.length === 0) return '-';
+  return parts.map((line, idx) => {
+    return idx === 0 ? `<strong>${escHtml(line)}</strong>` : escHtml(line);
+  }).join('<br>');
+}
+
 // Tampilkan/sembunyikan tombol Preview sesuai tipe surat yang dipilih
 $('input[name="letter_type"]').on('change', function() {
   $('#btn-preview-surat').toggle(!!this.value);
@@ -1371,10 +1574,15 @@ $('#btn-preview-surat').on('click', function() {
     const rawBodyHtml = editorInstance.getData();
     const headerStyle  = $('input[name="header_style"]:checked').val() || 'tengah';
 
+    let recNameForPlaceholder = (recipientName || ekstName || '-');
+    if (recNameForPlaceholder.includes('|')) {
+      recNameForPlaceholder = recNameForPlaceholder.split(/\s*\|\s*/).filter(Boolean).join(', ');
+    }
+
     // Ganti semua placeholder
     let processedBody = rawBodyHtml;
     const map = {
-      '{nama_penerima}':      recipientName || ekstName,
+      '{nama_penerima}':      recNameForPlaceholder,
       '{nisn}':               nisn,
       '{kelas}':              kelas,
       '{ttl}':                ttl,
@@ -1425,7 +1633,7 @@ $('#btn-preview-surat').on('click', function() {
               <div style="line-height:1.6;">
                 ${escHtml(tanggalSurat)}<br><br>
                 Kepada<br>
-                Yth. <strong>${escHtml(recipientName || ekstName)}</strong><br>
+                Yth. ${formatRecipientLinesForPreview(recipientName || ekstName)}<br>
                 di &nbsp;-&nbsp; <strong>Tempat</strong>
               </div>
             </td>

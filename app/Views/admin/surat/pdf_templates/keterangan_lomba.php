@@ -63,8 +63,8 @@ $tgl       = date('d', strtotime($letter['issued_at'])) . ' ' . $bulan[(int)date
         Jakarta, <?= $tgl ?><br>
         Kepala <?= esc($school['name'] ?? 'SDN Mangga Besar 11 Pagi') ?>
         <span class="ttd-line" style="margin-top: 56px;"></span>
-        <strong><?= esc($letter['principal_name_snapshot']) ?></strong><br>
-        NIP. <?= esc($letter['principal_nip_snapshot']) ?>
+        <strong><?= esc((!empty($letter['principal_name_snapshot']) && $letter['principal_name_snapshot'] !== '-') ? $letter['principal_name_snapshot'] : ($school['headmaster'] ?? '-')) ?></strong><br>
+        NIP. <?= esc((!empty($letter['principal_nip_snapshot']) && $letter['principal_nip_snapshot'] !== '-') ? $letter['principal_nip_snapshot'] : ($school['principal_nip'] ?? '-')) ?>
     </div>
     <div class="ttd-clearfix"></div>
 

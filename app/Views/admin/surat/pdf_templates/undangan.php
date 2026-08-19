@@ -13,7 +13,7 @@ if (!empty($ld['event_date'])) {
 // Format principal name & NIP with robust fallbacks
 $principalName = trim($letter['principal_name_snapshot'] ?? '');
 if ($principalName === '' || $principalName === '-') {
-    $principalName = trim($school['principal_name'] ?? '');
+    $principalName = trim($school['headmaster'] ?? ($school['principal_name'] ?? ''));
 }
 if ($principalName === '' || $principalName === '-') {
     $principalName = (new \App\Models\SettingsModel())->getValue('principal_name') ?? '-';
