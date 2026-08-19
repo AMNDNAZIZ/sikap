@@ -298,6 +298,9 @@ class SuratKeluar extends BaseController
         if (!empty($letter['pdf_path']) && file_exists(WRITEPATH . 'uploads/' . $letter['pdf_path'])) {
             $path = WRITEPATH . 'uploads/' . $letter['pdf_path'];
             $filename = str_replace('/', '_', $letter['letter_number']) . '.pdf';
+            if (ob_get_level() > 0) {
+                ob_end_clean();
+            }
             header('Content-Type: application/pdf');
             header('Content-Disposition: attachment; filename="' . $filename . '"');
             readfile($path);
@@ -313,6 +316,9 @@ class SuratKeluar extends BaseController
             $this->model->update($id, ['pdf_path' => $result['path'], 'pdf_url' => $result['url'], 'file_size_bytes' => $result['size']]);
             $path     = WRITEPATH . 'uploads/' . $result['path'];
             $filename = str_replace('/', '_', $letter['letter_number']) . '.pdf';
+            if (ob_get_level() > 0) {
+                ob_end_clean();
+            }
             header('Content-Type: application/pdf');
             header('Content-Disposition: attachment; filename="' . $filename . '"');
             readfile($path);
@@ -529,6 +535,8 @@ class SuratKeluar extends BaseController
                 $letter['principal_nip_snapshot'] = $pNip;
             }
 
+            $activeYear = $settings->getValue('active_school_year') ?? (date('Y') . '/' . (date('Y') + 1));
+
             $viewData = [
                 'letter'      => $letter,
                 'school'      => $school,
@@ -570,11 +578,20 @@ class SuratKeluar extends BaseController
             $options->set('isHtml5ParserEnabled', true);
             $options->set('isRemoteEnabled', false);
             $options->set('defaultFont', 'DejaVu Sans');
+
+            $tempDir = WRITEPATH . 'tmp';
+            $fontDir = WRITEPATH . 'fonts';
+            if (!is_dir($tempDir)) {
+                @mkdir($tempDir, 0777, true);
+            }
+            if (!is_dir($fontDir)) {
+                @mkdir($fontDir, 0777, true);
+            }
+            $options->set('tempDir', $tempDir);
+            $options->set('fontDir', $fontDir);
+            $options->set('fontCache', $fontDir);
+
             $dompdf = new \Dompdf\Dompdf($options);
-            $dompdf->set_option('margin_left', 10);
-            $dompdf->set_option('margin_right', 10);
-            $dompdf->set_option('margin_top', 10);
-            $dompdf->set_option('margin_bottom', 10);
             $dompdf->loadHtml($html);
             $dompdf->setPaper('A4', 'portrait');
             $dompdf->render();
@@ -846,6 +863,26 @@ class SuratKeluar extends BaseController
 
         if (! empty($letter['pdf_path']) && file_exists(WRITEPATH . 'uploads/' . $letter['pdf_path'])) {
             $path = WRITEPATH . 'uploads/' . $letter['pdf_path'];
+            if (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: inline; filename="surat_' . $letter['id'] . '.pdf"');
+            readfile($path);
+            exit;
+        }
+
+        // Regenerate jika belum ada
+        $school   = (new SchoolModel())->first();
+        $settings = new SettingsModel();
+        $result   = $this->generateAndSavePdf($id, $letter['qr_code_id'], $school, $settings);
+
+        if ($result) {
+            $this->model->update($id, ['pdf_path' => $result['path'], 'pdf_url' => $result['url'], 'file_size_bytes' => $result['size']]);
+            $path = WRITEPATH . 'uploads/' . $result['path'];
+            if (ob_get_level() > 0) {
+                ob_end_clean();
+            }
             header('Content-Type: application/pdf');
             header('Content-Disposition: inline; filename="surat_' . $letter['id'] . '.pdf"');
             readfile($path);
