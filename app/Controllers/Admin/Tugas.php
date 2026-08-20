@@ -205,7 +205,6 @@ class Tugas extends BaseController
 
         $rules = [
             'judul'      => 'required|max_length[255]',
-            'class_id'   => 'required|is_natural_no_zero',
             'subject_id' => 'required|is_natural_no_zero',
             'mulai_at'   => 'required',
             'selesai_at' => 'required',
@@ -215,7 +214,14 @@ class Tugas extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $classId   = (int) $this->request->getPost('class_id');
+        // Ambil class_ids (multi) atau class_id (edit-fallback)
+        $classIds  = $this->request->getPost('class_ids') ?? [];
+        if (empty($classIds)) {
+            return redirect()->back()->withInput()
+                ->with('error', 'Pilih minimal satu kelas untuk tugas ini.');
+        }
+        $classIds = array_map('intval', array_filter($classIds));
+
         $subjectId = (int) $this->request->getPost('subject_id');
         $mulai     = $this->request->getPost('mulai_at');
         $selesai   = $this->request->getPost('selesai_at');
@@ -227,30 +233,44 @@ class Tugas extends BaseController
         // Validasi server-side: guru hanya boleh buat tugas sesuai ploting-nya
         if (!$this->isAdmin()) {
             $activeYear = (new AcademicYearModel())->getActiveYear();
-            $valid = $this->db->table('teaching_assignments')
-                ->where('teacher_id',      $teacherId)
-                ->where('class_id',        $classId)
-                ->where('subject_id',      $subjectId)
-                ->where('academic_year_id', $activeYear['id'] ?? 0)
-                ->countAllResults();
-            if (!$valid) {
-                return redirect()->back()->withInput()
-                    ->with('error', 'Anda tidak memiliki ploting mengajar untuk kelas dan mata pelajaran yang dipilih.');
+            foreach ($classIds as $cid) {
+                $valid = $this->db->table('teaching_assignments')
+                    ->where('teacher_id',      $teacherId)
+                    ->where('class_id',        $cid)
+                    ->where('subject_id',      $subjectId)
+                    ->where('academic_year_id', $activeYear['id'] ?? 0)
+                    ->countAllResults();
+                if (!$valid) {
+                    return redirect()->back()->withInput()
+                        ->with('error', 'Anda tidak memiliki ploting mengajar untuk salah satu kelas yang dipilih.');
+                }
             }
         }
 
-        $this->tugasModel->insert([
-            'teacher_id' => $teacherId,
-            'class_id'   => $classId,
-            'subject_id' => $subjectId,
-            'judul'      => $this->request->getPost('judul'),
-            'deskripsi'  => $this->request->getPost('deskripsi'),
-            'mulai_at'   => $mulai,
-            'selesai_at' => $selesai,
-            'created_by' => $user['id'],
-        ]);
+        // Insert satu tugas per kelas
+        $judul    = $this->request->getPost('judul');
+        $deskripsi = $this->request->getPost('deskripsi');
+        $inserted  = 0;
 
-        return redirect()->to('admin/tugas')->with('success', 'Tugas berhasil dibuat.');
+        foreach ($classIds as $cid) {
+            $this->tugasModel->insert([
+                'teacher_id' => $teacherId,
+                'class_id'   => $cid,
+                'subject_id' => $subjectId,
+                'judul'      => $judul,
+                'deskripsi'  => $deskripsi,
+                'mulai_at'   => $mulai,
+                'selesai_at' => $selesai,
+                'created_by' => $user['id'],
+            ]);
+            $inserted++;
+        }
+
+        $msg = $inserted > 1
+            ? "Tugas berhasil dibuat untuk {$inserted} kelas."
+            : 'Tugas berhasil dibuat.';
+
+        return redirect()->to('admin/tugas')->with('success', $msg);
     }
 
     // ─────────────────────────────────────────────

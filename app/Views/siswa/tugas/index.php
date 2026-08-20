@@ -1,7 +1,7 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="container-fluid px-3 px-md-4 pb-5">
+<div class="container-fluid p-0 pb-5">
   <h4 class="mt-3 fw-bold mb-3">📚 Tugas Saya</h4>
 
   <?php if (session()->getFlashdata('success')): ?>

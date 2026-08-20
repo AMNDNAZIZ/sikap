@@ -27,8 +27,9 @@
     $mulai    = $isEdit ? date('Y-m-d\TH:i', strtotime($tugas['mulai_at']))   : old('mulai_at', '');
     $selesai  = $isEdit ? date('Y-m-d\TH:i', strtotime($tugas['selesai_at'])) : old('selesai_at', '');
 
-    // Kelas & mapel terpilih (untuk old() setelah validasi gagal atau mode edit)
+    // Edit: single class. Create: bisa multi-class (old() returns array)
     $selectedClassId   = $isEdit ? $tugas['class_id']   : old('class_id', '');
+    $selectedClassIds  = $isEdit ? [$tugas['class_id']] : (old('class_ids') ?: []);
     $selectedSubjectId = $isEdit ? $tugas['subject_id'] : old('subject_id', '');
   ?>
 
@@ -51,20 +52,39 @@
 
         <!-- Kelas & Mapel -->
         <div class="row g-3 mb-3">
+
+          <!-- ── Pemilihan Kelas ───────────────────────────────────────── -->
           <div class="col-md-6">
-            <label class="form-label fw-semibold">
+            <label class="form-label fw-semibold" for="selectKelas">
               Kelas <span class="text-danger">*</span>
             </label>
-            <select name="class_id" id="selectKelas" class="form-select" required>
-              <option value="">-- Pilih Kelas --</option>
-              <?php foreach ($classes as $c): ?>
-                <option value="<?= $c['id'] ?>"
-                  <?= ($selectedClassId == $c['id']) ? 'selected' : '' ?>>
-                  <?= esc($c['name']) ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
+
+            <?php if ($isEdit): ?>
+              <!-- Mode edit: single select -->
+              <select name="class_id" id="selectKelas" required>
+                <option value="">-- Pilih Kelas --</option>
+                <?php foreach ($classes as $c): ?>
+                  <option value="<?= $c['id'] ?>"
+                    <?= ($selectedClassId == $c['id']) ? 'selected' : '' ?>>
+                    <?= esc($c['name']) ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            <?php else: ?>
+              <!-- Mode create: multi select (Select2) -->
+              <select name="class_ids[]" id="selectKelas" multiple>
+                <?php foreach ($classes as $c): ?>
+                  <option value="<?= $c['id'] ?>"
+                    <?= in_array($c['id'], $selectedClassIds) ? 'selected' : '' ?>>
+                    <?= esc($c['name']) ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+              <div class="form-text text-muted">Pilih satu atau lebih kelas untuk tugas ini.</div>
+            <?php endif; ?>
           </div>
+
+          <!-- ── Pemilihan Mata Pelajaran ──────────────────────────────── -->
           <div class="col-md-6">
             <label class="form-label fw-semibold">
               Mata Pelajaran <span class="text-danger">*</span>
@@ -72,7 +92,7 @@
             <select name="subject_id" id="selectMapel" class="form-select" required>
               <option value="">-- Pilih Kelas dulu --</option>
               <?php
-                // Jika ada kelas terpilih (edit / old), render opsi mapel langsung
+                // Edit / validasi gagal: render mapel langsung dari server
                 if ($selectedClassId && !empty($subjects)):
                   foreach ($subjects as $s): ?>
                     <option value="<?= $s['id'] ?>"
@@ -85,7 +105,9 @@
             <div id="mapelLoading" class="form-text text-primary" style="display:none;">
               <span class="spinner-border spinner-border-sm me-1" role="status"></span>Memuat mapel...
             </div>
+            <div id="mapelInfo" class="form-text text-muted" style="display:none;"></div>
           </div>
+
         </div>
 
         <!-- Waktu -->
@@ -137,93 +159,115 @@
 
 <?= $this->section('scripts') ?>
 <script>
-// ─── Dynamic Mapel berdasarkan Kelas ────────────────────────────────────────
-(function () {
-  const selectKelas  = document.getElementById('selectKelas');
+// ─── Dynamic Mapel berdasarkan Kelas (Select2 multi) ───────────────────────
+$(function () {
   const selectMapel  = document.getElementById('selectMapel');
   const mapelLoading = document.getElementById('mapelLoading');
+  const mapelInfo    = document.getElementById('mapelInfo');
+  const isEdit       = <?= $isEdit ? 'true' : 'false' ?>;
 
-  // Simpan selected value dari server (edit / old)
-  const preselectedSubject = '<?= $selectedSubjectId ?>';
-  const preselectedClass   = '<?= $selectedClassId ?>';
+  // ── Data dari server ──────────────────────────────────────────────────────
+  const preselectedSubject  = '<?= $selectedSubjectId ?>';
+  const preselectedClassIds = <?= json_encode(array_map('intval', $selectedClassIds)) ?>;
 
-  // assignmentMap dari server (hanya diisi untuk guru, null untuk admin)
-  // Format: { "classId": [ {id, name}, ... ], ... }
+  // assignmentMap: { classId: [{id,name}, ...], ... } — hanya untuk guru
   const assignmentMap = <?= isset($assignmentMap) && $assignmentMap !== null
     ? json_encode($assignmentMap)
     : 'null' ?>;
 
-  // ── Admin: gunakan AJAX seperti sebelumnya ──────────────────────────────
   const baseUrl    = '<?= site_url('admin/tugas/subjects-by-class') ?>';
   const csrfHeader = '<?= csrf_token() ?>';
   const csrfValue  = '<?= csrf_hash() ?>';
 
-  function renderOptions(subjects, preselectId) {
+  // ── Init Select2 pada #selectKelas ───────────────────────────────────────
+  const $kelasSelect = $('#selectKelas');
+  $kelasSelect.select2({
+    placeholder   : isEdit ? '-- Pilih Kelas --' : '-- Pilih satu atau lebih kelas --',
+    allowClear    : true,
+    width         : '100%',
+    closeOnSelect : !!isEdit,   // false untuk multi, true untuk single
+    language      : { noResults: function () { return 'Tidak ada kelas tersedia'; } }
+  });
+
+  // ── Helper: intersection ──────────────────────────────────────────────────
+  function intersect(arrays) {
+    if (!arrays.length) return [];
+    return arrays[0].filter(s =>
+      arrays.every(arr => arr.some(x => String(x.id) === String(s.id)))
+    );
+  }
+
+  // ── Render options dropdown mapel ─────────────────────────────────────────
+  function renderOptions(subjects, preselectId, classCount) {
     selectMapel.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
     if (subjects && subjects.length) {
       subjects.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.id;
+        const opt       = document.createElement('option');
+        opt.value       = s.id;
         opt.textContent = s.name;
         if (String(preselectId) === String(s.id)) opt.selected = true;
         selectMapel.appendChild(opt);
       });
       selectMapel.disabled = false;
+      if (mapelInfo && classCount > 1) {
+        mapelInfo.textContent = `Menampilkan ${subjects.length} mapel yang tersedia di semua ${classCount} kelas terpilih.`;
+        mapelInfo.style.display = '';
+      } else if (mapelInfo) { mapelInfo.style.display = 'none'; }
     } else {
-      selectMapel.innerHTML = '<option value="">Tidak ada mapel tersedia</option>';
+      selectMapel.innerHTML = '<option value="">Tidak ada mapel yang sama di semua kelas</option>';
       selectMapel.disabled = true;
-    }
-  }
-
-  function loadMapelFromMap(classId, preselectId) {
-    if (!classId) {
-      selectMapel.innerHTML = '<option value="">-- Pilih Kelas dulu --</option>';
-      selectMapel.disabled  = true;
-      return;
-    }
-    const subjects = assignmentMap[classId] || [];
-    renderOptions(subjects, preselectId);
-  }
-
-  function loadMapelFromAjax(classId, preselectId) {
-    if (!classId) {
-      selectMapel.innerHTML = '<option value="">-- Pilih Kelas dulu --</option>';
-      selectMapel.disabled  = true;
-      return;
-    }
-    mapelLoading.style.display = '';
-    selectMapel.disabled = true;
-
-    fetch(baseUrl + '?class_id=' + classId, {
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-        [csrfHeader]: csrfValue
+      if (mapelInfo) {
+        mapelInfo.textContent = 'Pilih kelas yang memiliki mata pelajaran yang sama.';
+        mapelInfo.style.display = '';
       }
-    })
-    .then(r => r.json())
-    .then(data => renderOptions(data.success ? data.subjects : [], preselectId))
-    .catch(() => {
-      selectMapel.innerHTML = '<option value="">Gagal memuat mapel</option>';
-    })
-    .finally(() => {
-      mapelLoading.style.display = 'none';
-    });
+    }
   }
 
-  const loadMapel = assignmentMap !== null ? loadMapelFromMap : loadMapelFromAjax;
+  // ── Refresh mapel berdasarkan kelas terpilih ──────────────────────────────
+  function refreshMapel(ids, preselectId) {
+    if (!ids || !ids.length) {
+      selectMapel.innerHTML = '<option value="">-- Pilih Kelas dulu --</option>';
+      selectMapel.disabled  = true;
+      if (mapelInfo) mapelInfo.style.display = 'none';
+      return;
+    }
 
-  // Load saat kelas berubah
-  selectKelas.addEventListener('change', function () {
-    loadMapel(this.value, '');
+    if (assignmentMap !== null) {
+      // Guru: hitung intersection dari data lokal
+      const arrays = ids.map(id => assignmentMap[id] || []);
+      renderOptions(intersect(arrays), preselectId, ids.length);
+    } else {
+      // Admin: fetch per kelas lalu hitung intersection
+      mapelLoading.style.display = '';
+      selectMapel.disabled = true;
+      Promise.all(
+        ids.map(id =>
+          fetch(`${baseUrl}?class_id=${id}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', [csrfHeader]: csrfValue }
+          }).then(r => r.json()).then(d => d.success ? d.subjects : [])
+        )
+      )
+      .then(arrays => renderOptions(intersect(arrays), preselectId, ids.length))
+      .catch(() => { selectMapel.innerHTML = '<option value="">Gagal memuat mapel</option>'; })
+      .finally(() => { mapelLoading.style.display = 'none'; });
+    }
+  }
+
+  // ── Dengarkan perubahan Select2 ───────────────────────────────────────────
+  $kelasSelect.on('change', function () {
+    const val = $(this).val();
+    const ids = Array.isArray(val) ? val.filter(Boolean) : (val ? [val] : []);
+    refreshMapel(ids, '');
   });
 
-  // Pre-populate saat halaman pertama load (mode edit / validasi gagal)
-  if (preselectedClass) {
-    loadMapel(preselectedClass, preselectedSubject);
+  // ── Pre-populate saat halaman load (edit / validasi gagal) ───────────────
+  if (preselectedClassIds.length) {
+    refreshMapel(preselectedClassIds.map(String), preselectedSubject);
   } else {
     selectMapel.disabled = true;
   }
-})();
+});
+
 
 // ─── Validasi waktu selesai > waktu mulai ───────────────────────────────────
 document.getElementById('formTugas').addEventListener('submit', function (e) {
