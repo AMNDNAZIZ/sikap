@@ -62,8 +62,17 @@ $isRevoked = $letter['status'] === 'revoked';
           <tr><th>Tanggal Surat</th><td><?= date('d F Y', strtotime($letter['issued_at'])) ?></td></tr>
           <tr><th>Jenis Surat</th><td><span class="badge bg-secondary"><?= esc($typeName) ?></span></td></tr>
           <tr><th>Sifat</th><td><?= esc($letter['sifat']) ?></td></tr>
-          <tr><th>Perihal</th><td><?= esc($letter['subject']) ?></td></tr>
-          <tr><th>Penerima</th><td class="fw-semibold"><?= esc($letter['recipient_name']) ?></td></tr>
+          <tr><th>Penerima</th><td class="fw-semibold">
+            <?php
+            $recRaw = $letter['recipient_name'] ?? '-';
+            if (str_contains($recRaw, '|')) {
+                $pList = array_map('trim', explode('|', $recRaw));
+                echo implode('<br>', array_map('esc', array_filter($pList)));
+            } else {
+                echo esc($recRaw);
+            }
+            ?>
+          </td></tr>
           <tr><th>Status</th><td>
             <?php if ($isRevoked): ?>
               <span class="badge bg-danger">Dicabut</span>

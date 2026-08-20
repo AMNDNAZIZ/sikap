@@ -13,7 +13,7 @@ if (!empty($ld['event_date'])) {
 // Format principal name & NIP with robust fallbacks
 $principalName = trim($letter['principal_name_snapshot'] ?? '');
 if ($principalName === '' || $principalName === '-') {
-    $principalName = trim($school['principal_name'] ?? '');
+    $principalName = trim($school['headmaster'] ?? ($school['principal_name'] ?? ''));
 }
 if ($principalName === '' || $principalName === '-') {
     $principalName = (new \App\Models\SettingsModel())->getValue('principal_name') ?? '-';
@@ -116,12 +116,8 @@ $diTempat = ($isGuruTendik || str_contains(strtolower($recipientName), 'guru') |
                     <?= $tgl ?><br><br>
                     Kepada<br>
                     Yth. <?php if (!empty($recipientLines)): ?>
-                        <?php foreach ($recipientLines as $idx => $line): ?>
-                            <?php if ($idx === 0): ?>
-                                <strong><?= esc($line) ?></strong><br>
-                            <?php else: ?>
-                                <?= esc($line) ?><br>
-                            <?php endif; ?>
+                        <?php foreach ($recipientLines as $line): ?>
+                            <?= esc($line) ?><br>
                         <?php endforeach; ?>
                     <?php else: ?>
                         -
