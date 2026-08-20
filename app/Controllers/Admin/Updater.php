@@ -216,6 +216,50 @@ class Updater extends BaseController
     }
 
     /**
+     * Rebind machine_id & hardware_signature di DB lisensi ke nilai saat ini.
+     *
+     * Dipanggil setelah update file selesai agar machine_id yang tersimpan
+     * selalu sinkron dengan environment production — mencegah "INVALID MACHINE"
+     * yang muncul akibat perubahan SERVER_SOFTWARE, PHP version, atau variabel
+     * environment lain yang menjadi komponen generate_machine_id().
+     */
+    private function rebindLicenseMachine(): void
+    {
+        try {
+            helper('license');
+            $machineId         = generate_machine_id();
+            $hardwareSignature = generate_hardware_signature();
+
+            $licenseModel = new \App\Models\LicenseModel();
+            $license      = $licenseModel->first();
+
+            if (!$license) {
+                log_message('warning', 'rebindLicenseMachine: no license found, skip.');
+                return;
+            }
+
+            // Hitung hash baru berdasarkan machine_id terbaru
+            $secret    = \App\Libraries\LicenseGuard::getHashSecret();
+            $expiresAt = $license['expires_at'] ?? '';
+            $newHash   = hash('sha256', $license['license_key'] . $expiresAt . $machineId . $secret);
+
+            $licenseModel->update($license['id'], [
+                'machine_id'         => $machineId,
+                'hardware_signature' => $hardwareSignature,
+                'hash'               => $newHash,
+                'last_check'         => date('Y-m-d H:i:s'),
+            ]);
+
+            \App\Libraries\LicenseGuard::regenerateAllHashesSync();
+            log_message('info', 'License machine rebound after update. machine_id=' . substr($machineId, 0, 16) . '...');
+
+        } catch (\Throwable $e) {
+            // Jangan block proses update jika rebind gagal
+            log_message('error', 'rebindLicenseMachine failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Regenerate security hashes after file update
      */
     private function regenerateSecurityHashes()
@@ -968,6 +1012,7 @@ class Updater extends BaseController
 
             // Step 5: Post-update tasks
             $migrateResult = $this->autoMigrateAfterUpdate();
+            $this->rebindLicenseMachine(); // Rebind machine_id setelah update
             $this->syncChangelogsFromData();
             $this->regenerateSecurityHashes();
 

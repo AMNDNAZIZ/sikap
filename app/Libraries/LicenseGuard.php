@@ -172,34 +172,103 @@ class LicenseGuard
 
         helper('license');
 
-        $machineId = generate_machine_id();
+        $machineId         = generate_machine_id();
         $hardwareSignature = generate_hardware_signature();
 
         // Auto bind saat instalasi pertama
         if (empty($license['machine_id'])) {
             $model->update($license['id'], [
-                'machine_id' => $machineId,
-                'hardware_signature' => $hardwareSignature
+                'machine_id'         => $machineId,
+                'hardware_signature' => $hardwareSignature,
             ]);
             log_message('info', 'License bound to new machine: ' . substr($machineId, 0, 16));
             return;
         }
 
-        // Validate both machine_id and hardware_signature
-        $machineMatch = ($license['machine_id'] === $machineId);
+        $machineMatch  = ($license['machine_id'] === $machineId);
         $hardwareMatch = empty($license['hardware_signature']) ||
-            ($license['hardware_signature'] === $hardwareSignature);
+                         ($license['hardware_signature'] === $hardwareSignature);
 
-        if (!$machineMatch || !$hardwareMatch) {
-            log_message('critical', 'Machine binding validation failed', [
-                'expected_machine' => substr($license['machine_id'], 0, 16),
-                'current_machine' => substr($machineId, 0, 16),
-                'hardware_match' => $hardwareMatch
+        if ($machineMatch && $hardwareMatch) {
+            return; // Semua cocok — lanjut
+        }
+
+        // ─── Machine/hardware tidak cocok ─────────────────────────────────────
+        // Bisa terjadi karena: server restart, upgrade PHP, perubahan env vars,
+        // atau perubahan SERVER_SOFTWARE/SERVER_SIGNATURE setelah update hosting.
+        //
+        // Strategi: coba verify ke server lisensi terlebih dahulu.
+        // Kalau server menyatakan lisensi valid untuk domain ini → rebind machine_id.
+        // Kalau server menolak atau tidak bisa dihubungi → lock.
+        log_message('warning', 'Machine binding mismatch detected. Attempting server re-verify before lock.', [
+            'expected_machine' => substr($license['machine_id'], 0, 16) . '...',
+            'current_machine'  => substr($machineId, 0, 16) . '...',
+            'hardware_match'   => $hardwareMatch,
+        ]);
+
+        $serverUrl = self::getServerURL();
+        $domain    = $_SERVER['HTTP_HOST'] ?? '';
+
+        try {
+            $client   = \Config\Services::curlrequest();
+            $response = $client->post($serverUrl, [
+                'form_params' => [
+                    'license_key' => $license['license_key'],
+                    'domain'      => $domain,
+                    'machine_id'  => $machineId,
+                    'action'      => 'verify',
+                ],
+                'timeout'     => 8,
+                'http_errors' => false,
             ]);
 
-            // Redirect ke aktivasi, bukan die/block
-            self::lock("INVALID MACHINE - License bound to different hardware", true);
+            $result = json_decode($response->getBody(), true);
+
+            if (isset($result['status']) && $result['status'] === 'success') {
+                // Server menerima → rebind machine_id ke hardware saat ini
+                $expiresAt = $result['data']['expiry'] ?? $license['expires_at'];
+                $secret    = self::getHashSecret();
+                $newHash   = hash('sha256', $license['license_key'] . $expiresAt . $machineId . $secret);
+
+                $model->update($license['id'], [
+                    'machine_id'         => $machineId,
+                    'hardware_signature' => $hardwareSignature,
+                    'hash'               => $newHash,
+                    'expires_at'         => $expiresAt,
+                    'last_check'         => date('Y-m-d H:i:s'),
+                    'status'             => 'active',
+                ]);
+
+                self::regenerateAllHashes();
+                log_message('info', 'Machine ID rebound after server verification. New machine: ' . substr($machineId, 0, 16));
+                return; // Rebind berhasil — lanjutkan tanpa lock
+            }
+
+            // Server menolak (lisensi tidak valid untuk domain/key ini)
+            log_message('critical', 'Machine binding validation failed — server rejected re-verify', [
+                'server_response' => $result['message'] ?? 'unknown',
+            ]);
+
+        } catch (\Exception $e) {
+            // Server tidak bisa dihubungi — gunakan grace period agar tidak false-positive
+            log_message('warning', 'Machine re-verify: server unreachable (' . $e->getMessage() . '). Using grace period.');
+
+            $cache     = \Config\Services::cache();
+            $failCount = (int)($cache->get('machine_verify_fail') ?? 0);
+
+            if ($failCount < 5) {
+                $cache->save('machine_verify_fail', $failCount + 1, 3600); // reset tiap 1 jam
+                log_message('warning', 'Machine grace period: attempt ' . ($failCount + 1) . '/5, allowing continue.');
+                return; // Beri toleransi, jangan lock karena jaringan bermasalah
+            }
+
+            log_message('critical', 'Machine grace period exhausted (5/5). Locking.', [
+                'expected_machine' => substr($license['machine_id'], 0, 16) . '...',
+                'current_machine'  => substr($machineId, 0, 16) . '...',
+            ]);
         }
+
+        self::lock("INVALID MACHINE - License bound to different hardware", true);
     }
 
     private static function validateDomain($license)
