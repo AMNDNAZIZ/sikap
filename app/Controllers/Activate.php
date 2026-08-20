@@ -173,30 +173,33 @@ class Activate extends BaseController
                 $localExpiry  = $license['expires_at'];
                 $expiryChanged = $newExpiry && ($newExpiry !== $localExpiry);
                 $localExpired  = $localExpiry && strtotime($localExpiry) < time();
-                $newExpired    = $newExpiry && strtotime($newExpiry) < time();
 
-                // Jika expiry sudah diperbarui di server (lebih baru dari lokal) ATAU lisensi lokal expired tapi server bilang valid
+                // Update data lokal — selalu rebind machine_id + hash saat server konfirmasi valid,
+                // baik saat expiry berubah, lisensi lokal expired, MAUPUN machine_id mismatch
+                $updateData = [
+                    'last_check' => date('Y-m-d H:i:s'),
+                    'domain'     => $domain,
+                    'machine_id' => $machineId,
+                    'status'     => 'active',
+                    'expires_at' => $newExpiry ?? $license['expires_at'] ?? date('Y-m-d H:i:s', strtotime('+1 year')),
+                ];
+
+                // Regenerate hash integrity dengan machine_id terbaru
+                $hashSecret = \App\Libraries\LicenseGuard::getHashSecret();
+                $updateData['hash'] = hash('sha256',
+                    $license['license_key'] . $updateData['expires_at'] . $machineId . $hashSecret
+                );
+
+                $model->update($license['id'], $updateData);
+
+                // Regenerate file hash agar tidak ada gangguan ke depannya
+                \App\Libraries\LicenseGuard::regenerateAllHashesSync();
+
+                // Bersihkan cache grace period agar tidak ada sisa hitungan gagal
+                \Config\Services::cache()->delete('license_fail_count');
+                \Config\Services::cache()->delete('machine_verify_fail');
+
                 if ($expiryChanged || $localExpired) {
-                    // Update data lokal
-                    $updateData = [
-                        'last_check' => date('Y-m-d H:i:s'),
-                        'domain'     => $domain,
-                        'machine_id' => $machineId,
-                        'status'     => 'active',
-                        'expires_at' => $newExpiry ?? date('Y-m-d H:i:s', strtotime('+1 year')),
-                    ];
-
-                    // Regenerate hash integrity
-                    $hashSecret = \App\Libraries\LicenseGuard::getHashSecret();
-                    $updateData['hash'] = hash('sha256',
-                        $license['license_key'] . $updateData['expires_at'] . $machineId . $hashSecret
-                    );
-
-                    $model->update($license['id'], $updateData);
-
-                    // Regenerate file hash agar tidak ada gangguan ke depannya
-                    \App\Libraries\LicenseGuard::regenerateAllHashes();
-
                     log_message('info', 'License renewed via checkOnline. New expiry: ' . $updateData['expires_at']);
 
                     return $this->response->setJSON([
@@ -207,11 +210,14 @@ class Activate extends BaseController
                     ]);
                 }
 
-                // Lisensi valid dan expiry tidak berubah
+                // Lisensi valid, expiry tidak berubah, tapi machine_id sudah di-rebind
+                log_message('info', 'License valid via checkOnline. Machine rebound. Expiry: ' . $updateData['expires_at']);
+
                 return $this->response->setJSON([
                     'status'     => 'valid',
-                    'message'    => 'Lisensi masih aktif dan belum ada pembaruan dari server.',
-                    'expires_at' => $newExpiry ? date('d M Y H:i', strtotime($newExpiry)) : null,
+                    'message'    => 'Lisensi aktif dan valid.',
+                    'expires_at' => date('d M Y H:i', strtotime($updateData['expires_at'])),
+                    'redirect'   => base_url('dashboard'),
                 ]);
 
             } elseif ($result['status'] === 'expired') {

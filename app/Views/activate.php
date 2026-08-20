@@ -406,14 +406,21 @@ function doCheckOnline() {
 
         } else if (data.status === 'valid') {
             result.innerHTML = `
-                <div class="alert alert-info">
-                    <span class="alert-icon">ℹ️</span>
+                <div class="alert alert-success">
+                    <span class="alert-icon">✅</span>
                     <div>
-                        ${escHtml(data.message)}
-                        ${data.expires_at ? `<br><small>Berlaku hingga: <strong>${escHtml(data.expires_at)}</strong></small>` : ''}
+                        <strong>Lisensi aktif dan valid.</strong><br>
+                        ${data.expires_at ? `Berlaku hingga: <strong>${escHtml(data.expires_at)}</strong><br>` : ''}
+                        <small>Mengalihkan ke dashboard…</small>
                     </div>
                 </div>`;
-            resetBtn();
+            btn.innerHTML = '✅ Lisensi Valid';
+            btn.style.background = '#28a745';
+            btn.style.color = '#fff';
+            btn.style.border = 'none';
+
+            // Redirect ke dashboard karena lisensi sudah valid dan machine_id sudah di-rebind
+            setTimeout(() => { window.location.href = data.redirect || DASHBOARD_URL; }, 2000);
 
         } else if (data.status === 'expired') {
             result.innerHTML = `
