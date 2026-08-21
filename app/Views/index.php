@@ -689,10 +689,14 @@
             foreach ($activities as $act): ?>
               <div class="swiper-slide">
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden m-2 h-100 transition-hover">
-                  <a href="<?= base_url('uploads/activities/' . $act['image']) ?>" class="glightbox"
+                  <a href="<?= base_url('uploads/activities/' . esc($act['image'])) ?>" class="glightbox"
                     data-gallery="activities">
-                    <img src="<?= base_url('uploads/activities/' . $act['image']) ?>" class="card-img-top"
-                      style="height: 280px; object-fit: cover;">
+                    <img src="<?= base_url('uploads/activities/' . esc($act['image'])) ?>"
+                      class="card-img-top"
+                      style="height: 280px; object-fit: cover;"
+                      loading="lazy"
+                      alt="<?= esc($act['title']) ?>"
+                      onerror="this.closest('.swiper-slide').style.display='none'">
                   </a>
                   <div class="card-body p-4 text-center">
                     <h6 class="fw-bold mb-1">

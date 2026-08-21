@@ -37,7 +37,7 @@ class Home extends BaseController
             'announcements' => $announcementModel->where('is_public', 1)->orderBy('created_at', 'DESC')->findAll(3),
             'teachers' => $teacherModel->getPublicTeachers(),
             'facilities' => $facilityModel->findAll(),
-            'activities' => $activityModel->orderBy('date', 'DESC')->findAll(),
+            'activities' => $activityModel->getPublicActivities(),
             'links' => $linkModel->where('is_active', 1)->orderBy('order_no', 'ASC')->findAll(),
             'title' => 'Beranda'
         ];
