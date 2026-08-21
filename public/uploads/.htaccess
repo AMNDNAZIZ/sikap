@@ -1,24 +1,17 @@
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-    
-    # Deny access to PHP files
-    <FilesMatch "\.php$">
-        Order Deny,Allow
-        Deny from all
-    </FilesMatch>
-    
-    # Allow only safe file types
-    <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|mp4|mp3|wav|pdf|doc|docx|xls|xlsx|ppt|pptx|zip)$">
-        Order Allow,Deny
-        Allow from all
+﻿# Blokir eksekusi semua script di folder uploads
+# Lapisan keamanan tambahan — file .php yang terlanjur terupload tidak bisa dieksekusi
+
+<FilesMatch "\.(php|php3|php4|php5|php7|phtml|phar|pl|py|cgi|sh|asp|aspx|jsp|htaccess)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Apache 2.4+
+<IfModule mod_authz_core.c>
+    <FilesMatch "\.(php|php3|php4|php5|php7|phtml|phar|pl|py|cgi|sh|asp|aspx|jsp)$">
+        Require all denied
     </FilesMatch>
 </IfModule>
 
-# Disable directory listing
+# Izinkan hanya file gambar dan dokumen
 Options -Indexes
-
-# Prevent access to hidden files
-<FilesMatch "^\.">
-    Order allow,deny
-    Deny from all
-</FilesMatch>

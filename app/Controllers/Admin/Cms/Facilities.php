@@ -11,6 +11,7 @@ class Facilities extends BaseController
     public function __construct()
     {
         $this->facilityModel = new FacilityModel();
+        helper('upload');
     }
 
     public function index()
@@ -28,18 +29,21 @@ class Facilities extends BaseController
 
     public function store()
     {
-        $file = $this->request->getFile('image');
+        $file      = $this->request->getFile('image');
         $imageName = null;
 
         if ($file && $file->isValid() && !$file->hasMoved()) {
-            $imageName = $file->getRandomName();
-            $file->move(UPLOAD_PATH . 'facilities', $imageName);
+            $result = safe_upload_image($file, UPLOAD_PATH . 'facilities');
+            if (!$result['success']) {
+                return redirect()->back()->withInput()->with('error', $result['error']);
+            }
+            $imageName = $result['name'];
         }
 
         $this->facilityModel->insert([
-            'name' => $this->request->getPost('name'),
+            'name'        => $this->request->getPost('name'),
             'description' => $this->request->getPost('description'),
-            'image' => $imageName,
+            'image'       => $imageName,
         ]);
 
         return redirect()->to('admin/cms/facilities')->with('success', 'Fasilitas berhasil ditambahkan');
@@ -48,28 +52,30 @@ class Facilities extends BaseController
     public function edit($id)
     {
         $data['facility'] = $this->facilityModel->find($id);
-        $data['title'] = 'Edit Fasilitas';
+        $data['title']    = 'Edit Fasilitas';
         return view('admin/cms/facilities/edit', $data);
     }
 
     public function update($id)
     {
         $facility = $this->facilityModel->find($id);
-        $file = $this->request->getFile('image');
+        if (!$facility) {
+            return redirect()->to('admin/cms/facilities')->with('error', 'Data tidak ditemukan.');
+        }
 
         $data = [
-            'name' => $this->request->getPost('name'),
+            'name'        => $this->request->getPost('name'),
             'description' => $this->request->getPost('description'),
         ];
 
+        $file = $this->request->getFile('image');
         if ($file && $file->isValid() && !$file->hasMoved()) {
-            $newName = $file->getRandomName();
-            $file->move(UPLOAD_PATH . 'facilities', $newName);
-            $data['image'] = $newName;
-
-            if ($facility['image'] && file_exists(UPLOAD_PATH . 'facilities/' . $facility['image'])) {
-                unlink(UPLOAD_PATH . 'facilities/' . $facility['image']);
+            $result = safe_upload_image($file, UPLOAD_PATH . 'facilities');
+            if (!$result['success']) {
+                return redirect()->back()->withInput()->with('error', $result['error']);
             }
+            safe_delete_upload(UPLOAD_PATH . 'facilities', $facility['image'] ?? '');
+            $data['image'] = $result['name'];
         }
 
         $this->facilityModel->update($id, $data);
@@ -80,9 +86,7 @@ class Facilities extends BaseController
     {
         $facility = $this->facilityModel->find($id);
         if ($facility) {
-            if ($facility['image'] && file_exists(UPLOAD_PATH . 'facilities/' . $facility['image'])) {
-                unlink(UPLOAD_PATH . 'facilities/' . $facility['image']);
-            }
+            safe_delete_upload(UPLOAD_PATH . 'facilities', $facility['image'] ?? '');
             $this->facilityModel->delete($id);
         }
         return redirect()->to('admin/cms/facilities')->with('success', 'Fasilitas berhasil dihapus');

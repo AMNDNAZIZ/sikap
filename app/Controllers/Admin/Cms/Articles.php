@@ -11,13 +11,13 @@ class Articles extends BaseController
     public function __construct()
     {
         $this->articleModel = new ArticleModel();
-        helper('text');
+        helper(['text', 'upload']);
     }
 
     public function index()
     {
         $data['articles'] = $this->articleModel->getArticlesWithAuthor();
-        $data['title'] = 'Manajemen Berita & Artikel';
+        $data['title']    = 'Manajemen Berita & Artikel';
         return view('admin/cms/articles/index', $data);
     }
 
@@ -29,23 +29,26 @@ class Articles extends BaseController
 
     public function store()
     {
-        $file = $this->request->getFile('image');
+        $file      = $this->request->getFile('image');
         $imageName = null;
 
         if ($file && $file->isValid() && !$file->hasMoved()) {
-            $imageName = $file->getRandomName();
-            $file->move(UPLOAD_PATH . 'articles', $imageName);
+            $result = safe_upload_image($file, UPLOAD_PATH . 'articles');
+            if (!$result['success']) {
+                return redirect()->back()->withInput()->with('error', $result['error']);
+            }
+            $imageName = $result['name'];
         }
 
         $title = $this->request->getPost('title');
         $this->articleModel->insert([
-            'title' => $title,
-            'slug' => url_title($title, '-', true) . '-' . time(),
-            'content' => $this->request->getPost('content'),
-            'image' => $imageName,
-            'category' => $this->request->getPost('category') ?? 'Berita',
+            'title'        => $title,
+            'slug'         => url_title($title, '-', true) . '-' . time(),
+            'content'      => $this->request->getPost('content'),
+            'image'        => $imageName,
+            'category'     => $this->request->getPost('category') ?? 'Berita',
             'is_published' => $this->request->getPost('is_published') ?? 1,
-            'created_by' => session()->get('user')['id'],
+            'created_by'   => session()->get('user')['id'],
         ]);
 
         return redirect()->to('admin/cms/articles')->with('success', 'Artikel berhasil ditambahkan');
@@ -54,30 +57,32 @@ class Articles extends BaseController
     public function edit($id)
     {
         $data['article'] = $this->articleModel->find($id);
-        $data['title'] = 'Edit Artikel';
+        $data['title']   = 'Edit Artikel';
         return view('admin/cms/articles/edit', $data);
     }
 
     public function update($id)
     {
         $article = $this->articleModel->find($id);
-        $file = $this->request->getFile('image');
+        if (!$article) {
+            return redirect()->to('admin/cms/articles')->with('error', 'Artikel tidak ditemukan.');
+        }
 
         $data = [
-            'title' => $this->request->getPost('title'),
-            'content' => $this->request->getPost('content'),
-            'category' => $this->request->getPost('category') ?? 'Berita',
+            'title'        => $this->request->getPost('title'),
+            'content'      => $this->request->getPost('content'),
+            'category'     => $this->request->getPost('category') ?? 'Berita',
             'is_published' => $this->request->getPost('is_published') ?? 1,
         ];
 
+        $file = $this->request->getFile('image');
         if ($file && $file->isValid() && !$file->hasMoved()) {
-            $newName = $file->getRandomName();
-            $file->move(UPLOAD_PATH . 'articles', $newName);
-            $data['image'] = $newName;
-
-            if ($article['image'] && file_exists(UPLOAD_PATH . 'articles/' . $article['image'])) {
-                unlink(UPLOAD_PATH . 'articles/' . $article['image']);
+            $result = safe_upload_image($file, UPLOAD_PATH . 'articles');
+            if (!$result['success']) {
+                return redirect()->back()->withInput()->with('error', $result['error']);
             }
+            safe_delete_upload(UPLOAD_PATH . 'articles', $article['image'] ?? '');
+            $data['image'] = $result['name'];
         }
 
         $this->articleModel->update($id, $data);
@@ -88,78 +93,31 @@ class Articles extends BaseController
     {
         $article = $this->articleModel->find($id);
         if ($article) {
-            if ($article['image'] && file_exists(UPLOAD_PATH . 'articles/' . $article['image'])) {
-                unlink(UPLOAD_PATH . 'articles/' . $article['image']);
-            }
+            safe_delete_upload(UPLOAD_PATH . 'articles', $article['image'] ?? '');
             $this->articleModel->delete($id);
         }
         return redirect()->to('admin/cms/articles')->with('success', 'Artikel berhasil dihapus');
     }
 
     /**
-     * Upload image untuk CKEditor 5
-     * Endpoint untuk upload gambar dari dalam editor
+     * Upload gambar untuk CKEditor 5
      */
     public function uploadImage()
     {
         if (!$this->request->isAJAX()) {
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => 'Invalid request'
-            ]);
+            return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Forbidden']);
         }
 
         $file = $this->request->getFile('file');
+        $result = safe_upload_image($file, UPLOAD_PATH . 'articles');
 
-        if (!$file || !$file->isValid()) {
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => 'File tidak valid'
-            ]);
+        if (!$result['success']) {
+            return $this->response->setJSON(['success' => false, 'message' => $result['error']]);
         }
 
-        // Validasi tipe file
-        $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-        if (!in_array($file->getMimeType(), $allowedTypes)) {
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => 'Tipe file tidak diizinkan. Hanya JPG, PNG, GIF, dan WEBP yang diperbolehkan.'
-            ]);
-        }
-
-        // Validasi ukuran file (max 5MB)
-        if ($file->getSize() > 5 * 1024 * 1024) {
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => 'Ukuran file terlalu besar. Maksimal 5MB.'
-            ]);
-        }
-
-        try {
-            // Generate nama file unik
-            $newName = $file->getRandomName();
-            
-            // Pastikan folder exists
-            $uploadPath = FCPATH . 'uploads/articles/';
-            if (!is_dir($uploadPath)) {
-                mkdir($uploadPath, 0755, true);
-            }
-
-            // Move file
-            $file->move($uploadPath, $newName);
-
-            // Return URL untuk CKEditor
-            return $this->response->setJSON([
-                'success' => true,
-                'url' => base_url('uploads/articles/' . $newName)
-            ]);
-
-        } catch (\Exception $e) {
-            log_message('error', 'Upload image error: ' . $e->getMessage());
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => 'Gagal upload gambar: ' . $e->getMessage()
-            ]);
-        }
+        return $this->response->setJSON([
+            'success' => true,
+            'url'     => base_url('uploads/articles/' . $result['name']),
+        ]);
     }
 }

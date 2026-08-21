@@ -70,13 +70,12 @@ class Sliders extends BaseController
                 mkdir($uploadPath, 0755, true);
             }
 
-            // Generate unique filename
-            $newName = $file->getRandomName();
-            
-            // Move file
-            if (!$file->move($uploadPath, $newName)) {
-                throw new \Exception('Gagal memindahkan file ke folder uploads');
+            helper('upload');
+            $result = safe_upload_image($file, $uploadPath);
+            if (!$result['success']) {
+                return redirect()->back()->withInput()->with('error', $result['error']);
             }
+            $newName = $result['name'];
 
             // Insert to database
             $this->sliderModel->insert([
@@ -163,11 +162,12 @@ class Sliders extends BaseController
                     mkdir($uploadPath, 0755, true);
                 }
 
-                $newName = $file->getRandomName();
-                
-                if (!$file->move($uploadPath, $newName)) {
-                    throw new \Exception('Gagal memindahkan file ke folder uploads');
+                helper('upload');
+                $result = safe_upload_image($file, $uploadPath);
+                if (!$result['success']) {
+                    return redirect()->back()->withInput()->with('error', $result['error']);
                 }
+                $newName = $result['name'];
                 
                 $data['image'] = $newName;
 
