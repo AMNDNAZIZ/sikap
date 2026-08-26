@@ -17,12 +17,14 @@
         .text-center { text-align: center; }
         .fw-bold { font-weight: bold; }
         
-        .footer-table {
+        .signature-section {
             width: 100%;
             margin-top: 60px;
+            display: flex;
+            justify-content: space-between;
         }
-        .footer-table td {
-            width: 50%;
+        .signature-block {
+            width: 45%;
             text-align: center;
         }
         .signature-space {
@@ -44,9 +46,6 @@
             border: 1px solid black;
         }
         
-        .footer-table, .footer-table th, .footer-table td {
-            border: none !important;
-        }
         th, td {
             padding: 5px;
         }
@@ -73,23 +72,21 @@
         ?>
     </div>
 
-    <table class="footer-table">
-        <tr>
-            <td>
-                Mengetahui,<br>
-                Kepala Sekolah
-                <div class="signature-space"></div>
-                <strong><?= esc($school['headmaster'] ?? '-') ?></strong><br>
-                NIP. <?= esc($school['principal_nip'] ?? '-') ?>
-            </td>
-            <td>
-                <?= esc($school['city_regency'] ?? 'Indramayu') ?>, <?= date('d F Y') ?><br>
-                Guru Kelas/Mapel
-                <div class="signature-space"></div>
-                <strong><?= esc($teacher['name'] ?? '-') ?></strong><br>
-                NIP. <?= esc($teacher['nip'] ?? '-') ?>
-            </td>
-        </tr>
-    </table>
+    <div class="signature-section">
+        <div class="signature-block">
+            Mengetahui,<br>
+            Kepala Sekolah
+            <div class="signature-space"></div>
+            <strong><?= esc($school['headmaster'] ?? '-') ?></strong><br>
+            NIP. <?= esc($school['principal_nip'] ?? '-') ?>
+        </div>
+        <div class="signature-block">
+            <?= esc($school['city_regency'] ?? 'Indramayu') ?>, <?= date('d F Y') ?><br>
+            Guru Kelas/Mapel
+            <div class="signature-space"></div>
+            <strong><?= esc($teacher['name'] ?? '-') ?></strong><br>
+            NIP. <?= esc($teacher['nip'] ?? '-') ?>
+        </div>
+    </div>
 </body>
 </html>
