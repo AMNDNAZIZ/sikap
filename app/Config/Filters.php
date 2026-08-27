@@ -85,6 +85,10 @@ class Filters extends BaseFilters
             // sebelum filter lain (maintenance, license, dll) memanggil session()
             'csrf' => ['except' => [
                 'siswa/cbt/refreshCsrf', // Exclude refreshCsrf from CSRF check (needed to get new token)
+                'siswa/cbt/ping',         // Heartbeat — token di-embed saat render view, tidak bisa diperbarui mid-session
+                'siswa/cbt/saveAnswer',   // AJAX save jawaban — token di-embed saat render view
+                'siswa/cbt/saveAnswersBulk', // AJAX bulk save + offline queue flush
+                'siswa/cbt/submit/*',     // Submit ujian — token di-embed saat render view
                 'api/dapodik/receive',   // Sync Agent dari PowerShell bridge — auth via token header
                 'admin/updater/*',       // Updater — admin only, auth sudah dijaga oleh filter auth:1
             ]],

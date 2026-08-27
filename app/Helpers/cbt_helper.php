@@ -247,3 +247,48 @@ if (!function_exists('can_convert_subject_score')) {
         return false;
     }
 }
+
+if (!function_exists('update_last_activity_throttled')) {
+    /**
+     * Update last_activity on cbt_sessions with throttling.
+     * Only writes to DB if the last update was more than $intervalSeconds ago,
+     * to avoid hammering the database on every keystroke.
+     *
+     * @param int $studentId
+     * @param int $testId
+     * @param int $intervalSeconds  Minimum seconds between DB writes (default: 30)
+     */
+    function update_last_activity_throttled(int $studentId, int $testId, int $intervalSeconds = 30): void
+    {
+        try {
+            $db = \Config\Database::connect();
+
+            // Read current last_activity to decide whether to update
+            $session = $db->table('cbt_sessions')
+                ->select('last_activity')
+                ->where('student_id', $studentId)
+                ->where('test_id', $testId)
+                ->get()
+                ->getRowArray();
+
+            if (!$session) {
+                return;
+            }
+
+            $lastActivity = $session['last_activity'] ? strtotime($session['last_activity']) : 0;
+            $now = time();
+
+            if (($now - $lastActivity) >= $intervalSeconds) {
+                $db->table('cbt_sessions')
+                    ->where('student_id', $studentId)
+                    ->where('test_id', $testId)
+                    ->set(['last_activity' => date('Y-m-d H:i:s', $now)])
+                    ->update();
+
+                log_message('debug', "[update_last_activity_throttled] Updated for student=$studentId, test=$testId");
+            }
+        } catch (\Throwable $e) {
+            log_message('error', '[update_last_activity_throttled] ' . $e->getMessage());
+        }
+    }
+}
