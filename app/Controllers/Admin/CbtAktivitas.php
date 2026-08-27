@@ -142,8 +142,9 @@ class CbtAktivitas extends BaseController
             ->select('cs.id, cs.test_id, cs.student_id, cs.question_order, cs.option_orders,
                       cs.status, cs.score, cs.essay_score, cs.total_score, cs.started_at, 
                       cs.finished_at, cs.last_activity, cs.extra_time, cs.updated_at, cs.created_at,
-                      st.name AS student_name, st.nis, st.username, c.name AS class_name')
+                      st.name AS student_name, st.nis, u.username, c.name AS class_name')
             ->join('students st', 'st.id = cs.student_id', 'left')
+            ->join('users u', 'u.id = st.user_id', 'left')
             ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
             ->join('classes c', 'c.id = sr.class_id', 'left')
             ->where('cs.test_id', $testId)
