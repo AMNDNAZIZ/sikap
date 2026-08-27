@@ -385,14 +385,17 @@
 
 <!-- Modal detail jawaban -->
 <div class="modal fade modal-modern" id="modalDetailJawaban" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">
           <i class="fas fa-list-alt"></i>
           Detail Jawaban Siswa
         </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" id="btnRefreshJawaban" class="btn btn-sm btn-outline-light ms-2" title="Refresh data jawaban terbaru">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+        <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div id="detailContent" class="text-center text-muted">
@@ -452,13 +455,33 @@
     }
 
     // Detail jawaban
-    $(document).on('click', '.btn-detail-jawaban', function () {
-      const id = $(this).data('id');
-      $('#detailContent').html('<i class="fas fa-spinner fa-spin fa-2x mb-3"></i><p>Memuat data...</p>');
-      $('#modalDetailJawaban').modal('show');
+    let activeDetailSessionId = null;
+
+    function loadDetailJawaban(id) {
+      activeDetailSessionId = id;
+      $('#detailContent').html('<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x mb-3"></i><p>Memuat data...</p></div>');
       $.get("<?= site_url('admin/cbt/aktivitas/detail_jawaban/') ?>" + id, function (html) {
         $('#detailContent').html(html);
-      }).fail(() => $('#detailContent').html('<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Gagal memuat data</div>'));
+      }).fail(() => $('#detailContent').html('<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Gagal memuat data. Coba refresh kembali.</div>'));
+    }
+
+    $(document).on('click', '.btn-detail-jawaban', function () {
+      const id = $(this).data('id');
+      $('#modalDetailJawaban').modal('show');
+      loadDetailJawaban(id);
+    });
+
+    $('#btnRefreshJawaban').on('click', function () {
+      if (!activeDetailSessionId) return;
+      const btn = $(this);
+      btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
+      loadDetailJawaban(activeDetailSessionId);
+      setTimeout(() => btn.html('<i class="fas fa-sync-alt"></i> Refresh').prop('disabled', false), 800);
+    });
+
+    // Reset activeDetailSessionId saat modal ditutup
+    $('#modalDetailJawaban').on('hidden.bs.modal', function () {
+      activeDetailSessionId = null;
     });
 
     // Helper for CSRF

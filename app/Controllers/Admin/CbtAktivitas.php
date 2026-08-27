@@ -304,176 +304,259 @@ class CbtAktivitas extends BaseController
     }
 
     /**
-     * 📄 Modal detail jawaban siswa
+     * 📄 Modal detail jawaban siswa — real-time, tampilkan jawaban benar & status benar/salah
      */
     public function detail_jawaban($sessionId)
     {
         $db = db_connect();
 
-        // Ambil session & test info (termasuk bank_id)
+        // 1) Ambil session & test info (termasuk bank_id, bobot)
         $session = $db->table('cbt_sessions s')
-            ->select('s.*, ts.bank_id, ts.id AS test_id')
-            ->join('cbt_test_status ts', 'ts.id = s.test_id', 'left')
+            ->select('s.*, ts.bank_id, ts.id AS test_status_id,
+                      ts.bobot_pg, ts.bobot_pg_kompleks, ts.bobot_bs, ts.bobot_esai,
+                      ts.show_pg_count, ts.show_pg_kompleks_count, ts.show_bs_count, ts.show_esai_count,
+                      st.name AS student_name, st.nis,
+                      u.username,
+                      c.name AS class_name')
+            ->join('cbt_test_status ts',    'ts.id = s.test_id',                       'left')
+            ->join('students st',           'st.id = s.student_id',                    'left')
+            ->join('users u',               'u.id = st.user_id',                       'left')
+            ->join('student_records sr',    'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('classes c',             'c.id = sr.class_id',                      'left')
             ->where('s.id', $sessionId)
             ->get()
             ->getRowArray();
 
         if (!$session) {
-            return '<div class="text-danger">❌ Sesi tidak ditemukan.</div>';
+            return '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Sesi tidak ditemukan.</div>';
         }
 
-        $bankId = $session['bank_id'];
+        $bankId    = $session['bank_id'];
         $studentId = $session['student_id'];
-        $testId = $session['test_id'];
+        $testId    = $session['test_id'];
 
-        // 1) Mapping: No di Bank Soal (urut berdasarkan id ASC pada bank soal)
+        // 2) Ambil semua soal dari bank lengkap dengan teks & kunci jawaban, real-time (no cache)
         $bankQuestions = $db->table('cbt_questions')
-            ->select('id')
+            ->select('id, question_text, question_type, correct_option, option_a, option_b, option_c, option_d, option_e, score')
             ->where('bank_id', $bankId)
             ->orderBy('id', 'ASC')
             ->get()
             ->getResultArray();
 
-        $noBankMap = [];
+        // Map question_id → detail soal & nomor urut di bank
+        $questionMap = [];
+        $noBankMap   = [];
         $no = 1;
         foreach ($bankQuestions as $q) {
-            $noBankMap[$q['id']] = $no++;
+            $questionMap[$q['id']] = $q;
+            $noBankMap[$q['id']]   = $no++;
         }
 
-        // 2) Ambil question_order dari session => ini menentukan "No di User"
+        // 3) Ambil question_order dari session (urutan soal yang dilihat siswa)
         $questionOrder = json_decode($session['question_order'] ?? '[]', true);
-        // Pastikan questionOrder adalah array
-        if (!is_array($questionOrder))
-            $questionOrder = [];
+        if (!is_array($questionOrder)) $questionOrder = [];
 
-        // 3) Ambil jawaban siswa untuk test ini (indexable by question_id)
+        // 4) Ambil jawaban siswa terbaru langsung dari DB (tanpa cache)
         $answerRows = $db->table('cbt_answers')
             ->where('student_id', $studentId)
-            ->where('test_id', $testId)
+            ->where('test_id',    $testId)
             ->get()
             ->getResultArray();
 
         $answerMap = [];
         foreach ($answerRows as $a) {
-            // Kolom utama adalah 'answer'
-            $val = $a['answer'] ?? '';
-
-            $answerMap[$a['question_id']] = $val;
+            $answerMap[(int)$a['question_id']] = $a['answer'] ?? '';
         }
 
-        // 4) Build Dashboard & HTML
-        $totalSoal = count($bankQuestions);
-        $totalJawab = count($answerMap);
-        $percent = $totalSoal > 0 ? round(($totalJawab / $totalSoal) * 100) : 0;
-        $empty = $totalSoal - $totalJawab;
+        // 5) Hitung statistik: total soal, terjawab, benar, salah
+        $totalSoal  = count($questionOrder) ?: count($bankQuestions);
+        $totalJawab = 0;
+        $totalBenar = 0;
+        $totalSalah = 0;
 
+        foreach ($questionOrder as $qid) {
+            $qid = (int)$qid;
+            if (!isset($answerMap[$qid])) continue;
+            $totalJawab++;
+            $q       = $questionMap[$qid] ?? null;
+            if (!$q) continue;
+            $type    = strtolower(trim($q['question_type'] ?? 'pg'));
+            $correct = strtoupper(trim($q['correct_option'] ?? ''));
+            $student = strtoupper(trim($answerMap[$qid]));
+            if (in_array($type, ['esai', 'essay'])) continue; // esai tidak dinilai otomatis
+            if ($correct !== '' && $student === $correct) $totalBenar++;
+            elseif ($student !== '') $totalSalah++;
+        }
+
+        $totalBelum  = $totalSoal - $totalJawab;
+        $percentJawab = $totalSoal > 0 ? round(($totalJawab / $totalSoal) * 100) : 0;
+        $percentBenar = $totalJawab  > 0 ? round(($totalBenar  / $totalJawab)  * 100) : 0;
+
+        $statusBadge = match($session['status']) {
+            'finished' => "<span class='badge bg-primary'>Selesai</span>",
+            'active'   => "<span class='badge bg-success'>Sedang Ujian</span>",
+            default    => "<span class='badge bg-secondary'>{$session['status']}</span>",
+        };
+
+        $nilaiDisplay = $session['total_score'] ?? $session['score'] ?? '-';
+        $updatedAt    = !empty($session['updated_at']) ? date('d/m/Y H:i:s', strtotime($session['updated_at'])) : '-';
+
+        // 6) Render HTML
         $html = "
-      <div class='row g-2 mb-3 text-center'>
-        <div class='col-4'>
-          <div class='p-2 border rounded bg-light'>
-            <small class='text-muted d-block'>Total Soal</small>
-            <h5 class='mb-0'>{$totalSoal}</h5>
-          </div>
+        <div class='mb-3 p-2 border rounded bg-light small'>
+            <strong>{$session['student_name']}</strong>
+            <span class='text-muted ms-2'>({$session['username']} — NIS: {$session['nis']})</span>
+            <span class='ms-2'>{$statusBadge}</span>
+            <span class='ms-2'>Nilai: <strong class='text-primary'>{$nilaiDisplay}</strong></span>
+            <span class='text-muted ms-2' style='font-size:11px'>Update: {$updatedAt}</span>
         </div>
-        <div class='col-4'>
-          <div class='p-2 border rounded bg-success-subtle border-success'>
-            <small class='text-muted d-block'>Sudah Dijawab</small>
-            <h5 class='mb-0 text-success'>{$totalJawab}</h5>
-          </div>
-        </div>
-        <div class='col-4'>
-          <div class='p-2 border rounded bg-warning-subtle border-warning'>
-            <small class='text-muted d-block'>Belum Dijawab</small>
-            <h5 class='mb-0 text-warning'>{$empty}</h5>
-          </div>
-        </div>
-      </div>
 
-      <div class='progress mb-4' style='height: 20px;'>
-        <div class='progress-bar progress-bar-striped progress-bar-animated bg-success' 
-             role='progressbar' style='width: {$percent}%' 
-             aria-valuenow='{$percent}' aria-valuemin='0' aria-valuemax='100'>
-             {$percent}% Pelaksanaan
+        <div class='row g-2 mb-3 text-center'>
+            <div class='col-3'>
+                <div class='p-2 border rounded bg-light'>
+                    <small class='text-muted d-block'>Total Soal</small>
+                    <h5 class='mb-0'>{$totalSoal}</h5>
+                </div>
+            </div>
+            <div class='col-3'>
+                <div class='p-2 border rounded bg-success-subtle border-success'>
+                    <small class='text-muted d-block'>Terjawab</small>
+                    <h5 class='mb-0 text-success'>{$totalJawab}</h5>
+                </div>
+            </div>
+            <div class='col-3'>
+                <div class='p-2 border rounded bg-danger-subtle border-danger'>
+                    <small class='text-muted d-block'>Benar</small>
+                    <h5 class='mb-0 text-danger'>{$totalBenar}</h5>
+                </div>
+            </div>
+            <div class='col-3'>
+                <div class='p-2 border rounded bg-warning-subtle border-warning'>
+                    <small class='text-muted d-block'>Belum Dijawab</small>
+                    <h5 class='mb-0 text-warning'>{$totalBelum}</h5>
+                </div>
+            </div>
         </div>
-      </div>
 
-      <div class='mb-4'>
-        <h6 class='mb-2'>Visual Progres:</h6>
-        <div class='d-flex flex-wrap gap-1 justify-content-center'>";
+        <div class='mb-1 small text-muted'>Progres menjawab: <strong>{$percentJawab}%</strong> &nbsp;|&nbsp; Akurasi jawaban: <strong>{$percentBenar}%</strong></div>
+        <div class='progress mb-3' style='height:14px;'>
+            <div class='progress-bar bg-success' role='progressbar' style='width:{$percentJawab}%'>{$percentJawab}%</div>
+        </div>
 
-        // Tampilkan Grid Kotak Jawaban
+        <div class='mb-3'>
+            <div class='d-flex flex-wrap gap-1 justify-content-start'>";
+
+        // Grid kotak nomor soal berwarna sesuai status
         foreach ($questionOrder as $idx => $qid) {
+            $qid    = (int)$qid;
             $noUser = $idx + 1;
-            $hasAnswer = isset($answerMap[$qid]);
-            $bgClass = $hasAnswer ? 'bg-success text-white border-success' : 'bg-light text-muted border-secondary-subtle';
+            $q      = $questionMap[$qid] ?? null;
+            $type   = strtolower(trim($q['question_type'] ?? 'pg'));
+            $isEsai = in_array($type, ['esai', 'essay']);
 
-            $html .= "<div class='border rounded d-flex align-items-center justify-content-center {$bgClass}' 
-                       style='width:35px; height:35px; font-size:12px; font-weight:bold;' 
-                       title='Soal No {$noUser} " . ($hasAnswer ? '(Sudah Dijawab)' : '(Belum)') . "'>
-                    {$noUser}
-                  </div>";
+            if (!isset($answerMap[$qid])) {
+                $bgClass = 'bg-light text-muted border-secondary-subtle';
+                $title   = "No {$noUser}: Belum dijawab";
+            } elseif ($isEsai) {
+                $bgClass = 'bg-info text-white border-info';
+                $title   = "No {$noUser}: Esai (belum dikoreksi)";
+            } else {
+                $correct = strtoupper(trim($q['correct_option'] ?? ''));
+                $student = strtoupper(trim($answerMap[$qid]));
+                if ($correct !== '' && $student === $correct) {
+                    $bgClass = 'bg-success text-white border-success';
+                    $title   = "No {$noUser}: Benar ({$student})";
+                } else {
+                    $bgClass = 'bg-danger text-white border-danger';
+                    $title   = "No {$noUser}: Salah (Jawaban: {$student}, Kunci: {$correct})";
+                }
+            }
+
+            $html .= "<div class='border rounded d-flex align-items-center justify-content-center {$bgClass}'
+                           style='width:32px;height:32px;font-size:11px;font-weight:bold;cursor:default;'
+                           title='" . htmlspecialchars($title, ENT_QUOTES) . "'>{$noUser}</div>";
         }
 
         $html .= "
+            </div>
+            <div class='mt-1 small'>
+                <span class='me-2'><span style='display:inline-block;width:12px;height:12px;background:#198754;border-radius:2px;'></span> Benar</span>
+                <span class='me-2'><span style='display:inline-block;width:12px;height:12px;background:#dc3545;border-radius:2px;'></span> Salah</span>
+                <span class='me-2'><span style='display:inline-block;width:12px;height:12px;background:#0dcaf0;border-radius:2px;'></span> Esai</span>
+                <span class='me-2'><span style='display:inline-block;width:12px;height:12px;background:#f8f9fa;border:1px solid #ccc;border-radius:2px;'></span> Belum dijawab</span>
+            </div>
         </div>
-      </div>
 
-      <h6 class='mb-2'>Rincian Jawaban:</h6>
-      <div class='table-responsive'>
-        <table class='table table-bordered table-sm text-center align-middle'>
-          <thead class='table-light'>
-            <tr>
-              <th>No di User</th>
-              <th>ID Soal</th>
-              <th>No di Bank</th>
-              <th>Jawaban</th>
-            </tr>
-          </thead>
-          <tbody>
-    ";
+        <h6 class='mb-2'>Rincian Jawaban:</h6>
+        <div class='table-responsive'>
+            <table class='table table-bordered table-sm align-middle' style='font-size:13px;'>
+                <thead class='table-dark'>
+                    <tr>
+                        <th class='text-center' style='width:50px;'>No</th>
+                        <th>Pertanyaan</th>
+                        <th class='text-center' style='width:80px;'>Jawaban Siswa</th>
+                        <th class='text-center' style='width:80px;'>Kunci Jawaban</th>
+                        <th class='text-center' style='width:70px;'>Status</th>
+                    </tr>
+                </thead>
+                <tbody>";
 
-        // Tampilkan baris sesuai urutan questionOrder (No di User)
         foreach ($questionOrder as $idx => $qid) {
-            $idSoal = $qid;
-            $noBank = $noBankMap[$qid] ?? '-';
+            $qid    = (int)$qid;
             $noUser = $idx + 1;
-            $jawab = $answerMap[$qid] ?? '-';
+            $q      = $questionMap[$qid] ?? null;
 
-            $bgRow = !isset($answerMap[$qid]) ? 'table-warning' : '';
+            if (!$q) {
+                $html .= "<tr class='table-secondary'><td class='text-center'>{$noUser}</td><td colspan='4'><em class='text-muted'>Soal tidak ditemukan (ID: {$qid})</em></td></tr>";
+                continue;
+            }
 
-            // Escape minimal untuk keamanan
-            $jawabDisplay = is_string($jawab) ? esc($jawab) : json_encode($jawab);
+            $type       = strtolower(trim($q['question_type'] ?? 'pg'));
+            $isEsai     = in_array($type, ['esai', 'essay']);
+            $correct    = strtoupper(trim($q['correct_option'] ?? ''));
+            $student    = isset($answerMap[$qid]) ? strtoupper(trim($answerMap[$qid])) : null;
+            $answered   = $student !== null && $student !== '';
+
+            // Teks soal — strip HTML tags agar ringkas, batasi 120 karakter
+            $qText = strip_tags(html_entity_decode($q['question_text'] ?? ''));
+            $qText = mb_strlen($qText) > 120 ? mb_substr($qText, 0, 117) . '...' : $qText;
+            $qText = esc($qText);
+
+            // Tentukan status & warna baris
+            if (!$answered) {
+                $bgRow      = 'table-warning';
+                $statusHtml = "<span class='badge bg-warning text-dark'>Belum</span>";
+            } elseif ($isEsai) {
+                $bgRow      = 'table-info';
+                $statusHtml = "<span class='badge bg-info text-dark'>Esai</span>";
+            } elseif ($correct !== '' && $student === $correct) {
+                $bgRow      = 'table-success';
+                $statusHtml = "<span class='badge bg-success'>✓ Benar</span>";
+            } else {
+                $bgRow      = 'table-danger';
+                $statusHtml = "<span class='badge bg-danger'>✗ Salah</span>";
+            }
+
+            $studentDisplay = $answered ? esc($answerMap[$qid]) : "<span class='text-muted fst-italic'>-</span>";
+            $correctDisplay = ($isEsai || $correct === '')
+                ? "<span class='text-muted'>—</span>"
+                : "<strong class='text-success'>{$correct}</strong>";
 
             $html .= "
-          <tr class='{$bgRow}'>
-            <td class='fw-bold text-primary'>{$noUser}</td>
-            <td>{$idSoal}</td>
-            <td>{$noBank}</td>
-            <td style='white-space:normal; max-width:420px; font-size:13px;'>{$jawabDisplay}</td>
-          </tr>";
+                <tr class='{$bgRow}'>
+                    <td class='text-center fw-bold'>{$noUser}</td>
+                    <td style='white-space:normal;max-width:380px;'>{$qText}</td>
+                    <td class='text-center'>{$studentDisplay}</td>
+                    <td class='text-center'>{$correctDisplay}</td>
+                    <td class='text-center'>{$statusHtml}</td>
+                </tr>";
         }
 
-        // Jika ada soal di bank yang tidak ada di questionOrder (sebagai fallback)
-        $missing = array_diff(array_column($bankQuestions, 'id'), $questionOrder);
-        if (!empty($missing)) {
-            foreach ($missing as $qid) {
-                $idSoal = $qid;
-                $noBank = $noBankMap[$qid] ?? '-';
-                $noUser = '-';
-                $jawab = $answerMap[$qid] ?? '-';
-                $jawabDisplay = is_string($jawab) ? esc($jawab) : json_encode($jawab);
-
-                $html .= "
-              <tr class='table-secondary'>
-                <td>{$noUser}</td>
-                <td>{$idSoal}</td>
-                <td>{$noBank}</td>
-                <td style='white-space:normal; max-width:420px; font-size:13px;'>{$jawabDisplay}</td>
-              </tr>";
-            }
-        }
-
-        $html .= "</tbody></table></div>";
+        $html .= "
+                </tbody>
+            </table>
+        </div>
+        <div class='text-muted small text-end mt-1'>Data diambil: " . date('d/m/Y H:i:s') . "</div>";
 
         return $html;
     }
