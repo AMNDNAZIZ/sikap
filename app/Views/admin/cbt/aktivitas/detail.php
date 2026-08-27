@@ -460,7 +460,9 @@
     function loadDetailJawaban(id) {
       activeDetailSessionId = id;
       $('#detailContent').html('<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x mb-3"></i><p>Memuat data...</p></div>');
-      $.get("<?= site_url('admin/cbt/aktivitas/detail_jawaban/') ?>" + id, function (html) {
+      // Tambahkan timestamp sebagai cache-buster agar browser tidak pakai response lama
+      const url = "<?= site_url('admin/cbt/aktivitas/detail_jawaban/') ?>" + id + "?_=" + Date.now();
+      $.get(url, function (html) {
         $('#detailContent').html(html);
       }).fail(() => $('#detailContent').html('<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Gagal memuat data. Coba refresh kembali.</div>'));
     }

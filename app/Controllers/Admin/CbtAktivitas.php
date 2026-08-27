@@ -381,11 +381,18 @@ class CbtAktivitas extends BaseController
      */
     public function detail_jawaban($sessionId)
     {
+        // Paksa browser tidak cache response ini agar selalu menampilkan data terbaru
+        $this->response->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $this->response->setHeader('Pragma', 'no-cache');
+        $this->response->setHeader('Expires', '0');
+
         $db = db_connect();
 
         // 1) Ambil session & test info (termasuk bank_id, bobot)
         $session = $db->table('cbt_sessions s')
-            ->select('s.*, ts.bank_id, ts.id AS test_status_id,
+            ->select('s.id AS session_id, s.student_id, s.test_id, s.question_order,
+                      s.status, s.score, s.total_score, s.updated_at,
+                      ts.bank_id,
                       ts.bobot_pg, ts.bobot_pg_kompleks, ts.bobot_bs, ts.bobot_esai,
                       ts.show_pg_count, ts.show_pg_kompleks_count, ts.show_bs_count, ts.show_esai_count,
                       st.name AS student_name, st.nis,
@@ -406,7 +413,7 @@ class CbtAktivitas extends BaseController
 
         $bankId    = $session['bank_id'];
         $studentId = $session['student_id'];
-        $testId    = $session['test_id'];
+        $testId    = $session['test_id'];  // test_id dari cbt_sessions (bukan ts.id alias)
 
         // 2) Ambil semua soal dari bank lengkap dengan teks & kunci jawaban, real-time (no cache)
         $bankQuestions = $db->table('cbt_questions')
