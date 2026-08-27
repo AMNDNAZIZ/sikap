@@ -8,6 +8,7 @@ use App\Models\CbtTestStatusModel;
 use App\Models\CbtAnswerModel;
 use App\Models\CbtQuestionModel;
 use App\Models\StudentModel;
+use App\Services\CbtScoringService;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -34,6 +35,70 @@ class CbtAktivitas extends BaseController
         $this->questionModel = new CbtQuestionModel();
         $this->studentModel = new StudentModel();
         $this->db = db_connect();
+    }
+
+    /**
+     * Auto-close sesi ujian yang waktunya sudah habis tapi masih berstatus 'active'.
+     *
+     * Dipanggil setiap kali admin membuka halaman detail aktivitas, sehingga
+     * tampilan selalu sinkron dengan kondisi sebenarnya tanpa menunggu siswa
+     * membuka halaman mereka sendiri.
+     *
+     * Kondisi expired: started_at + (duration + extra_time) * 60 + 30 detik grace <= now
+     * atau end_time ujian sudah terlewat
+     *
+     * @param int $testId
+     * @param int $duration Durasi ujian dalam menit (dari cbt_test_status)
+     * @param string $testEndTime Waktu berakhirnya jadwal ujian
+     */
+    protected function autoCloseExpiredSessions(int $testId, int $duration, string $testEndTime): void
+    {
+        $now = time();
+        $testEndTs = strtotime($testEndTime);
+        $gracePeriod = 30; // detik
+
+        // Ambil semua sesi yang masih active untuk test ini
+        $activeSessions = $this->sessionModel
+            ->where('test_id', $testId)
+            ->where('status', 'active')
+            ->findAll();
+
+        if (empty($activeSessions)) return;
+
+        $scoringService = new CbtScoringService();
+
+        foreach ($activeSessions as $session) {
+            $startTs = (int) $session['started_at'];
+            if ($startTs < 100000) continue; // data tidak valid
+
+            $extraMin = (int) ($session['extra_time'] ?? 0);
+            $totalDurationSec = ($duration + $extraMin) * 60;
+            $sessionExpireTs = $startTs + $totalDurationSec + $gracePeriod;
+
+            // Expired jika durasi sesi habis ATAU waktu akhir jadwal ujian terlewat
+            $isExpired = ($now >= $sessionExpireTs) || ($testEndTs > 0 && $now > $testEndTs + $gracePeriod);
+
+            if (!$isExpired) continue;
+
+            $studentId = $session['student_id'];
+            log_message('info', "[AutoClose] Closing expired session ID={$session['id']}, Student={$studentId}, Test={$testId}");
+
+            try {
+                // Hitung skor menggunakan scoring service yang sama dengan submit normal
+                $score = $scoringService->calculateScoreWithBobot($studentId, $testId);
+
+                $this->sessionModel->update($session['id'], [
+                    'status'     => 'finished',
+                    'finished_at' => date('Y-m-d H:i:s', $now),
+                    'score'      => $score,
+                    'total_score' => $score,
+                ]);
+
+                log_message('info', "[AutoClose] Session ID={$session['id']} closed with score={$score}");
+            } catch (\Throwable $e) {
+                log_message('error', "[AutoClose] Failed to close session ID={$session['id']}: " . $e->getMessage());
+            }
+        }
     }
 
 
@@ -136,6 +201,14 @@ class CbtAktivitas extends BaseController
         if (!$test) {
             return redirect()->to(site_url('admin/cbt/aktivitas'))->with('error', 'Data ujian tidak ditemukan.');
         }
+
+        // Auto-close sesi yang waktunya sudah habis sebelum menampilkan data
+        // Ini memastikan tampilan admin selalu sinkron dengan kondisi sebenarnya
+        $this->autoCloseExpiredSessions(
+            (int) $testId,
+            (int) ($test['duration'] ?? 0),
+            (string) ($test['end_time'] ?? '')
+        );
 
         // 🔹 FIX V3: Get all sessions, log them, then filter
         $allSessions = $db->table('cbt_sessions cs')
