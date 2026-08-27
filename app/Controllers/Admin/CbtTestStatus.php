@@ -186,27 +186,16 @@ class CbtTestStatus extends BaseController
         }
 
         // -------------------------------------------------------
-        // 2. Validasi Bank Soal
+        // 2. Ambil data bank soal untuk validasi jumlah soal
         // -------------------------------------------------------
-        $user = session()->get('user');
-        $role = $user['role_id'] ?? 0;
         $bankId = $post['bank_id'] ?? 0;
 
-        // Ambil SEMUA bank dengan hitungan real-time
+        // Ambil data bank beserta hitungan soal real-time
         $allBanks = $this->bankModel->getListWithCounts();
         $bank = null;
-
-        // Cari bank yang dipilih dan cek hak akses
         foreach ($allBanks as $b) {
             if ($b['id'] == $bankId) {
-                // Admin (1) -> bebas
-                if ($role == 1) {
-                    $bank = $b;
-                }
-                // Guru (2) -> harus miliknya
-                else if ($role == 2 && ($b['teacher_id'] == ($user['teacher_id'] ?? 0))) {
-                    $bank = $b;
-                }
+                $bank = $b;
                 break;
             }
         }
@@ -214,9 +203,9 @@ class CbtTestStatus extends BaseController
         if (!$bank) {
             return $this->response->setJSON([
                 'success' => false,
-                'message' => 'Tidak diizinkan menggunakan bank soal tersebut.',
+                'message' => 'Bank soal tidak ditemukan.',
                 'errors' => [
-                    'bank_id' => 'Anda tidak memiliki akses ke bank soal ini atau bank tidak ditemukan.'
+                    'bank_id' => 'Bank soal tidak ditemukan.'
                 ]
             ]);
         }
