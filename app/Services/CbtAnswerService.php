@@ -77,7 +77,6 @@ class CbtAnswerService extends BaseService
                 // Update existing answer
                 $updated = $this->answerModel->update($existing['id'], [
                     'answer' => $normalizedAnswer,
-                    'is_doubtful' => $isDoubtful ? 1 : 0,
                     'updated_at' => $now
                 ]);
 
@@ -93,8 +92,6 @@ class CbtAnswerService extends BaseService
                     'test_id' => $testId,
                     'question_id' => $questionId,
                     'answer' => $normalizedAnswer,
-                    'is_doubtful' => $isDoubtful ? 1 : 0,
-                    'created_at' => $now,
                     'updated_at' => $now
                 ]);
 
@@ -169,7 +166,6 @@ class CbtAnswerService extends BaseService
                     'test_id' => $testId,
                     'question_id' => (int) $questionId,
                     'answer' => $this->normalizeAnswer($answer),
-                    'is_doubtful' => 0
                 ];
             }
 
@@ -293,7 +289,6 @@ class CbtAnswerService extends BaseService
             }
 
             $updated = $this->answerModel->update($answer['id'], [
-                'is_doubtful' => $isDoubtful ? 1 : 0,
                 'updated_at' => date('Y-m-d H:i:s')
             ]);
 
@@ -412,11 +407,13 @@ class CbtAnswerService extends BaseService
                     ]);
                 } else {
                     // Insert new
-                    $insert = $r;
-                    if (!isset($insert['created_at'])) {
-                        $insert['created_at'] = $now;
-                    }
-                    $this->answerModel->insert($insert);
+                    $this->answerModel->insert([
+                        'student_id' => $r['student_id'],
+                        'test_id'    => $r['test_id'],
+                        'question_id'=> $r['question_id'],
+                        'answer'     => $r['answer'],
+                        'updated_at' => $now,
+                    ]);
                 }
             }
             

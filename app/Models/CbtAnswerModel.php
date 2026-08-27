@@ -9,7 +9,7 @@ class CbtAnswerModel extends Model
 {
     protected $table = 'cbt_answers';
     protected $primaryKey = 'id';
-    protected $allowedFields = ['student_id', 'test_id', 'question_id', 'answer', 'score'];
+    protected $allowedFields = ['student_id', 'test_id', 'question_id', 'answer', 'score', 'updated_at'];
     protected $useTimestamps = false;
     protected $returnType = 'array';
 

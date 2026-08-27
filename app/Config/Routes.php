@@ -711,6 +711,7 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
     $routes->get('cbt/hasil/(:num)', 'Cbt::hasil/$1');
     $routes->post('cbt/saveAnswersBulk', 'Cbt::saveAnswersBulk');
     $routes->get('cbt/saveAnswersBulk', 'Cbt::saveAnswersBulk');
+    $routes->get('cbt/refreshCsrf', 'Cbt::refreshCsrf');
 
     // Perpustakaan Digital Siswa
     $routes->get('ebook', 'Ebook::index');
