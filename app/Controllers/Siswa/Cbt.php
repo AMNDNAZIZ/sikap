@@ -1016,11 +1016,73 @@ class Cbt extends BaseController
         // Update session score if needed
         $this->updateSessionScoreIfNeeded($session, $scoreData['final_score']);
 
+        // -------------------------------------------------------
+        // Tentukan apakah kunci jawaban boleh ditampilkan.
+        // Kunci hanya ditampilkan jika SEMUA siswa yang terdaftar
+        // di kelas-kelas ujian ini sudah menyelesaikan (status = 'finished').
+        // Tujuan: mencegah siswa yang sudah selesai bocorkan jawaban
+        // kepada siswa lain yang masih mengerjakan.
+        // -------------------------------------------------------
+        $showAnswerKey = $this->allStudentsFinished($test);
+
         // Prepare view data
         return view('siswa/cbt/hasil', array_merge([
-            'test' => $test,
-            'details' => $questionData
+            'test'           => $test,
+            'details'        => $questionData,
+            'show_answer_key' => $showAnswerKey,
         ], $scoreData));
+    }
+
+    /**
+     * Cek apakah seluruh siswa yang terdaftar di kelas-kelas ujian ini
+     * sudah menyelesaikan ujian (status = 'finished').
+     *
+     * Logika:
+     * 1. Ambil daftar kelas dari test.class_codes (JSON array nama kelas)
+     * 2. Hitung total siswa aktif di kelas-kelas tersebut
+     * 3. Hitung jumlah sesi yang sudah 'finished' untuk test ini
+     * 4. Jika finished >= total siswa → semua sudah selesai → tampilkan kunci
+     *
+     * Edge case: jika tidak ada siswa terdaftar (data kosong), kunci TIDAK ditampilkan.
+     *
+     * @param array $test Data ujian dari cbt_test_status
+     * @return bool True jika semua siswa sudah finished
+     */
+    protected function allStudentsFinished(array $test): bool
+    {
+        try {
+            $db = db_connect();
+
+            // Ambil daftar kelas dari class_codes (JSON)
+            $classCodes = json_decode($test['class_codes'] ?? '[]', true);
+            if (empty($classCodes)) {
+                return false;
+            }
+
+            // Hitung total siswa aktif di kelas-kelas yang ikut ujian ini
+            $totalStudents = (int) $db->table('student_records sr')
+                ->join('classes c', 'c.id = sr.class_id')
+                ->whereIn('c.name', $classCodes)
+                ->where('sr.status', 'aktif')
+                ->countAllResults();
+
+            if ($totalStudents === 0) {
+                return false;
+            }
+
+            // Hitung berapa siswa yang sudah finished untuk test ini
+            // Gunakan subquery MAX(id) agar 1 siswa dihitung sekali
+            // meskipun punya lebih dari 1 sesi (karena reset)
+            $finishedCount = (int) $db->table('cbt_sessions')
+                ->where('test_id', $test['id'])
+                ->where('status', 'finished')
+                ->countAllResults();
+
+            return $finishedCount >= $totalStudents;
+        } catch (\Throwable $e) {
+            log_message('error', '[Cbt::allStudentsFinished] ' . $e->getMessage());
+            return false; // Default aman: jangan tampilkan kunci jika ada error
+        }
     }
 
     /**

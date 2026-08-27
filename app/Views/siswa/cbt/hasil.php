@@ -202,10 +202,12 @@
                 $classes = [];
                 if ($isStudent)
                   $classes[] = 'student-answer';
-                if ($isCorrect)
-                  $classes[] = 'correct';
-                elseif ($isStudent && !$isCorrect)
-                  $classes[] = 'incorrect';
+                if ($show_answer_key) {
+                  if ($isCorrect)
+                    $classes[] = 'correct';
+                  elseif ($isStudent && !$isCorrect)
+                    $classes[] = 'incorrect';
+                }
                 ?>
                 <li class="option-item <?= implode(' ', $classes) ?>">
                   <strong><?= esc($key) ?>.</strong>
@@ -217,6 +219,7 @@
             <!-- Keterangan hasil -->
             <div class="answer-info">
               <span><strong>Jawaban Anda:</strong> <?= esc($q['answer'] ?: '-') ?></span>
+              <?php if ($show_answer_key): ?>
               <span><strong>Kunci Jawaban:</strong> <?= esc($q['correct_option'] ?: '-') ?></span>
               <?php
               $finalScore = 0;
@@ -243,6 +246,9 @@
                 echo '<span class="wrong">❌ Salah</span>';
               }
               ?>
+              <?php else: ?>
+              <span class="text-muted fst-italic small"><i class="bi bi-lock-fill"></i> Kunci jawaban akan tersedia setelah semua peserta menyelesaikan ujian.</span>
+              <?php endif; ?>
             </div>
 
           <?php elseif ($q['type'] === 'benar_salah' || $q['type'] === 'bs'): ?>
@@ -252,8 +258,10 @@
                   <tr>
                     <th>Pernyataan</th>
                     <th class="text-center">Anda</th>
+                    <?php if ($show_answer_key): ?>
                     <th class="text-center">Kunci</th>
                     <th class="text-center">Hasil</th>
+                    <?php endif; ?>
                   </tr>
                 </thead>
                 <tbody>
@@ -276,17 +284,19 @@
                     <tr>
                       <td><?= strip_tags($q['options'][$rowKey]) ?></td>
                       <td class="text-center fw-bold"><?= $stdChar ?: '-' ?></td>
+                      <?php if ($show_answer_key): ?>
                       <td class="text-center fw-bold"><?= $keyChar ?></td>
                       <td class="text-center">
                         <?= $isMatch ? '✅' : '❌' ?>
                       </td>
+                      <?php endif; ?>
                     </tr>
                   <?php endforeach; ?>
                 </tbody>
               </table>
             </div>
             <div class="answer-info">
-              <?php
+              <?php if ($show_answer_key):
               $scoreBS = ($totalItems > 0) ? ($matches / $totalItems) : 0;
               if ($scoreBS >= 1) {
                 echo '<span class="correct">✅ Benar Semua</span>';
@@ -295,7 +305,9 @@
               } else {
                 echo '<span class="wrong">❌ Salah Semua</span>';
               }
-              ?>
+              else: ?>
+              <span class="text-muted fst-italic small"><i class="bi bi-lock-fill"></i> Kunci jawaban akan tersedia setelah semua peserta menyelesaikan ujian.</span>
+              <?php endif; ?>
             </div>
 
           <?php elseif (in_array($q['type'], ['esai', 'essay'])): ?>
