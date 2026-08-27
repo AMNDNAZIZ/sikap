@@ -377,6 +377,51 @@ class CbtAktivitas extends BaseController
     }
 
     /**
+     * Cek apakah jawaban siswa benar sesuai tipe soal.
+     * - PG        : exact match, case-insensitive
+     * - PGK       : order-independent (sort kedua array lalu compare)
+     * - BS        : compare per-item (tiap pernyataan harus cocok)
+     * - Esai      : selalu null (dinilai manual)
+     *
+     * @param string $type      Tipe soal (pg, pgk, pg_kompleks, bs, benar_salah, esai, essay)
+     * @param string $student   Jawaban siswa  (sudah di-strtoupper trim)
+     * @param string $correct   Kunci jawaban  (sudah di-strtoupper trim)
+     * @return bool|null  true=benar, false=salah, null=tidak bisa dinilai otomatis (esai)
+     */
+    protected function isAnswerCorrect(string $type, string $student, string $correct): ?bool
+    {
+        if (in_array($type, ['esai', 'essay'])) return null;
+        if ($correct === '' || $student === '') return false;
+
+        if (in_array($type, ['pgk', 'pg_kompleks'])) {
+            // Order-independent: A,B,C == C,B,A == B,A,C
+            $sArr = array_filter(array_map('trim', explode(',', $student)));
+            $cArr = array_filter(array_map('trim', explode(',', $correct)));
+            sort($sArr);
+            sort($cArr);
+            return $sArr === $cArr;
+        }
+
+        if (in_array($type, ['bs', 'benar_salah'])) {
+            // Per-item comparison — B,S,B == B,S,B tapi trailing koma diabaikan
+            $sArr = array_map('trim', explode(',', $student));
+            $cArr = array_map('trim', explode(',', $correct));
+            // Samakan panjang dengan kunci
+            $len = count($cArr);
+            for ($i = 0; $i < $len; $i++) {
+                $s = $sArr[$i] ?? '';
+                $c = $cArr[$i] ?? '';
+                if ($c === '') continue; // item kunci kosong, skip
+                if ($s !== $c) return false;
+            }
+            return true;
+        }
+
+        // PG: exact match
+        return $student === $correct;
+    }
+
+    /**
      * 📄 Modal detail jawaban siswa — real-time, tampilkan jawaban benar & status benar/salah
      */
     public function detail_jawaban($sessionId)
@@ -463,9 +508,10 @@ class CbtAktivitas extends BaseController
             $type    = strtolower(trim($q['question_type'] ?? 'pg'));
             $correct = strtoupper(trim($q['correct_option'] ?? ''));
             $student = strtoupper(trim($answerMap[$qid]));
-            if (in_array($type, ['esai', 'essay'])) continue; // esai tidak dinilai otomatis
-            if ($correct !== '' && $student === $correct) $totalBenar++;
-            elseif ($student !== '') $totalSalah++;
+            $result  = $this->isAnswerCorrect($type, $student, $correct);
+            if ($result === null) continue;   // esai, skip
+            if ($result === true)  $totalBenar++;
+            else                   $totalSalah++;
         }
 
         $totalBelum  = $totalSoal - $totalJawab;
@@ -543,7 +589,8 @@ class CbtAktivitas extends BaseController
             } else {
                 $correct = strtoupper(trim($q['correct_option'] ?? ''));
                 $student = strtoupper(trim($answerMap[$qid]));
-                if ($correct !== '' && $student === $correct) {
+                $result  = $this->isAnswerCorrect($type, $student, $correct);
+                if ($result === true) {
                     $bgClass = 'bg-success text-white border-success';
                     $title   = "No {$noUser}: Benar ({$student})";
                 } else {
@@ -603,13 +650,15 @@ class CbtAktivitas extends BaseController
             $qText = esc($qText);
 
             // Tentukan status & warna baris
+            $answerResult = $answered ? $this->isAnswerCorrect($type, $student, $correct) : null;
+
             if (!$answered) {
                 $bgRow      = 'table-warning';
                 $statusHtml = "<span class='badge bg-warning text-dark'>Belum</span>";
             } elseif ($isEsai) {
                 $bgRow      = 'table-info';
                 $statusHtml = "<span class='badge bg-info text-dark'>Esai</span>";
-            } elseif ($correct !== '' && $student === $correct) {
+            } elseif ($answerResult === true) {
                 $bgRow      = 'table-success';
                 $statusHtml = "<span class='badge bg-success'>✓ Benar</span>";
             } else {
