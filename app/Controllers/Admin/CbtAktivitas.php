@@ -125,14 +125,65 @@ class CbtAktivitas extends BaseController
         $query->where('ts.start_time <=', $now);
         $query->where("EXISTS (SELECT 1 FROM cbt_sessions cs WHERE cs.test_id = ts.id)", null, false);
 
-        // Filter untuk guru - hanya lihat aktivitas ujian yang ia jadwalkan
-        if ($context['is_teacher'] && $context['user_id']) {
-            $query->where('ts.created_by', $context['user_id']);
+        // Filter untuk guru: tampilkan ujian yang:
+        // 1. Dibuat oleh guru tersebut, ATAU
+        // 2. Menggunakan bank soal milik guru tersebut, ATAU
+        // 3. Melibatkan salah satu kelas yang diampu guru tersebut
+        $teacherClassNamesForFilter = [];
+        if ($context['is_teacher'] && $context['teacher_id'] && $context['user_id']) {
+            $teacherClasses = get_teacher_classes($context['teacher_id']);
+            $userId    = (int) $context['user_id'];
+            $teacherId = (int) $context['teacher_id'];
+
+            // Kondisi 1 & 2 di SQL
+            $query->groupStart()
+                ->where('ts.created_by', $userId)
+                ->orWhere('qb.teacher_id', $teacherId)
+                ->groupEnd();
+
+            // Siapkan nama kelas untuk filter kondisi 3 di PHP
+            $teacherClassNamesForFilter = array_map(
+                fn($c) => strtolower(trim($c['name'])),
+                $teacherClasses
+            );
         }
 
         $sessions = $query
             ->orderBy('ts.start_time', 'DESC')
             ->get()->getResultArray();
+
+        // Kondisi 3 (kelas yang diampu): tambahkan ujian yang belum tertangkap kondisi 1&2
+        // Strategi: jika guru, ambil SEMUA ujian lalu gabung (union PHP) dengan yang
+        // lolos kondisi kelas. Lebih simpel: jalankan query kedua khusus kelas.
+        if (!empty($teacherClassNamesForFilter)) {
+            // Ambil semua ujian (tanpa filter guru) untuk dicek kelas-nya di PHP
+            $allQuery = $this->db->table('cbt_test_status ts')
+                ->select('ts.id AS test_id, qb.code AS test_code, s.name AS subject_name, en.name AS exam_name, ts.start_time, ts.end_time, ts.class_codes')
+                ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'left')
+                ->join('subjects s', 's.id = qb.subject_id', 'left')
+                ->join('cbt_exam_names en', 'en.id = ts.exam_name_id', 'left')
+                ->where('ts.start_time <=', $now)
+                ->where("EXISTS (SELECT 1 FROM cbt_sessions cs WHERE cs.test_id = ts.id)", null, false)
+                ->get()->getResultArray();
+
+            // Index hasil kondisi 1&2 agar tidak duplikat
+            $existingIds = array_column($sessions, 'test_id');
+
+            foreach ($allQuery as $row) {
+                if (in_array($row['test_id'], $existingIds)) continue;
+                $codes = json_decode($row['class_codes'] ?? '[]', true);
+                foreach ((array)$codes as $code) {
+                    if (in_array(strtolower(trim((string)$code)), $teacherClassNamesForFilter)) {
+                        $sessions[] = $row;
+                        $existingIds[] = $row['test_id'];
+                        break;
+                    }
+                }
+            }
+
+            // Urutkan ulang berdasarkan start_time DESC
+            usort($sessions, fn($a, $b) => strcmp($b['start_time'] ?? '', $a['start_time'] ?? ''));
+        }
 
         // Add status indicator for each exam
         foreach ($sessions as &$session) {

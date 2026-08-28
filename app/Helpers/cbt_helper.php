@@ -121,16 +121,42 @@ if (!function_exists('can_access_cbt_test_status')) {
             return true;
         }
         
-        // Teacher can only access their own
-        if ($context['is_teacher'] && $context['user_id']) {
+        // Guru bisa akses jika:
+        // 1. Ia yang membuat jadwal ujian (created_by), ATAU
+        // 2. Bank soal ujian tersebut miliknya, ATAU
+        // 3. Salah satu kelas yang diampu masuk dalam class_codes ujian
+        if ($context['is_teacher'] && $context['teacher_id'] && $context['user_id']) {
             $db = \Config\Database::connect();
-            $testStatus = $db->table('cbt_test_status')
-                ->select('created_by')
-                ->where('id', $testStatusId)
+
+            $testStatus = $db->table('cbt_test_status ts')
+                ->select('ts.created_by, ts.class_codes, qb.teacher_id AS bank_teacher_id')
+                ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'left')
+                ->where('ts.id', $testStatusId)
                 ->get()
-                ->getRow();
-            
-            return $testStatus && (int)$testStatus->created_by === $context['user_id'];
+                ->getRowArray();
+
+            if (!$testStatus) return false;
+
+            // Cek 1: pembuat jadwal
+            if ((int)$testStatus['created_by'] === $context['user_id']) return true;
+
+            // Cek 2: bank soal milik guru ini
+            if ((int)$testStatus['bank_teacher_id'] === $context['teacher_id']) return true;
+
+            // Cek 3: salah satu kelas yang diampu ada di class_codes
+            $classCodes = json_decode($testStatus['class_codes'] ?? '[]', true);
+            if (!empty($classCodes)) {
+                $teacherClasses = get_teacher_classes($context['teacher_id']);
+                $teacherClassNames = array_map(
+                    fn($c) => strtolower(trim($c['name'])),
+                    $teacherClasses
+                );
+                foreach ($classCodes as $code) {
+                    if (in_array(strtolower(trim((string)$code)), $teacherClassNames)) {
+                        return true;
+                    }
+                }
+            }
         }
         
         return false;
