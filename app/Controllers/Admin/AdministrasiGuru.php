@@ -2843,7 +2843,8 @@ class AdministrasiGuru extends BaseController
             . "Soal BS BUKAN pilihan ganda! Setiap opsi adalah PERNYATAAN INDEPENDEN yang dinilai B/S. Campurkan pernyataan benar dan salah.\n"
             . "Contoh:\n"
             . '[{"type":"pg","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"},'
-            . '{"type":"benar_salah","question":"Stimulus soal","options":{"A":"pernyataan 1","B":"pernyataan 2","C":"pernyataan 3","D":"pernyataan 4"},"answer":"B,S,B,B"},'
+            . '{"type":"pg_kompleks","question":"Stimulus soal (PGK)","options":{"A":"pernyataan 1","B":"pernyataan 2","C":"pernyataan 3","D":"pernyataan 4"},"answer":"A,C"},'
+            . '{"type":"benar_salah","question":"Stimulus soal (BS)","options":{"A":"pernyataan 1","B":"pernyataan 2","C":"pernyataan 3","D":"pernyataan 4"},"answer":"B,S,B,B"},'
             . '{"type":"esai","question":"...","answer":"kunci jawaban"}]';
 
         return $this->response->setJSON([
@@ -2890,6 +2891,54 @@ class AdministrasiGuru extends BaseController
                 default => $tipe,
             };
 
+            $ans = $soal['answer'] ?? null;
+            if (is_array($ans)) {
+                $ans = implode(',', $ans);
+            }
+            
+            // Normalisasi format jawaban agar sesuai dengan parser CbtBankSoal & detail view
+            if (is_string($ans)) {
+                if ($tipe === 'pg_kompleks') {
+                    preg_match_all('/[A-E]/i', $ans, $matches);
+                    if (!empty($matches[0])) {
+                        $uniqueKeys = array_unique(array_map('strtoupper', $matches[0]));
+                        sort($uniqueKeys);
+                        $ans = implode(',', $uniqueKeys);
+                    }
+                } elseif ($tipe === 'benar_salah') {
+                    $rawKey = strtoupper(preg_replace('/\s+/', '', $ans));
+                    if (strpos($rawKey, ',') !== false) {
+                        $ans = $rawKey;
+                    } else {
+                        $chars = str_split($rawKey);
+                        $ans = implode(',', $chars);
+                    }
+                } else {
+                    $ans = trim($ans);
+                }
+            }
+
+            // Build raw_text for editor compatibility
+            $rawText = '<p>' . ($soal['question'] ?? '') . '</p>';
+            if ($tipe === 'benar_salah') {
+                $rawText .= '<p>Tipe: BS</p>';
+            } elseif ($tipe === 'pg_kompleks') {
+                $rawText .= '<p>Tipe: PGK</p>';
+            }
+            
+            if (!empty($soal['options']) && is_array($soal['options'])) {
+                foreach ($soal['options'] as $key => $val) {
+                    $rawText .= '<p>' . strtoupper($key) . '. ' . $val . '</p>';
+                }
+            }
+            
+            if ($tipe !== 'esai') {
+                $rawText .= '<p>Kunci: ' . $ans . '</p>';
+            } else {
+                $rawText .= '<p>Kunci: esai</p>';
+                $rawText .= '<p>Jawaban: ' . $ans . '</p>';
+            }
+
             $data = [
                 'bank_id' => $bankId,
                 'question_text' => $soal['question'] ?? '',
@@ -2900,8 +2949,9 @@ class AdministrasiGuru extends BaseController
                 'option_c' => $soal['options']['C'] ?? null,
                 'option_d' => $soal['options']['D'] ?? null,
                 'option_e' => $soal['options']['E'] ?? null,
-                'correct_option' => ($tipe !== 'esai') ? ($soal['answer'] ?? null) : null,
-                'essay_answer' => ($tipe === 'esai') ? ($soal['answer'] ?? '') : null,
+                'correct_option' => ($tipe !== 'esai') ? $ans : null,
+                'essay_answer' => ($tipe === 'esai') ? $ans : null,
+                'raw_text' => $rawText,
             ];
             $questionModel->insert($data);
             $inserted++;
