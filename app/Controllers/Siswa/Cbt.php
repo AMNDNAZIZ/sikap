@@ -154,8 +154,15 @@ class Cbt extends BaseController
 
         $filtered = array_filter($tests, function ($t) use ($className, $studentReligion, $now) {
             $classes = json_decode($t['class_codes'], true) ?? [];
-            if (!in_array($className, $classes))
-                return false;
+            $normalizedClass = strtolower(trim($className));
+            $classMatch = false;
+            foreach ($classes as $c) {
+                if (strtolower(trim((string)$c)) === $normalizedClass) {
+                    $classMatch = true;
+                    break;
+                }
+            }
+            if (!$classMatch) return false;
 
             // jika mata pelajaran agama, cek agama siswa
             if (strtolower(trim($t['subject_type'] ?? '')) === 'agama') {
@@ -1698,7 +1705,7 @@ class Cbt extends BaseController
         $className = $student['class_name'] ?? '';
         $allowedClasses = json_decode($test['class_codes'], true) ?? [];
 
-        if (!in_array($className, $allowedClasses)) {
+        if (!$this->classInAllowed($className, $allowedClasses)) {
             return redirect()->back()->with('error', 'Anda tidak terdaftar pada kelas peserta ujian ini.');
         }
 
@@ -1872,15 +1879,43 @@ class Cbt extends BaseController
      */
     protected function getStudentData(int $studentId): ?array
     {
-        $studentCacheKey = 'student_data_' . $studentId;
-        return cache_remember($studentCacheKey, 300, function () use ($studentId) {
-            return $this->studentModel
-                ->select('students.*, classes.name AS class_name')
-                ->join('student_records', 'student_records.student_id = students.id', 'left')
-                ->join('classes', 'classes.id = student_records.class_id', 'left')
-                ->orderBy('student_records.id', 'DESC')
-                ->find($studentId);
-        });
+        // Tidak di-cache agar perubahan kelas siswa selalu terbaca real-time
+        return $this->studentModel
+            ->select('students.*, classes.name AS class_name')
+            ->join('student_records', 'student_records.student_id = students.id', 'left')
+            ->join('classes', 'classes.id = student_records.class_id', 'left')
+            ->where('student_records.status', 'aktif')
+            ->orderBy('student_records.id', 'DESC')
+            ->find($studentId);
+    }
+
+    /**
+     * Normalisasi nama kelas: lowercase + trim semua elemen.
+     * Digunakan agar perbandingan class_codes tidak gagal karena
+     * perbedaan kapitalisasi atau spasi (misal "X IPA 1" vs "x ipa 1").
+     */
+    protected function normalizeClassName(string $name): string
+    {
+        return strtolower(trim($name));
+    }
+
+    /**
+     * Cek apakah nama kelas siswa ada di dalam daftar class_codes ujian.
+     * Perbandingan bersifat case-insensitive dan trim-insensitive.
+     *
+     * @param string $studentClass  Nama kelas siswa
+     * @param array  $allowedClasses Array nama kelas dari class_codes (sudah json_decode)
+     * @return bool
+     */
+    protected function classInAllowed(string $studentClass, array $allowedClasses): bool
+    {
+        $normalized = $this->normalizeClassName($studentClass);
+        foreach ($allowedClasses as $c) {
+            if ($this->normalizeClassName((string)$c) === $normalized) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1907,9 +1942,9 @@ class Cbt extends BaseController
             return ['valid' => false, 'message' => 'Waktu ujian telah berakhir.'];
         }
 
-        // Check class permission
+        // Check class permission — case-insensitive agar kelas yang ditambahkan admin tetap cocok
         $allowedClasses = json_decode($test['class_codes'], true) ?? [];
-        if (!in_array($className, $allowedClasses)) {
+        if (!$this->classInAllowed($className, $allowedClasses)) {
             return ['valid' => false, 'message' => 'Ujian ini tidak ditujukan untuk kelas Anda.'];
         }
 
