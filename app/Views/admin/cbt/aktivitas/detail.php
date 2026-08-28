@@ -276,7 +276,7 @@
   </div>
 
   <!-- Stats Card -->
-  <div class="stats-card d-flex gap-2">
+  <div class="stats-card d-flex gap-2 align-items-center flex-wrap">
     <div class="badge badge-modern bg-dark py-2 px-3 fs-6">
       <i class="fas fa-users me-1"></i> Total Peserta: <?= is_array($sessions) ? count($sessions) : 0 ?>
     </div>
@@ -285,6 +285,11 @@
       <i class="fas fa-check-double"></i>
       <span id="countBelum"><?= $count_belum ?? 0 ?></span> user belum selesai
     </button>
+    <?php if ($is_teacher ?? false): ?>
+      <span class="badge bg-info py-2 px-3 fs-6">
+        <i class="fas fa-filter me-1"></i> Ditampilkan: kelas yang Anda ampu
+      </span>
+    <?php endif; ?>
   </div>
 
   <!-- Table Card -->
@@ -299,6 +304,7 @@
             <th width="30">No</th>
             <th>Nomor Ujian</th>
             <th>Nama</th>
+            <th>Kelas</th>
             <th>Waktu Mulai</th>
             <th width="120">Soal Terjawab</th>
             <th width="120">Sisa Waktu</th>
@@ -317,6 +323,9 @@
               <td class="text-center"><?= $i + 1 ?></td>
               <td class="text-center"><strong><?= esc($s['username']) ?></strong></td>
               <td><?= esc($s['student_name']) ?></td>
+              <td class="text-center">
+                <span class="badge bg-secondary"><?= esc($s['class_name'] ?? '-') ?></span>
+              </td>
               <td class="text-center">
                 <?= !empty($s['started_at']) ? date('Y-m-d H:i:s', $s['started_at']) : '<span class="text-muted small">Belum Mulai</span>' ?>
               </td>
@@ -414,10 +423,10 @@
   $(function () {
     const table = $('#tableAktivitasUser').DataTable({
       responsive: true,
-      order: [[3, 'asc']], // Default sort by Nama
+      order: [[4, 'asc'], [3, 'asc']], // Default sort by Kelas lalu Nama
       pageLength: 25,
       columnDefs: [
-        { orderable: false, targets: [0, 10] } // Checkbox & Action non-sortable
+        { orderable: false, targets: [0, 5, 11] } // Checkbox, Soal Terjawab & Action non-sortable
       ],
       language: {
         search: "Cari:",

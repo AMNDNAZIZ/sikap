@@ -247,6 +247,24 @@ class CbtAktivitas extends BaseController
 
         log_message('info', "[DetailAktivitas] Test ID: $testId - Unique students after filter: " . count($sessions));
 
+        // -------------------------------------------------------
+        // Filter untuk guru: hanya tampilkan sesi dari kelas yang diampu
+        // Admin melihat semua kelas (lintas kelas)
+        // -------------------------------------------------------
+        $isTeacher = $context['is_teacher'] && $context['teacher_id'];
+        if ($isTeacher) {
+            $teacherClasses = get_teacher_classes($context['teacher_id']);
+            // Normalisasi: lowercase trim nama kelas yang diampu guru
+            $teacherClassNames = array_map(
+                fn($c) => strtolower(trim($c['name'])),
+                $teacherClasses
+            );
+            $sessions = array_values(array_filter($sessions, function ($s) use ($teacherClassNames) {
+                return in_array(strtolower(trim($s['class_name'] ?? '')), $teacherClassNames);
+            }));
+            log_message('info', "[DetailAktivitas] After teacher class filter: " . count($sessions) . " sessions");
+        }
+
         // Sort by class and name
         usort($sessions, function($a, $b) {
             $classCompare = strcmp($a['class_name'] ?? '', $b['class_name'] ?? '');
@@ -360,10 +378,11 @@ class CbtAktivitas extends BaseController
         log_message('info', "[DetailAktivitas] Test ID: $testId - Final sessions to display: " . count($sessions) . ", Active: $count_belum");
 
         return view('admin/cbt/aktivitas/detail', [
-            'test' => $test,
-            'sessions' => $sessions,
-            'noBankMap' => $noBankMap,
-            'count_belum' => $count_belum
+            'test'       => $test,
+            'sessions'   => $sessions,
+            'noBankMap'  => $noBankMap,
+            'count_belum' => $count_belum,
+            'is_teacher' => $isTeacher,
         ]);
     }
 
