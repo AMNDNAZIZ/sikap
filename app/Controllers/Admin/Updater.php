@@ -594,7 +594,7 @@ class Updater extends BaseController
     {
         return [
             'github_user'   => 'Sakajaya',
-            'github_repo'   => 'sikap-update',
+            'github_repo'   => 'espata-update',
             'github_branch' => 'main',
             'manifest_path' => 'update_manifest.json',
         ];
