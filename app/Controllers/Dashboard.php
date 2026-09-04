@@ -555,15 +555,16 @@ class Dashboard extends BaseController
 
         // Get student's class
         $record = $db->table('student_records sr')
-            ->select('sr.class_id, c.name as class_name')
+            ->select('sr.class_id, sr.academic_year_id, c.name as class_name')
             ->join('classes c', 'c.id = sr.class_id', 'left')
             ->where('sr.student_id', $studentId)
             ->where('sr.status', 'aktif')
             ->orderBy('sr.id', 'DESC')
             ->get()->getRowArray();
 
-        $classId = $record['class_id'] ?? null;
+        $classId   = $record['class_id'] ?? null;
         $className = $record['class_name'] ?? null;
+        $yearId    = $record['academic_year_id'] ?? null;
 
         $upcomingAgendas = [];
         if ($classId) {
@@ -635,14 +636,19 @@ class Dashboard extends BaseController
 
         $attendanceRate = $activeDays > 0 ? round(($attSummary['H'] / $activeDays) * 100) : 100;
 
-        // Latest relevant announcement
+        // Latest relevant announcement — hanya pengumuman global atau yang terkait kelas+tahun aktif
         $latestAnnouncement = $db->table('announcements a')
             ->select('a.*, u.fullname as creator_name')
             ->join('users u', 'u.id = a.created_by', 'left')
             ->where("FIND_IN_SET('siswa', a.target) > 0")
             ->groupStart()
-            ->where('a.class_id', $classId)
-            ->orWhere('a.class_id', null)
+                // Pengumuman global (tidak terikat kelas)
+                ->where('a.class_id', null)
+                ->orGroupStart()
+                    // Pengumuman per kelas harus cocok kelas DAN tahun ajaran
+                    ->where('a.class_id', $classId)
+                    ->where('a.academic_year_id', $yearId)
+                ->groupEnd()
             ->groupEnd()
             ->orderBy('a.created_at', 'DESC')
             ->limit(1)

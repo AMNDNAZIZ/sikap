@@ -311,6 +311,60 @@
     .sidebar .nav-link[data-bs-toggle="collapse"]:not(.active) {
       background-color: rgba(0, 0, 0, 0.02);
     }
+
+    /* ── Notifikasi Dropdown ── */
+    #notifList .notif-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      padding: 0.65rem 0.85rem;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-decoration: none;
+      color: inherit;
+    }
+    #notifList .notif-item:hover  { background: #f8f9fa; }
+    #notifList .notif-item.unread { background: #eef4ff; }
+    #notifList .notif-item.unread:hover { background: #e2ecff; }
+    #notifList .notif-icon {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    #notifList .notif-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      line-height: 1.3;
+      margin-bottom: 2px;
+      color: #212529;
+    }
+    #notifList .notif-msg {
+      font-size: 0.74rem;
+      color: #6c757d;
+      line-height: 1.4;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    #notifList .notif-time {
+      font-size: 0.68rem;
+      color: #adb5bd;
+      white-space: nowrap;
+      margin-top: 1px;
+    }
+    /* Badge animasi */
+    #notifBadge.pulse {
+      animation: notif-pulse 0.6s ease-in-out 3;
+    }
+    @keyframes notif-pulse {
+      0%,100% { transform: translate(-50%,-50%) scale(1); }
+      50%      { transform: translate(-50%,-50%) scale(1.3); }
+    }
   </style>
 </head>
 
@@ -331,8 +385,60 @@
         </button>
 
         <a class="navbar-brand" href="<?= base_url('/dashboard') ?>">📘 SIKAP</a>
-        <div class="ms-auto">
+        <div class="ms-auto d-flex align-items-center gap-2">
           <?php if (session()->has('user')): ?>
+
+            <!-- ── Dropdown Notifikasi ───────────────────────── -->
+            <div class="dropdown" id="notifDropdownWrapper">
+              <button class="btn btn-sm btn-outline-secondary position-relative"
+                      id="notifDropdownBtn"
+                      data-bs-toggle="dropdown"
+                      data-bs-auto-close="outside"
+                      aria-expanded="false"
+                      title="Notifikasi">
+                <i class="bi bi-bell fs-6"></i>
+                <!-- Badge counter — disembunyikan saat 0 -->
+                <span id="notifBadge"
+                      class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                      style="display:none; font-size:0.6rem;">
+                  0
+                </span>
+              </button>
+
+              <!-- Panel dropdown -->
+              <div class="dropdown-menu dropdown-menu-end shadow-sm p-0"
+                   id="notifDropdownMenu"
+                   style="width:340px; max-width:95vw;">
+
+                <!-- Header -->
+                <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-light rounded-top">
+                  <span class="fw-semibold small">Notifikasi</span>
+                  <button class="btn btn-link btn-sm text-muted p-0 text-decoration-none"
+                          id="notifMarkAllBtn" style="font-size:0.75rem;">
+                    Tandai semua dibaca
+                  </button>
+                </div>
+
+                <!-- Daftar notifikasi -->
+                <div id="notifList"
+                     style="max-height:380px; overflow-y:auto;">
+                  <div class="text-center text-muted py-4 small" id="notifEmpty">
+                    <i class="bi bi-bell-slash fs-4 d-block mb-1 opacity-50"></i>
+                    Tidak ada notifikasi baru
+                  </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="border-top text-center py-2 bg-light rounded-bottom">
+                  <a href="<?= base_url('notifications') ?>"
+                     class="text-decoration-none small text-primary fw-semibold">
+                    Lihat semua notifikasi
+                  </a>
+                </div>
+              </div>
+            </div>
+            <!-- ─────────────────────────────────────────────── -->
+
             <a href="<?= base_url('logout') ?>" class="btn btn-sm btn-outline-danger">Logout</a>
           <?php else: ?>
             <a href="<?= base_url('login') ?>" class="btn btn-sm btn-primary">Login SIKAP</a>
@@ -604,6 +710,135 @@
       setInterval(updateStaffMentionBadge, 15000); // setiap 15 detik
       <?php endif; ?>
     })();
+  </script>
+  <?php endif; ?>
+
+  <!-- ── Notifikasi In-App Polling ─────────────────────────────────────── -->
+  <?php if (session()->get('logged_in')): ?>
+  <script>
+  (function () {
+    'use strict';
+
+    var NOTIF_COUNT_URL  = "<?= base_url('notifications/count') ?>";
+    var NOTIF_RECENT_URL = "<?= base_url('notifications/recent') ?>";
+    var NOTIF_READ_ALL   = "<?= base_url('notifications/read-all') ?>";
+    var CSRF_NAME        = "<?= csrf_token() ?>";
+    var CSRF_HASH        = "<?= csrf_hash() ?>";
+
+    var prevCount      = -1;
+    var dropdownOpen   = false;
+    var notifLoaded    = false;   // sudah load isi dropdown setidaknya 1x?
+
+    var $badge    = $('#notifBadge');
+    var $list     = $('#notifList');
+    var $empty    = $('#notifEmpty');
+    var $markAll  = $('#notifMarkAllBtn');
+    var $dropdown = $('#notifDropdownMenu');
+
+    /* ── helper: render 1 item notifikasi ── */
+    function renderItem(n) {
+      var bgClass   = n.is_read == 0 ? 'unread' : '';
+      var iconBg    = 'bg-' + n.color + ' bg-opacity-10 text-' + n.color;
+      var url       = n.url
+        ? "<?= base_url('notifications/read') ?>/" + n.id + "?redirect=" + encodeURIComponent(n.url)
+        : "<?= base_url('notifications/read') ?>/" + n.id;
+
+      return '<a href="' + url + '" class="notif-item ' + bgClass + '" data-id="' + n.id + '">' +
+        '<span class="notif-icon ' + iconBg + '">' +
+          '<i class="' + n.icon + '"></i>' +
+        '</span>' +
+        '<div class="flex-grow-1 overflow-hidden">' +
+          '<div class="notif-title">' + $('<span>').text(n.title).html() + '</div>' +
+          (n.message ? '<div class="notif-msg">' + $('<span>').text(n.message).html() + '</div>' : '') +
+        '</div>' +
+        '<span class="notif-time">' + n.time_ago + '</span>' +
+      '</a>';
+    }
+
+    /* ── update badge angka di navbar ── */
+    function updateBadge(count) {
+      if (count > 0) {
+        var label = count > 99 ? '99+' : count;
+        $badge.text(label).show();
+        if (prevCount >= 0 && count > prevCount) {
+          $badge.addClass('pulse');
+          setTimeout(function() { $badge.removeClass('pulse'); }, 1800);
+          // suara notifikasi ringan
+          try {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            var osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.connect(g); g.connect(ctx.destination);
+            osc.frequency.setValueAtTime(1047, ctx.currentTime);
+            osc.frequency.setValueAtTime(784, ctx.currentTime + 0.12);
+            g.gain.setValueAtTime(0.15, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+            osc.start(); osc.stop(ctx.currentTime + 0.35);
+          } catch(e) {}
+        }
+      } else {
+        $badge.text('0').hide();
+      }
+      prevCount = count;
+    }
+
+    /* ── polling jumlah unread (ringan, setiap 30 detik) ── */
+    function pollCount() {
+      $.getJSON(NOTIF_COUNT_URL, function(res) {
+        updateBadge(res.count || 0);
+      });
+    }
+    pollCount();
+    setInterval(pollCount, 30000);
+
+    /* ── muat isi dropdown saat dibuka ── */
+    $('#notifDropdownBtn').on('click', function () {
+      if (notifLoaded) return; // sudah ada isi, jangan reload terus
+      loadRecent();
+    });
+
+    function loadRecent() {
+      $list.html('<div class="text-center py-3"><span class="spinner-border spinner-border-sm text-secondary"></span></div>');
+      $empty.hide();
+
+      $.getJSON(NOTIF_RECENT_URL, function(res) {
+        notifLoaded = true;
+        var items = res.items || [];
+        updateBadge(res.unread || 0);
+
+        if (items.length === 0) {
+          $list.html('');
+          $empty.show();
+          return;
+        }
+
+        var html = '';
+        items.forEach(function(n) { html += renderItem(n); });
+        $list.html(html);
+
+        // Saat dropdown ditutup, izinkan reload fresh berikutnya
+      });
+    }
+
+    // Reset notifLoaded saat dropdown ditutup agar data selalu fresh
+    document.getElementById('notifDropdownBtn').addEventListener('hide.bs.dropdown', function() {
+      notifLoaded = false;
+    });
+
+    /* ── Tandai semua dibaca ── */
+    $markAll.on('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var data = {};
+      data[CSRF_NAME] = CSRF_HASH;
+      $.post(NOTIF_READ_ALL, data, function() {
+        // Perbarui UI: hapus class unread dari semua item
+        $list.find('.notif-item.unread').removeClass('unread');
+        updateBadge(0);
+        notifLoaded = false; // paksa reload next open
+      });
+    });
+
+  })();
   </script>
   <?php endif; ?>
 

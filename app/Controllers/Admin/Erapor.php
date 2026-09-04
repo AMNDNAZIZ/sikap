@@ -331,6 +331,40 @@ class Erapor extends BaseController
 
         log_message('info', "Erapor saved: class=$classId subject=$subjectId year=$yearId semester=$semester count=$saved by user={$user['id']}");
 
+        // ── Notifikasi nilai erapor: kirim ke siswa yang nilainya disimpan ───
+        try {
+            $subjectName   = $this->db->table('subjects')->select('name')->where('id', $subjectId)->get()->getRowArray()['name'] ?? 'Mata Pelajaran';
+            $semesterLabel = $semester == 1 ? 'Ganjil' : 'Genap';
+
+            $studentIds = array_map('intval', array_keys($scores));
+            $studentIds = array_filter($studentIds, fn($id) => $id > 0);
+
+            if (!empty($studentIds)) {
+                $userRows = $this->db->table('students s')
+                    ->select('u.id as user_id')
+                    ->join('users u', 'u.id = s.user_id', 'left')
+                    ->whereIn('s.id', $studentIds)
+                    ->where('u.id IS NOT NULL')
+                    ->where('u.is_active', 1)
+                    ->get()->getResultArray();
+
+                $userIds = array_column($userRows, 'user_id');
+
+                if (!empty($userIds)) {
+                    notify_users(
+                        $userIds,
+                        'nilai_masuk',
+                        "Nilai Rapor Masuk: {$subjectName}",
+                        "Nilai e-Rapor semester {$semesterLabel} untuk {$subjectName} telah diinput.",
+                        base_url('siswa/grades')
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            log_message('warning', '[Erapor::save] Notifikasi gagal: ' . $e->getMessage());
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         return $this->response->setJSON([
             'status'  => 'success',
             'message' => "Nilai erapor berhasil disimpan ($saved siswa).",

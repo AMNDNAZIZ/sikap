@@ -101,14 +101,19 @@ class StudentMap extends BaseController
         $maxDistance = $this->request->getGet('max_distance');
         $hasCoordinates = $this->request->getGet('has_coordinates');
 
-        // Build query
+        // Build query — filter ke tahun ajaran aktif untuk cegah duplikat
+        $activeYear   = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $activeYearId = $activeYear ? (int)$activeYear['id'] : 0;
+
         $builder = $this->studentModel
-            ->select('students.id, students.nis, students.name, students.address, 
+            ->select('students.id, students.nis, students.name, students.address,
                       students.latitude, students.longitude, students.gender,
                       classes.name as class_name, classes.level')
-            ->join('student_records', 'student_records.student_id = students.id', 'left')
+            ->join('student_records', 'student_records.student_id = students.id')
             ->join('classes', 'classes.id = student_records.class_id', 'left')
-            ->where('student_records.status', 'aktif');
+            ->where('student_records.status', 'aktif')
+            ->where('student_records.academic_year_id', $activeYearId)
+            ->groupBy('students.id');   // cegah duplikat jika ada data ganda
 
         // Apply filters
         if ($classId) {
@@ -216,12 +221,17 @@ class StudentMap extends BaseController
             return redirect()->to('/dashboard')->with('error', 'Anda tidak memiliki akses ke halaman ini.');
         }
 
-        // Get all students with coordinates
+        // Get all students — filter ke tahun ajaran aktif
+        $activeYear   = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $activeYearId = $activeYear ? (int)$activeYear['id'] : 0;
+
         $students = $this->studentModel
             ->select('students.*, classes.name as class_name, classes.level')
-            ->join('student_records', 'student_records.student_id = students.id', 'left')
+            ->join('student_records', 'student_records.student_id = students.id')
             ->join('classes', 'classes.id = student_records.class_id', 'left')
             ->where('student_records.status', 'aktif')
+            ->where('student_records.academic_year_id', $activeYearId)
+            ->groupBy('students.id')
             ->findAll();
 
         $school = $this->schoolModel->first();
@@ -339,14 +349,19 @@ class StudentMap extends BaseController
             return redirect()->to('/dashboard')->with('error', 'Anda tidak memiliki akses ke halaman ini.');
         }
 
-        // Get all students with coordinates
+        // Get all students — filter ke tahun ajaran aktif
+        $activeYear   = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $activeYearId = $activeYear ? (int)$activeYear['id'] : 0;
+
         $students = $this->studentModel
-            ->select('students.nis, students.name, students.address, 
+            ->select('students.nis, students.name, students.address,
                       students.latitude, students.longitude,
                       classes.name as class_name, classes.level')
-            ->join('student_records', 'student_records.student_id = students.id', 'left')
+            ->join('student_records', 'student_records.student_id = students.id')
             ->join('classes', 'classes.id = student_records.class_id', 'left')
             ->where('student_records.status', 'aktif')
+            ->where('student_records.academic_year_id', $activeYearId)
+            ->groupBy('students.id')
             ->findAll();
 
         $school = $this->schoolModel->first();

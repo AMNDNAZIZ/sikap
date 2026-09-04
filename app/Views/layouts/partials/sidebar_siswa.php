@@ -36,6 +36,28 @@
       </a>
     </li>
 
+    <!-- Proses Belajar (Materi + Sub Materi + Diskusi + Kuis) -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('siswa/belajar*') ? 'active' : '' ?>" href="<?= site_url('siswa/belajar') ?>">
+        <i class="bi bi-mortarboard"></i> <span class="label">Proses Belajar</span>
+      </a>
+    </li>
+
+    <!-- Analitik Pembelajaran -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('learning*') ? 'active' : '' ?>" href="<?= base_url('learning') ?>">
+        <i class="bi bi-graph-up"></i> <span class="label">Analitik Belajar</span>
+      </a>
+    </li>
+
+    <!-- Kalender Akademik -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('kalender*') ? 'active' : '' ?>" href="<?= base_url('kalender') ?>">
+        <i class="bi bi-calendar3"></i> <span class="label">Kalender Akademik</span>
+      </a>
+    </li>
+
+    <!-- Forum Diskusi dihapus — diskusi ada di bawah setiap sub materi -->
     <!-- Catatan Siswa -->
     <li class="nav-item">
       <a class="nav-link <?= url_is('siswa/student-notes*') ? 'active' : '' ?>"

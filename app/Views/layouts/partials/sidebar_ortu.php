@@ -64,6 +64,14 @@
 
         <!-- Ganti Password / Profil -->
         <li class="nav-item">
+            <a class="nav-link <?= url_is('kalender*') ? 'active' : '' ?>" href="<?= base_url('kalender') ?>">
+                <i class="bi bi-calendar3"></i> <span class="label">Kalender Akademik</span>
+            </a>
+        </li>
+
+        <!-- Forum Diskusi dihapus — diskusi ada di bawah setiap sub materi -->
+
+        <li class="nav-item">
             <a class="nav-link <?= url_is('profile*') ? 'active' : '' ?>" href="<?= site_url('profile') ?>">
                 🔒 <span class="label">Ganti Password</span>
             </a>

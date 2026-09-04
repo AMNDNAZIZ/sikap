@@ -475,6 +475,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('erapor/input/(:num)/(:num)/(:num)', 'Erapor::input/$1/$2/$3', $auth123);
     $routes->post('erapor/save', 'Erapor::save', $auth123);
 
+    $routes->get('materials', 'Materials::subjectList', $auth123);
     $routes->get('materials/(:num)', 'Materials::index/$1', $auth123);
     $routes->get('materials/index/(:num)', 'Materials::index/$1', $auth123);
     $routes->get('materials/create/(:num)', 'Materials::create/$1', $auth123);
@@ -482,6 +483,15 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('materials/edit/(:num)', 'Materials::edit/$1', $auth123);
     $routes->post('materials/update/(:num)', 'Materials::update/$1', $auth123);
     $routes->get('materials/delete/(:num)', 'Materials::delete/$1', $auth123);
+    $routes->post('materials/delete/(:num)', 'Materials::delete/$1', $auth123);
+    $routes->get('materials/publish/(:num)',  'Materials::publishPage/$1',  $auth123);
+    $routes->post('materials/publish/(:num)', 'Materials::publishSave/$1',  $auth123);
+    $routes->get('materials/use/(:num)',      'Materials::usePage/$1',      $auth123);
+    $routes->post('materials/use',            'Materials::useSave',         $auth123);
+    $routes->get('materials/progress/(:num)', 'Materials::progress/$1', $auth123);
+    $routes->get('materials/progress-detail/(:num)', 'Materials::progressDetail/$1', $auth123);
+    $routes->get('materials/show/(:num)',     'Materials::show/$1',        $auth123);
+    $routes->post('materials/upload-image',   'Materials::uploadImage',    $auth123);
 
     $routes->get('student-notes', 'StudentNotes::index', $auth123);
     $routes->get('student-notes/show/(:num)', 'StudentNotes::show/$1', $auth123);
@@ -591,6 +601,16 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('cbt/convertnilai/preview', 'CbtConvertNilai::preview', $auth123);
     $routes->post('cbt/convertnilai/save', 'CbtConvertNilai::save', $auth123);
 
+    // ── Kuis Mandiri (Admin, Kepsek, Guru) ─────────────────────────────
+    $routes->get('quiz',                     'Quiz::index',          $auth123);
+    $routes->get('quiz/create',              'Quiz::create',         $auth123);
+    $routes->get('quiz/bank-info/(:num)',     'Quiz::bankInfo/$1',    $auth123);
+    $routes->post('quiz/store',              'Quiz::store',          $auth123);
+    $routes->get('quiz/edit/(:num)',         'Quiz::edit/$1',        $auth123);
+    $routes->post('quiz/update/(:num)',      'Quiz::update/$1',      $auth123);
+    $routes->post('quiz/delete/(:num)',      'Quiz::delete/$1',      $auth123);
+    $routes->get('quiz/results/(:num)',      'Quiz::results/$1',     $auth123);
+
     // 7. CMS (Admin & Kontributor & Principal)
     $routes->group('cms', $auth126, function ($routes) {
         $routes->get('sliders', 'Cms\Sliders::index');
@@ -657,6 +677,8 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('teacher-attendance/save', 'TeacherAttendance::save', ['filter' => 'auth:1,7']);
     $routes->post('teacher-attendance/submit-session', 'TeacherAttendance::submitSession', ['filter' => 'auth:1,7']);
     $routes->get('teacher-attendance/report', 'TeacherAttendance::report', ['filter' => 'auth:1,2,7']);
+    $routes->get('teacher-attendance/grid-month', 'TeacherAttendance::gridMonth', ['filter' => 'auth:1,2,7']);
+    $routes->get('teacher-attendance/grid-month/pdf', 'TeacherAttendance::gridMonthPdf', ['filter' => 'auth:1,2,7']);
     $routes->get('teacher-attendance/report/detail/(:num)', 'TeacherAttendance::reportDetail/$1', ['filter' => 'auth:1,2,7']);
     $routes->get('teacher-attendance/export-excel', 'TeacherAttendance::exportExcel', ['filter' => 'auth:1,2,7']);
     $routes->get('teacher-attendance/export-pdf', 'TeacherAttendance::exportPdf', ['filter' => 'auth:1,2,7']);
@@ -713,6 +735,29 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
     $routes->get('cbt/saveAnswersBulk', 'Cbt::saveAnswersBulk');
     $routes->get('cbt/refreshCsrf', 'Cbt::refreshCsrf');
 
+    // Materi Pelajaran + Progress Tracking (lama — tetap aktif)
+    $routes->get('materials',                        'Materials::index');
+    $routes->get('materials/(:num)',                 'Materials::show/$1');
+    $routes->post('materials/(:num)/complete',       'Materials::markComplete/$1');
+    $routes->get('materials/(:num)/file',            'Materials::serveFile/$1');
+
+    // ── PROSES BELAJAR — Hierarki Materi/Sub Materi + Diskusi + Kuis ──
+    $routes->get('belajar',                          'Belajar::index');
+    $routes->get('belajar/(:num)',                   'Belajar::subject/$1');
+    $routes->get('belajar/sub/(:num)',               'Belajar::show/$1');
+    $routes->post('belajar/sub/(:num)/complete',     'Belajar::markComplete/$1');
+    $routes->get('belajar/sub/(:num)/file',          'Belajar::serveFile/$1');
+
+    // Kuis Mandiri
+    $routes->get('quiz',                             'Quiz::index');
+    $routes->get('quiz/(:num)',                      'Quiz::show/$1');
+    $routes->post('quiz/(:num)/mulai',               'Quiz::start/$1');
+    $routes->get('quiz/kerjakan/(:num)',              'Quiz::kerjakan/$1');
+    $routes->post('quiz/save-answer',                'Quiz::saveAnswer');
+    $routes->post('quiz/save-bulk',                  'Quiz::saveBulk');
+    $routes->post('quiz/(:num)/submit',              'Quiz::submit/$1');
+    $routes->get('quiz/hasil/(:num)',                'Quiz::hasil/$1');
+
     // Perpustakaan Digital Siswa
     $routes->get('ebook', 'Ebook::index');
     $routes->get('ebook/read/(:num)', 'Ebook::read/$1');
@@ -735,6 +780,70 @@ $routes->group('profile', ['filter' => 'auth'], function ($routes) {
     $routes->get('preview-document/(:num)', 'Profile::previewDocument/$1');
 });
 
+
+// ==================== NOTIFICATIONS ROUTES ====================
+// Diakses oleh semua role yang sudah login (filter 'auth' tanpa argumen = semua role)
+$routes->group('notifications', ['filter' => 'auth', 'namespace' => 'App\Controllers'], function ($routes) {
+    $routes->get('/',          'Notifications::index');
+    $routes->get('count',      'Notifications::count');
+    $routes->get('recent',     'Notifications::recent');
+    $routes->get('read/(:num)', 'Notifications::markRead/$1');
+    $routes->post('read/(:num)', 'Notifications::markRead/$1');
+    $routes->post('read-all',  'Notifications::markAllRead');
+});
+
+// ==================== LEARNING ANALYTICS ROUTES ====================
+// Diakses semua role yang sudah login — controller sendiri yang filter per role
+$routes->group('learning', ['filter' => 'auth', 'namespace' => 'App\Controllers'], function ($routes) {
+    // Siswa: profil belajar diri sendiri
+    $routes->get('/',                   'LearningAnalytics::index');
+
+    // Guru/Admin: monitoring kelas
+    $routes->get('class',               'LearningAnalytics::classList');
+    $routes->get('class/(:num)',        'LearningAnalytics::classDetail/$1');
+
+    // Guru/Admin: detail satu siswa
+    $routes->get('student/(:num)',      'LearningAnalytics::studentDetail/$1');
+});
+
+// ==================== ACADEMIC CALENDAR ROUTES ====================
+// Kalender Akademik Terpadu — semua role yang sudah login
+$routes->group('kalender', ['filter' => 'auth', 'namespace' => 'App\Controllers'], function ($routes) {
+    $routes->get('/',        'AcademicCalendar::index');
+    $routes->get('events',   'AcademicCalendar::events');  // JSON untuk FullCalendar
+});
+
+// ==================== FORUM DISKUSI ROUTES ====================
+// Forum LMS — semua role yang sudah login, otorisasi dilakukan di controller
+$routes->group('forum', ['filter' => 'auth', 'namespace' => 'App\Controllers'], function ($routes) {
+    // Halaman utama — redirect sesuai role
+    $routes->get('/',                               'Forum::index');
+
+    // Guru/admin: pilih kelas
+    $routes->get('kelas',                           'Forum::kelasList');
+
+    // Daftar thread per kelas+mapel (subjectId=0 = belum pilih mapel)
+    $routes->get('(:num)/(:num)',                   'Forum::threadList/$1/$2');
+
+    // Detail thread
+    $routes->get('thread/(:num)',                   'Forum::show/$1');
+
+    // Buat thread baru
+    $routes->post('(:num)/(:num)/store',            'Forum::storeThread/$1/$2');
+
+    // Balas thread
+    $routes->post('thread/(:num)/reply',            'Forum::storeReply/$1');
+
+    // Moderasi thread (guru/admin)
+    $routes->post('thread/(:num)/pin',              'Forum::pin/$1');
+    $routes->post('thread/(:num)/lock',             'Forum::lock/$1');
+    $routes->post('thread/(:num)/delete',           'Forum::deleteThread/$1');
+
+    // Moderasi reply
+    $routes->post('reply/(:num)/delete',            'Forum::deleteReply/$1');
+    $routes->post('reply/(:num)/upvote',            'Forum::upvote/$1');
+    $routes->post('reply/(:num)/best',              'Forum::setBestAnswer/$1');
+});
 
 // ==================== API ROUTES ====================
 // API untuk Bridge Sync dari Dapodik Lokal ke Online

@@ -479,6 +479,13 @@ class CbtBankSoal extends BaseController
         ];
 
         $db->table('cbt_questions')->where('id', $id)->update($update);
+
+        // Update cache totals bank soal (tipe soal bisa berubah)
+        $question = $db->table('cbt_questions')->where('id', $id)->get()->getRowArray();
+        if ($question) {
+            $this->updateBankTotals($question['bank_id']);
+        }
+
         return $this->response->setJSON(['success' => true, 'message' => 'Soal berhasil diperbarui.']);
     }
 

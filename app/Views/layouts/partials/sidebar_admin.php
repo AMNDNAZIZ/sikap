@@ -28,7 +28,9 @@
     $inKurikulum = url_is('admin/administrasi-guru*') && !url_is('admin/administrasi-guru/cp-master*') && !url_is('admin/administrasi-guru/mapping*');
     $inJadwal    = url_is('admin/schedules*') || url_is('admin/agendas*') || url_is('admin/teaching-journal*');
     $inPresensi  = url_is('admin/attendance*') || url_is('admin/teacher-attendance*');
-    $inNilai     = url_is('admin/assessments*') || url_is('admin/grades*') || url_is('admin/erapor*') || url_is('admin/tugas*');
+    $inNilai     = url_is('admin/assessments*') || url_is('admin/grades*') || url_is('admin/erapor*');
+    $inLearning  = url_is('admin/materials*') || url_is('admin/tugas*') || url_is('admin/quiz*') ||
+                   url_is('learning*') || url_is('kalender*');
     $inKokuri    = url_is('admin/kokurikuler*');
     $inCbt       = url_is('admin/cbt*') || url_is('admin/exam-schedule*') || url_is('admin/kartu-peserta*');
     $inKonseling = url_is('admin/student-notes*') || url_is('admin/behaviors*');
@@ -199,7 +201,6 @@
       <div class="collapse <?= $inNilai ? 'show' : '' ?>" id="menuNilai">
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/assessments*') ? 'active' : '' ?>" href="<?= base_url('admin/assessments') ?>">📝 <span class="label">Input Nilai</span></a></li>
-          <li><a class="nav-link <?= url_is('admin/tugas*') ? 'active' : '' ?>" href="<?= base_url('admin/tugas') ?>">📋 <span class="label">Kirim Tugas</span></a></li>
           <li><a class="nav-link <?= url_is('admin/erapor*') ? 'active' : '' ?>" href="<?= base_url('admin/erapor') ?>">📋 <span class="label">Nilai Erapor</span></a></li>
           <li><a class="nav-link <?= url_is('admin/grades/rekap*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/rekap') ?>">📋 <span class="label">Rekap Nilai Kelas</span></a></li>
           <li><a class="nav-link <?= url_is('admin/grades') && !url_is('admin/grades/tracking*') && !url_is('admin/grades/rekap*') ? 'active' : '' ?>" href="<?= base_url('admin/grades') ?>">📊 <span class="label">Laporan Rapor</span></a></li>
@@ -251,6 +252,29 @@
       <a class="nav-link <?= url_is('admin/ebook*') ? 'active' : '' ?>" href="<?= base_url('admin/ebook') ?>">
         📚 <span class="label">Perpustakaan Digital</span>
       </a>
+    </li>
+
+    <!-- ══ LMS ══ -->
+    <li class="nav-item mt-2">
+      <small class="text-uppercase text-muted px-3 label" style="font-size:.68rem;letter-spacing:.08em;">Learning</small>
+    </li>
+
+    <!-- Learning — semua fitur pembelajaran dalam satu grup -->
+    <li class="nav-item">
+      <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#menuLearning"
+        role="button" aria-expanded="<?= $inLearning ? 'true' : 'false' ?>">
+        <i class="bi bi-mortarboard"></i> <span class="label">Learning</span>
+        <i class="bi bi-chevron-down chevron label ms-auto"></i>
+      </a>
+      <div class="collapse <?= $inLearning ? 'show' : '' ?>" id="menuLearning">
+        <ul class="nav flex-column ms-3">
+          <li><a class="nav-link <?= url_is('admin/materials*') ? 'active' : '' ?>" href="<?= base_url('admin/materials') ?>"><i class="bi bi-book me-1"></i> <span class="label">Materi Pelajaran</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/tugas*') ? 'active' : '' ?>" href="<?= base_url('admin/tugas') ?>"><i class="bi bi-pencil me-1"></i> <span class="label">Kirim Tugas</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/quiz*') ? 'active' : '' ?>" href="<?= base_url('admin/quiz') ?>"><i class="bi bi-pencil-square me-1"></i> <span class="label">Kuis Mandiri</span></a></li>
+          <li><a class="nav-link <?= url_is('learning*') ? 'active' : '' ?>" href="<?= base_url('learning/class') ?>"><i class="bi bi-graph-up me-1"></i> <span class="label">Analitik Pembelajaran</span></a></li>
+          <li><a class="nav-link <?= url_is('kalender*') ? 'active' : '' ?>" href="<?= base_url('kalender') ?>"><i class="bi bi-calendar3 me-1"></i> <span class="label">Kalender Akademik</span></a></li>
+        </ul>
+      </div>
     </li>
 
     <!-- ══ KONSELING & KOMUNIKASI ══ -->

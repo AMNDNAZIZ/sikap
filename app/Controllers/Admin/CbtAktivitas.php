@@ -261,6 +261,10 @@ class CbtAktivitas extends BaseController
             (string) ($test['end_time'] ?? '')
         );
 
+        // 🔹 Ambil tahun ajaran aktif
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $activeYearId = $activeYear['id'] ?? 0;
+
         // 🔹 FIX V3: Get all sessions, log them, then filter
         $allSessions = $db->table('cbt_sessions cs')
             ->select('cs.id, cs.test_id, cs.student_id, cs.question_order, cs.option_orders,
@@ -269,7 +273,7 @@ class CbtAktivitas extends BaseController
                       st.name AS student_name, st.nis, u.username, c.name AS class_name')
             ->join('students st', 'st.id = cs.student_id', 'left')
             ->join('users u', 'u.id = st.user_id', 'left')
-            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
             ->join('classes c', 'c.id = sr.class_id', 'left')
             ->where('cs.test_id', $testId)
             ->orderBy('cs.id', 'DESC') // Latest first
@@ -503,6 +507,9 @@ class CbtAktivitas extends BaseController
 
         $db = db_connect();
 
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $activeYearId = $activeYear['id'] ?? 0;
+
         // 1) Ambil session & test info (termasuk bank_id, bobot)
         $session = $db->table('cbt_sessions s')
             ->select('s.id AS session_id, s.student_id, s.test_id, s.question_order,
@@ -516,7 +523,7 @@ class CbtAktivitas extends BaseController
             ->join('cbt_test_status ts',    'ts.id = s.test_id',                       'left')
             ->join('students st',           'st.id = s.student_id',                    'left')
             ->join('users u',               'u.id = st.user_id',                       'left')
-            ->join('student_records sr',    'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('student_records sr',    'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
             ->join('classes c',             'c.id = sr.class_id',                      'left')
             ->where('s.id', $sessionId)
             ->get()
@@ -1400,9 +1407,11 @@ class CbtAktivitas extends BaseController
         }
 
         // ✅ Ambil siswa berdasarkan student_records (aktif)
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $activeYearId = $activeYear['id'] ?? 0;
         $students = $db->table('students st')
             ->select('st.id, st.name AS student_name, c.name AS class_name')
-            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
             ->join('classes c', 'c.id = sr.class_id', 'left')
             ->whereIn('c.name', $classList)
             ->get()
@@ -1465,30 +1474,31 @@ class CbtAktivitas extends BaseController
         }
 
         // FIX: Handle duplicate sessions - only get latest session per student using MAX(id)
-        // Build subquery first to ensure we only get latest session per student
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $activeYearId = $activeYear['id'] ?? 0;
+        
+        $builder = $db->table('cbt_sessions cs');
         $subquery = '(
             SELECT student_id, MAX(id) as max_session_id
             FROM cbt_sessions
-            WHERE test_id = ' . (int) $testId;
-
-        // Apply class filter in subquery if needed
-        if ($classFilter !== 'all') {
-            $subquery .= ' AND student_id IN (
-                SELECT student_id FROM student_records WHERE class_id = ' . (int) $classFilter . ' AND status = "aktif"
-            )';
-        }
-
-        $subquery .= ' GROUP BY student_id
+            WHERE test_id = ' . (int) $testId . '
+            GROUP BY student_id
         ) latest';
 
-        $builder = $db->table('cbt_sessions cs')
-            ->select('cs.student_id, st.name AS student_name, st.nis, c.name AS class_name, 
+        if ($classFilter && $classFilter !== 'all') {
+            $subquery = '(
+                SELECT student_id FROM student_records WHERE class_id = ' . (int) $classFilter . ' AND status = "aktif" AND academic_year_id = ' . $activeYearId . '
+            )';
+            $builder->where("cs.student_id IN $subquery", null, false);
+        }
+
+        $builder->select('cs.student_id, st.name AS student_name, st.nis, c.name AS class_name, 
                       COALESCE(cs.total_score, cs.score, 0) as final_score, 
                       cs.status, cs.finished_at')
             ->join('students st', 'st.id = cs.student_id', 'left')
-            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
             ->join('classes c', 'c.id = sr.class_id', 'left')
-            ->join($subquery, 'cs.id = latest.max_session_id', 'inner')
+            ->join('(SELECT student_id, MAX(id) as max_session_id FROM cbt_sessions WHERE test_id = ' . (int) $testId . ' GROUP BY student_id) latest', 'cs.id = latest.max_session_id', 'inner')
             ->where('cs.test_id', $testId)
             ->orderBy('c.name', 'ASC')
             ->orderBy('st.name', 'ASC');
@@ -1872,13 +1882,16 @@ class CbtAktivitas extends BaseController
             ->where('test_id', $testId)
             ->groupBy('student_id')
             ->getCompiledSelect();
+            
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $activeYearId = $activeYear['id'] ?? 0;
 
         // 🔹 Ambil sesi siswa — langsung join ke classes
         $sessions = $this->sessionModel
             ->select('cs.*, st.name AS student_name, cl.name AS class_name, sr.class_id')
             ->from('cbt_sessions cs')
             ->join('students st', 'st.id = cs.student_id', 'left')
-            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
             ->join('classes cl', 'cl.id = sr.class_id', 'left')
             ->join("($subquery) latest", 'cs.id = latest.max_id', 'inner')
             ->where('cs.test_id', $testId);
@@ -2047,10 +2060,13 @@ class CbtAktivitas extends BaseController
             ->getCompiledSelect();
 
         // ambil daftar siswa yang mengikuti tes: join langsung students -> classes
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $activeYearId = $activeYear['id'] ?? 0;
+
         $sessions = $this->sessionModel
             ->select('cbt_sessions.*, st.username AS exam_number, st.name AS student_name, st.nis, sr.class_id, cl.name AS class_name')
             ->join('students st', 'st.id = cbt_sessions.student_id', 'left')
-            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
             ->join('classes cl', 'cl.id = sr.class_id', 'left')
             ->join("($subquery) latest", 'cbt_sessions.id = latest.max_id', 'inner')
             ->where('cbt_sessions.test_id', $testId)
@@ -2482,9 +2498,12 @@ class CbtAktivitas extends BaseController
         }
 
         // 🔹 Ambil data siswa + kelas
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $activeYearId = $activeYear['id'] ?? 0;
+        
         $student = $db->table('students st')
             ->select('st.id, st.name, st.nis, sr.class_id, cl.name AS class_name')
-            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
             ->join('classes cl', 'cl.id = sr.class_id', 'left')
             ->where('st.id', $studentId)
             ->get()

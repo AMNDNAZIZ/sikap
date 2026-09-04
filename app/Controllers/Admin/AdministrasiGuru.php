@@ -2670,6 +2670,7 @@ class AdministrasiGuru extends BaseController
             . "   - WAJIB sertakan WACANA/TEKS BACAAN yang relevan sebelum soal (dalam field 'question')\n"
             . "   - Format: tuliskan wacana dulu dengan label 'Bacalah teks berikut!' lalu soalnya\n"
             . "   - Teks harus sesuai panjang dan kompleksitas level kelas\n"
+            . "   - PENTING (Khusus Ujian Digital / CBT): Soal akan diacak oleh sistem. Setiap soal HARUS MANDIRI. DILARANG membuat satu teks bacaan/stimulus yang digunakan untuk beberapa soal sekaligus (misal 'Untuk soal nomor 1-3'). Jika ada beberapa soal yang merujuk pada teks/stimulus yang sama, tulis ulang (copy) teks/stimulus tersebut secara utuh ke dalam field 'question' di MASING-MASING nomor soal tersebut.\n"
             . "4. Untuk soal yang IDEALNYA memerlukan GAMBAR/ILUSTRASI:\n"
             . "   - Sertakan deskripsi dalam kurung siku: [Gambar: deskripsi gambar yang diperlukan]\n"
             . "   - Contoh: [Gambar: Peta Indonesia dengan panah menunjukkan arah angin muson barat]\n"
@@ -2836,7 +2837,7 @@ class AdministrasiGuru extends BaseController
             . "- 50% soal C4-C6 (HOTS: Menganalisis, Mengevaluasi, Mencipta)\n"
             . "- Soal HOTS harus ada stimulus (teks/data/kasus)\n"
             . "- Distraktor harus masuk akal dan homogen\n"
-            . "- Untuk mapel Bahasa: sertakan teks bacaan sebelum soal\n\n"
+            . "- PENTING (Khusus Ujian Digital / CBT): Soal akan diacak oleh sistem. Setiap soal HARUS MANDIRI. DILARANG membuat satu teks bacaan/stimulus yang digunakan untuk beberapa soal sekaligus (misal 'Untuk soal nomor 1-3'). Jika ada beberapa soal yang merujuk pada teks/stimulus yang sama, tulis ulang (copy) teks/stimulus tersebut secara utuh ke dalam field 'question' di MASING-MASING nomor soal tersebut.\n\n"
             . "FORMAT OUTPUT: JSON ARRAY (tanpa markdown/backtick)\n"
             . "Field per item: type, question, options (jika PG/PGK/BS), answer\n"
             . "PENTING untuk tipe benar_salah: question=stimulus utama, options={A:'pernyataan 1',B:'pernyataan 2',C:'pernyataan 3',D:'pernyataan 4'}, answer='B,S,B,S' (B=Benar, S=Salah per opsi)\n"
@@ -2849,7 +2850,8 @@ class AdministrasiGuru extends BaseController
 
         return $this->response->setJSON([
             'success' => true,
-            'prompt' => $prompt,
+            'prompt'  => $prompt,
+            'csrf'    => csrf_hash(),
         ]);
     }
 

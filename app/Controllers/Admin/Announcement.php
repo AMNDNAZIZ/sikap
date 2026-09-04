@@ -205,44 +205,62 @@ class Announcement extends BaseController
 
     public function create()
     {
-        $user = session()->get('user');
+        $user   = session()->get('user');
         $roleId = $user['role_id'] ?? null;
 
-        $classes = [];
-        $teacherClass = null;
+        // Ambil tahun ajaran aktif untuk filter kelas
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $yearId     = (int)($activeYear['id'] ?? 0);
+
+        $classes         = [];
+        $teacherClass    = null;
         $teachingClasses = [];
-        $isHomeroom = false;
+        $isHomeroom      = false;
 
         if (in_array($roleId, [1, 2])) {
-            // Admin / Kepsek
-            $classes = $this->classModel->getActiveClasses();
+            // Admin / Kepsek — kelas yang aktif di tahun ajaran ini
+            $classes = $yearId
+                ? $this->db->table('classes c')
+                    ->select('c.id, c.name, c.level')
+                    ->join('student_records sr',
+                           "sr.class_id = c.id AND sr.academic_year_id = {$yearId} AND sr.status = 'aktif'",
+                           'left')
+                    ->where('c.is_active', 1)
+                    ->groupBy('c.id')
+                    ->orderBy('c.level', 'ASC')
+                    ->orderBy('c.name', 'ASC')
+                    ->get()->getResultArray()
+                : $this->classModel->getActiveClasses();
         } elseif ($roleId == 3) {
-            // cari teacher record dari user_id
             $teacher = $this->teacherModel->where('user_id', $user['id'])->first();
             if ($teacher) {
-                // cek wali kelas
-                $teacherClass = $this->classModel
-                    ->where('teacher_id', $teacher['id'])
-                    ->first();
+                // Wali kelas
+                $teacherClass = $this->classModel->where('teacher_id', $teacher['id'])->first();
                 if ($teacherClass) {
                     $isHomeroom = true;
                 }
 
-                // ambil semua kelas yang dia ajar via teaching_assignments
-                $teachingClasses = $this->classModel
+                // Kelas yang diajar di tahun aktif
+                $builder = $this->classModel
                     ->select('classes.*')
                     ->join('teaching_assignments ta', 'ta.class_id = classes.id')
                     ->where('ta.teacher_id', $teacher['id'])
-                    ->groupBy('classes.id')
-                    ->findAll();
+                    ->groupBy('classes.id');
+
+                if ($yearId) {
+                    $builder->where('ta.academic_year_id', $yearId);
+                }
+
+                $teachingClasses = $builder->findAll();
             }
         }
 
         return view('admin/announcements/create', [
-            'classes' => $classes,
-            'teacherClass' => $teacherClass,
+            'classes'         => $classes,
+            'teacherClass'    => $teacherClass,
             'teachingClasses' => $teachingClasses,
-            'isHomeroom' => $isHomeroom,
+            'isHomeroom'      => $isHomeroom,
+            'activeYear'      => $activeYear,
         ]);
     }
 
@@ -321,17 +339,22 @@ class Announcement extends BaseController
         // final check: dedup
         $classIds = array_values(array_unique($classIds));
 
+        // Ambil tahun ajaran aktif
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $yearId     = $activeYear ? (int)$activeYear['id'] : null;
+
         // Insert: jika tidak ada classIds -> satu row dengan class_id = NULL
         $inserted = 0;
         if (empty($classIds)) {
             $data = [
-                'title' => $title,
-                'content' => $content,
-                'target' => $finalTargets,
-                'class_id' => null,
-                'is_public' => $isPublic,
-                'created_by' => $userId,
-                'created_at' => date('Y-m-d H:i:s'),
+                'title'            => $title,
+                'content'          => $content,
+                'target'           => $finalTargets,
+                'class_id'         => null,
+                'academic_year_id' => null,   // pengumuman global tidak terikat tahun
+                'is_public'        => $isPublic,
+                'created_by'       => $userId,
+                'created_at'       => date('Y-m-d H:i:s'),
             ];
             $id = $this->announcementModel->insert($data);
             if ($id)
@@ -339,13 +362,14 @@ class Announcement extends BaseController
         } else {
             foreach ($classIds as $cid) {
                 $data = [
-                    'title' => $title,
-                    'content' => $content,
-                    'target' => $finalTargets,
-                    'class_id' => $cid,
-                    'is_public' => $isPublic,
-                    'created_by' => $userId,
-                    'created_at' => date('Y-m-d H:i:s'),
+                    'title'            => $title,
+                    'content'          => $content,
+                    'target'           => $finalTargets,
+                    'class_id'         => $cid,
+                    'academic_year_id' => $yearId,   // terikat ke tahun ajaran aktif
+                    'is_public'        => $isPublic,
+                    'created_by'       => $userId,
+                    'created_at'       => date('Y-m-d H:i:s'),
                 ];
                 $id = $this->announcementModel->insert($data);
                 if ($id)
@@ -354,6 +378,49 @@ class Announcement extends BaseController
         }
 
         if ($inserted > 0) {
+            // ── Notifikasi: kirim ke penerima sesuai target & kelas ──────────
+            $notifMsg = strip_tags($content);
+            $notifMsg = mb_strlen($notifMsg) > 120 ? mb_substr($notifMsg, 0, 117) . '...' : $notifMsg;
+
+            if (!empty($classIds)) {
+                // Pengumuman per kelas → kirim ke siswa/ortu kelas tersebut
+                foreach ($classIds as $cid) {
+                    // Ambil ID insert terakhir untuk kelas ini
+                    $annId = $this->announcementModel
+                        ->where('class_id', $cid)
+                        ->where('created_by', $userId)
+                        ->orderBy('id', 'DESC')
+                        ->first()['id'] ?? 0;
+
+                    $notifUrl = $annId ? base_url('siswa/announcement/show/' . $annId) : null;
+
+                    // Target: siswa (role 5) saja dari kelas ini
+                    notify_class($cid, 'pengumuman_baru', $title, $notifMsg, $notifUrl, 'announcement', $annId ?: null);
+                }
+            } else {
+                // Pengumuman global (class_id null) → kirim ke semua target sesuai $finalTargets
+                $annId = $this->announcementModel
+                    ->where('created_by', $userId)
+                    ->where('class_id IS NULL')
+                    ->orderBy('id', 'DESC')
+                    ->first()['id'] ?? 0;
+
+                $notifUrl = $annId ? base_url('siswa/announcement/show/' . $annId) : null;
+
+                $targetParts = explode(',', $finalTargets ?? '');
+                $roleMap     = ['siswa' => 5, 'ortu' => 4, 'guru' => 3];
+                $roleIds     = [];
+                foreach ($targetParts as $t) {
+                    if (isset($roleMap[trim($t)])) {
+                        $roleIds[] = $roleMap[trim($t)];
+                    }
+                }
+                if (!empty($roleIds)) {
+                    notify_by_role($roleIds, 'pengumuman_baru', $title, $notifMsg, $notifUrl);
+                }
+            }
+            // ─────────────────────────────────────────────────────────────────
+
             return redirect()->to(base_url('admin/announcements'))->with('success', 'Pengumuman berhasil dibuat.');
         } else {
             return redirect()->back()->withInput()->with('error', 'Gagal menyimpan pengumuman. Periksa log.');
@@ -365,11 +432,27 @@ class Announcement extends BaseController
     public function edit($id)
     {
         $announcement = $this->announcementModel->find($id);
-        $classes = $this->classModel->getActiveClasses();
+        if (!$announcement) {
+            return redirect()->to('admin/announcements')->with('error', 'Pengumuman tidak ditemukan.');
+        }
+
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $yearId     = (int)($activeYear['id'] ?? 0);
+
+        // Kelas yang aktif di tahun ajaran ini
+        $classes = $yearId
+            ? $this->db->table('classes c')
+                ->select('c.id, c.name, c.level')
+                ->where('c.is_active', 1)
+                ->orderBy('c.level', 'ASC')
+                ->orderBy('c.name', 'ASC')
+                ->get()->getResultArray()
+            : $this->classModel->getActiveClasses();
 
         return view('admin/announcements/edit', [
             'announcement' => $announcement,
-            'classes' => $classes
+            'classes'      => $classes,
+            'activeYear'   => $activeYear,
         ]);
     }
 
@@ -379,12 +462,22 @@ class Announcement extends BaseController
         if (is_array($target))
             $target = implode(',', $target);
 
+        $classId = $this->request->getPost('class_id') ?: null;
+
+        // Jika ada class_id, tautkan ke tahun ajaran aktif
+        $yearId = null;
+        if ($classId) {
+            $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+            $yearId     = $activeYear ? (int)$activeYear['id'] : null;
+        }
+
         $data = [
-            'title' => $this->request->getPost('title'),
-            'content' => $this->request->getPost('content'),
-            'target' => $target,
-            'is_public' => $this->request->getPost('is_public') ? 1 : 0,
-            'class_id' => $this->request->getPost('class_id') ?: null,
+            'title'            => $this->request->getPost('title'),
+            'content'          => $this->request->getPost('content'),
+            'target'           => $target,
+            'is_public'        => $this->request->getPost('is_public') ? 1 : 0,
+            'class_id'         => $classId,
+            'academic_year_id' => $yearId,
         ];
 
         $this->announcementModel->update($id, $data);
