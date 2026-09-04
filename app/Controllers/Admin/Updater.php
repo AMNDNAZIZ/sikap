@@ -296,6 +296,48 @@ class Updater extends BaseController
     }
 
     /**
+     * Clear PHP OPcache after file update.
+     * Ensures PHP serves freshly-written files instead of stale compiled cache.
+     * Strategy: 
+     *   1. opcache_reset()   — clear all (works on most hosting)
+     *   2. opcache_invalidate per file — fallback
+     *   3. touch index.php  — forces PHP-FPM to re-read at next request
+     */
+    private function clearOpcache(): void
+    {
+        try {
+            if (function_exists('opcache_reset')) {
+                opcache_reset();
+                log_message('info', '[clearOpcache] opcache_reset() called successfully');
+            } elseif (function_exists('opcache_invalidate')) {
+                // Invalidate tiap file PHP yang baru saja diupdate
+                $it = new \RecursiveDirectoryIterator(APPPATH, \RecursiveDirectoryIterator::SKIP_DOTS);
+                $ri = new \RecursiveIteratorIterator($it);
+                foreach ($ri as $file) {
+                    if ($file->getExtension() === 'php') {
+                        opcache_invalidate($file->getRealPath(), true);
+                    }
+                }
+                log_message('info', '[clearOpcache] opcache_invalidate() called on app/ files');
+            } else {
+                log_message('info', '[clearOpcache] OPcache functions not available, skipping');
+            }
+
+            // Selalu touch index.php agar PHP-FPM (dengan validate_timestamps=1) 
+            // mendeteksi perubahan dan me-reload script pool
+            $indexPath = FCPATH . 'index.php';
+            if (is_writable($indexPath)) {
+                touch($indexPath);
+                log_message('info', '[clearOpcache] Touched ' . $indexPath);
+            }
+
+        } catch (\Throwable $e) {
+            // Jangan block update jika OPcache gagal di-clear
+            log_message('warning', '[clearOpcache] Failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Run Database Migrations
      */
     public function runMigrations()
@@ -1017,7 +1059,10 @@ class Updater extends BaseController
             $this->syncChangelogsFromData();
             $this->regenerateSecurityHashes();
 
-            // Step 6: Clear sessions & cleanup
+            // Step 6: Clear OPcache agar PHP tidak serve file lama dari memory cache
+            $this->clearOpcache();
+
+            // Step 7: Clear sessions & cleanup
             $this->clearSessions();
             $this->disableMaintenanceMode();
             $this->cleanupStaging($stagingDir);
