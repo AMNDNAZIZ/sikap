@@ -1008,7 +1008,8 @@ class Updater extends BaseController
             $db->reconnect();
 
             // Step 4: Move/copy dari staging ke ROOTPATH (operasi cepat, tidak crash)
-            $this->moveStagingToRoot($stagingDir, $allFiles);
+            $moveFailedFiles = $this->moveStagingToRoot($stagingDir, $allFiles);
+            $failedFiles = array_merge($failedFiles, $moveFailedFiles);
 
             // Step 5: Post-update tasks
             $migrateResult = $this->autoMigrateAfterUpdate();
@@ -1022,16 +1023,20 @@ class Updater extends BaseController
             $this->cleanupStaging($stagingDir);
 
             // Build result message
-            $message = "Update online berhasil! {$successCount}/" . count($allFiles) . " file diperbarui.";
+            $actualSuccess = $successCount - count($moveFailedFiles);
+            $message = "Update online berhasil! {$actualSuccess}/" . count($allFiles) . " file diperbarui ke disk.";
             if (isset($migrateResult) && $migrateResult['executed']) {
                 $message .= ' Database dimigrasi ke versi terbaru.';
             }
             if (!empty($failedFiles)) {
-                $message .= ' GAGAL: ' . implode(', ', array_slice($failedFiles, 0, 5));
+                $message .= ' ⚠️ GAGAL ditulis: ' . implode(', ', array_slice($failedFiles, 0, 5));
+                if (count($failedFiles) > 5) {
+                    $message .= ' ... dan ' . (count($failedFiles) - 5) . ' lainnya. Periksa permission folder di server.';
+                }
             }
 
             $resultType = empty($failedFiles) ? 'success' : 'warning';
-            return $this->response->setBody($this->buildUpdateResultPage($message, $resultType, $successCount, count($allFiles)));
+            return $this->response->setBody($this->buildUpdateResultPage($message, $resultType, $actualSuccess, count($allFiles)));
 
         } catch (\Exception $e) {
             // Reconnect DB jika sudah disconnect
@@ -1052,22 +1057,45 @@ class Updater extends BaseController
     /**
      * Move files from staging directory to ROOTPATH
      */
-    private function moveStagingToRoot(string $stagingDir, array $files): void
+    private function moveStagingToRoot(string $stagingDir, array $files): array
     {
+        $failed = [];
+
         foreach ($files as $relativePath) {
             $source = $stagingDir . $relativePath;
-            if (!is_file($source)) continue;
+            if (!is_file($source)) {
+                $failed[] = $relativePath . ' (staging not found)';
+                log_message('warning', '[moveStagingToRoot] Staging file not found: ' . $source);
+                continue;
+            }
 
             $dest = ROOTPATH . $relativePath;
             $destDir = dirname($dest);
 
             if (!is_dir($destDir)) {
-                mkdir($destDir, 0755, true);
+                if (!mkdir($destDir, 0755, true)) {
+                    $failed[] = $relativePath . ' (gagal buat direktori)';
+                    log_message('error', '[moveStagingToRoot] Failed to create dir: ' . $destDir);
+                    continue;
+                }
             }
 
-            // copy + unlink lebih aman daripada rename lintas filesystem
-            copy($source, $dest);
+            // Pastikan direktori writable
+            if (!is_writable($destDir)) {
+                $failed[] = $relativePath . ' (direktori tidak writable)';
+                log_message('error', '[moveStagingToRoot] Dir not writable: ' . $destDir);
+                continue;
+            }
+
+            if (!copy($source, $dest)) {
+                $failed[] = $relativePath . ' (copy gagal)';
+                log_message('error', '[moveStagingToRoot] Copy failed: ' . $source . ' -> ' . $dest);
+            } else {
+                log_message('info', '[moveStagingToRoot] OK: ' . $relativePath);
+            }
         }
+
+        return $failed;
     }
 
     /**
