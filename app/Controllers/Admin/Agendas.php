@@ -225,6 +225,35 @@ class Agendas extends BaseController
             }
         }
 
+        // ── Notifikasi agenda baru ke siswa di kelas terkait ─────────────────
+        try {
+            $tanggal = date('d M Y', strtotime($formData['date']));
+            $jam     = (!empty($formData['start_time']))
+                ? ' pukul ' . substr($formData['start_time'], 0, 5)
+                : '';
+
+            $notifMsg = "Tanggal: {$tanggal}{$jam}";
+            if (!empty($formData['description'])) {
+                $desc     = strip_tags($formData['description']);
+                $notifMsg .= ' · ' . (mb_strlen($desc) > 80 ? mb_substr($desc, 0, 77) . '...' : $desc);
+            }
+
+            if (empty($classIds)) {
+                // Agenda umum → kirim ke semua siswa aktif (role 5)
+                notify_by_role(5, 'agenda_baru', 'Agenda Baru: ' . $formData['title'], $notifMsg, base_url('siswa/agendas'));
+            } else {
+                // Agenda per kelas → kirim ke siswa kelas tersebut
+                foreach ($classIds as $cid) {
+                    if (!empty($cid)) {
+                        notify_class((int) $cid, 'agenda_baru', 'Agenda Baru: ' . $formData['title'], $notifMsg, base_url('siswa/agendas'));
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            log_message('warning', '[Agendas::store] Notifikasi gagal: ' . $e->getMessage());
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         return redirect()->to(base_url('admin/agendas'))->with('success', 'Agenda berhasil dibuat');
     }
 

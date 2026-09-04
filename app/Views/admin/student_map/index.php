@@ -178,27 +178,11 @@ function initMap() {
     // Create map centered on school
     map = L.map('map').setView([<?= $schoolLat ?>, <?= $schoolLng ?>], 13);
 
-    // Add tile layer - using CartoDB Positron (no referer restrictions)
-    // Alternative tile providers that work without referer issues:
-    // 1. CartoDB Positron (light theme)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
-        maxZoom: 19,
-        subdomains: 'abcd'
+    // Add tile layer - OpenStreetMap (gratis, tanpa API key)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
     }).addTo(map);
-    
-    // 2. Alternative: CartoDB Voyager (colored theme) - uncomment to use
-    // L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    //     attribution: '© OpenStreetMap contributors © CARTO',
-    //     maxZoom: 19,
-    //     subdomains: 'abcd'
-    // }).addTo(map);
-    
-    // 3. Alternative: Esri World Street Map - uncomment to use
-    // L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-    //     attribution: 'Tiles © Esri',
-    //     maxZoom: 19
-    // }).addTo(map);
 
     // Initialize marker cluster group
     markers = L.markerClusterGroup({

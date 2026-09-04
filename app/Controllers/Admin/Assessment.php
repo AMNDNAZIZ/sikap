@@ -676,6 +676,57 @@ class Assessment extends BaseController
             return redirect()->back()->with('error', 'Terjadi kesalahan saat menyimpan nilai.');
         }
 
+        // ── Notifikasi nilai masuk: kirim ke setiap siswa yang dinilai ───────
+        try {
+            // Ambil nama mapel
+            $subjectId   = $data['subject_id'] ?? null;
+            $subjectName = $subjectId
+                ? ($this->db->table('subjects')->select('name')->where('id', $subjectId)->get()->getRowArray()['name'] ?? 'Mata Pelajaran')
+                : 'Mata Pelajaran';
+
+            // Tentukan label tipe penilaian
+            $typeLabel = match ($type) {
+                'formatif' => 'Formatif',
+                'sumatif'  => 'Sumatif',
+                'final'    => 'Ujian Akhir',
+                default    => 'Nilai',
+            };
+
+            // Kumpulkan user_id dari student_id yang punya nilai (tidak kosong)
+            $studentIds = [];
+            foreach ($data['scores'] as $studentId => $score) {
+                if ($score !== '' && $score !== null) {
+                    $studentIds[] = (int) $studentId;
+                }
+            }
+
+            if (!empty($studentIds)) {
+                // Resolusi user_id dari student_id via tabel students → users
+                $userRows = $this->db->table('students s')
+                    ->select('u.id as user_id')
+                    ->join('users u', 'u.id = s.user_id', 'left')
+                    ->whereIn('s.id', $studentIds)
+                    ->where('u.id IS NOT NULL')
+                    ->where('u.is_active', 1)
+                    ->get()->getResultArray();
+
+                $userIds = array_column($userRows, 'user_id');
+
+                if (!empty($userIds)) {
+                    notify_users(
+                        $userIds,
+                        'nilai_masuk',
+                        "Nilai {$typeLabel} Masuk: {$subjectName}",
+                        "Guru telah memasukkan nilai {$typeLabel} untuk mata pelajaran {$subjectName}.",
+                        base_url('siswa/grades')
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            log_message('warning', '[Assessment::store] Notifikasi gagal: ' . $e->getMessage());
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         return redirect()->to($redirect)->with('success', 'Nilai berhasil disimpan.');
     }
 

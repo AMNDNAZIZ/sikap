@@ -215,6 +215,167 @@ class TeacherAttendance extends BaseController
         return $result;
     }
 
+    /**
+     * Hitung rekap JP per guru untuk bulan tertentu Harian (Grid).
+     * Mengembalikan array yang mengandung jadwal detail tiap hari.
+     */
+    private function hitungGridBulan(string $yearMonth): array
+    {
+        $activeYear = $this->getActiveYear();
+        if (empty($activeYear)) {
+            return [];
+        }
+
+        $monthStart = $yearMonth . '-01';
+        $monthEnd   = date('Y-m-t', strtotime($monthStart));
+
+        // Ambil semua jadwal di tahun ajaran aktif
+        $db          = \Config\Database::connect();
+        $schedules = $db->table('schedules s')
+            ->select('s.id, s.day_of_week, s.start_time, s.end_time, s.teacher_id, t.name AS teacher_name, t.nip')
+            ->join('teachers t', 't.id = s.teacher_id')
+            ->where('s.academic_year_id', $activeYear['id'])
+            ->get()->getResultArray();
+
+        if (empty($schedules)) {
+            return [];
+        }
+
+        // Kelompokkan jadwal per guru
+        $byTeacher = [];
+        foreach ($schedules as $s) {
+            $tid = $s['teacher_id'];
+            if (!isset($byTeacher[$tid])) {
+                $byTeacher[$tid] = [
+                    'teacher_id'   => $tid,
+                    'teacher_name' => $s['teacher_name'],
+                    'nip'          => $s['nip'],
+                    'schedules'    => [],
+                    'daily'        => [],
+                ];
+            }
+            $byTeacher[$tid]['schedules'][] = $s;
+        }
+
+        $start = strtotime($monthStart);
+        $end   = strtotime($monthEnd);
+
+        // Ambil tanggal yang sudah di-absensi
+        $sessions = $db->table('teacher_attendance_sessions')
+            ->where('date >=', $monthStart)
+            ->where('date <=', $monthEnd)
+            ->get()->getResultArray();
+        $sessionDates = [];
+        foreach ($sessions as $s) {
+            $sessionDates[$s['date']] = true;
+        }
+
+        // Ambil record TH untuk bulan ini
+        $thRecords = $db->table('teacher_attendances ta')
+            ->select('ta.schedule_id, ta.date, ta.jp_ke')
+            ->join('schedules s', 's.id = ta.schedule_id')
+            ->where('ta.status', 'TH')
+            ->where('ta.date >=', $monthStart)
+            ->where('ta.date <=', $monthEnd)
+            ->get()
+            ->getResultArray();
+
+        $thMap = [];
+        foreach ($thRecords as $r) {
+            $thMap[$r['schedule_id'] . '_' . $r['date'] . '_' . $r['jp_ke']] = true;
+        }
+
+        $holidays = $db->table('holidays')
+            ->where('date >=', $monthStart)
+            ->where('date <=', $monthEnd)
+            ->get()
+            ->getResultArray();
+        $holidayDates = [];
+        foreach ($holidays as $h) {
+            $holidayDates[$h['date']] = true;
+        }
+
+        $result = [];
+
+        foreach ($byTeacher as $tid => $tData) {
+            $totalJP  = 0;
+            $jpTH     = 0;
+            $totalSlot = 0;
+            
+            $daily = [];
+
+            for ($d = $start; $d <= $end; $d = strtotime('+1 day', $d)) {
+                $dateStr   = date('Y-m-d', $d);
+                $dayOfWeek = (int) date('N', $d); // 1=Mon..7=Sun
+
+                if (isset($holidayDates[$dateStr])) {
+                    $daily[$dateStr] = ['status' => 'holiday', 'hadir' => 0, 'total' => 0];
+                    continue;
+                }
+                if (is_weekend($dateStr)) {
+                    $daily[$dateStr] = ['status' => 'weekend', 'hadir' => 0, 'total' => 0];
+                    continue;
+                }
+                if (!isset($sessionDates[$dateStr])) {
+                    $daily[$dateStr] = ['status' => 'not_recorded', 'hadir' => 0, 'total' => 0];
+                    // Tetap hitung jadwal untuk tau dia punya jam atau tidak
+                }
+
+                $dayTotalJP = 0;
+                $dayJPTH = 0;
+
+                foreach ($tData['schedules'] as $s) {
+                    if ((int) $s['day_of_week'] !== $dayOfWeek) {
+                        continue;
+                    }
+
+                    $jp = $this->hitungJP($s['start_time'], $s['end_time']);
+                    $dayTotalJP += $jp;
+
+                    for ($jpKe = 1; $jpKe <= $jp; $jpKe++) {
+                        $key = $s['id'] . '_' . $dateStr . '_' . $jpKe;
+                        if (isset($thMap[$key])) {
+                            $dayJPTH++;
+                        }
+                    }
+                }
+                
+                if (isset($sessionDates[$dateStr])) {
+                    $totalJP += $dayTotalJP;
+                    $jpTH += $dayJPTH;
+                    if ($dayTotalJP > 0) $totalSlot++;
+                }
+
+                if ($dayTotalJP == 0) {
+                    $daily[$dateStr] = ['status' => 'no_schedule', 'hadir' => 0, 'total' => 0];
+                } else if (!isset($sessionDates[$dateStr])) {
+                    $daily[$dateStr] = ['status' => 'not_recorded', 'hadir' => 0, 'total' => $dayTotalJP];
+                } else {
+                    $daily[$dateStr] = ['status' => 'recorded', 'hadir' => ($dayTotalJP - $dayJPTH), 'total' => $dayTotalJP];
+                }
+            }
+
+            $jpHadir = $totalJP - $jpTH;
+            $persen  = $totalJP > 0 ? round(($jpHadir / $totalJP) * 100, 1) : 0;
+
+            $result[$tid] = [
+                'teacher_id'   => $tid,
+                'teacher_name' => $tData['teacher_name'],
+                'nip'          => $tData['nip'],
+                'total_slot'   => $totalSlot,
+                'total_jp'     => $totalJP,
+                'jp_th'        => $jpTH,
+                'jp_hadir'     => $jpHadir,
+                'persen'       => $persen,
+                'daily'        => $daily,
+            ];
+        }
+
+        uasort($result, fn($a, $b) => strcmp($a['teacher_name'], $b['teacher_name']));
+
+        return $result;
+    }
+
     // -----------------------------------------------------------------------
     // 1. INDEX — Input absensi harian (Admin / Staf)
     // -----------------------------------------------------------------------
@@ -428,6 +589,70 @@ class TeacherAttendance extends BaseController
             'teachers' => $teachers,
             'filterTeacherId' => $teacherId,
         ]);
+    }
+
+    // -----------------------------------------------------------------------
+    // 3b. GRID MONTH — Rekapan absensi grid bulanan (Admin / Staf)
+    // -----------------------------------------------------------------------
+
+    public function gridMonth()
+    {
+        $month = $this->request->getGet('month') ?? date('Y-m');
+        $rekap = $this->hitungGridBulan($month);
+        
+        $monthStart = $month . '-01';
+        $monthEnd   = date('Y-m-t', strtotime($monthStart));
+        
+        $dates = [];
+        for ($d = strtotime($monthStart); $d <= strtotime($monthEnd); $d = strtotime('+1 day', $d)) {
+            $dates[] = date('Y-m-d', $d);
+        }
+
+        return view('admin/teacher_attendance/month_grid', [
+            'title' => 'Grid Absensi Guru',
+            'month' => $month,
+            'rekap' => $rekap,
+            'dates' => $dates,
+        ]);
+    }
+
+    // -----------------------------------------------------------------------
+    // 3c. GRID MONTH PDF — Cetak PDF grid absensi guru bulanan
+    // -----------------------------------------------------------------------
+
+    public function gridMonthPdf()
+    {
+        $month = $this->request->getGet('month') ?? date('Y-m');
+        $rekap = $this->hitungGridBulan($month);
+
+        $monthStart = $month . '-01';
+        $monthEnd   = date('Y-m-t', strtotime($monthStart));
+
+        $dates = [];
+        for ($d = strtotime($monthStart); $d <= strtotime($monthEnd); $d = strtotime('+1 day', $d)) {
+            $dates[] = date('Y-m-d', $d);
+        }
+
+        // Ambil nama sekolah untuk header
+        $db = \Config\Database::connect();
+        $school = $db->table('school_profile')->limit(1)->get()->getRowArray();
+        $schoolName = $school['name'] ?? '';
+
+        $html = view('admin/teacher_attendance/pdf_grid', [
+            'month'      => $month,
+            'rekap'      => $rekap,
+            'dates'      => $dates,
+            'schoolName' => $schoolName,
+        ]);
+
+        if (ob_get_length()) @ob_end_clean();
+
+        $dompdf = new Dompdf();
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'landscape');
+        $dompdf->render();
+        $dompdf->stream('Grid_Absensi_Guru_' . $month . '.pdf', ['Attachment' => true]);
+        exit;
     }
 
     // -----------------------------------------------------------------------

@@ -8,7 +8,7 @@ class AnnouncementModel extends Model
 {
     protected $table = 'announcements';
     protected $primaryKey = 'id';
-    protected $allowedFields = ['title', 'content', 'target', 'class_id', 'is_public', 'created_by'];
+    protected $allowedFields = ['title', 'content', 'target', 'class_id', 'academic_year_id', 'is_public', 'created_by'];
     protected $useTimestamps = true;
 
     public function getForUser($user)

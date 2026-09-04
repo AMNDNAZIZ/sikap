@@ -3,9 +3,14 @@
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h4 class="mb-0">📋 Absensi Guru Harian</h4>
-    <a href="<?= base_url('admin/teacher-attendance/report') ?>" class="btn btn-outline-secondary btn-sm">
-        📊 Laporan Bulanan
-    </a>
+    <div class="d-flex gap-2">
+        <a href="<?= base_url('admin/teacher-attendance/grid-month') ?>" class="btn btn-info btn-sm">
+            📅 Grid Bulanan
+        </a>
+        <a href="<?= base_url('admin/teacher-attendance/report') ?>" class="btn btn-outline-secondary btn-sm">
+            📊 Laporan Bulanan
+        </a>
+    </div>
 </div>
 
 <?php if (!empty($error)): ?>

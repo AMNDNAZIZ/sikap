@@ -2052,20 +2052,20 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             }
             // Continue to fullscreen request below
             console.log('[BUTTON] User confirmed, proceeding to fullscreen');
-            proceedToFullscreen(); // Call existing function
+            checkAndProceedToFullscreen(); // Call existing function
           });
           return;
         }
 
         // Normal flow: request fullscreen (call existing function)
         console.log('[BUTTON] Normal flow, proceeding to fullscreen');
-        proceedToFullscreen();
+        checkAndProceedToFullscreen();
       };
 
       /**
        * Proceed to fullscreen (called after violation check)
        */
-      function proceedToFullscreen() {
+      function checkAndProceedToFullscreen() {
         // Detect browser dan device
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -2131,7 +2131,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             if (result.isConfirmed) {
               // User accepts risk, proceed anyway
               console.warn('User proceeding with unsupported browser');
-              proceedToFullscreen();
+              executeFullscreenRequest();
             } else {
               // Go back
               window.location.href = '<?= site_url('siswa/cbt') ?>';
@@ -2163,7 +2163,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             allowOutsideClick: false
           }).then((result) => {
             if (result.isConfirmed) {
-              proceedToFullscreen();
+              executeFullscreenRequest();
             } else {
               window.location.href = '<?= site_url('siswa/cbt') ?>';
             }
@@ -2172,13 +2172,13 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         }
 
         // Browser supported - proceed normally
-        proceedToFullscreen();
+        executeFullscreenRequest();
       };
 
       /**
        * Proceed to fullscreen (called after browser check)
        */
-      function proceedToFullscreen() {
+      function executeFullscreenRequest() {
         // IMPORTANT: Lower overlay z-index BEFORE requesting fullscreen
         // This prevents overlay from blocking browser permission dialog
         if (fsOverlay) {

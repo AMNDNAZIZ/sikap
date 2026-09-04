@@ -270,6 +270,30 @@ class Tugas extends BaseController
             ? "Tugas berhasil dibuat untuk {$inserted} kelas."
             : 'Tugas berhasil dibuat.';
 
+        // ── Notifikasi: kirim ke semua siswa di kelas yang mendapat tugas ──
+        $subjectName = $this->db->table('subjects')->select('name')->where('id', $subjectId)->get()->getRowArray()['name'] ?? '';
+        $deadline    = date('d M Y H:i', strtotime($selesai));
+        foreach ($classIds as $cid) {
+            $tugasId = $this->db->table('tugas')
+                ->where('class_id', $cid)
+                ->where('subject_id', $subjectId)
+                ->where('created_by', $user['id'])
+                ->orderBy('id', 'DESC')
+                ->limit(1)
+                ->get()->getRowArray()['id'] ?? 0;
+
+            notify_class(
+                $cid,
+                'tugas_baru',
+                'Tugas Baru: ' . $judul,
+                "Mapel: {$subjectName} · Deadline: {$deadline}",
+                $tugasId ? base_url('siswa/tugas/' . $tugasId) : null,
+                'tugas',
+                $tugasId ?: null
+            );
+        }
+        // ──────────────────────────────────────────────────────────────────
+
         return redirect()->to('admin/tugas')->with('success', $msg);
     }
 

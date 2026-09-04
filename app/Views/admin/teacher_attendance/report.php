@@ -10,9 +10,14 @@
 <div class="container-fluid py-3">
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
         <h4 class="mb-0">📊 Laporan Absensi Guru</h4>
-        <a href="<?= base_url('admin/teacher-attendance') ?>" class="btn btn-outline-secondary btn-sm">
-            ← Input Harian
-        </a>
+        <div class="d-flex gap-2">
+            <a href="<?= base_url('admin/teacher-attendance/grid-month?month=' . urlencode($month)) ?>" class="btn btn-info btn-sm">
+                📅 Grid Bulanan
+            </a>
+            <a href="<?= base_url('admin/teacher-attendance') ?>" class="btn btn-outline-secondary btn-sm">
+                ← Input Harian
+            </a>
+        </div>
     </div>
 
     <!-- Filter -->

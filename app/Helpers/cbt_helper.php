@@ -218,8 +218,30 @@ if (!function_exists('get_teacher_classes')) {
             ->groupBy('c.id')
             ->get()
             ->getResultArray();
+            
+        // Ambil juga kelas di mana guru tersebut menjadi Wali Kelas
+        $waliClasses = $db->table('classes c')
+            ->select('c.id, c.name, c.level')
+            ->where('c.teacher_id', $teacherId)
+            ->get()
+            ->getResultArray();
+
+        $result = [];
+        $addedIds = [];
         
-        return $classes;
+        foreach ($classes as $c) {
+            $result[] = $c;
+            $addedIds[] = $c['id'];
+        }
+        
+        foreach ($waliClasses as $wc) {
+            if (!in_array($wc['id'], $addedIds)) {
+                $result[] = $wc;
+                $addedIds[] = $wc['id'];
+            }
+        }
+        
+        return $result;
     }
 }
 

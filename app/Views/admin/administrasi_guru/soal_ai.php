@@ -1,7 +1,7 @@
-<?= $this->extend('layouts/app') ?>
+﻿<?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<h4 class="mb-3">🤖 Pembuatan Soal AI</h4>
+<h4 class="mb-3">Pembuatan Soal AI</h4>
 
 <?php if (session()->getFlashdata('error')): ?>
     <div class="alert alert-danger"><?= session()->getFlashdata('error') ?></div>
@@ -114,7 +114,7 @@
                     </div>
                 </div>
                 <div class="col-12">
-                    <label class="form-label fw-bold">Tujuan Pembelajaran (TP) <small class="text-muted">— pilih yang relevan</small></label>
+                    <label class="form-label fw-bold">Tujuan Pembelajaran (TP) <small class="text-muted">&mdash; pilih yang relevan</small></label>
                     <div id="tp-list" class="border rounded p-2" style="max-height:180px; overflow-y:auto;">
                         <span class="text-muted small">Pilih materi atau semester terlebih dahulu</span>
                     </div>
@@ -172,6 +172,7 @@ const CSRF_NAME = '<?= csrf_token() ?>';
 let csrfHash = '<?= csrf_hash() ?>';
 let generatedSoal = [];
 let generatedTipe = '';
+let soalManualModalInstance = null;
 
 function setGenerateButtons(disabled) {
     document.getElementById('btn-generate').disabled = disabled;
@@ -194,7 +195,7 @@ document.getElementById('jenis_asesmen')?.addEventListener('change', function() 
     }
 });
 
-// Sumatif: semester change → load semua TP dari semester itu
+// Sumatif: semester change -> load semua TP dari semester itu
 document.getElementById('semester_id')?.addEventListener('change', function() {
     const sem = this.value;
     const semAtps = allAtp.filter(a => a.semester == sem);
@@ -223,7 +224,7 @@ document.getElementById('semester_id')?.addEventListener('change', function() {
     setGenerateButtons(false);
 });
 
-// Formatif: ATP change → load TP
+// Formatif: ATP change -> load TP
 document.getElementById('atp_id')?.addEventListener('change', function() {
     if (document.getElementById('jenis_asesmen').value === 'sumatif') return;
 
@@ -337,7 +338,7 @@ function renderHasil(soal) {
             html += '<div class="ms-3 small">';
             for (const [key, val] of Object.entries(s.options)) {
                 const isCorrect = s.answer && s.answer.includes(key);
-                html += `<div class="${isCorrect ? 'text-success fw-bold' : ''}">${key}. ${val} ${isCorrect ? '✓' : ''}</div>`;
+                html += `<div class="${isCorrect ? 'text-success fw-bold' : ''}">${key}. ${val} ${isCorrect ? '&#10003;' : ''}</div>`;
             }
             html += '</div>';
         }
@@ -374,7 +375,7 @@ document.getElementById('btn-save')?.addEventListener('click', async function() 
         if (data.csrf) csrfHash = data.csrf;
 
         if (data.success) {
-            alert('✅ ' + data.message);
+            alert('Berhasil! ' + data.message);
             location.reload();
         } else {
             alert('Gagal: ' + (data.error || 'Unknown'));
@@ -434,7 +435,9 @@ document.getElementById('btn-manual-prompt')?.addEventListener('click', async fu
             document.getElementById('soalPromptText').value = data.prompt;
             document.getElementById('soalPasteStep').style.display = 'none';
             document.getElementById('soalPromptStep').style.display = 'block';
-            new bootstrap.Modal(document.getElementById('soalManualModal')).show();
+            const modalEl = document.getElementById('soalManualModal');
+            soalManualModalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+            soalManualModalInstance.show();
         } else {
             alert('Error: ' + (data.error || 'Unknown'));
         }
@@ -459,7 +462,7 @@ document.getElementById('btn-manual-prompt')?.addEventListener('click', async fu
                 <!-- Step 1 -->
                 <div id="soalPromptStep">
                     <div class="alert alert-info py-2">
-                        <strong>Langkah 1:</strong> Copy prompt di bawah → paste ke ChatGPT / Gemini / AI lainnya.
+                    <strong>Langkah 1:</strong> Copy prompt di bawah &rarr; paste ke ChatGPT / Gemini / AI lainnya.
                     </div>
                     <textarea id="soalPromptText" class="form-control mb-3" rows="10" readonly style="font-size:0.8rem; background:#f8f9fa;"></textarea>
                     <div class="d-flex gap-2">
@@ -493,39 +496,297 @@ document.getElementById('btn-manual-prompt')?.addEventListener('click', async fu
 
 <!-- Script untuk modal (harus setelah modal ada di DOM) -->
 <script>
-document.getElementById('copySoalPrompt').addEventListener('click', function() {
+// ── Inisialisasi modal instance ────────────────────────────────────────────
+const soalModalEl = document.getElementById('soalManualModal');
+let soalModalInst = null;
+
+function getModalInstance() {
+    if (!soalModalInst) {
+        soalModalInst = bootstrap.Modal.getOrCreateInstance(soalModalEl);
+    }
+    return soalModalInst;
+}
+
+// ── Reset modal saat ditutup ───────────────────────────────────────────────
+soalModalEl.addEventListener('hidden.bs.modal', function () {
+    document.getElementById('soalPasteArea').value     = '';
+    document.getElementById('soalPasteStep').style.display  = 'none';
+    document.getElementById('soalPromptStep').style.display = 'block';
+});
+
+// ── Step navigation ─────────────────────────────────────────────────────────
+document.getElementById('copySoalPrompt').addEventListener('click', function () {
     const ta = document.getElementById('soalPromptText');
     ta.select();
-    document.execCommand('copy');
+    try {
+        navigator.clipboard.writeText(ta.value).catch(() => document.execCommand('copy'));
+    } catch (_) {
+        document.execCommand('copy');
+    }
     this.innerHTML = '<i class="bi bi-check me-1"></i>Tersalin!';
     setTimeout(() => { this.innerHTML = '<i class="bi bi-clipboard-check me-1"></i>Copy Prompt'; }, 2000);
 });
 
-document.getElementById('goSoalPaste').addEventListener('click', function() {
+document.getElementById('goSoalPaste').addEventListener('click', function () {
     document.getElementById('soalPromptStep').style.display = 'none';
-    document.getElementById('soalPasteStep').style.display = 'block';
+    document.getElementById('soalPasteStep').style.display  = 'block';
+    document.getElementById('soalPasteArea').focus();
 });
 
-document.getElementById('backSoalPrompt').addEventListener('click', function() {
-    document.getElementById('soalPasteStep').style.display = 'none';
+document.getElementById('backSoalPrompt').addEventListener('click', function () {
+    document.getElementById('soalPasteStep').style.display  = 'none';
     document.getElementById('soalPromptStep').style.display = 'block';
 });
 
-document.getElementById('parseSoalManual').addEventListener('click', function() {
+// ── JSON Cleaning Engine ────────────────────────────────────────────────────
+
+/**
+ * Deteksi apakah setelah koma (posisi `pos`) ada elemen JSON berikutnya.
+ * Dipakai untuk membedakan koma dalam teks nilai vs koma pemisah JSON.
+ */
+function isJsonContinuation(s, pos) {
+    while (pos < s.length && ' \t\n\r'.includes(s[pos])) pos++;
+    if (pos >= s.length) return true;
+    const ch = s[pos];
+    if ('{}[]'.includes(ch))           return true;
+    if ('0123456789tfn-'.includes(ch)) return true;
+    if (ch === '"') {
+        // Cek pola "key": (property JSON)
+        let k = pos + 1;
+        while (k < s.length && s[k] !== '"' && s[k] !== '\n') k++;
+        if (k < s.length && s[k] === '"') {
+            let m = k + 1;
+            while (m < s.length && (s[m] === ' ' || s[m] === '\t')) m++;
+            if (m < s.length && s[m] === ':') return true;
+        }
+        return false;
+    }
+    return false;
+}
+
+/**
+ * Bersihkan output AI: escape karakter tidak valid di dalam nilai string JSON.
+ * Kasus: newline literal, kutip raw di tengah nilai, BOM/ZWSP.
+ * Smart quotes (" ") TIDAK diganti — mereka valid di dalam string JSON.
+ */
+function cleanJsonString(str) {
+    const PH = '\x01\x02\x03'; // placeholder untuk \" yang sudah sah
+    let s = str.replace(/\\"/g, PH);
+    let result = '', inString = false;
+
+    for (let i = 0; i < s.length; i++) {
+        if (s[i] === PH[0] && s.substring(i, i + 3) === PH) {
+            result += '\\"'; i += 2; continue;
+        }
+        const ch = s[i], code = ch.charCodeAt(0);
+
+        if (ch === '"') {
+            if (!inString) { inString = true; result += ch; continue; }
+
+            // Cek apakah kutip ini adalah penutup yang sah
+            let j = i + 1;
+            while (j < s.length && ' \t\n\r'.includes(s[j])) j++;
+            const nxt = j < s.length ? s[j] : '';
+
+            let isClose = (nxt === '' || nxt === '}' || nxt === ']' || nxt === ':');
+            if (!isClose && nxt === ',') isClose = isJsonContinuation(s, j + 1);
+
+            if (isClose) { inString = false; result += ch; }
+            else         { result += '\\"'; }
+            continue;
+        }
+
+        if (inString) {
+            if (ch === '\n') { result += '\\n';  continue; }
+            if (ch === '\r') { result += '\\r';  continue; }
+            if (ch === '\t') { result += '\\t';  continue; }
+            if (code < 32 && code !== 0x01) {
+                result += '\\u' + code.toString(16).padStart(4, '0'); continue;
+            }
+        }
+        result += ch;
+    }
+    return result;
+}
+
+/**
+ * Fallback agresif: flatten semua escape (\") dulu lalu rebuild dari nol.
+ * Untuk kasus kutip asimetris: \"teks" (buka di-escape, tutup tidak).
+ */
+function deepCleanJson(str) {
+    let s = str.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\\"/g, '"');
+    let result = '', i = 0;
+
+    while (i < s.length) {
+        if (s[i] !== '"') { result += s[i++]; continue; }
+
+        result += '"'; i++;
+        let inner = '';
+
+        while (i < s.length) {
+            const c = s[i];
+            if (c === '"') {
+                let j = i + 1;
+                while (j < s.length && ' \t\n\r'.includes(s[j])) j++;
+                const nxt = j < s.length ? s[j] : '';
+                let isClose = (nxt === '' || nxt === '}' || nxt === ']' || nxt === ':');
+                if (!isClose && nxt === ',') isClose = isJsonContinuation(s, j + 1);
+                if (isClose) break;
+                inner += '\\"'; i++; continue;
+            }
+            const code = c.charCodeAt(0);
+            if (c === '\n') { inner += '\\n'; i++; continue; }
+            if (c === '\r') { inner += '\\r'; i++; continue; }
+            if (c === '\t') { inner += '\\t'; i++; continue; }
+            if (code < 32)  { inner += '\\u' + code.toString(16).padStart(4, '0'); i++; continue; }
+            inner += c; i++;
+        }
+        result += inner + '"';
+        if (i < s.length && s[i] === '"') i++;
+    }
+    return result;
+}
+
+/**
+ * Pipeline lengkap: bersihkan output AI dan kembalikan array soal.
+ * Melempar Error jika semua upaya gagal.
+ */
+function parseAiJson(raw) {
+    // 1. Strip markdown wrapper (```json ... ```)
+    let s = raw.replace(/```(?:json)?([\s\S]*?)```/g, '$1').trim();
+
+    // 2. Ambil blok [ ... ] terluar — abaikan teks preamble AI
+    const f = s.indexOf('['), l = s.lastIndexOf(']');
+    if (f !== -1 && l > f) s = s.substring(f, l + 1);
+
+    // 3. Hapus karakter tidak terlihat
+    s = s.replace(/[\uFEFF\u200B\u200C\u200D\u00AD]/g, '');
+
+    // 4. Hapus komentar JS-style
+    s = s.replace(/\/\/[^\n\r"]*/g, '');
+    s = s.replace(/\/\*[\s\S]*?\*\//g, '');
+
+    // 5. Hapus trailing comma
+    s = s.replace(/,(\s*[\}\]])/g, '$1');
+
+    // 6. Coba: parse setelah cleanJsonString
+    try {
+        const arr = JSON.parse(cleanJsonString(s));
+        if (Array.isArray(arr) && arr.length > 0) return arr;
+    } catch (_) {}
+
+    // 7. Coba: parse setelah deepCleanJson (flatten + rebuild)
+    try {
+        const arr = JSON.parse(deepCleanJson(s));
+        if (Array.isArray(arr) && arr.length > 0) return arr;
+    } catch (_) {}
+
+    // 8. Coba: parse langsung tanpa cleaning (mungkin sudah valid)
+    const arr = JSON.parse(s);
+    if (!Array.isArray(arr)) throw new Error('Output bukan JSON array');
+    return arr;
+}
+
+/**
+ * Normalisasi tipe soal dari berbagai variasi string output AI.
+ */
+function normalizeSoalType(t) {
+    t = (t || 'pg').toLowerCase().replace(/[\s\-]/g, '_').trim();
+    if (['pg', 'pilihan_ganda', 'pilgan', 'multiple_choice'].includes(t))                return 'pg';
+    if (['pg_kompleks', 'pgk', 'pilihan_ganda_kompleks', 'pg_complex'].includes(t))      return 'pg_kompleks';
+    if (['benar_salah', 'bs', 'true_false', 'betul_salah', 'benar/salah'].includes(t))  return 'benar_salah';
+    if (['esai', 'essay', 'uraian', 'short_answer'].includes(t))                         return 'esai';
+    return 'pg';
+}
+
+/**
+ * Validasi cepat: pastikan setiap soal punya field wajib.
+ */
+function validateSoalArr(arr) {
+    const errs = [];
+    arr.forEach((s, i) => {
+        const no = i + 1;
+        if (!s.type)                             errs.push(`Soal ${no}: tidak ada "type"`);
+        if (!s.question)                         errs.push(`Soal ${no}: tidak ada "question"`);
+        if (s.answer === undefined || s.answer === null || s.answer === '')
+                                                 errs.push(`Soal ${no}: tidak ada "answer"`);
+        const tipe = normalizeSoalType(s.type || '');
+        if (tipe !== 'esai' && (!s.options || typeof s.options !== 'object'))
+                                                 errs.push(`Soal ${no}: tidak ada "options"`);
+    });
+    return errs;
+}
+
+// ── Handler "Parse & Tampilkan Soal" ──────────────────────────────────────
+document.getElementById('parseSoalManual').addEventListener('click', function () {
+    const btn = this;
     const raw = document.getElementById('soalPasteArea').value.trim();
     if (!raw) { alert('Paste hasil AI terlebih dahulu.'); return; }
 
-    let cleaned = raw.replace(/```(?:json)?([\s\S]*?)```/g, '$1').trim();
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Memproses...';
 
-    try {
-        const soal = JSON.parse(cleaned);
-        if (!Array.isArray(soal)) throw new Error('Bukan array');
-        generatedSoal = soal;
-        renderHasil(soal);
-        bootstrap.Modal.getInstance(document.getElementById('soalManualModal')).hide();
-    } catch (e) {
-        alert('Gagal parse JSON. Pastikan output dari AI berupa JSON array yang valid.\n\nError: ' + e.message);
-    }
+    // setTimeout(0): beri browser 1 frame untuk render spinner dulu
+    setTimeout(function () {
+        try {
+            const rawArr = parseAiJson(raw);
+
+            // Normalisasi tipe
+            rawArr.forEach(s => { s.type = normalizeSoalType(s.type); });
+
+            // Validasi field wajib — tampilkan konfirmasi jika ada masalah
+            const errs = validateSoalArr(rawArr);
+            if (errs.length > 0) {
+                const sample = errs.slice(0, 5).join('\n');
+                const more   = errs.length > 5 ? `\n... dan ${errs.length - 5} masalah lainnya` : '';
+                if (!confirm(
+                    `Ditemukan ${errs.length} masalah pada struktur soal:\n\n${sample}${more}\n\n` +
+                    'Soal tetap ditampilkan dan bisa disimpan, tapi mungkin tidak masuk dengan benar ke bank soal.\n\n' +
+                    'Lanjutkan?'
+                )) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Parse & Tampilkan Soal';
+                    return;
+                }
+            }
+
+            // Berhasil
+            generatedSoal = rawArr;
+            renderHasil(rawArr);
+
+            // Tutup modal
+            getModalInstance().hide();
+
+            // Scroll ke hasil
+            setTimeout(() => {
+                const hw = document.getElementById('hasil-wrapper');
+                if (hw) hw.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 400);
+
+        } catch (e) {
+            // Bangun pesan error yang informatif
+            let ctx = '';
+            const pm = e.message.match(/position (\d+)/);
+            if (pm) {
+                const pos = parseInt(pm[1]);
+                const snip = raw.substring(Math.max(0, pos - 25), Math.min(raw.length, pos + 25))
+                                  .replace(/\n/g, 'LF').replace(/\r/g, 'CR').replace(/\t/g, 'TAB');
+                ctx = `\n\nSekitar posisi error:\n"${snip}"`;
+            }
+
+            alert(
+                '&#10060; Gagal memproses JSON dari AI.\n\n' +
+                'Error: ' + e.message + ctx + '\n\n' +
+                'Saran:\n' +
+                '1. Copy SELURUH output dari AI (mulai [ hingga akhir ])\n' +
+                '2. Minta AI: "Kirim ulang hanya JSON array murni, tanpa penjelasan"\n' +
+                '3. Atau gunakan "Generate Soal (API)" jika API key tersedia'
+            );
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Parse & Tampilkan Soal';
+    }, 0);
 });
 </script>
 

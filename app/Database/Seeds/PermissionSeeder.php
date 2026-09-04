@@ -86,6 +86,10 @@ class PermissionSeeder extends Seeder
             ['module' => 'ebook', 'action' => 'view', 'label' => 'Akses Perpustakaan Digital', 'group_name' => 'Lainnya', 'sort_order' => 58],
             ['module' => 'dapodik', 'action' => 'manage', 'label' => 'Integrasi Dapodik', 'group_name' => 'Lainnya', 'sort_order' => 59],
             ['module' => 'reports', 'action' => 'view', 'label' => 'Lihat Laporan', 'group_name' => 'Lainnya', 'sort_order' => 60],
+            // ═══════ Notifikasi ═══════
+            ['module' => 'notifications', 'action' => 'view', 'label' => 'Lihat Notifikasi', 'group_name' => 'Lainnya', 'sort_order' => 61],
+            ['module' => 'dapodik', 'action' => 'manage', 'label' => 'Integrasi Dapodik', 'group_name' => 'Lainnya', 'sort_order' => 59],
+            ['module' => 'reports', 'action' => 'view', 'label' => 'Lihat Laporan', 'group_name' => 'Lainnya', 'sort_order' => 60],
         ];
 
         foreach ($permissions as $perm) {
@@ -155,7 +159,7 @@ class PermissionSeeder extends Seeder
         $this->assignPermissions(3, $this->resolvePermIds($permMap, $guruPerms));
 
         // Kontributor (role_id = 6) — CMS saja
-        $kontributorPerms = ['cms.manage'];
+        $kontributorPerms = ['cms.manage', 'notifications.view'];
         $this->assignPermissions(6, $this->resolvePermIds($permMap, $kontributorPerms));
 
         // Staf / TU (role_id = 7)
@@ -177,6 +181,7 @@ class PermissionSeeder extends Seeder
             'staff_chat.manage',
             'ebook.manage', 'ebook.view',
             'reports.view',
+            'notifications.view',
         ];
         $this->assignPermissions(7, $this->resolvePermIds($permMap, $stafPerms));
 
