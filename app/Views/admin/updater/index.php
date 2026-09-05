@@ -163,7 +163,7 @@ $isLocalhost = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'])
                     <div class="row align-items-center">
                         <div class="col-md-9">
                             <p class="mb-0">
-                                Generate file <code>update_manifest.json</code> dan langsung push ke repo <code>sikap-update</code> di GitHub.
+                                Generate file <code>update_manifest.json</code> dan langsung push ke repo <code>espata-update</code> di GitHub.
                                 Setelah selesai, client bisa cek dan apply update secara online.
                             </p>
                         </div>

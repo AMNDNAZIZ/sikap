@@ -1,14 +1,14 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><?= $school['name'] ?? 'SIKAP' ?> - <?= $title ?? 'Beranda' ?></title>
+  <title><?= $school['name'] ?? 'ESPATA' ?> - <?= $title ?? 'Beranda' ?></title>
 
   <!-- SEO Meta Tags -->
   <meta name="description"
-    content="<?= esc(strip_tags($school['vision'] ?? 'Sistem Informasi Kelas Akademik dan Penilaian (SIKAP)')) ?>">
+    content="<?= esc(strip_tags($school['vision'] ?? 'School Management Platform')) ?>">
   <meta name="keywords"
     content="siakad, sekolah, pendidikan, portal sekolah, sistem informasi akademik, <?= esc($school['name'] ?? '') ?>">
   <meta name="author" content="<?= esc($school['name'] ?? 'SakaSalika') ?>">
@@ -18,17 +18,17 @@
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="<?= current_url() ?>">
-  <meta property="og:title" content="<?= $school['name'] ?? 'SIKAP' ?> - <?= $title ?? 'Beranda' ?>">
+  <meta property="og:title" content="<?= $school['name'] ?? 'ESPATA' ?> - <?= $title ?? 'Beranda' ?>">
   <meta property="og:description"
-    content="<?= esc(strip_tags($school['vision'] ?? 'Sistem Informasi Kelas Akademik dan Penilaian (SIKAP)')) ?>">
+    content="<?= esc(strip_tags($school['vision'] ?? 'School Management Platform')) ?>">
   <meta property="og:image" content="<?= base_url('uploads/logo/' . ($school['logo'] ?? '')) ?>">
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="<?= current_url() ?>">
-  <meta property="twitter:title" content="<?= $school['name'] ?? 'SIKAP' ?> - <?= $title ?? 'Beranda' ?>">
+  <meta property="twitter:title" content="<?= $school['name'] ?? 'ESPATA' ?> - <?= $title ?? 'Beranda' ?>">
   <meta property="twitter:description"
-    content="<?= esc(strip_tags($school['vision'] ?? 'Sistem Informasi Kelas Akademik dan Penilaian (SIKAP)')) ?>">
+    content="<?= esc(strip_tags($school['vision'] ?? 'School Management Platform')) ?>">
   <meta property="twitter:image" content="<?= base_url('uploads/logo/' . ($school['logo'] ?? '')) ?>">
 
   <link rel="icon" type="image/png" href="<?= base_url('uploads/logo/' . ($school['logo'] ?? '')) ?>">
@@ -251,7 +251,7 @@
         <?php else: ?>
           <i class="bi bi-book-half me-2"></i>
         <?php endif; ?>
-        <?= $school['name'] ?? 'SIKAP' ?>
+        <?= $school['name'] ?? 'ESPATA' ?>
       </a>
       <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse"
         data-bs-target="#navbarNav">
@@ -283,7 +283,7 @@
               <div class="container">
                 <div class="hero-content" data-aos="fade-right">
                   <h1 class="display-3 fw-bold">Selamat Datang di
-                    <?= esc($school['name'] ?? 'SIKAP') ?>
+                    <?= esc($school['name'] ?? 'ESPATA') ?>
                   </h1>
                   <p class="lead mb-4">Membangun generasi cerdas, berkarakter, dan siap menghadapi tantangan masa depan
                     dengan teknologi dan inovasi.</p>
@@ -725,7 +725,7 @@
         <div class="col-lg-4">
           <a href="#" class="footer-logo">
             <i class="bi bi-book-half me-2"></i>
-            <?= $school['name'] ?? 'SIKAP' ?>
+            <?= $school['name'] ?? 'ESPATA' ?>
           </a>
           <p class="footer-text-muted mb-4">
             <?= esc($school['address'] ?? 'Alamat sekolah belum diatur di menu Identitas Sekolah.') ?>
@@ -765,8 +765,7 @@
             <li class="mb-2"><a href="#profil">Profil Sekolah</a></li>
             <li class="mb-2"><a href="#berita">Berita Terbaru</a></li>
             <li class="mb-2"><a href="<?= base_url('login') ?>">Login Sistem</a>
-            <li class="mb-2"><a href="<?= base_url('tentang') ?>">Tentang
-              SIKAP</a></li>
+            <li class="mb-2"><a href="<?= base_url('tentang') ?>">Tentang ESPATA</a></li>
             </li>
           </ul>
         </div>
@@ -800,7 +799,7 @@
       <div class="text-center footer-text-muted small mt-4">
         &copy;
         <?= date('Y') ?>
-        <?= esc($school['name'] ?? 'SIKAP') ?>. All rights reserved. Powered by <a href="https://sakasalika.com">SakaSalika</a>.
+        <?= esc($school['name'] ?? 'ESPATA') ?>. All rights reserved. School Management Platform.
       </div>
     </div>
   </footer>

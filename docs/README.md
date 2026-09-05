@@ -1,4 +1,4 @@
-# SIKAP - Sistem Informasi Akademik Pembelajaran
+﻿# ESPATA - School Management Platform
 
 Sistem Informasi Akademik berbasis web untuk mengelola data sekolah, siswa, guru, dan proses pembelajaran.
 
@@ -288,4 +288,4 @@ Untuk bantuan dan pertanyaan:
 
 ---
 
-**© 2026 SIKAP. All rights reserved.**
+**© 2026 ESPATA. All rights reserved.**

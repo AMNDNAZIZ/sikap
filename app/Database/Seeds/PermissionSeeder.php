@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Database\Seeds;
 
@@ -81,7 +81,7 @@ class PermissionSeeder extends Seeder
             ['module' => 'chat', 'action' => 'manage', 'label' => 'Chat Kelas', 'group_name' => 'Lainnya', 'sort_order' => 53],
             ['module' => 'staff_chat', 'action' => 'manage', 'label' => 'Chat Staff Internal', 'group_name' => 'Lainnya', 'sort_order' => 54],
             ['module' => 'student_notes', 'action' => 'manage', 'label' => 'Catatan Siswa', 'group_name' => 'Lainnya', 'sort_order' => 55],
-            ['module' => 'behaviors', 'action' => 'manage', 'label' => 'Kelola Perilaku/Sikap', 'group_name' => 'Lainnya', 'sort_order' => 56],
+            ['module' => 'behaviors', 'action' => 'manage', 'label' => 'Kelola Perilaku/ESPATA', 'group_name' => 'Lainnya', 'sort_order' => 56],
             ['module' => 'ebook', 'action' => 'manage', 'label' => 'Kelola Perpustakaan Digital', 'group_name' => 'Lainnya', 'sort_order' => 57],
             ['module' => 'ebook', 'action' => 'view', 'label' => 'Akses Perpustakaan Digital', 'group_name' => 'Lainnya', 'sort_order' => 58],
             ['module' => 'dapodik', 'action' => 'manage', 'label' => 'Integrasi Dapodik', 'group_name' => 'Lainnya', 'sort_order' => 59],

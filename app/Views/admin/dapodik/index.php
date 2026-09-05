@@ -1,4 +1,4 @@
-<?= $this->extend('layouts/app') ?>
+﻿<?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
 <div class="d-flex justify-content-between mb-3">
@@ -59,7 +59,7 @@
             </div>
             <div class="card-body">
                 <p>Setelah koneksi berhasil, Anda dapat menarik data siswa dan guru dari Dapodik untuk dimasukkan ke
-                    dalam sistem Sikap.</p>
+                    dalam sistem ESPATA.</p>
                 
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i> <strong>Catatan:</strong> 
@@ -85,7 +85,7 @@
             <ol class="mb-0">
                 <li>Buka aplikasi <strong>Dapodik</strong> anda.</li>
                 <li>Pilih menu <strong>Pengaturan</strong> > <strong>Web Service</strong>.</li>
-                <li>Tambahkan nama aplikasi (misal: "Sikap") dan salin <strong>Key/Token</strong> yang muncul.</li>
+                <li>Tambahkan nama aplikasi (misal: "ESPATA") dan salin <strong>Key/Token</strong> yang muncul.</li>
                 <li>Masukkan Key tersebut ke form pengaturan di samping.</li>
                 <li>Buka port <strong>5774</strong> di firewall jika diperlukan.</li>
             </ol>

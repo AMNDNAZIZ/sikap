@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // Load helpers
 helper(['url', 'form']);
 ?>
@@ -66,12 +66,12 @@ helper(['url', 'form']);
         <button id="sidebarToggle" class="btn btn-outline-secondary d-none d-lg-inline me-2">
           ⇔
         </button>
-        <a class="navbar-brand" href="<?= base_url('/dashboard') ?>">📘 SIKAP</a>
+        <a class="navbar-brand" href="<?= base_url('/dashboard') ?>">📘 ESPATA</a>
         <div class="ms-auto">
           <?php if (session()->has('user')): ?>
             <a href="<?= base_url('logout') ?>" class="btn btn-sm btn-outline-danger">Logout</a>
           <?php else: ?>
-            <a href="<?= base_url('login') ?>" class="btn btn-sm btn-primary">Login SIKAP</a>
+            <a href="<?= base_url('login') ?>" class="btn btn-sm btn-primary">Login ESPATA</a>
           <?php endif; ?>
         </div>
       </div>

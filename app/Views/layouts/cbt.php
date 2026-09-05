@@ -15,7 +15,7 @@
   <link rel="manifest" href="<?= base_url('manifest.json') ?>">
   <link rel="apple-touch-icon" href="<?= base_url('assets/images/logo-192.png') ?>">
 
-  <title><?= $title ?? 'Mode CBT' ?> - SIKAP</title>
+  <title><?= $title ?? 'Mode CBT' ?> - ESPATA</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">

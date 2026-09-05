@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Database\Migrations;
 
@@ -142,7 +142,7 @@ class CreateSuratMenyuratTables extends Migration
         ]);
         $this->forge->addKey('id', true);
         $this->forge->addKey('entity_id');
-        $this->forge->createTable('letter_audit_logs', true); // Ganti nama agar tidak bentrok dengan audit_logs sistem SIKAP jika ada
+        $this->forge->createTable('letter_audit_logs', true); // Ganti nama agar tidak bentrok dengan audit_logs sistem ESPATA jika ada
     }
 
     public function down(): void

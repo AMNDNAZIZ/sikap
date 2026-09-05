@@ -1,6 +1,6 @@
 <?php
 // Test apakah server bisa akses GitHub raw URL
-$url = 'https://raw.githubusercontent.com/Sakajaya/sikap-update/main/update_manifest.json';
+$url = 'https://raw.githubusercontent.com/Sakajaya/espata-update/main/update_manifest.json';
 
 $ch = curl_init($url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

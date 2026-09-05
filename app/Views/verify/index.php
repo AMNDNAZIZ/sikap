@@ -68,7 +68,7 @@
         </p>
         <?php if (($letter['letter_type'] ?? '') === 'surat_eksternal'): ?>
         <p class="text-muted small fst-italic">
-          <i class="bi bi-info-circle me-1"></i>Surat ini diunggah dari dokumen eksternal dan telah diverifikasi oleh sistem SIKAP.
+          <i class="bi bi-info-circle me-1"></i>Surat ini diunggah dari dokumen eksternal dan telah diverifikasi oleh sistem ESPATA.
         </p>
         <?php endif; ?>
 

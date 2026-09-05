@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $title ?> - <?= $school['name'] ?? 'SIKAP' ?></title>
+    <title><?= $title ?> - <?= $school['name'] ?? 'ESPATA' ?></title>
 
     <!-- SEO Meta Tags -->
     <meta name="description"
@@ -17,7 +17,7 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="<?= current_url() ?>">
-    <meta property="og:title" content="<?= $title ?> - <?= $school['name'] ?? 'SIKAP' ?>">
+    <meta property="og:title" content="<?= $title ?> - <?= $school['name'] ?? 'ESPATA' ?>">
     <meta property="og:description"
         content="Kumpulan berita, artikel, dan pengumuman terbaru dari <?= esc($school['name'] ?? 'Sekolah Kami') ?>.">
     <meta property="og:image" content="<?= base_url('uploads/logo/' . ($school['logo'] ?? '')) ?>">
@@ -25,7 +25,7 @@
     <!-- Twitter -->
     <meta property="twitter:card" content="summary">
     <meta property="twitter:url" content="<?= current_url() ?>">
-    <meta property="twitter:title" content="<?= $title ?> - <?= $school['name'] ?? 'SIKAP' ?>">
+    <meta property="twitter:title" content="<?= $title ?> - <?= $school['name'] ?? 'ESPATA' ?>">
     <meta property="twitter:description"
         content="Kumpulan berita, artikel, dan pengumuman terbaru dari <?= esc($school['name'] ?? 'Sekolah Kami') ?>.">
     <meta property="twitter:image" content="<?= base_url('uploads/logo/' . ($school['logo'] ?? '')) ?>">
@@ -115,7 +115,7 @@
                 <?php else: ?>
                     <i class="bi bi-book-half me-2"></i>
                 <?php endif; ?>
-                <?= $school['name'] ?? 'SIKAP' ?>
+                <?= $school['name'] ?? 'ESPATA' ?>
             </a>
             <div class="ms-auto">
                 <a href="<?= base_url('/') ?>" class="btn btn-outline-primary rounded-pill px-4">Kembali ke Beranda</a>
@@ -174,7 +174,7 @@
         <div class="container text-center">
             <p class="mb-0">&copy;
                 <?= date('Y') ?>
-                <?= $school['name'] ?? 'SIKAP' ?>. All rights reserved.
+                <?= $school['name'] ?? 'ESPATA' ?>. All rights reserved.
             </p>
         </div>
     </footer>

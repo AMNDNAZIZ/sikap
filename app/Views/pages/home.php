@@ -3,7 +3,7 @@
 
 <section id="home" class="banner">
   <div class="slide active" style="background-image:url('https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=60');">
-    <div class="slide-info"><h2>Selamat Datang di SD Modern Indonesia</h2><p>Mendidik generasi masa depan dengan inovasi & semangat.</p></div>
+    <div class="slide-info"><h2>Selamat Datang di Saka Salika School System</h2><p>Mendidik generasi masa depan dengan inovasi & semangat.</p></div>
   </div>
   <div class="slide" style="background-image:url('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1200&q=60');">
     <div class="slide-info"><h2>Lingkungan Belajar Menyenangkan</h2><p>Tempat di mana anak-anak tumbuh dan berkreasi.</p></div>
@@ -17,7 +17,7 @@
 
 <section id="about" class="section">
   <h2>Tentang Sekolah</h2>
-  <p>SD Modern Indonesia berkomitmen menciptakan lingkungan belajar yang inovatif, ramah, dan berbasis teknologi.</p>
+  <p>Saka Salika School System berkomitmen menciptakan lingkungan belajar yang inovatif, ramah, dan berbasis teknologi.</p>
 </section>
 
 <section id="news" class="section">

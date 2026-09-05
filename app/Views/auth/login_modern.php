@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Login | <?= esc($school['name'] ?? 'SIKAP') ?></title>
+  <title>Login | <?= esc($school['name'] ?? 'ESPATA') ?></title>
   <link rel="icon" type="image/png" href="<?= base_url('uploads/logo/' . ($school['logo'] ?? '')) ?>">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
@@ -278,8 +278,8 @@
           <i class="bi bi-mortarboard-fill"></i>
         <?php endif; ?>
       </div>
-      <div class="brand-school"><?= esc($school['name'] ?? 'SIKAP') ?></div>
-      <div class="brand-sub">Sistem Informasi Kelas<br>Absensi dan Penilaian</div>
+      <div class="brand-school"><?= esc($school['name'] ?? 'ESPATA') ?></div>
+      <div class="brand-sub">School Management Platform</div>
 
       <div class="features" style="margin-top:2rem;">
         <div class="feat">
@@ -288,11 +288,15 @@
         </div>
         <div class="feat">
           <div class="feat-ic"><i class="bi bi-clipboard2-check-fill"></i></div>
-          <div class="feat-tx"><strong>Penilaian & Rapor</strong><small>Nilai formatif, sumatif, dan rapor</small></div>
+          <div class="feat-tx"><strong>Manajemen Pembelajaran</strong><small>Terstruktur dan terintegrasi</small></div>
         </div>
         <div class="feat">
           <div class="feat-ic"><i class="bi bi-calendar2-check-fill"></i></div>
-          <div class="feat-tx"><strong>Absensi Real-time</strong><small>Pantau kehadiran setiap hari</small></div>
+          <div class="feat-tx"><strong>Absensi & Penilaian</strong><small>Pantau kehadiran dan hasil penilaian</small></div>
+        </div>
+        <div class="feat">
+          <div class="feat-ic"><i class="bi bi-house-lock-fill"></i></div>
+          <div class="feat-tx"><strong>Administrasi Sekolah</strong><small>Manage administrasi sekolah dalam satu platform</small></div>
         </div>
       </div>
     </div>

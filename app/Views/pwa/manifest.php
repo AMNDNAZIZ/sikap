@@ -1,7 +1,7 @@
 {
-"name": "SIKAP - Sistem Informasi Kelas Absensi dan Penilaian",
-"short_name": "SIKAP",
-"description": "Sistem Informasi Kelas Absensi dan Penilaian",
+"name": "ESPATA - School Management Platform",
+"short_name": "ESPATA",
+"description": "School Management Platform",
 "start_url": "./",
 "scope": "./",
 "display": "standalone",

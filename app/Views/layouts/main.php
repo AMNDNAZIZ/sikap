@@ -7,7 +7,7 @@
   <title><?= esc($title ?? 'SakaSalika') ?></title>
 
   <!-- SEO Meta Tags -->
-  <meta name="description" content="Sistem Informasi Kelas Akademik dan Penilaian (SIKAP).">
+  <meta name="description" content="ESPATA — School Management Platform.">
   <meta name="robots" content="index, follow">
 
   <!-- PWA Meta Tags -->
@@ -15,7 +15,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="SIKAP">
+  <meta name="apple-mobile-web-app-title" content="ESPATA">
   <link rel="manifest" href="<?= base_url('manifest.json') ?>">
   <link rel="apple-touch-icon" href="<?= base_url('assets/images/apple-touch-icon.png') ?>">
 

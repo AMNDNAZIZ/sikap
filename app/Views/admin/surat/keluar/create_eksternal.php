@@ -1,4 +1,4 @@
-<?= $this->extend('layouts/app') ?>
+﻿<?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
 <style>
@@ -112,7 +112,7 @@
 
           <div class="alert alert-info py-2 small mb-0">
             <i class="bi bi-info-circle me-1"></i>
-            File PDF akan digabungkan dengan QR Code verifikasi otomatis dari SIKAP di pojok kiri bawah halaman pertama.
+            File PDF akan digabungkan dengan QR Code verifikasi otomatis dari ESPATA di pojok kiri bawah halaman pertama.
           </div>
         </div>
       </div>

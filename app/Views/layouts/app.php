@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="<?= csrf_token() ?>" content="<?= csrf_hash() ?>">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title><?= $title ?? 'Dashboard' ?> - <?= esc($school['name'] ?? 'SIKAP') ?></title>
+  <title><?= $title ?? 'Dashboard' ?> - <?= esc($school['name'] ?? 'ESPATA') ?></title>
   <link rel="icon" type="image/png" href="<?= base_url('uploads/logo/' . ($school['logo'] ?? '')) ?>">
 
   <!-- PWA Meta Tags -->
@@ -13,7 +13,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="SIKAP">
+  <meta name="apple-mobile-web-app-title" content="ESPATA">
   <link rel="manifest" href="<?= base_url('manifest.json') ?>">
   <link rel="apple-touch-icon" href="<?= base_url('assets/images/apple-touch-icon.png') ?>">
 
@@ -384,7 +384,7 @@
           ⇔
         </button>
 
-        <a class="navbar-brand" href="<?= base_url('/dashboard') ?>">📘 SIKAP</a>
+        <a class="navbar-brand" href="<?= base_url('/dashboard') ?>">📘 ESPATA</a>
         <div class="ms-auto d-flex align-items-center gap-2">
           <?php if (session()->has('user')): ?>
 
@@ -441,7 +441,7 @@
 
             <a href="<?= base_url('logout') ?>" class="btn btn-sm btn-outline-danger">Logout</a>
           <?php else: ?>
-            <a href="<?= base_url('login') ?>" class="btn btn-sm btn-primary">Login SIKAP</a>
+            <a href="<?= base_url('login') ?>" class="btn btn-sm btn-primary">Login ESPATA</a>
           <?php endif; ?>
         </div>
       </div>
@@ -477,7 +477,7 @@
             </li>
             <li class="nav-item">
               <a class="nav-link text-dark active" href="<?= base_url('tentang') ?>">
-                <i class="bi bi-info-circle"></i> <span class="label">Tentang SIKAP</span>
+                <i class="bi bi-info-circle"></i> <span class="label">Tentang ESPATA</span>
               </a>
             </li>
             <li class="nav-item mt-3 px-3">
@@ -522,12 +522,12 @@
               </li>
               <li class="nav-item mb-2">
                 <a class="nav-link text-dark active" href="<?= base_url('tentang') ?>">
-                  <i class="bi bi-info-circle me-2"></i> Tentang SIKAP
+                  <i class="bi bi-info-circle me-2"></i> Tentang ESPATA
                 </a>
               </li>
               <li class="nav-item mt-4">
                 <a class="btn btn-primary w-100 rounded-pill" href="<?= base_url('login') ?>">
-                  Login SIKAP
+                  Login ESPATA
                 </a>
               </li>
             </ul>

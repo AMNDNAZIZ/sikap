@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Controllers\Admin;
 
@@ -707,7 +707,7 @@ class Updater extends BaseController
         exec("cd /d \"{$rootPath}\" && {$git} push origin main 2>&1", $pushOriginResult, $pushOriginCode);
         log_message('info', '[GenerateManifest] Push to origin: ' . implode("\n", $pushOriginResult ?? []));
 
-        // Step 4: Push orphan ke update repo (Sakajaya/sikap-update)
+        // Step 4: Push orphan ke update repo (Sakajaya/espata-update)
         $pushResult = $this->pushToUpdateRepo();
 
         $message = 'Manifest berhasil digenerate: ' . count($files) . ' file (v' . $syncedVersion . ').';
@@ -715,9 +715,9 @@ class Updater extends BaseController
             $message .= ' ✅ Sinkron dengan origin.';
         }
         if ($pushResult['success']) {
-            $message .= ' ✅ Push ke sikap-update berhasil.';
+            $message .= ' ✅ Push ke espata-update berhasil.';
         } else {
-            $message .= ' ⚠️ Push ke sikap-update gagal: ' . $pushResult['error'];
+            $message .= ' ⚠️ Push ke espata-update gagal: ' . $pushResult['error'];
         }
 
         return redirect()->back()->with($pushResult['success'] ? 'success' : 'warning', $message);
@@ -790,7 +790,7 @@ class Updater extends BaseController
     }
 
     /**
-     * Push current state ke repo sikap-update sebagai orphan commit.
+     * Push current state ke repo espata-update sebagai orphan commit.
      */
     private function pushToUpdateRepo(): array
     {

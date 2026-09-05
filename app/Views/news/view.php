@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= esc($article['title']) ?> - <?= $school['name'] ?? 'SIKAP' ?></title>
+    <title><?= esc($article['title']) ?> - <?= $school['name'] ?? 'ESPATA' ?></title>
 
     <!-- SEO Meta Tags -->
     <?php $description = strip_tags(character_limiter($article['content'], 160)); ?>
@@ -18,7 +18,7 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="article">
     <meta property="og:url" content="<?= current_url() ?>">
-    <meta property="og:title" content="<?= esc($article['title']) ?> - <?= $school['name'] ?? 'SIKAP' ?>">
+    <meta property="og:title" content="<?= esc($article['title']) ?> - <?= $school['name'] ?? 'ESPATA' ?>">
     <meta property="og:description" content="<?= esc($description) ?>">
     <meta property="og:image"
         content="<?= $article['image'] ? base_url('uploads/articles/' . $article['image']) : base_url('uploads/logo/' . ($school['logo'] ?? '')) ?>">
@@ -26,7 +26,7 @@
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="<?= current_url() ?>">
-    <meta property="twitter:title" content="<?= esc($article['title']) ?> - <?= $school['name'] ?? 'SIKAP' ?>">
+    <meta property="twitter:title" content="<?= esc($article['title']) ?> - <?= $school['name'] ?? 'ESPATA' ?>">
     <meta property="twitter:description" content="<?= esc($description) ?>">
     <meta property="twitter:image"
         content="<?= $article['image'] ? base_url('uploads/articles/' . $article['image']) : base_url('uploads/logo/' . ($school['logo'] ?? '')) ?>">
@@ -128,7 +128,7 @@
                 <?php else: ?>
                     <i class="bi bi-book-half me-2"></i>
                 <?php endif; ?>
-                <?= $school['name'] ?? 'SIKAP' ?>
+                <?= $school['name'] ?? 'ESPATA' ?>
             </a>
             <div class="ms-auto">
                 <a href="<?= base_url('berita') ?>" class="btn btn-outline-primary rounded-pill px-4">Kembali ke
@@ -213,7 +213,7 @@
         <div class="container text-center">
             <p class="mb-0">&copy;
                 <?= date('Y') ?>
-                <?= $school['name'] ?? 'SIKAP' ?>. All rights reserved.
+                <?= $school['name'] ?? 'ESPATA' ?>. All rights reserved.
             </p>
         </div>
     </footer>

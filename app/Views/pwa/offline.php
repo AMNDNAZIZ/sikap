@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Offline -
-        <?= esc($school['name'] ?? 'SIKAP') ?>
+        <?= esc($school['name'] ?? 'ESPATA') ?>
     </title>
     <style>
         * {
@@ -102,7 +102,7 @@
         <div class="icon">📡</div>
         <h1>Tidak Ada Koneksi</h1>
         <p>Maaf, Anda sedang offline. Aplikasi
-            <?= esc($school['name'] ?? 'SIKAP') ?> memerlukan koneksi internet untuk berfungsi dengan baik.
+            <?= esc($school['name'] ?? 'ESPATA') ?> memerlukan koneksi internet untuk berfungsi dengan baik.
         </p>
         <div class="status">
             <span class="status-indicator"></span>
