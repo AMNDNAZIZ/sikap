@@ -1,4 +1,4 @@
-﻿<?= $this->extend('layouts/app') ?>
+<?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
 <h4 class="mb-3">Pembuatan Soal AI</h4>

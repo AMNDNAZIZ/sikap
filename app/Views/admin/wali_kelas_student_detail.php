@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // Load helpers
 helper(['url', 'form']);
 ?>

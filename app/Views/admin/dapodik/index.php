@@ -1,4 +1,4 @@
-﻿<?= $this->extend('layouts/app') ?>
+<?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
 <div class="d-flex justify-content-between mb-3">
