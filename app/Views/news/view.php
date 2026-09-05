@@ -126,7 +126,7 @@
                 <?php if (!empty($school['logo'])): ?>
                     <img src="<?= base_url('uploads/logo/' . $school['logo']) ?>" height="40" class="me-2" alt="Logo">
                 <?php else: ?>
-                    <img src="<?= base_url('assets/images/espata-logo.png') ?>" alt="ESPATA" style="height:34px; width:auto;">
+                    <img src="<?= base_url('uploads/logo/espata.png') ?>" alt="ESPATA" style="height:34px; width:auto;">
                 <?php endif; ?>
             </a>
             <div class="ms-auto">

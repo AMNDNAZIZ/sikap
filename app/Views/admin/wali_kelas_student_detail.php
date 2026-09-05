@@ -67,7 +67,7 @@ helper(['url', 'form']);
           ⇔
         </button>
         <a class="navbar-brand" href="<?= base_url('/dashboard') ?>">
-          <img src="<?= base_url('assets/images/espata-logo.png') ?>"
+          <img src="<?= base_url('uploads/logo/espata.png') ?>"
                alt="ESPATA" style="height:32px; width:auto;">
         </a>
         <div class="ms-auto">

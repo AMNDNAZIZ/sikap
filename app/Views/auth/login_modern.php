@@ -275,7 +275,7 @@
         <?php if (!empty($school['logo'])): ?>
           <img src="<?= base_url('uploads/logo/' . $school['logo']) ?>" alt="Logo">
         <?php else: ?>
-          <img src="<?= base_url('assets/images/espata-logo.png') ?>" alt="ESPATA"
+          <img src="<?= base_url('uploads/logo/espata.png') ?>" alt="ESPATA"
                style="max-width:200px; width:100%; height:auto; filter:brightness(0) invert(1);">
         <?php endif; ?>
       </div>
