@@ -384,7 +384,10 @@
           ⇔
         </button>
 
-        <a class="navbar-brand" href="<?= base_url('/dashboard') ?>">📘 ESPATA</a>
+        <a class="navbar-brand" href="<?= base_url('/dashboard') ?>">
+          <img src="<?= base_url('assets/images/espata-logo.png') ?>"
+               alt="ESPATA" style="height:32px; width:auto;">
+        </a>
         <div class="ms-auto d-flex align-items-center gap-2">
           <?php if (session()->has('user')): ?>
 

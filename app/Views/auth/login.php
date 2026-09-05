@@ -275,11 +275,14 @@
         <?php if (!empty($school['logo'])): ?>
           <img src="<?= base_url('uploads/logo/' . $school['logo']) ?>" alt="Logo">
         <?php else: ?>
-          <i class="bi bi-mortarboard-fill"></i>
+          <img src="<?= base_url('assets/images/espata-logo.png') ?>" alt="ESPATA"
+               style="max-width:200px; width:100%; height:auto;">
         <?php endif; ?>
       </div>
-      <div class="brand-school"><?= esc($school['name'] ?? 'ESPATA') ?></div>
-      <div class="brand-sub">School Management Platform</div>
+      <?php if (!empty($school['logo'])): ?>
+        <div class="brand-school"><?= esc($school['name'] ?? 'ESPATA') ?></div>
+        <div class="brand-sub">School Management Platform</div>
+      <?php endif; ?>
 
       <div class="features" style="margin-top:2rem;">
         <div class="feat">

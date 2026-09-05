@@ -249,9 +249,8 @@
         <?php if (!empty($school['logo'])): ?>
           <img src="<?= base_url('uploads/logo/' . $school['logo']) ?>" height="40" class="me-2" alt="Logo">
         <?php else: ?>
-          <i class="bi bi-book-half me-2"></i>
+          <img src="<?= base_url('assets/images/espata-logo.png') ?>" alt="ESPATA" style="height:36px; width:auto;">
         <?php endif; ?>
-        <?= $school['name'] ?? 'ESPATA' ?>
       </a>
       <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse"
         data-bs-target="#navbarNav">
@@ -724,8 +723,11 @@
       <div class="row g-5">
         <div class="col-lg-4">
           <a href="#" class="footer-logo">
-            <i class="bi bi-book-half me-2"></i>
-            <?= $school['name'] ?? 'ESPATA' ?>
+            <?php if (!empty($school['logo'])): ?>
+              <img src="<?= base_url('uploads/logo/' . $school['logo']) ?>" alt="Logo" style="height:40px; width:auto;">
+            <?php else: ?>
+              <img src="<?= base_url('assets/images/espata-logo.png') ?>" alt="ESPATA" style="height:36px; width:auto; filter:brightness(0) invert(1);">
+            <?php endif; ?>
           </a>
           <p class="footer-text-muted mb-4">
             <?= esc($school['address'] ?? 'Alamat sekolah belum diatur di menu Identitas Sekolah.') ?>
@@ -799,7 +801,7 @@
       <div class="text-center footer-text-muted small mt-4">
         &copy;
         <?= date('Y') ?>
-        <?= esc($school['name'] ?? 'ESPATA') ?>. All rights reserved. School Management Platform.
+        <?= esc($school['name'] ?? 'ESPATA') ?>. All rights reserved. School Management Platform. by <a href="https://sakasalika.com">SakaSalika</a>
       </div>
     </div>
   </footer>

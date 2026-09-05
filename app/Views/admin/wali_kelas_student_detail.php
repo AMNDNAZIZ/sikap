@@ -66,7 +66,10 @@ helper(['url', 'form']);
         <button id="sidebarToggle" class="btn btn-outline-secondary d-none d-lg-inline me-2">
           ⇔
         </button>
-        <a class="navbar-brand" href="<?= base_url('/dashboard') ?>">📘 ESPATA</a>
+        <a class="navbar-brand" href="<?= base_url('/dashboard') ?>">
+          <img src="<?= base_url('assets/images/espata-logo.png') ?>"
+               alt="ESPATA" style="height:32px; width:auto;">
+        </a>
         <div class="ms-auto">
           <?php if (session()->has('user')): ?>
             <a href="<?= base_url('logout') ?>" class="btn btn-sm btn-outline-danger">Logout</a>
