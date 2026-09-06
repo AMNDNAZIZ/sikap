@@ -492,6 +492,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('materials/progress-detail/(:num)', 'Materials::progressDetail/$1', $auth123);
     $routes->get('materials/show/(:num)',     'Materials::show/$1',        $auth123);
     $routes->post('materials/upload-image',   'Materials::uploadImage',    $auth123);
+    $routes->post('materials/sync-atp/(:num)', 'Materials::syncFromAtp/$1', $auth123);
 
     $routes->get('student-notes', 'StudentNotes::index', $auth123);
     $routes->get('student-notes/show/(:num)', 'StudentNotes::show/$1', $auth123);

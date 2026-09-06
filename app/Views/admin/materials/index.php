@@ -16,10 +16,18 @@
        class="btn btn-sm btn-outline-secondary">
       <i class="bi bi-bar-chart me-1"></i>Progress
     </a>
-    <a href="<?= site_url('admin/materials/create/' . $subject['id']) ?>"
-       class="btn btn-sm btn-primary">
-      <i class="bi bi-folder-plus me-1"></i>Tambah Materi
-    </a>
+    <button type="button" id="btnSyncAtp" class="btn btn-sm btn-primary">
+      <i class="bi bi-arrow-repeat me-1"></i>Sinkron Materi dari ATP
+    </button>
+  </div>
+</div>
+
+<div class="alert alert-info border-0 py-2 small mb-3 d-flex align-items-start gap-2">
+  <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+  <div>
+    <strong>Materi</strong> otomatis diambil dari <strong>ATP</strong> (Alur Tujuan Pembelajaran) yang sudah Anda buat.
+    Tugas Anda adalah menambahkan <strong>Sub Materi</strong> (pertemuan) pada setiap materi, lalu mempublikasikannya ke kelas.
+    Jika materi belum muncul, klik <strong>Sinkron Materi dari ATP</strong>.
   </div>
 </div>
 
@@ -33,9 +41,12 @@
 <?php if (empty($hierarchy)): ?>
   <div class="text-center py-5 text-muted">
     <i class="bi bi-folder2 fs-1 d-block mb-2 opacity-40"></i>
-    <p class="mb-2">Belum ada materi.</p>
-    <a href="<?= site_url('admin/materials/create/' . $subject['id']) ?>"
-       class="btn btn-sm btn-primary">Tambah Materi Pertama</a>
+    <p class="mb-2">Belum ada materi dari ATP untuk mapel ini.</p>
+    <p class="small">Pastikan Anda sudah membuat <strong>ATP (Alur Tujuan Pembelajaran)</strong>
+       untuk mata pelajaran ini, lalu klik tombol Sinkron di atas.</p>
+    <button type="button" id="btnSyncAtpEmpty" class="btn btn-sm btn-primary">
+      <i class="bi bi-arrow-repeat me-1"></i>Sinkron Materi dari ATP
+    </button>
   </div>
 <?php else: ?>
 
@@ -65,18 +76,9 @@
         </div>
         <div class="d-flex gap-1">
           <a href="<?= site_url('admin/materials/create/' . $subject['id'] . '?parent_id=' . $parent['id']) ?>"
-             class="btn btn-sm btn-outline-primary py-0 px-2" title="Tambah Sub Materi" style="font-size:0.78rem;">
+             class="btn btn-sm btn-primary py-0 px-2" title="Tambah Sub Materi (Pertemuan)" style="font-size:0.78rem;">
             <i class="bi bi-plus-circle me-1"></i>Sub Materi
           </a>
-          <a href="<?= site_url('admin/materials/edit/' . $parent['id']) ?>"
-             class="btn btn-sm btn-outline-warning py-0 px-2" title="Edit">
-            <i class="bi bi-pencil"></i>
-          </a>
-          <button class="btn btn-sm btn-outline-danger py-0 px-2 btn-delete"
-                  data-id="<?= $parent['id'] ?>" data-title="<?= esc($parent['title']) ?>"
-                  title="Hapus Materi & semua Sub Materi">
-            <i class="bi bi-trash"></i>
-          </button>
         </div>
       </div>
 
@@ -215,7 +217,6 @@
     btn.addEventListener('click', function(){
       delId = this.dataset.id;
       document.getElementById('delTitle').textContent = this.dataset.title;
-      // Cek apakah tombol ada di card-header (= materi induk)
       var isParent = !!this.closest('.card-header');
       document.getElementById('delWarn').classList.toggle('d-none', !isParent);
       modal.show();
@@ -238,6 +239,38 @@
       } else { alert(d.message); }
     });
   });
+
+  // ── Sinkron dari ATP ──────────────────────────────────────────────
+  function doSyncAtp(btn) {
+    var original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Menyinkronkan...';
+
+    fetch('<?= site_url('admin/materials/sync-atp/' . $subject['id']) ?>', {
+      method: 'POST',
+      headers: {'Content-Type':'application/x-www-form-urlencoded','X-Requested-With':'XMLHttpRequest'},
+      body: '<?= $csrfName ?>=<?= $csrfHash ?>'
+    }).then(r => r.json()).then(function(d){
+      if (d.success) {
+        // Reload agar materi baru muncul
+        location.reload();
+      } else {
+        alert(d.message || 'Gagal sinkron.');
+        btn.disabled = false;
+        btn.innerHTML = original;
+      }
+    }).catch(function(){
+      alert('Terjadi kesalahan koneksi.');
+      btn.disabled = false;
+      btn.innerHTML = original;
+    });
+  }
+
+  var btnSync = document.getElementById('btnSyncAtp');
+  if (btnSync) btnSync.addEventListener('click', function(){ doSyncAtp(this); });
+
+  var btnSyncEmpty = document.getElementById('btnSyncAtpEmpty');
+  if (btnSyncEmpty) btnSyncEmpty.addEventListener('click', function(){ doSyncAtp(this); });
 })();
 </script>
 <?= $this->endSection() ?>

@@ -15,13 +15,11 @@
   <div class="alert alert-danger py-2 small"><?= esc(session()->getFlashdata('error')) ?></div>
 <?php endif; ?>
 
-<?php if ($parent): ?>
-  <div class="alert alert-info py-2 small mb-3">
-    <i class="bi bi-folder2-open me-2"></i>
-    Sub Materi dari: <strong><?= esc($parent['title']) ?></strong>
-    (Level <?= $parent['level'] ?> &middot; Sem <?= $parent['semester'] == 1 ? 'Ganjil' : 'Genap' ?>)
-  </div>
-<?php endif; ?>
+<div class="alert alert-info py-2 small mb-3">
+  <i class="bi bi-info-circle me-2"></i>
+  Sub Materi adalah <strong>pertemuan</strong> dari sebuah Materi. Setiap Sub Materi akan otomatis
+  memiliki Forum Diskusi, dan bisa dilengkapi Kuis Mandiri.
+</div>
 
 <div class="card shadow-sm border-0">
   <div class="card-body">
@@ -29,54 +27,52 @@
       <?= csrf_field() ?>
       <input type="hidden" name="subject_id" value="<?= $subject['id'] ?>">
       <input type="hidden" name="year_id"    value="<?= $activeYear['id'] ?? '' ?>">
-      <?php if ($parent): ?>
-        <input type="hidden" name="parent_id" value="<?= $parent['id'] ?>">
-        <input type="hidden" name="level"     value="<?= $parent['level'] ?>">
-      <?php endif; ?>
       <?php if (!empty($returnUrl)): ?>
         <input type="hidden" name="return" value="<?= esc($returnUrl) ?>">
       <?php endif; ?>
 
       <div class="row g-3">
 
-        <!-- Level (hanya untuk Materi induk) -->
-        <?php if (!$parent): ?>
-        <div class="col-md-4">
-          <label class="form-label small fw-semibold">Level Kelas <span class="text-danger">*</span></label>
-          <select name="level" class="form-select form-select-sm" required>
-            <option value="0">Semua Level</option>
-            <?php foreach ($levels as $lv): ?>
-              <option value="<?= $lv ?>" <?= old('level') == $lv ? 'selected' : '' ?>>
-                Kelas <?= $lv ?>
+        <!-- Pilih Materi Induk (dari ATP) -->
+        <div class="col-12">
+          <label class="form-label small fw-semibold">Materi <span class="text-danger">*</span></label>
+          <select name="parent_id" class="form-select form-select-sm" required>
+            <option value="">-- Pilih Materi --</option>
+            <?php foreach ($parents as $p): ?>
+              <?php
+                $pSem = $p['semester'] == 1 ? 'Ganjil' : 'Genap';
+                $pLvl = \App\Models\SubjectMaterialModel::getLevelLabel((int)$p['level']);
+              ?>
+              <option value="<?= $p['id'] ?>"
+                      <?= ($parentId == $p['id'] || old('parent_id') == $p['id']) ? 'selected' : '' ?>>
+                <?= esc($p['title']) ?> (<?= $pLvl ?> · <?= $pSem ?>)
               </option>
             <?php endforeach; ?>
           </select>
-          <div class="form-text">Level kelas yang menggunakan materi ini.</div>
-        </div>
-        <?php endif; ?>
-
-        <!-- Semester -->
-        <div class="col-md-<?= $parent ? '4' : '4' ?>">
-          <label class="form-label small fw-semibold">Semester <span class="text-danger">*</span></label>
-          <select name="semester" class="form-select form-select-sm" required>
-            <option value="1" <?= old('semester') == '1' ? 'selected' : '' ?>>Ganjil</option>
-            <option value="2" <?= old('semester') == '2' ? 'selected' : '' ?>>Genap</option>
-          </select>
+          <div class="form-text">Materi diambil otomatis dari ATP. Pilih materi tempat sub materi ini berada.</div>
         </div>
 
         <!-- Urutan -->
-        <div class="col-md-4">
-          <label class="form-label small fw-semibold">Urutan Tampil</label>
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold">Urutan Pertemuan</label>
           <input type="number" name="sort_order" class="form-control form-control-sm"
-                 min="0" value="<?= old('sort_order', 0) ?>">
+                 min="0" value="<?= old('sort_order', 0) ?>" placeholder="cth: 1">
+          <div class="form-text">Urutan tampil (1 = pertemuan pertama).</div>
         </div>
 
-        <!-- Judul -->
+        <!-- Estimasi Waktu -->
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold">Estimasi Waktu (menit)</label>
+          <input type="number" name="estimated_minutes" class="form-control form-control-sm"
+                 min="1" max="300" value="<?= old('estimated_minutes') ?>" placeholder="cth: 30">
+        </div>
+
+        <!-- Judul Sub Materi -->
         <div class="col-12">
-          <label class="form-label small fw-semibold">Judul <?= $parent ? 'Sub ' : '' ?>Materi <span class="text-danger">*</span></label>
+          <label class="form-label small fw-semibold">Judul Sub Materi <span class="text-danger">*</span></label>
           <input type="text" name="title" class="form-control form-control-sm"
                  value="<?= old('title') ?>" required
-                 placeholder="<?= $parent ? 'cth: Pertemuan 1 — Pengenalan Variabel' : 'cth: Persamaan Linear Satu Variabel' ?>">
+                 placeholder="cth: Pertemuan 1 — Pengenalan Konsep">
         </div>
 
         <!-- Deskripsi singkat -->
@@ -86,8 +82,7 @@
                     placeholder="Ringkasan singkat (tampil di daftar)"><?= old('description') ?></textarea>
         </div>
 
-        <?php if ($parent): ?>
-        <!-- Konten (hanya untuk Sub Materi) -->
+        <!-- Konten Sub Materi -->
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Tipe Konten <span class="text-danger">*</span></label>
           <select name="content_type" id="contentType" class="form-select form-select-sm" required>
@@ -124,20 +119,14 @@
           <input type="url" name="external_link" class="form-control form-control-sm"
                  value="<?= old('external_link') ?>" placeholder="https://...">
         </div>
-        <?php endif; ?>
 
-        <!-- Publikasi status materi (is_published = materi "siap") -->
+        <!-- Publikasi status sub materi (is_published = sub materi "siap") -->
         <div class="col-12">
           <div class="form-check form-switch">
             <input class="form-check-input" type="checkbox" name="is_published" id="isPublished"
                    <?= old('is_published') ? 'checked' : '' ?>>
             <label class="form-check-label small" for="isPublished">
-              <strong>Tandai sebagai siap</strong>
-              <?php if ($parent): ?>
-                — sub materi bisa dipublish ke kelas
-              <?php else: ?>
-                — materi bisa dibuat sub materinya
-              <?php endif; ?>
+              <strong>Tandai sebagai siap</strong> — sub materi bisa dipublikasikan ke kelas
             </label>
           </div>
         </div>
@@ -157,7 +146,6 @@
 
 <?= $this->endSection() ?>
 <?= $this->section('scripts') ?>
-<?php if ($parent): ?>
 <script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
 <script>
 (function(){
@@ -259,5 +247,4 @@
   switchPanel('text');
 })();
 </script>
-<?php endif; ?>
 <?= $this->endSection() ?>

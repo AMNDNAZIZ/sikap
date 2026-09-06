@@ -145,6 +145,11 @@ class Materials extends BaseController
         $subject    = $this->subjectModel->find($subjectId);
         $year       = $this->activeYear();
         $yearId     = (int)($year['id'] ?? 0);
+
+        // Auto-sync ATP → subject_materials setiap kali halaman dibuka
+        // Ini memastikan materi induk selalu sesuai ATP terbaru
+        $this->_doSyncFromAtp($subjectId, $yearId);
+
         $hierarchy  = $this->mat->getAllWithHierarchy($subjectId);
 
         // Progress summary (hanya sub materi)
@@ -168,6 +173,96 @@ class Materials extends BaseController
             'returnUrl'   => $this->request->getGet('return'),
             'activeYear'  => $year,
         ]);
+    }
+
+    // =========================================================
+    // SYNC FROM ATP — sinkronkan ATP → subject_materials
+    // POST /admin/materials/sync-atp/{subjectId}
+    // =========================================================
+    public function syncFromAtp(int $subjectId)
+    {
+        $year   = $this->activeYear();
+        $yearId = (int)($year['id'] ?? 0);
+        $count  = $this->_doSyncFromAtp($subjectId, $yearId);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'synced'  => $count,
+            'message' => $count > 0
+                ? "{$count} materi baru disinkronkan dari ATP."
+                : 'Semua materi ATP sudah tersinkronkan.',
+        ]);
+    }
+
+    /**
+     * Core sync: buat baris subject_materials (parent_id=NULL) dari ATP
+     * yang belum ada. Materi yang sudah ada (title+subject+year+level sama) dilewati.
+     * Return jumlah baris baru yang dibuat.
+     */
+    private function _doSyncFromAtp(int $subjectId, int $yearId): int
+    {
+        // Ambil semua ATP untuk mapel ini beserta level kelasnya
+        $atpRows = $this->db->table('alur_tujuan_pembelajaran atp')
+            ->select('atp.id as atp_id, atp.lingkup_materi, atp.semester, c.level as class_level')
+            ->join('classes c', 'c.id = atp.class_id', 'left')
+            ->where('atp.subject_id', $subjectId)
+            ->orderBy('c.level', 'ASC')
+            ->orderBy('atp.semester', 'ASC')
+            ->orderBy('atp.id', 'ASC')
+            ->get()->getResultArray();
+
+        if (empty($atpRows)) return 0;
+
+        // Deduplikasi ATP: satu level+semester+lingkup_materi = satu materi induk
+        // (hindari duplikat jika ATP sama ada di kelas 7A dan 7B)
+        $seen = [];
+        $unique = [];
+        foreach ($atpRows as $row) {
+            $key = $row['class_level'] . '|' . $row['semester'] . '|' . mb_strtolower(trim($row['lingkup_materi']));
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $unique[]   = $row;
+            }
+        }
+
+        // Ambil materi induk yang sudah ada untuk mapel+tahun ini
+        $existing = $this->db->table('subject_materials')
+            ->select('LOWER(TRIM(title)) as title_lower, level, semester')
+            ->where('subject_id', $subjectId)
+            ->where('year_id',    $yearId)
+            ->where('parent_id IS NULL')
+            ->get()->getResultArray();
+
+        $existingKeys = [];
+        foreach ($existing as $e) {
+            $existingKeys[$e['level'] . '|' . $e['semester'] . '|' . $e['title_lower']] = true;
+        }
+
+        $created = 0;
+        foreach ($unique as $atp) {
+            $level    = (int)($atp['class_level'] ?? 0);
+            $semester = $atp['semester'];
+            $title    = trim($atp['lingkup_materi']);
+            $checkKey = $level . '|' . $semester . '|' . mb_strtolower($title);
+
+            if (isset($existingKeys[$checkKey])) continue; // sudah ada
+
+            $this->mat->insert([
+                'parent_id'    => null,
+                'level'        => $level,
+                'subject_id'   => $subjectId,
+                'year_id'      => $yearId,
+                'semester'     => $semester,
+                'title'        => $title,
+                'is_published' => 1,    // materi induk dari ATP langsung siap
+                'created_by'   => $this->userId(),
+                'sort_order'   => 0,
+            ]);
+            $existingKeys[$checkKey] = true; // tandai agar tidak duplikat dalam loop
+            $created++;
+        }
+
+        return $created;
     }
 
     // =========================================================
@@ -254,32 +349,35 @@ class Materials extends BaseController
     }
 
     // =========================================================
-    // CREATE
+    // CREATE — hanya untuk Sub Materi
+    // Materi induk dibuat otomatis dari ATP via syncFromAtp()
     // =========================================================
     public function create(int $subjectId)
     {
-        $subject    = $this->subjectModel->find($subjectId);
-        $year       = $this->activeYear();
-        $yearId     = (int)($year['id'] ?? 0);
-        $parentId   = (int)($this->request->getGet('parent_id') ?? 0);
-        $parent     = $parentId ? $this->mat->find($parentId) : null;
+        $subject  = $this->subjectModel->find($subjectId);
+        $year     = $this->activeYear();
+        $yearId   = (int)($year['id'] ?? 0);
+        $parentId = (int)($this->request->getGet('parent_id') ?? 0);
+        $parent   = $parentId ? $this->mat->find($parentId) : null;
 
-        // Level-level yang diajar guru ini untuk mapel ini
-        $levels = $this->getLevelsForSubject($subjectId, $yearId);
-        sort($levels);
-
-        // Daftar materi induk yang bisa jadi parent
+        // Hanya sub materi yang boleh dibuat manual
+        // Daftar materi induk (dari ATP) sebagai pilihan parent
         $parents = $this->mat->getParentsBySubject($subjectId, $yearId);
 
+        if (empty($parents)) {
+            return redirect()->to('admin/materials/' . $subjectId)
+                ->with('error', 'Belum ada materi dari ATP. Pastikan ATP sudah diisi terlebih dahulu.');
+        }
+
         return view('admin/materials/create', [
-            'title'     => $parent ? 'Tambah Sub Materi' : 'Tambah Materi',
-            'subject'   => $subject,
-            'activeYear'=> $year,
-            'returnUrl' => $this->request->getGet('return'),
-            'parentId'  => $parentId,
-            'parent'    => $parent,
-            'parents'   => $parents,
-            'levels'    => $levels,
+            'title'      => 'Tambah Sub Materi',
+            'subject'    => $subject,
+            'activeYear' => $year,
+            'returnUrl'  => $this->request->getGet('return'),
+            'parentId'   => $parentId,
+            'parent'     => $parent,
+            'parents'    => $parents,
+            'levels'     => [],   // level diambil dari parent yang dipilih
         ]);
     }
 
@@ -290,6 +388,13 @@ class Materials extends BaseController
     {
         $data     = $this->request->getPost();
         $parentId = !empty($data['parent_id']) ? (int)$data['parent_id'] : null;
+
+        // Materi induk hanya boleh dibuat via sync ATP, tidak manual
+        if (!$parentId) {
+            return redirect()->back()->withInput()
+                ->with('error', 'Materi induk dibuat otomatis dari ATP. Pilih Materi (parent) terlebih dahulu untuk membuat Sub Materi.');
+        }
+
         $filePath = null;
 
         // Upload PDF
