@@ -678,14 +678,45 @@ class SubjectMaterialModel extends Model
         };
     }
 
+    /**
+     * Ubah berbagai format URL video menjadi URL embed yang bisa dimuat di iframe.
+     * Mendukung YouTube (watch, youtu.be, shorts, live, embed) dan Vimeo.
+     */
     public static function toEmbedUrl(string $url): string
     {
-        if (preg_match('/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/', $url, $m)) {
-            return 'https://www.youtube.com/embed/' . $m[1] . '?rel=0';
+        $url = trim($url);
+        if ($url === '') return '';
+
+        // ── YouTube ───────────────────────────────────────────────────────
+        // Tangkap 11-karakter video ID dari berbagai format:
+        //   youtube.com/watch?v=ID   (v bisa di posisi mana saja di query)
+        //   youtu.be/ID
+        //   youtube.com/embed/ID
+        //   youtube.com/shorts/ID
+        //   youtube.com/live/ID
+        //   youtube.com/v/ID
+        $ytPatterns = [
+            '/[?&]v=([A-Za-z0-9_-]{11})/',                    // watch?v=ID atau ...&v=ID
+            '/youtu\.be\/([A-Za-z0-9_-]{11})/',               // youtu.be/ID
+            '/youtube\.com\/embed\/([A-Za-z0-9_-]{11})/',     // /embed/ID
+            '/youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/',    // /shorts/ID
+            '/youtube\.com\/live\/([A-Za-z0-9_-]{11})/',      // /live/ID
+            '/youtube\.com\/v\/([A-Za-z0-9_-]{11})/',         // /v/ID
+        ];
+        if (stripos($url, 'youtube.com') !== false || stripos($url, 'youtu.be') !== false) {
+            foreach ($ytPatterns as $pat) {
+                if (preg_match($pat, $url, $m)) {
+                    return 'https://www.youtube.com/embed/' . $m[1] . '?rel=0';
+                }
+            }
         }
-        if (preg_match('/vimeo\.com\/(\d+)/', $url, $m)) {
+
+        // ── Vimeo ───────────────────────────────────────────────────────────
+        if (preg_match('/vimeo\.com\/(?:video\/)?(\d+)/', $url, $m)) {
             return 'https://player.vimeo.com/video/' . $m[1];
         }
+
+        // Jika sudah URL embed atau format lain, kembalikan apa adanya
         return $url;
     }
 

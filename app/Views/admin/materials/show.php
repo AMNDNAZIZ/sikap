@@ -109,15 +109,29 @@
       <?php endif; ?>
 
     <?php elseif ($contentType === 'video'): ?>
-      <?php if (!empty($subMat['embed_url'])): ?>
+      <?php
+        $embedUrl = $subMat['embed_url'] ?? '';
+        // Video bisa di-embed jika URL mengarah ke /embed/ (YouTube) atau player.vimeo
+        $canEmbed = $embedUrl && (strpos($embedUrl, '/embed/') !== false
+                    || strpos($embedUrl, 'player.vimeo.com') !== false);
+      ?>
+      <?php if ($canEmbed): ?>
         <div class="ratio ratio-16x9 mb-3">
-          <iframe src="<?= esc($subMat['embed_url']) ?>"
+          <iframe src="<?= esc($embedUrl) ?>"
                   title="<?= esc($subMat['title']) ?>" allowfullscreen class="rounded border"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
           </iframe>
         </div>
+      <?php elseif (!empty($subMat['video_url'])): ?>
+        <div class="alert alert-warning border-0 small">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          Video tidak dapat diputar langsung di halaman ini.
+          <a href="<?= esc($subMat['video_url']) ?>" target="_blank" rel="noopener noreferrer" class="fw-semibold">
+            Buka video di tab baru &rarr;
+          </a>
+        </div>
       <?php else: ?>
-        <p class="text-muted fst-italic">URL video tidak valid.</p>
+        <p class="text-muted fst-italic">URL video belum diisi.</p>
       <?php endif; ?>
       <?php if (!empty($subMat['description'])): ?>
         <div class="text-muted small mt-2"><?= nl2br(esc($subMat['description'])) ?></div>
