@@ -1,6 +1,6 @@
 {
     "version": "2.0.0",
-    "generated": "2026-09-07 00:01:41",
+    "generated": "2026-09-07 00:13:53",
     "last_update": "2026-09-03 00:00",
     "total_files": 867,
     "files": {
@@ -95,7 +95,7 @@
         "app/Controllers/Admin/KartuPeserta.php": "7a31b84672d7cea46370467a4f72e861",
         "app/Controllers/Admin/Kokurikuler.php": "604cb3d7ed05365f4a2e3b7ad255a96e",
         "app/Controllers/Admin/MapelMaster.php": "0d2839d2596124dd8a342e7be4aede87",
-        "app/Controllers/Admin/Materials.php": "da74c1be361886b3bf1d96fb22b5d89c",
+        "app/Controllers/Admin/Materials.php": "a786516956f0b6fafc14279e8a7769f8",
         "app/Controllers/Admin/Placement.php": "fca788aaf1a5c90c65e5d5737fe7fcb4",
         "app/Controllers/Admin/Promotions.php": "48040a584a352649305d34709f1be7d5",
         "app/Controllers/Admin/Quiz.php": "885a93a63e160fbb1e360488f46c1240",
@@ -319,7 +319,7 @@
         "app/Models/StudentNoteBehaviorModel.php": "347022be6d29bc9256b63423e452b6d0",
         "app/Models/StudentNoteModel.php": "c76c1e3a740ffdfbb32d6d14fbe16a77",
         "app/Models/StudentRecordModel.php": "fdf7d10d4ac324fbb6f079cf774e72fb",
-        "app/Models/SubjectMaterialModel.php": "b68c999b099500e087c973af334ccdd8",
+        "app/Models/SubjectMaterialModel.php": "9955768dca78992bd6a1fffe9345dd89",
         "app/Models/SubjectModel.php": "846e0c7cc8b8beb0e5a98985da3b756b",
         "app/Models/SubjectScoreModel.php": "137c344b9b8b0bd027d7a32ec9d94147",
         "app/Models/SubjectWeightModel.php": "7c92234393ff374d23ee613c213e121b",
