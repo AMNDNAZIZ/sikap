@@ -1,6 +1,26 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
+<!-- MathJax untuk render LaTeX matematika -->
+<script>
+window.MathJax = {
+    tex: {
+        inlineMath:  [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true,
+        packages: {'[+]': ['ams', 'boldsymbol']}
+    },
+    options: {
+        skipHtmlTags: ['script','noscript','style','textarea','pre'],
+        processHtmlClass: 'math-content'
+    },
+    startup: {
+        typeset: false   // jangan typeset seluruh halaman otomatis — hanya render saat diperlukan
+    }
+};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.min.js"></script>
+
 <h4 class="mb-3">Pembuatan Soal AI</h4>
 
 <?php if (session()->getFlashdata('error')): ?>
@@ -327,29 +347,81 @@ function renderHasil(soal) {
     // Normalisasi tipe di data soal sebelum render
     soal.forEach(s => { s.type = normalizeType(s.type); });
 
+    /**
+     * Escape HTML tapi pertahankan delimiter LaTeX agar MathJax bisa memprosesnya.
+     * Urutan penting: tangani $$ sebelum $, dan \(...\) sebelum lainnya.
+     */
+    function renderMath(text) {
+        if (!text) return '';
+        // Pisahkan teks menjadi segmen: LaTeX dan non-LaTeX
+        // Pola: $$...$$, $...$, \[...\], \(...\)
+        const segments = [];
+        const pattern = /(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/g;
+        let lastIdx = 0, match;
+
+        while ((match = pattern.exec(text)) !== null) {
+            // Bagian teks biasa sebelum LaTeX — escape HTML
+            if (match.index > lastIdx) {
+                segments.push('<span>' + escHtml(text.slice(lastIdx, match.index)) + '</span>');
+            }
+            // Bagian LaTeX — bungkus dengan span khusus, TIDAK di-escape
+            segments.push('<span class="math-tex">' + match[0] + '</span>');
+            lastIdx = match.index + match[0].length;
+        }
+        // Sisa teks setelah LaTeX terakhir
+        if (lastIdx < text.length) {
+            segments.push('<span>' + escHtml(text.slice(lastIdx)) + '</span>');
+        }
+        return segments.length > 0 ? segments.join('') : escHtml(text);
+    }
+
+    function escHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
     container.innerHTML = soal.map((s, i) => {
         let html = `<div class="list-group-item">
-            <div class="d-flex justify-content-between">
-                <div class="fw-bold mb-1">${i+1}. ${s.question}</div>
-                <span class="badge bg-secondary">${tipeLabel[s.type] || s.type}</span>
+            <div class="d-flex justify-content-between align-items-start mb-1">
+                <div class="fw-bold" style="flex:1">${i+1}. <span class="math-content">${renderMath(s.question)}</span></div>
+                <span class="badge bg-secondary ms-2 flex-shrink-0">${tipeLabel[s.type] || s.type}</span>
             </div>`;
 
         if (s.options) {
             html += '<div class="ms-3 small">';
             for (const [key, val] of Object.entries(s.options)) {
-                const isCorrect = s.answer && s.answer.includes(key);
-                html += `<div class="${isCorrect ? 'text-success fw-bold' : ''}">${key}. ${val} ${isCorrect ? '&#10003;' : ''}</div>`;
+                const isCorrect = s.answer && (
+                    Array.isArray(s.answer)
+                        ? s.answer.includes(key)
+                        : String(s.answer).includes(key)
+                );
+                html += `<div class="${isCorrect ? 'text-success fw-bold' : ''}">
+                    ${escHtml(key)}. <span class="math-content">${renderMath(val)}</span>
+                    ${isCorrect ? '<i class="bi bi-check-circle-fill ms-1"></i>' : ''}
+                </div>`;
             }
             html += '</div>';
         }
 
         if (s.type === 'benar_salah' || s.type === 'esai') {
-            html += `<div class="ms-3 small text-success"><b>Jawaban:</b> ${s.answer}</div>`;
+            html += `<div class="ms-3 small text-success mt-1">
+                <b>Jawaban:</b> <span class="math-content">${renderMath(String(s.answer))}</span>
+            </div>`;
+        }
+
+        if (s.explanation) {
+            html += `<div class="ms-3 small text-muted mt-1">
+                <b>Penjelasan:</b> <span class="math-content">${renderMath(s.explanation)}</span>
+            </div>`;
         }
 
         html += '</div>';
         return html;
     }).join('');
+
+    // Trigger MathJax render setelah HTML diinjeksikan
+    if (window.MathJax) {
+        MathJax.typesetPromise([container]).catch(err => console.warn('MathJax error:', err));
+    }
 
     document.getElementById('btn-save').disabled = false;
 }

@@ -102,21 +102,45 @@ class Belajar extends BaseController
             return redirect()->to('dashboard')->with('error', 'Kelas aktif tidak ditemukan.');
         }
 
-        // Ambil semua mapel yang diajarkan di kelas siswa
-        $subjects = $this->db->table('teaching_assignments ta')
+        // ── Filter tanggal — default hari ini, bisa dipilih via ?date= ─────
+        $dateParam   = $this->request->getGet('date');
+        $selectedDate = ($dateParam && strtotime($dateParam))
+            ? date('Y-m-d', strtotime($dateParam))
+            : date('Y-m-d');
+        $dayOfWeek   = (int) date('N', strtotime($selectedDate)); // 1=Senin … 7=Minggu
+
+        // ── Cek jadwal di hari yang dipilih untuk kelas ini ─────────────────
+        $todaySchedule = $this->db->table('schedules')
+            ->select('subject_id')
+            ->where('class_id',         $classId)
+            ->where('academic_year_id', $yearId)
+            ->where('day_of_week',      $dayOfWeek)
+            ->get()->getResultArray();
+
+        $scheduledSubjectIds = array_column($todaySchedule, 'subject_id');
+        $hasSchedule         = !empty($scheduledSubjectIds);
+        $showAll             = $this->request->getGet('all') === '1';
+
+        // ── Ambil semua mapel yang diajarkan di kelas siswa ─────────────────
+        $allSubjectsQuery = $this->db->table('teaching_assignments ta')
             ->select('s.id, s.name')
             ->join('subjects s', 's.id = ta.subject_id')
             ->where('ta.class_id',         $classId)
             ->where('ta.academic_year_id', $yearId)
             ->groupBy('s.id')
-            ->orderBy('s.name', 'ASC')
-            ->get()->getResultArray();
+            ->orderBy('s.name', 'ASC');
 
-        // Statistik per mapel berdasarkan publish record kelas siswa
+        // Filter per jadwal kecuali: tidak ada jadwal ATAU user minta lihat semua
+        if ($hasSchedule && !$showAll) {
+            $allSubjectsQuery->whereIn('s.id', $scheduledSubjectIds);
+        }
+
+        $subjects = $allSubjectsQuery->get()->getResultArray();
+
+        // ── Statistik per mapel ──────────────────────────────────────────────
         foreach ($subjects as &$sub) {
             $sid = $sub['id'];
 
-            // Sub materi yang dipublish ke kelas siswa ini untuk mapel ini
             $pubSubMatIds = array_column(
                 $this->db->table('subject_material_publishes smp')
                     ->select('smp.material_id')
@@ -132,7 +156,6 @@ class Belajar extends BaseController
 
             $sub['total_sub'] = count($pubSubMatIds);
 
-            // Berapa materi induk yang punya sub materi published
             $sub['total_parents'] = empty($pubSubMatIds) ? 0 :
                 $this->db->table('subject_materials')
                     ->select('parent_id')
@@ -141,7 +164,6 @@ class Belajar extends BaseController
                     ->groupBy('parent_id')
                     ->countAllResults();
 
-            // Progress
             $done = 0;
             if (!empty($pubSubMatIds)) {
                 $done = $this->db->table('material_progress')
@@ -156,10 +178,18 @@ class Belajar extends BaseController
         }
         unset($sub);
 
+        // Label nama hari Indonesia
+        $dayNames = [1=>'Senin',2=>'Selasa',3=>'Rabu',4=>'Kamis',5=>'Jumat',6=>'Sabtu',7=>'Minggu'];
+
         return view('siswa/belajar/index', [
-            'title'      => 'Proses Belajar',
-            'subjects'   => $subjects,
-            'activeYear' => $activeYear,
+            'title'        => 'Proses Belajar',
+            'subjects'     => $subjects,
+            'activeYear'   => $activeYear,
+            'selectedDate' => $selectedDate,
+            'hasSchedule'  => $hasSchedule,
+            'showAll'      => $showAll,
+            'dayName'      => $dayNames[$dayOfWeek] ?? '',
+            'isToday'      => $selectedDate === date('Y-m-d'),
         ]);
     }
 

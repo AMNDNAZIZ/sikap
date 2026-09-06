@@ -1427,7 +1427,9 @@ class AdministrasiGuru extends BaseController
                         $classIdsAtLevel = $this->getClassIdsForDocumentSearch($classLevel, (int)$classId);
                     }
 
-                    $atpResult = $this->loadAtpWithElemen((int)$subjectId, $classLevel);
+                    // Filter per kelas terpilih agar ATP tidak dobel ketika ada kelas lain di level yang sama
+                    $atpClassFilter = $isMultiGuru ? $classIdsAtLevel : [(int)$classId];
+                    $atpResult = $this->loadAtpWithElemen((int)$subjectId, $classLevel, null, $atpClassFilter ?: [(int)$classId]);
                     $atpList   = $atpResult['list'];
 
                     $modulModel = new \App\Models\ModulAjarModel();
@@ -2519,7 +2521,7 @@ class AdministrasiGuru extends BaseController
             $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
             $classLevel = (int)($classInfo['level'] ?? 0);
 
-            $atpResult = $this->loadAtpWithElemen((int)$subjectId, $classLevel);
+            $atpResult = $this->loadAtpWithElemen((int)$subjectId, $classLevel, null, [(int)$classId]);
             $data['atp_list'] = $atpResult['list'];
 
             // Bank soal milik guru ini untuk mapel ini
@@ -2680,6 +2682,13 @@ class AdministrasiGuru extends BaseController
             . "8. Hindari soal yang jawabannya 'semua benar' atau 'tidak ada yang benar'\n\n"
             . "FORMAT OUTPUT WAJIB JSON ARRAY (tanpa markdown, tanpa backtick):\n"
             . "Setiap item memiliki field: type, question, options (jika PG/PGK), answer\n"
+            . "PENULISAN MATEMATIKA: Gunakan notasi LaTeX untuk semua simbol matematika.\n"
+            . "- Inline: $...$ atau \\(...\\) — contoh: $\\frac{1}{2}$, $\\sqrt{x}$, $x^2$\n"
+            . "- Display: $$...$$ — contoh: $$\\frac{a}{b} + \\frac{c}{d}$$\n"
+            . "- Pecahan: \\frac{pembilang}{penyebut} — contoh: \\frac{3}{4}\n"
+            . "- Akar: \\sqrt{x} atau \\sqrt[n]{x}\n"
+            . "- Pangkat: x^{2} atau x^{n}\n"
+            . "- Contoh soal: \"Hitunglah nilai $\\frac{3}{4} + \\frac{1}{2}$\"\n"
             . "Contoh:\n"
             . '[{"type":"pg","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"},'
             . '{"type":"pg_kompleks","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."' . ($pgkOpsiCount == 5 ? ',"E":"..."' : '') . '},"answer":"A,C"},'
@@ -2840,6 +2849,7 @@ class AdministrasiGuru extends BaseController
             . "- PENTING (Khusus Ujian Digital / CBT): Soal akan diacak oleh sistem. Setiap soal HARUS MANDIRI. DILARANG membuat satu teks bacaan/stimulus yang digunakan untuk beberapa soal sekaligus (misal 'Untuk soal nomor 1-3'). Jika ada beberapa soal yang merujuk pada teks/stimulus yang sama, tulis ulang (copy) teks/stimulus tersebut secara utuh ke dalam field 'question' di MASING-MASING nomor soal tersebut.\n\n"
             . "FORMAT OUTPUT: JSON ARRAY (tanpa markdown/backtick)\n"
             . "Field per item: type, question, options (jika PG/PGK/BS), answer\n"
+            . "PENULISAN MATEMATIKA: Gunakan notasi LaTeX — contoh: $\\frac{1}{2}$, $\\sqrt{x}$, $x^2$, $$\\frac{a}{b}$$\n"
             . "PENTING untuk tipe benar_salah: question=stimulus utama, options={A:'pernyataan 1',B:'pernyataan 2',C:'pernyataan 3',D:'pernyataan 4'}, answer='B,S,B,S' (B=Benar, S=Salah per opsi)\n"
             . "Soal BS BUKAN pilihan ganda! Setiap opsi adalah PERNYATAAN INDEPENDEN yang dinilai B/S. Campurkan pernyataan benar dan salah.\n"
             . "Contoh:\n"
