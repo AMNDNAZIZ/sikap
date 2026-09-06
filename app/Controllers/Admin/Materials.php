@@ -115,14 +115,17 @@ class Materials extends BaseController
             $tid = $this->teacherId();
             if (!$tid) return redirect()->to('dashboard')->with('error', 'Data guru tidak ditemukan.');
 
+            // Materi induk dihitung berdasarkan level yang diampu guru untuk mapel tsb
+            // (materi induk dari ATP, cocok level dengan kelas yang diampu)
             $subjects = $this->db->table('teaching_assignments ta')
                 ->select('s.id, s.name,
                           COUNT(DISTINCT ta.class_id) as total_classes,
                           COUNT(DISTINCT sm.id) as total_parents')
                 ->join('subjects s', 's.id = ta.subject_id')
+                ->join('classes tc', 'tc.id = ta.class_id', 'left')
                 ->join('subject_materials sm',
                     "sm.subject_id = s.id AND sm.year_id = {$yearId} AND sm.parent_id IS NULL
-                     AND sm.created_by = {$this->userId()}", 'left')
+                     AND (sm.level = tc.level OR sm.level = 0)", 'left')
                 ->where('ta.teacher_id', $tid)
                 ->where('ta.academic_year_id', $yearId)
                 ->groupBy('s.id')
@@ -146,11 +149,28 @@ class Materials extends BaseController
         $year       = $this->activeYear();
         $yearId     = (int)($year['id'] ?? 0);
 
+        // Guard: guru hanya boleh akses mapel yang dia ampu di tahun aktif
+        if (!$this->isAdmin()) {
+            $tid = $this->teacherId();
+            $canAccess = $tid && $this->db->table('teaching_assignments')
+                ->where('teacher_id',       $tid)
+                ->where('subject_id',       $subjectId)
+                ->where('academic_year_id', $yearId)
+                ->countAllResults() > 0;
+            if (!$canAccess) {
+                return redirect()->to('admin/materials')
+                    ->with('error', 'Anda tidak mengampu mata pelajaran ini.');
+            }
+        }
+
+        // Level yang relevan: guru → hanya level yang diampu; admin → semua level
+        $levels = $this->isAdmin() ? null : $this->getLevelsForSubject($subjectId, $yearId);
+
         // Auto-sync ATP → subject_materials setiap kali halaman dibuka
         // Ini memastikan materi induk selalu sesuai ATP terbaru
         $this->_doSyncFromAtp($subjectId, $yearId);
 
-        $hierarchy  = $this->mat->getAllWithHierarchy($subjectId);
+        $hierarchy  = $this->mat->getAllWithHierarchy($subjectId, $yearId, $levels);
 
         // Progress summary (hanya sub materi)
         $progSummary = [];
@@ -201,11 +221,20 @@ class Materials extends BaseController
      */
     private function _doSyncFromAtp(int $subjectId, int $yearId): int
     {
-        // Ambil semua ATP untuk mapel ini beserta level kelasnya
-        $atpRows = $this->db->table('alur_tujuan_pembelajaran atp')
+        // Ambil ATP untuk mapel ini beserta level kelasnya
+        $atpQuery = $this->db->table('alur_tujuan_pembelajaran atp')
             ->select('atp.id as atp_id, atp.lingkup_materi, atp.semester, c.level as class_level')
             ->join('classes c', 'c.id = atp.class_id', 'left')
-            ->where('atp.subject_id', $subjectId)
+            ->where('atp.subject_id', $subjectId);
+
+        // Guru: hanya sinkronkan ATP dari level yang dia ampu
+        if (!$this->isAdmin()) {
+            $levels = $this->getLevelsForSubject($subjectId, $yearId);
+            if (empty($levels)) return 0;
+            $atpQuery->whereIn('c.level', $levels);
+        }
+
+        $atpRows = $atpQuery
             ->orderBy('c.level', 'ASC')
             ->orderBy('atp.semester', 'ASC')
             ->orderBy('atp.id', 'ASC')

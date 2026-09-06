@@ -88,12 +88,29 @@ class SubjectMaterialModel extends Model
 
     /**
      * Semua Materi (parent + children) per mapel untuk admin — hierarkis.
+     *
+     * @param int        $subjectId  ID mata pelajaran
+     * @param int|null   $yearId     Filter tahun ajaran (null = semua)
+     * @param array|null $levels     Filter level kelas (null/empty = semua level).
+     *                               level 0 (Semua Level) selalu ikut ditampilkan.
      */
-    public function getAllWithHierarchy(int $subjectId): array
+    public function getAllWithHierarchy(int $subjectId, ?int $yearId = null, ?array $levels = null): array
     {
-        $all = $this->select('subject_materials.*, academic_years.year as year_name')
+        $builder = $this->select('subject_materials.*, academic_years.year as year_name')
             ->join('academic_years', 'academic_years.id = subject_materials.year_id', 'left')
-            ->where('subject_materials.subject_id', $subjectId)
+            ->where('subject_materials.subject_id', $subjectId);
+
+        if ($yearId) {
+            $builder->where('subject_materials.year_id', $yearId);
+        }
+
+        // Filter level: hanya level yang diampu guru + level 0 (umum/semua level)
+        if (!empty($levels)) {
+            $levelSet = array_values(array_unique(array_merge($levels, [0])));
+            $builder->whereIn('subject_materials.level', $levelSet);
+        }
+
+        $all = $builder
             ->orderBy('subject_materials.level',      'ASC')
             ->orderBy('subject_materials.semester',   'ASC')
             ->orderBy('subject_materials.sort_order', 'ASC')
