@@ -442,11 +442,15 @@ class Materials extends BaseController
             }
         }
 
-        // Tentukan level: sub materi mewarisi level dari parent-nya
-        $level = (int)($data['level'] ?? 0);
+        // Sub materi mewarisi level & semester dari parent-nya (materi induk dari ATP)
+        $level    = (int)($data['level'] ?? 0);
+        $semester = $data['semester'] ?? '1';
         if ($parentId) {
             $parentRow = $this->mat->find($parentId);
-            $level     = (int)($parentRow['level'] ?? $level);
+            if ($parentRow) {
+                $level    = (int)($parentRow['level'] ?? $level);
+                $semester = $parentRow['semester'] ?? $semester;
+            }
         }
 
         $contentType = $data['content_type'] ?? 'text';
@@ -457,7 +461,7 @@ class Materials extends BaseController
             'level'             => $level,
             'subject_id'        => $data['subject_id'],
             'year_id'           => $data['year_id'],
-            'semester'          => $data['semester'],
+            'semester'          => $semester,
             'title'             => $data['title'],
             'description'       => $data['description'] ?? null,
             'content_type'      => $contentType,
