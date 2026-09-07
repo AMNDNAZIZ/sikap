@@ -348,35 +348,23 @@ function renderHasil(soal) {
     soal.forEach(s => { s.type = normalizeType(s.type); });
 
     /**
-     * Escape HTML tapi pertahankan delimiter LaTeX agar MathJax bisa memprosesnya.
-     * Urutan penting: tangani $$ sebelum $, dan \(...\) sebelum lainnya.
+     * Escape HTML pada teks. Delimiter LaTeX ($...$, $$...$$, \(...\), \[...\])
+     * dibiarkan utuh — MathJax yang akan memindai & merender delimiter ini
+     * di dalam elemen ber-class .math-content.
+     *
+     * PENTING: JANGAN memecah teks dengan <span> di sekitar LaTeX karena
+     * memecah delimiter membuat MathJax gagal ("Math input error").
      */
     function renderMath(text) {
-        if (!text) return '';
-        // Pisahkan teks menjadi segmen: LaTeX dan non-LaTeX
-        // Pola: $$...$$, $...$, \[...\], \(...\)
-        const segments = [];
-        const pattern = /(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/g;
-        let lastIdx = 0, match;
-
-        while ((match = pattern.exec(text)) !== null) {
-            // Bagian teks biasa sebelum LaTeX — escape HTML
-            if (match.index > lastIdx) {
-                segments.push('<span>' + escHtml(text.slice(lastIdx, match.index)) + '</span>');
-            }
-            // Bagian LaTeX — bungkus dengan span khusus, TIDAK di-escape
-            segments.push('<span class="math-tex">' + match[0] + '</span>');
-            lastIdx = match.index + match[0].length;
-        }
-        // Sisa teks setelah LaTeX terakhir
-        if (lastIdx < text.length) {
-            segments.push('<span>' + escHtml(text.slice(lastIdx)) + '</span>');
-        }
-        return segments.length > 0 ? segments.join('') : escHtml(text);
+        if (text === null || text === undefined) return '';
+        return escHtml(String(text));
     }
 
     function escHtml(s) {
-        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        // Hanya escape < dan > (untuk cegah injeksi tag).
+        // & TIDAK di-escape agar entity LaTeX & perintah tetap utuh.
+        // " dan ' tidak perlu karena teks ada di dalam elemen, bukan atribut.
+        return String(s).replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     container.innerHTML = soal.map((s, i) => {
@@ -741,6 +729,12 @@ function parseAiJson(raw) {
     // 5. Hapus trailing comma
     s = s.replace(/,(\s*[\}\]])/g, '$1');
 
+    // 5b. FIX LaTeX backslash — kritis untuk soal matematika.
+    // AI sering menulis "$\frac{1}{2}$" (single backslash). Di JSON, \f = form-feed,
+    // \s = invalid escape → LaTeX rusak → "Math input error" di MathJax.
+    // Solusi: escape backslash yang BUKAN escape JSON valid menjadi \\.
+    s = fixLatexBackslashes(s);
+
     // 6. Coba: parse setelah cleanJsonString
     try {
         const arr = JSON.parse(cleanJsonString(s));
@@ -757,6 +751,51 @@ function parseAiJson(raw) {
     const arr = JSON.parse(s);
     if (!Array.isArray(arr)) throw new Error('Output bukan JSON array');
     return arr;
+}
+
+/**
+ * Escape backslash LaTeX agar valid di JSON.
+ *
+ * Masalah: perintah LaTeX (\frac \times \tan \beta \nu \rho) berbagi huruf awal
+ * dengan escape JSON (\f \t \n \r \b), sehingga whitelist karakter tidak bisa
+ * membedakan. Strategi: gandakan backslash tunggal, tapi pertahankan escape JSON
+ * asli (\" \\ \/ \uXXXX, dan \n \r \t yang berdiri sendiri sebagai kontrol).
+ *
+ * Heuristik: jika \ diikuti HURUF lalu HURUF lagi → itu perintah LaTeX
+ * (mis. \frac, \times) → gandakan jadi \\. Jika \ diikuti escape JSON tunggal
+ * yang sah (mis. \n di akhir/antar kata) → biarkan.
+ */
+function fixLatexBackslashes(str) {
+    let out = '';
+    for (let i = 0; i < str.length; i++) {
+        if (str[i] !== '\\') { out += str[i]; continue; }
+
+        const next  = str[i + 1] || '';
+        const after = str[i + 2] || '';
+
+        // \\ (sudah ganda) → salin dua-duanya apa adanya
+        if (next === '\\') { out += '\\\\'; i++; continue; }
+
+        // Escape JSON non-huruf yang sah → biarkan
+        if (next === '"' || next === '/' || next === 'u') {
+            out += '\\' + next; i++; continue;
+        }
+
+        // Huruf escape JSON (n r t b f) — bisa jadi kontrol ATAU awal perintah LaTeX
+        if ('nrtbf'.includes(next)) {
+            // Jika huruf berikutnya juga huruf → perintah LaTeX (\frac, \times, \nu jarang)
+            if (/[a-zA-Z]/.test(after)) {
+                out += '\\\\'; // gandakan, huruf perintah diproses di iterasi berikut
+            } else {
+                out += '\\' + next; i++; // escape kontrol JSON asli
+            }
+            continue;
+        }
+
+        // Backslash diikuti huruf lain / simbol LaTeX ({ } ( ) [ ] ^ _ , dll) → gandakan
+        out += '\\\\';
+    }
+    return out;
 }
 
 /**

@@ -104,7 +104,7 @@ class Chat extends BaseController
         $user = $this->currentUser();
         if (!$user) {
             return $this->response->setStatusCode(403)
-                ->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
+                ->setJSON(['status' => 'error', 'message' => 'Unauthorized', 'csrf' => csrf_hash()]);
         }
 
         $attachment = '';
@@ -129,12 +129,12 @@ class Chat extends BaseController
         try {
             $this->messageModel->insert($data);
             if ($this->request->isAJAX()) {
-                return $this->response->setJSON(['status' => 'ok']);
+                return $this->response->setJSON(['status' => 'ok', 'csrf' => csrf_hash()]);
             }
         } catch (\Exception $e) {
             if ($this->request->isAJAX()) {
                 return $this->response->setStatusCode(500)
-                    ->setJSON(['status' => 'error', 'message' => $e->getMessage()]);
+                    ->setJSON(['status' => 'error', 'message' => $e->getMessage(), 'csrf' => csrf_hash()]);
             }
             return redirect()->back()->with('error', $e->getMessage());
         }
@@ -222,6 +222,15 @@ class Chat extends BaseController
         $affected = $db->affectedRows();
 
         return $this->response->setJSON(['status' => 'ok', 'cleared' => (int) $affected]);
+    }
+
+    // 🔹 Refresh CSRF token (dipanggil JS saat token expired)
+    public function csrf()
+    {
+        return $this->response->setJSON([
+            'status' => 'ok',
+            'csrf'   => csrf_hash(),
+        ]);
     }
 
 }

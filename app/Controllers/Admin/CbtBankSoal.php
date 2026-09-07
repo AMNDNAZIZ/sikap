@@ -1193,6 +1193,42 @@ class CbtBankSoal extends BaseController
 
         $questions = $this->questionModel->where('bank_id', $id)->findAll();
 
+        // ── Normalisasi: pastikan setiap soal punya question_text & options terisi ──
+        // Jika question_text kosong/pendek tapi raw_text ada, parse dari raw_text.
+        // Ini membuat backup self-contained agar aplikasi CBT tidak perlu parsing
+        // ulang (penyebab teks soal kosong saat restore).
+        foreach ($questions as &$q) {
+            $needParse = !empty($q['raw_text'])
+                && (empty($q['question_text']) || mb_strlen(strip_tags($q['question_text'])) < 5);
+
+            if ($needParse) {
+                try {
+                    $parsed = $this->questionModel->parseRawQuestion($q['raw_text']);
+                    if (!empty($parsed['question'])) {
+                        $q['question_text'] = trim($parsed['question']);
+                    }
+                    // Isi options dari hasil parse jika kolom option masih kosong
+                    if (!empty($parsed['options'])) {
+                        foreach (['A','B','C','D','E'] as $optKey) {
+                            $col = 'option_' . strtolower($optKey);
+                            if (empty($q[$col]) && !empty($parsed['options'][$optKey])) {
+                                $q[$col] = $parsed['options'][$optKey];
+                            }
+                        }
+                    }
+                    // Isi correct_option jika kosong
+                    if (empty($q['correct_option']) && !empty($parsed['key'])) {
+                        $q['correct_option'] = is_array($parsed['key'])
+                            ? implode(',', $parsed['key'])
+                            : $parsed['key'];
+                    }
+                } catch (\Throwable $e) {
+                    log_message('warning', '[Backup] Parse gagal QID ' . ($q['id'] ?? '?') . ': ' . $e->getMessage());
+                }
+            }
+        }
+        unset($q);
+
         // Enrich bank data with subject info for cross-app compatibility
         $bankData = $bank;
         $db = \Config\Database::connect();
@@ -1218,7 +1254,19 @@ class CbtBankSoal extends BaseController
         }
 
         // Add data.json
-        $zip->addFromString('data.json', json_encode($data, JSON_PRETTY_PRINT));
+        // Flag lengkap: UNESCAPED_UNICODE agar karakter non-ASCII tidak rusak,
+        // INVALID_UTF8_SUBSTITUTE agar json_encode tidak gagal (return false) saat
+        // ada byte UTF-8 tidak valid di question_text/options (penyebab teks kosong)
+        $jsonData = json_encode(
+            $data,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+        );
+        if ($jsonData === false) {
+            $zip->close();
+            @unlink($zipPath);
+            return redirect()->back()->with('error', 'Gagal encode data soal: ' . json_last_error_msg());
+        }
+        $zip->addFromString('data.json', $jsonData);
 
         // Add media files
         foreach ($questions as $q) {

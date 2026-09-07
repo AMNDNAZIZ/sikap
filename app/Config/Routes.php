@@ -710,6 +710,7 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
     $routes->post('chat/send', 'Chat::send');
     $routes->get('chat/fetch/(:num)', 'Chat::fetch/$1');
     $routes->get('chat/clear-mentions/(:num)', 'Chat::clearMentions/$1');
+    $routes->get('chat/csrf', 'Chat::csrf');
 
     $routes->get('profile', 'Profile::index');
     $routes->post('profile/update', 'Profile::update');
