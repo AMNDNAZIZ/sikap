@@ -706,7 +706,8 @@ class SubjectMaterialModel extends Model
         if (stripos($url, 'youtube.com') !== false || stripos($url, 'youtu.be') !== false) {
             foreach ($ytPatterns as $pat) {
                 if (preg_match($pat, $url, $m)) {
-                    return 'https://www.youtube.com/embed/' . $m[1] . '?rel=0';
+                    // Domain privacy-enhanced + rel=0 (batasi related video ke channel yg sama)
+                    return 'https://www.youtube-nocookie.com/embed/' . $m[1] . '?rel=0&modestbranding=1';
                 }
             }
         }
@@ -718,6 +719,33 @@ class SubjectMaterialModel extends Model
 
         // Jika sudah URL embed atau format lain, kembalikan apa adanya
         return $url;
+    }
+
+    /**
+     * Ekstrak 11-karakter ID video YouTube dari berbagai format URL.
+     * Digunakan untuk membuat link fallback "Tonton di YouTube" bila
+     * embed gagal (mis. Error 153 atau video melarang embed).
+     * Mengembalikan string kosong jika bukan URL YouTube yang valid.
+     */
+    public static function youtubeId(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') return '';
+
+        $patterns = [
+            '/[?&]v=([A-Za-z0-9_-]{11})/',
+            '/youtu\.be\/([A-Za-z0-9_-]{11})/',
+            '/youtube(?:-nocookie)?\.com\/embed\/([A-Za-z0-9_-]{11})/',
+            '/youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/',
+            '/youtube\.com\/live\/([A-Za-z0-9_-]{11})/',
+            '/youtube\.com\/v\/([A-Za-z0-9_-]{11})/',
+        ];
+        foreach ($patterns as $pat) {
+            if (preg_match($pat, $url, $m)) {
+                return $m[1];
+            }
+        }
+        return '';
     }
 
     /** Label level kelas */

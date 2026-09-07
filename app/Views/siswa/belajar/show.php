@@ -94,9 +94,19 @@
         <div class="ratio ratio-16x9 mb-3">
           <iframe src="<?= esc($embedUrl) ?>"
                   title="<?= esc($subMat['title']) ?>" allowfullscreen class="rounded border"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+                  referrerpolicy="strict-origin-when-cross-origin"
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share">
           </iframe>
         </div>
+        <?php if (!empty($subMat['video_url'])): ?>
+          <div class="text-center small text-muted mb-2">
+            Video tidak tampil?
+            <a href="<?= esc($subMat['video_url']) ?>" target="_blank" rel="noopener noreferrer" class="fw-semibold">
+              Tonton langsung di YouTube &rarr;
+            </a>
+          </div>
+        <?php endif; ?>
       <?php elseif (!empty($subMat['video_url'])): ?>
         <div class="alert alert-warning border-0 small">
           <i class="bi bi-exclamation-triangle me-1"></i>

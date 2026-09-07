@@ -76,9 +76,19 @@
                   title="<?= esc($material['title']) ?>"
                   allowfullscreen
                   class="rounded border"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+                  referrerpolicy="strict-origin-when-cross-origin"
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share">
           </iframe>
         </div>
+        <?php if (!empty($material['video_url'])): ?>
+          <div class="text-center small text-muted mb-2">
+            Video tidak tampil?
+            <a href="<?= esc($material['video_url']) ?>" target="_blank" rel="noopener noreferrer" class="fw-semibold">
+              Tonton langsung di YouTube &rarr;
+            </a>
+          </div>
+        <?php endif; ?>
       <?php else: ?>
         <p class="text-muted fst-italic">URL video tidak valid.</p>
       <?php endif; ?>

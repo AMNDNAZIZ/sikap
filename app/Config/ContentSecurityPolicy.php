@@ -63,6 +63,10 @@ class ContentSecurityPolicy extends BaseConfig
         'code.jquery.com',
         'cdn.datatables.net',
         'unpkg.com',
+        'www.youtube.com', // YouTube iframe player API
+        'www.youtube-nocookie.com',
+        's.ytimg.com', // YouTube player assets
+        'player.vimeo.com', // Vimeo player
     ];
 
     /**
@@ -94,6 +98,10 @@ class ContentSecurityPolicy extends BaseConfig
         '*.basemaps.cartocdn.com', // CartoDB tiles (primary - no referer issues)
         'server.arcgisonline.com', // Esri tiles (alternative)
         'unpkg.com', // Leaflet marker icons
+        'i.ytimg.com', // YouTube video thumbnails
+        's.ytimg.com',
+        '*.ggpht.com', // YouTube/Google avatars & assets
+        'i.vimeocdn.com', // Vimeo thumbnails
     ];
 
     /**
@@ -110,7 +118,12 @@ class ContentSecurityPolicy extends BaseConfig
      *
      * @var list<string>|string
      */
-    public $childSrc = 'self';
+    public $childSrc = [
+        'self',
+        'www.youtube.com',
+        'www.youtube-nocookie.com',
+        'player.vimeo.com',
+    ];
 
     /**
      * Limits the origins that you can connect to (via XHR,
@@ -126,6 +139,11 @@ class ContentSecurityPolicy extends BaseConfig
         '*.tile.openstreetmap.org', // OpenStreetMap tiles (backup)
         '*.basemaps.cartocdn.com', // CartoDB tiles (primary - no referer issues)
         'server.arcgisonline.com', // Esri tiles (alternative)
+        'www.youtube.com', // YouTube player config
+        'www.youtube-nocookie.com',
+        '*.googlevideo.com', // YouTube video streams
+        'player.vimeo.com', // Vimeo player config
+        '*.vimeocdn.com',
     ];
 
     /**
@@ -164,14 +182,24 @@ class ContentSecurityPolicy extends BaseConfig
      *
      * @var list<string>|string|null
      */
-    public $frameSrc = 'self';
+    public $frameSrc = [
+        'self',
+        'www.youtube.com', // YouTube embedded player
+        'www.youtube-nocookie.com',
+        'player.vimeo.com', // Vimeo embedded player
+    ];
 
     /**
      * Restricts the origins allowed to deliver video and audio.
      *
      * @var list<string>|string|null
      */
-    public $mediaSrc;
+    public $mediaSrc = [
+        'self',
+        'blob:',
+        '*.googlevideo.com', // YouTube media streams
+        '*.vimeocdn.com', // Vimeo media
+    ];
 
     /**
      * Allows control over Flash and other plugins.
