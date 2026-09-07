@@ -84,6 +84,7 @@ class Belajar extends BaseController
             ->where('material_id', $subMatId)
             ->where('class_id',    $record['class_id'])
             ->where('is_active',   1)
+            ->where('(scheduled_at IS NULL OR scheduled_at <= NOW())')
             ->countAllResults();
     }
 
@@ -147,6 +148,7 @@ class Belajar extends BaseController
                     ->join('subject_materials sm', 'sm.id = smp.material_id')
                     ->where('smp.class_id',   $classId)
                     ->where('smp.is_active',  1)
+                    ->where('(smp.scheduled_at IS NULL OR smp.scheduled_at <= NOW())')
                     ->where('sm.subject_id',  $sid)
                     ->where('sm.year_id',     $yearId)
                     ->where('sm.is_published', 1)
@@ -218,6 +220,7 @@ class Belajar extends BaseController
                 ->join('subject_materials sm', 'sm.id = smp.material_id')
                 ->where('smp.class_id',    $classId)
                 ->where('smp.is_active',   1)
+                ->where('(smp.scheduled_at IS NULL OR smp.scheduled_at <= NOW())')
                 ->where('sm.subject_id',   $subjectId)
                 ->where('sm.year_id',      $yearId)
                 ->where('sm.is_published', 1)
@@ -355,6 +358,7 @@ class Belajar extends BaseController
                 ->join('subject_materials sm', 'sm.id = smp.material_id')
                 ->where('smp.class_id',    $classId)
                 ->where('smp.is_active',   1)
+                ->where('(smp.scheduled_at IS NULL OR smp.scheduled_at <= NOW())')
                 ->where('sm.parent_id',    $subMat['parent_id'])
                 ->where('sm.is_published', 1)
                 ->orderBy('sm.sort_order', 'ASC')

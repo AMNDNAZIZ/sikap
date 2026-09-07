@@ -671,6 +671,10 @@ class Materials extends BaseController
             (array)($this->request->getPost('class_ids') ?? [])
         );
 
+        // Jadwal publish per kelas: schedules[class_id] = 'Y-m-d\TH:i' (datetime-local)
+        // Kosong = tampil segera. Nilai di masa depan = terjadwal.
+        $schedules = (array)($this->request->getPost('schedules') ?? []);
+
         // Semua kelas yang relevan untuk mapel+level ini
         // Guru non-admin hanya kelola kelas yang dia ampu
         $teacherId2 = $this->isAdmin() ? null : $this->teacherId();
@@ -682,23 +686,42 @@ class Materials extends BaseController
         );
         $allClassIds = array_column($allClasses, 'id');
 
-        // Publish ke kelas yang dicentang, unpublish dari yang tidak
+        // Publish ke kelas yang dicentang (dengan jadwal), unpublish dari yang tidak.
+        // Pisahkan kelas yang tampil-segera dari yang terjadwal ke depan agar
+        // notifikasi hanya dikirim untuk yang benar-benar sudah tampil.
+        $now              = time();
+        $notifyClassIds   = [];   // kelas yang materinya sudah tampil sekarang
         foreach ($allClassIds as $cid) {
             if (in_array($cid, $checkedClassIds)) {
-                $this->mat->publishToClass($subMatId, $cid, $this->userId(), $yearId);
+                $rawSched   = isset($schedules[$cid]) ? trim((string) $schedules[$cid]) : '';
+                $schedValue = $rawSched !== '' ? $rawSched : null;
+
+                $this->mat->publishToClass($subMatId, $cid, $this->userId(), $yearId, $schedValue);
+
+                // Tentukan apakah materi tampil segera untuk kelas ini
+                $ts = $schedValue !== null ? strtotime(str_replace('T', ' ', $schedValue)) : false;
+                if ($schedValue === null || ($ts !== false && $ts <= $now)) {
+                    $notifyClassIds[] = $cid;
+                }
             } else {
                 $this->mat->unpublishFromClass($subMatId, $cid);
             }
         }
 
-        // Kirim notifikasi ke siswa di kelas yang baru dipublish
-        if (!empty($checkedClassIds)) {
-            $this->_notifyPublish($subMatId, $subMat, $checkedClassIds);
+        // Kirim notifikasi hanya ke kelas yang materinya sudah tampil (bukan terjadwal ke depan)
+        if (!empty($notifyClassIds)) {
+            $this->_notifyPublish($subMatId, $subMat, $notifyClassIds);
+        }
+
+        $scheduledCount = count($checkedClassIds) - count($notifyClassIds);
+        $msg = 'Pengaturan publikasi berhasil disimpan.';
+        if ($scheduledCount > 0) {
+            $msg .= ' ' . $scheduledCount . ' kelas dijadwalkan tampil nanti.';
         }
 
         return $this->response->setJSON([
             'success' => true,
-            'message' => 'Pengaturan publikasi berhasil disimpan.',
+            'message' => $msg,
         ]);
     }
 

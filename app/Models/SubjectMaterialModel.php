@@ -177,6 +177,7 @@ class SubjectMaterialModel extends Model
                 'is_active'    => isset($map[$cid]) ? (int)$map[$cid]['is_active'] : 0,
                 'published_at' => $map[$cid]['published_at'] ?? null,
                 'published_by' => $map[$cid]['published_by'] ?? null,
+                'scheduled_at' => $map[$cid]['scheduled_at'] ?? null,
             ];
         }
 
@@ -192,10 +193,14 @@ class SubjectMaterialModel extends Model
         int $subMatId,
         int $classId,
         int $userId,
-        int $academicYearId
+        int $academicYearId,
+        ?string $scheduledAt = null
     ): void {
         $db  = \Config\Database::connect();
         $now = date('Y-m-d H:i:s');
+
+        // Normalisasi jadwal: kosong/invalid → NULL (tampil segera).
+        $scheduledAt = $this->normalizeScheduledAt($scheduledAt);
 
         $existing = $db->table('subject_material_publishes')
             ->where('material_id', $subMatId)
@@ -206,7 +211,12 @@ class SubjectMaterialModel extends Model
             $db->table('subject_material_publishes')
                 ->where('material_id', $subMatId)
                 ->where('class_id',    $classId)
-                ->set(['is_active' => 1, 'published_at' => $now, 'published_by' => $userId])
+                ->set([
+                    'is_active'    => 1,
+                    'published_at' => $now,
+                    'published_by' => $userId,
+                    'scheduled_at' => $scheduledAt,
+                ])
                 ->update();
         } else {
             $db->table('subject_material_publishes')->insert([
@@ -214,12 +224,32 @@ class SubjectMaterialModel extends Model
                 'class_id'     => $classId,
                 'published_by' => $userId,
                 'published_at' => $now,
+                'scheduled_at' => $scheduledAt,
                 'is_active'    => 1,
             ]);
         }
 
         // Auto-create forum thread sistem (shared — class_id = NULL)
         $this->_ensureForumThread($subMatId, $userId, $academicYearId);
+    }
+
+    /**
+     * Normalisasi input jadwal publish.
+     * Menerima format 'Y-m-d H:i' (datetime-local) atau 'Y-m-d H:i:s'.
+     * Mengembalikan 'Y-m-d H:i:s' atau NULL bila kosong/tidak valid.
+     */
+    private function normalizeScheduledAt(?string $scheduledAt): ?string
+    {
+        if ($scheduledAt === null) return null;
+        $scheduledAt = trim($scheduledAt);
+        if ($scheduledAt === '') return null;
+
+        // datetime-local memakai 'T' sebagai pemisah (2026-09-05T08:30)
+        $scheduledAt = str_replace('T', ' ', $scheduledAt);
+        $ts = strtotime($scheduledAt);
+        if ($ts === false) return null;
+
+        return date('Y-m-d H:i:s', $ts);
     }
 
     /**
@@ -242,10 +272,11 @@ class SubjectMaterialModel extends Model
         int   $subMatId,
         array $classIds,
         int   $userId,
-        int   $academicYearId
+        int   $academicYearId,
+        ?string $scheduledAt = null
     ): void {
         foreach ($classIds as $cid) {
-            $this->publishToClass($subMatId, (int)$cid, $userId, $academicYearId);
+            $this->publishToClass($subMatId, (int)$cid, $userId, $academicYearId, $scheduledAt);
         }
     }
 
@@ -289,11 +320,13 @@ class SubjectMaterialModel extends Model
         $classLevel = (int) ($classInfo['level'] ?? 0);
 
         // Ambil semua sub materi yang dipublish ke kelas ini
+        // Filter jadwal: hanya tampil bila scheduled_at NULL atau sudah lewat.
         $publishedIds = array_column(
             $db->table('subject_material_publishes')
                 ->select('material_id')
                 ->where('class_id', $classId)
                 ->where('is_active', 1)
+                ->where('(scheduled_at IS NULL OR scheduled_at <= NOW())')
                 ->get()->getResultArray(),
             'material_id'
         );
@@ -609,12 +642,13 @@ class SubjectMaterialModel extends Model
         $classInfo = $db->table('classes')->where('id', $classId)->get()->getRowArray();
         $level    = (int) ($classInfo['level'] ?? 0);
 
-        // Sub materi yang dipublish ke kelas ini
+        // Sub materi yang dipublish ke kelas ini (hormati jadwal publish)
         $publishedIds = array_column(
             $db->table('subject_material_publishes')
                 ->select('material_id')
                 ->where('class_id', $classId)
                 ->where('is_active', 1)
+                ->where('(scheduled_at IS NULL OR scheduled_at <= NOW())')
                 ->get()->getResultArray(),
             'material_id'
         );
