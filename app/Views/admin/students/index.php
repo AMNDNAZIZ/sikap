@@ -158,55 +158,112 @@
 <div class="modal fade" id="importModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form action="<?= base_url('admin/students/import') ?>" method="post" enctype="multipart/form-data">
-        <?= csrf_field() ?>
-        <div class="modal-header">
-          <h5 class="modal-title">📂 Impor Data Siswa</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
+      <div class="modal-header">
+        <h5 class="modal-title">📂 Impor Data Siswa</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
 
-          <div class="alert alert-info py-2 mb-3">
-            <i class="fas fa-info-circle me-1"></i>
-            Gunakan template resmi untuk memastikan format data sesuai.
-            <a href="<?= base_url('admin/students/download-template') ?>" class="fw-bold ms-1">
-              📥 Unduh Template Excel
-            </a>
+      <div class="modal-body">
+        <!-- Nav Tabs Pilihan Mode Import -->
+        <ul class="nav nav-tabs nav-justified mb-3" id="importTab" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-bold" id="dapodik-tab" data-bs-toggle="tab" data-bs-target="#dapodik-import" type="button" role="tab">
+              🏫 Tarikan Dapodik (.xlsx)
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold" id="standard-tab" data-bs-toggle="tab" data-bs-target="#standard-import" type="button" role="tab">
+              📄 Template SIAKAD (Manual)
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content" id="importTabContent">
+          <!-- Tab 1: Impor Tarikan Dapodik -->
+          <div class="tab-pane fade show active" id="dapodik-import" role="tabpanel">
+            <form action="<?= base_url('admin/students/import') ?>" method="post" enctype="multipart/form-data">
+              <?= csrf_field() ?>
+              <input type="hidden" name="import_type" value="dapodik">
+
+              <div class="alert alert-primary py-2 mb-3 small">
+                <i class="fas fa-info-circle me-1"></i>
+                Fitur ini membaca langsung file Excel unduhan resmi Dapodik (contoh: <code>daftar_pd-*.xlsx</code>).
+              </div>
+
+              <div class="card bg-light mb-3">
+                <div class="card-body py-2 px-3 small">
+                  <span class="fw-bold d-block mb-1">✨ Keunggulan Impor Tarikan Dapodik:</span>
+                  <ul class="mb-0 ps-3">
+                    <li><strong>Pencocokan Bertingkat:</strong> Membandingkan <code>NIK</code> &rarr; <code>NISN</code> &rarr; <code>NIS</code> &rarr; <code>Nama+Tgl Lahir</code>.</li>
+                    <li><strong>Update Data Otomatis:</strong> Siswa yang sudah ada akan diperbarui kodenya, siswa baru akan ditambahkan.</li>
+                    <li><strong>Prevensi Akun Double:</strong> Mengaitkan akun user siswa &amp; akun orang tua yang ada tanpa membuat duplikat.</li>
+                    <li><strong>Plotting Rombel:</strong> Otomatis mendaftarkan siswa ke kelas sesuai kolom <em>Rombel Saat Ini</em> di Dapodik.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="file_dapodik" class="form-label fw-semibold">Pilih File Tarikan Dapodik (.xlsx / .xls)</label>
+                <input type="file" name="file" id="file_dapodik" class="form-control" accept=".xlsx,.xls" required>
+              </div>
+
+              <div class="modal-footer px-0 pb-0">
+                <button type="submit" class="btn btn-primary">👁️ Pratinjau &amp; Konfirmasi Data</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Batal</button>
+              </div>
+            </form>
           </div>
 
-          <!-- Info kolom -->
-          <div class="mb-3">
-            <p class="small fw-bold mb-1">Format kolom Excel (wajib sesuai urutan):</p>
-            <table class="table table-sm table-bordered small mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th>Kolom</th><th>Nama</th><th>Wajib</th><th>Keterangan</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr><td>A</td><td>NISN</td><td><span class="text-warning">*</span></td><td>10 digit, unik nasional</td></tr>
-                <tr><td>B</td><td>NIS</td><td><span class="text-warning">*</span></td><td>Nomor induk lokal sekolah</td></tr>
-                <tr><td>C</td><td>Nama Lengkap</td><td><span class="text-danger">✓</span></td><td>Otomatis jadi huruf kapital</td></tr>
-                <tr><td>D</td><td>Jenis Kelamin</td><td></td><td><code>L</code> atau <code>P</code></td></tr>
-                <tr><td>E</td><td>Tempat Lahir</td><td></td><td>Kota/kabupaten</td></tr>
-                <tr><td>F</td><td>Tanggal Lahir</td><td></td><td>Format: <code>YYYY-MM-DD</code></td></tr>
-                <tr class="table-success"><td>G</td><td>Agama</td><td></td><td>Islam / Kristen / Katholik / Hindu / Budha / Khonghucu</td></tr>
-              </tbody>
-            </table>
-            <small class="text-muted">* Minimal salah satu dari NISN atau NIS harus diisi. Akun siswa &amp; orang tua dibuat otomatis.</small>
-          </div>
+          <!-- Tab 2: Impor Template SIAKAD -->
+          <div class="tab-pane fade" id="standard-import" role="tabpanel">
+            <form action="<?= base_url('admin/students/import') ?>" method="post" enctype="multipart/form-data">
+              <?= csrf_field() ?>
+              <input type="hidden" name="import_type" value="standard">
 
-          <div class="mb-3">
-            <label for="file" class="form-label fw-semibold">Pilih File Excel (.xlsx / .xls)</label>
-            <input type="file" name="file" id="file" class="form-control" accept=".xlsx,.xls" required>
-          </div>
+              <div class="alert alert-info py-2 mb-3">
+                <i class="fas fa-info-circle me-1"></i>
+                Gunakan template resmi untuk memasukkan data sederhana secara manual.
+                <a href="<?= base_url('admin/students/download-template') ?>" class="fw-bold ms-1">
+                  📥 Unduh Template Excel
+                </a>
+              </div>
 
+              <!-- Info kolom -->
+              <div class="mb-3">
+                <p class="small fw-bold mb-1">Format kolom Excel (wajib sesuai urutan):</p>
+                <table class="table table-sm table-bordered small mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Kolom</th><th>Nama</th><th>Wajib</th><th>Keterangan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>A</td><td>NISN</td><td><span class="text-warning">*</span></td><td>10 digit, unik nasional</td></tr>
+                    <tr><td>B</td><td>NIS</td><td><span class="text-warning">*</span></td><td>Nomor induk lokal sekolah</td></tr>
+                    <tr><td>C</td><td>Nama Lengkap</td><td><span class="text-danger">✓</span></td><td>Otomatis jadi huruf kapital</td></tr>
+                    <tr><td>D</td><td>Jenis Kelamin</td><td></td><td><code>L</code> atau <code>P</code></td></tr>
+                    <tr><td>E</td><td>Tempat Lahir</td><td></td><td>Kota/kabupaten</td></tr>
+                    <tr><td>F</td><td>Tanggal Lahir</td><td></td><td>Format: <code>YYYY-MM-DD</code></td></tr>
+                    <tr class="table-success"><td>G</td><td>Agama</td><td></td><td>Islam / Kristen / Katholik / Hindu / Budha / Khonghucu</td></tr>
+                  </tbody>
+                </table>
+                <small class="text-muted">* Minimal salah satu dari NISN atau NIS harus diisi. Akun siswa &amp; orang tua dibuat otomatis.</small>
+              </div>
+
+              <div class="mb-3">
+                <label for="file_standard" class="form-label fw-semibold">Pilih File Template SIAKAD (.xlsx / .xls)</label>
+                <input type="file" name="file" id="file_standard" class="form-control" accept=".xlsx,.xls" required>
+              </div>
+
+              <div class="modal-footer px-0 pb-0">
+                <button type="submit" class="btn btn-success">👁️ Pratinjau &amp; Konfirmasi Data</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Batal</button>
+              </div>
+            </form>
+          </div>
         </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-success">🚀 Impor Data</button>
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">❌ Batal</button>
-        </div>
-      </form>
+
+      </div>
     </div>
   </div>
 </div>

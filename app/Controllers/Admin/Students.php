@@ -537,132 +537,485 @@ class Students extends BaseController
             return redirect()->back()->with('error', 'Format file tidak valid. Hanya file Excel (.xlsx, .xls) yang diperbolehkan.');
         }
 
-        // Nilai agama yang valid sesuai enum di tabel students
-        $validReligions = ['Islam', 'Kristen', 'Katholik', 'Hindu', 'Budha', 'Khonghucu'];
+        $importType = $this->request->getPost('import_type') ?: 'dapodik';
 
         try {
             $reader = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getTempName());
             $sheet  = $reader->getActiveSheet();
             $rows   = $sheet->toArray();
 
-            $failed  = [];
-            $success = [];
+            $parsedStudents = [];
 
-            foreach ($rows as $i => $row) {
-                if ($i == 0) continue; // skip header
-
-                // Kolom: A=NISN, B=NIS, C=Nama, D=Jenis Kelamin, E=Tempat Lahir,
-                //        F=Tanggal Lahir, G=Agama
-                $nisn       = trim($row[0] ?? '');
-                $nis        = trim($row[1] ?? '');
-                $name       = trim($row[2] ?? '');
-                $gender     = strtoupper(trim($row[3] ?? 'L'));
-                $birthPlace = trim($row[4] ?? '');
-                $birthDate  = trim($row[5] ?? '');
-                $religion   = trim($row[6] ?? 'Islam');
-
-                // Validasi data wajib
-                if (empty($name)) {
-                    if (!empty($nis) || !empty($nisn)) {
-                        $failed[] = "Baris " . ($i + 1) . " - Nama siswa tidak boleh kosong";
-                    }
-                    continue;
-                }
-
-                if (empty($nis) && empty($nisn)) {
-                    $failed[] = "Baris " . ($i + 1) . " ($name) - NIS dan NISN keduanya kosong";
-                    continue;
-                }
-
-                // Validasi agama — fallback ke Islam jika tidak valid
-                if (!in_array($religion, $validReligions)) {
-                    // Coba case-insensitive match
-                    $matched = false;
-                    foreach ($validReligions as $vr) {
-                        if (strtolower($religion) === strtolower($vr)) {
-                            $religion = $vr;
-                            $matched = true;
-                            break;
-                        }
-                    }
-                    if (!$matched) {
-                        $religion = 'Islam'; // default
-                    }
-                }
-
-                // Validasi gender
-                if (!in_array($gender, ['L', 'P'])) {
-                    $gender = 'L';
-                }
-
-                // Gunakan NIS sebagai username (fallback ke NISN jika NIS kosong)
-                $usernameKey = !empty($nis) ? $nis : $nisn;
-                $username    = strtolower($usernameKey);
-                $email       = $username . '@siswa.local';
-
-                // Cek duplikat user
-                $existingUser = $this->userModel->where('username', $username)->first();
-                if ($existingUser) {
-                    $failed[] = "Baris " . ($i + 1) . " - $name (username '$username' sudah ada)";
-                    continue;
-                }
-
-                // Cek duplikat siswa berdasarkan NISN
-                if (!empty($nisn)) {
-                    $existingStudent = $this->studentModel->where('nisn', $nisn)->first();
-                    if ($existingStudent) {
-                        $failed[] = "Baris " . ($i + 1) . " - $name (NISN $nisn sudah terdaftar)";
-                        continue;
-                    }
-                }
-
-                helper('security');
-                $defaultPassword = generate_default_password('siswa', $usernameKey);
-
-                $this->userModel->insert([
-                    'username'             => $username,
-                    'password'             => password_hash($defaultPassword, PASSWORD_BCRYPT),
-                    'fullname'             => strtoupper($name),
-                    'email'                => $email,
-                    'role_id'              => 5,
-                    'related_id'           => null,
-                    'related_type'         => 'student',
-                    'must_change_password' => 1,
-                ]);
-                $userId = $this->userModel->getInsertID();
-
-                $this->studentModel->insert([
-                    'nisn'        => $nisn,
-                    'nis'         => $nis,
-                    'name'        => strtoupper($name),
-                    'gender'      => $gender,
-                    'birth_place' => $birthPlace,
-                    'birth_date'  => $birthDate,
-                    'religion'    => $religion,
-                    'user_id'     => $userId,
-                ]);
-                $studentId = $this->studentModel->getInsertID();
-
-                if ($userId && $studentId) {
-                    $this->userModel->update($userId, ['related_id' => $studentId]);
-                    // Buat akun orang tua otomatis
-                    $this->syncParentAccount($studentId, $usernameKey, strtoupper($name));
-                    $success[] = "$usernameKey - $name";
-                }
+            if ($importType === 'dapodik') {
+                $parsedStudents = $this->parseDapodikRows($rows);
+            } else {
+                $parsedStudents = $this->parseStandardRows($rows);
             }
 
-            if (empty($success) && empty($failed)) {
-                return redirect()->to('/admin/students')->with('error', 'Tidak ada data yang diimpor. Pastikan file Excel berisi data siswa.');
+            if (empty($parsedStudents)) {
+                return redirect()->back()->with('error', 'Tidak ada data siswa yang valid ditemukan dalam file Excel.');
             }
 
-            return redirect()->to('/admin/students')
-                ->with('import_success', $success)
-                ->with('import_failed', $failed);
+            // Lakukan Matching pencocokan ke database untuk menentukan status BARU vs UPDATE
+            $newCount = 0;
+            $updateCount = 0;
+
+            foreach ($parsedStudents as &$s) {
+                $existing = null;
+                $nik   = $s['nik'] ?? '';
+                $nisn  = $s['nisn'] ?? '';
+                $nis   = $s['nis'] ?? '';
+                $name  = $s['name'] ?? '';
+                $birthDate = $s['birth_date'] ?? '';
+
+                if (!empty($nik)) {
+                    $existing = $this->studentModel->where('nik', $nik)->first();
+                }
+                if (!$existing && !empty($nisn)) {
+                    $existing = $this->studentModel->where('nisn', $nisn)->first();
+                }
+                if (!$existing && !empty($nis)) {
+                    $existing = $this->studentModel->where('nis', $nis)->first();
+                }
+                if (!$existing && !empty($name) && !empty($birthDate)) {
+                    $existing = $this->studentModel
+                        ->where('name', strtoupper($name))
+                        ->where('birth_date', $birthDate)
+                        ->first();
+                }
+
+                if ($existing) {
+                    $s['is_existing'] = true;
+                    $s['existing_id'] = $existing['id'];
+                    $s['user_id']     = $existing['user_id'] ?? null;
+                    $updateCount++;
+                } else {
+                    $s['is_existing'] = false;
+                    $s['existing_id'] = null;
+                    $s['user_id']     = null;
+                    $newCount++;
+                }
+            }
+            unset($s);
+
+            $data = [
+                'title'        => 'Pratinjau Impor Data Siswa',
+                'import_type'  => $importType,
+                'students'     => $parsedStudents,
+                'new_count'    => $newCount,
+                'update_count' => $updateCount,
+                'classes'      => $this->classModel->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll(),
+            ];
+
+            return view('admin/students/preview_import', $data);
 
         } catch (\Exception $e) {
-            log_message('error', 'Import students error: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Gagal mengimpor file: ' . $e->getMessage());
+            log_message('error', 'Import preview error: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal membaca file Excel: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Eksekusi Konfirmasi Impor Data Siswa
+     */
+    public function confirmImport()
+    {
+        if (!$this->request->is('post')) {
+            return redirect()->to('/admin/students')->with('error', 'Invalid request method.');
+        }
+
+        set_time_limit(300); // 5 menit
+
+        $selected = $this->request->getPost('selected_students');
+        $syncMode = $this->request->getPost('sync_mode') ?: 'update';
+        $fallbackClassId = $this->request->getPost('class_id');
+        $studentsJson = $this->request->getPost('students_json');
+
+        $studentsArray = $studentsJson ? json_decode($studentsJson, true) : null;
+
+        if (empty($selected) || empty($studentsArray)) {
+            return redirect()->to('/admin/students')->with('error', 'Tidak ada data siswa yang dipilih untuk diimpor.');
+        }
+
+        // Peta Kelas untuk Plotting Rombel
+        $allClasses = $this->classModel->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll();
+        $classMap = [];
+        foreach ($allClasses as $c) {
+            $cleanName = strtolower(trim($c['name']));
+            $classMap[$cleanName] = $c['id'];
+            $withoutKelas = str_replace('kelas ', '', $cleanName);
+            if ($withoutKelas !== $cleanName) {
+                $classMap[$withoutKelas] = $c['id'];
+            }
+        }
+
+        $activeYear = $this->yearModel->where('is_active', 1)->first();
+        helper('security');
+
+        $insertedCount = 0;
+        $updatedCount  = 0;
+        $skippedCount  = 0;
+        $successLogs   = [];
+
+        foreach ($selected as $idx) {
+            if (!isset($studentsArray[$idx])) continue;
+
+            $d = $studentsArray[$idx];
+            $isExisting = !empty($d['is_existing']);
+            $existingId = $d['existing_id'] ?? null;
+            $name       = strtoupper(trim($d['name'] ?? '-'));
+            $nisn       = trim($d['nisn'] ?? '');
+            $nis        = trim($d['nis'] ?? '');
+            $nik        = trim($d['nik'] ?? '');
+            $rombel     = trim($d['rombel'] ?? '');
+
+            // Tangani mode sinkronisasi untuk data yang sudah ada
+            if ($isExisting) {
+                if ($syncMode === 'skip') {
+                    $skippedCount++;
+                    continue;
+                }
+            }
+
+            // Persiapkan array atribut siswa
+            $studentData = [
+                'nisn'               => $nisn,
+                'nis'                => $nis,
+                'name'               => $name,
+                'nik'                => $nik,
+                'gender'             => $d['gender'] ?? 'L',
+                'birth_place'        => $d['birth_place'] ?? '',
+                'birth_date'         => $d['birth_date'] ?? '',
+                'religion'           => $d['religion'] ?? 'Islam',
+                'address'            => $d['address'] ?? '',
+                'residence_type'     => $d['residence_type'] ?? '',
+                'transportation'     => $d['transportation'] ?? '',
+                'distance'           => $d['distance'] ?? '',
+                'latitude'           => $d['latitude'] ?? '',
+                'longitude'          => $d['longitude'] ?? '',
+                'special_needs'      => $d['special_needs'] ?? '',
+                'child_order'        => $d['child_order'] ?? '',
+                'father_name'        => $d['father_name'] ?? '',
+                'father_nik'         => $d['father_nik'] ?? '',
+                'father_birth_year'  => $d['father_birth_year'] ?? '',
+                'father_education'   => $d['father_education'] ?? '',
+                'father_job'         => $d['father_job'] ?? '',
+                'father_income'      => $d['father_income'] ?? '',
+                'mother_name'        => $d['mother_name'] ?? '',
+                'mother_nik'         => $d['mother_nik'] ?? '',
+                'mother_birth_year'  => $d['mother_birth_year'] ?? '',
+                'mother_education'   => $d['mother_education'] ?? '',
+                'mother_job'         => $d['mother_job'] ?? '',
+                'mother_income'      => $d['mother_income'] ?? '',
+                'guardian_name'      => $d['guardian_name'] ?? '',
+                'guardian_education' => $d['guardian_education'] ?? '',
+                'guardian_job'       => $d['guardian_job'] ?? '',
+                'guardian_income'    => $d['guardian_income'] ?? '',
+            ];
+
+            // ── PENANGANAN AKUN USER SISWA ──────────────────────────────────
+            $userId = $d['user_id'] ?? null;
+
+            if ($isExisting && $existingId) {
+                $existingRecord = $this->studentModel->find($existingId);
+                if ($existingRecord && !empty($existingRecord['user_id'])) {
+                    $userId = $existingRecord['user_id'];
+                }
+            }
+
+            if ($userId) {
+                // Perbarui fullname di tabel users
+                $this->userModel->update($userId, ['fullname' => $name]);
+            } else {
+                // Buat username unik
+                $usernameBase = !empty($nis) ? $nis : (!empty($nisn) ? $nisn : (!empty($nik) ? $nik : 'siswa_' . rand(1000, 9999)));
+                $username     = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', $usernameBase));
+                $email        = $username . '@siswa.local';
+
+                $checkUser = $this->userModel->where('username', $username)->first();
+
+                if ($checkUser) {
+                    if ($isExisting && (empty($checkUser['related_id']) || $checkUser['related_id'] == $existingId)) {
+                        $userId = $checkUser['id'];
+                        $this->userModel->update($userId, ['fullname' => $name]);
+                    } else {
+                        $username = $username . '_' . substr(md5($name . rand(100, 999)), 0, 4);
+                        $email    = $username . '@siswa.local';
+                        $defaultPassword = generate_default_password('siswa', $usernameBase);
+
+                        $this->userModel->insert([
+                            'username'             => $username,
+                            'password'             => password_hash($defaultPassword, PASSWORD_BCRYPT),
+                            'fullname'             => $name,
+                            'email'                => $email,
+                            'role_id'              => 5,
+                            'related_type'         => 'student',
+                            'must_change_password' => 1,
+                        ]);
+                        $userId = $this->userModel->getInsertID();
+                    }
+                } else {
+                    $defaultPassword = generate_default_password('siswa', $usernameBase);
+
+                    $this->userModel->insert([
+                        'username'             => $username,
+                        'password'             => password_hash($defaultPassword, PASSWORD_BCRYPT),
+                        'fullname'             => $name,
+                        'email'                => $email,
+                        'role_id'              => 5,
+                        'related_type'         => 'student',
+                        'must_change_password' => 1,
+                    ]);
+                    $userId = $this->userModel->getInsertID();
+                }
+            }
+
+            if ($userId) {
+                $studentData['user_id'] = $userId;
+            }
+
+            // ── EKSEKUSI DATABASE SISWA ──────────────────────────────────────
+            $studentId = null;
+
+            if ($isExisting && $existingId) {
+                $studentId = $existingId;
+                if ($syncMode === 'merge') {
+                    // Mode Merge: Hanya isi atribut yang di DB masih kosong
+                    $existingCurrent = $this->studentModel->find($studentId);
+                    $mergedData = [];
+                    foreach ($studentData as $key => $val) {
+                        if (empty($existingCurrent[$key]) && !empty($val)) {
+                            $mergedData[$key] = $val;
+                        }
+                    }
+                    if (!empty($mergedData)) {
+                        $this->studentModel->update($studentId, $mergedData);
+                    }
+                } else {
+                    // Mode Update: Timpa data dengan yang baru dari Excel
+                    $this->studentModel->update($studentId, $studentData);
+                }
+
+                if ($userId) {
+                    $this->userModel->update($userId, ['related_id' => $studentId]);
+                }
+                $updatedCount++;
+                $successLogs[] = "✏️ Diperbarui: $name (NISN: " . ($nisn ?: '-') . ")";
+            } else {
+                $this->studentModel->insert($studentData);
+                $studentId = $this->studentModel->getInsertID();
+                if ($userId && $studentId) {
+                    $this->userModel->update($userId, ['related_id' => $studentId]);
+                }
+                $insertedCount++;
+                $successLogs[] = "➕ Ditambahkan: $name (NISN: " . ($nisn ?: '-') . ")";
+            }
+
+            // ── SINKRONISASI AKUN ORANG TUA (IDEMPOTEN) ───────────────────────
+            $usernameOrtuKey = !empty($nis) ? $nis : (!empty($nisn) ? $nisn : $studentId);
+            $this->syncParentAccount($studentId, $usernameOrtuKey, $name);
+
+            // ── PLOTTING KELAS / ROMBEL ──────────────────────────────────────
+            $targetClassId = null;
+            if (!empty($rombel)) {
+                $cleanRombel = strtolower(trim($rombel));
+                $targetClassId = $classMap[$cleanRombel] ?? ($classMap[str_replace('kelas ', '', $cleanRombel)] ?? null);
+            }
+            if (!$targetClassId && !empty($fallbackClassId)) {
+                $targetClassId = $fallbackClassId;
+            }
+
+            if ($targetClassId && $activeYear) {
+                $existingRecord = $this->recordModel
+                    ->where('student_id', $studentId)
+                    ->where('academic_year_id', $activeYear['id'])
+                    ->first();
+
+                if ($existingRecord) {
+                    $this->recordModel->update($existingRecord['id'], [
+                        'class_id' => $targetClassId,
+                        'status'   => 'aktif'
+                    ]);
+                } else {
+                    $this->recordModel->insert([
+                        'student_id'       => $studentId,
+                        'class_id'         => $targetClassId,
+                        'academic_year_id' => $activeYear['id'],
+                        'status'           => 'aktif'
+                    ]);
+                }
+            }
+        }
+
+        $summaryMsg = "Impor Berhasil: $insertedCount siswa baru ditambahkan, $updatedCount data siswa diperbarui";
+        if ($skippedCount > 0) {
+            $summaryMsg .= ", $skippedCount siswa dilewati.";
+        } else {
+            $summaryMsg .= ".";
+        }
+
+        return redirect()->to('/admin/students')
+            ->with('success', $summaryMsg)
+            ->with('import_success', array_slice($successLogs, 0, 50));
+    }
+
+    /**
+     * Parsing File Tarikan Dapodik (.xlsx)
+     */
+    private function parseDapodikRows(array $rows): array
+    {
+        $headerRowIdx = -1;
+        foreach ($rows as $idx => $row) {
+            $rowStr = implode(' ', array_map('strval', $row));
+            if (stripos($rowStr, 'Nama') !== false && (stripos($rowStr, 'NISN') !== false || stripos($rowStr, 'NIPD') !== false)) {
+                $headerRowIdx = $idx;
+                break;
+            }
+        }
+
+        if ($headerRowIdx === -1) {
+            return [];
+        }
+
+        $validReligions = ['Islam', 'Kristen', 'Katholik', 'Hindu', 'Budha', 'Khonghucu'];
+        $students = [];
+
+        for ($i = $headerRowIdx + 1; $i < count($rows); $i++) {
+            $row = $rows[$i];
+            $name = trim((string)($row[1] ?? ''));
+
+            if (empty($name) || strtolower($name) === 'nama' || stripos($name, 'tahun lahir') !== false) {
+                continue;
+            }
+
+            $nis        = trim((string)($row[2] ?? ''));
+            $gender     = strtoupper(trim((string)($row[3] ?? 'L')));
+            $nisn       = trim((string)($row[4] ?? ''));
+            $birthPlace = trim((string)($row[5] ?? ''));
+            $birthDate  = trim((string)($row[6] ?? ''));
+            $nik        = trim((string)($row[7] ?? ''));
+            $religion   = trim((string)($row[8] ?? 'Islam'));
+            $address    = trim((string)($row[9] ?? ''));
+            $residence  = trim((string)($row[16] ?? ''));
+            $transport  = trim((string)($row[17] ?? ''));
+            $rombel     = trim((string)($row[42] ?? ''));
+            $specialNeeds = trim((string)($row[55] ?? ''));
+            $childOrder = trim((string)($row[57] ?? ''));
+            $latitude   = trim((string)($row[58] ?? ''));
+            $longitude  = trim((string)($row[59] ?? ''));
+            $distance   = trim((string)($row[65] ?? ''));
+
+            if (!in_array($gender, ['L', 'P'])) {
+                $gender = 'L';
+            }
+
+            if (!in_array($religion, $validReligions)) {
+                $matchedReligion = false;
+                foreach ($validReligions as $vr) {
+                    if (strtolower($religion) === strtolower($vr)) {
+                        $religion = $vr;
+                        $matchedReligion = true;
+                        break;
+                    }
+                }
+                if (!$matchedReligion) {
+                    $religion = 'Islam';
+                }
+            }
+
+            $students[] = [
+                'nisn'               => $nisn,
+                'nis'                => $nis,
+                'name'               => strtoupper($name),
+                'nik'                => $nik,
+                'gender'             => $gender,
+                'birth_place'        => $birthPlace,
+                'birth_date'         => $birthDate,
+                'religion'           => $religion,
+                'address'            => $address,
+                'residence_type'     => $residence,
+                'transportation'     => $transport,
+                'distance'           => $distance,
+                'latitude'           => $latitude,
+                'longitude'          => $longitude,
+                'special_needs'      => $specialNeeds,
+                'child_order'        => $childOrder,
+                'rombel'             => $rombel,
+                'father_name'        => trim((string)($row[24] ?? '')),
+                'father_birth_year'  => trim((string)($row[25] ?? '')),
+                'father_education'   => trim((string)($row[26] ?? '')),
+                'father_job'         => trim((string)($row[27] ?? '')),
+                'father_income'      => trim((string)($row[28] ?? '')),
+                'father_nik'         => trim((string)($row[29] ?? '')),
+                'mother_name'        => trim((string)($row[30] ?? '')),
+                'mother_birth_year'  => trim((string)($row[31] ?? '')),
+                'mother_education'   => trim((string)($row[32] ?? '')),
+                'mother_job'         => trim((string)($row[33] ?? '')),
+                'mother_income'      => trim((string)($row[34] ?? '')),
+                'mother_nik'         => trim((string)($row[35] ?? '')),
+                'guardian_name'      => trim((string)($row[36] ?? '')),
+                'guardian_education' => trim((string)($row[38] ?? '')),
+                'guardian_job'       => trim((string)($row[39] ?? '')),
+                'guardian_income'    => trim((string)($row[40] ?? '')),
+            ];
+        }
+
+        return $students;
+    }
+
+    /**
+     * Parsing File Template SIAKAD Manual
+     */
+    private function parseStandardRows(array $rows): array
+    {
+        $validReligions = ['Islam', 'Kristen', 'Katholik', 'Hindu', 'Budha', 'Khonghucu'];
+        $students = [];
+
+        foreach ($rows as $i => $row) {
+            if ($i == 0) continue; // skip header
+
+            $nisn       = trim($row[0] ?? '');
+            $nis        = trim($row[1] ?? '');
+            $name       = trim($row[2] ?? '');
+            $gender     = strtoupper(trim($row[3] ?? 'L'));
+            $birthPlace = trim($row[4] ?? '');
+            $birthDate  = trim($row[5] ?? '');
+            $religion   = trim($row[6] ?? 'Islam');
+
+            if (empty($name)) continue;
+
+            if (!in_array($gender, ['L', 'P'])) {
+                $gender = 'L';
+            }
+
+            if (!in_array($religion, $validReligions)) {
+                $matchedReligion = false;
+                foreach ($validReligions as $vr) {
+                    if (strtolower($religion) === strtolower($vr)) {
+                        $religion = $vr;
+                        $matchedReligion = true;
+                        break;
+                    }
+                }
+                if (!$matchedReligion) {
+                    $religion = 'Islam';
+                }
+            }
+
+            $students[] = [
+                'nisn'        => $nisn,
+                'nis'         => $nis,
+                'name'        => strtoupper($name),
+                'nik'         => '',
+                'gender'      => $gender,
+                'birth_place' => $birthPlace,
+                'birth_date'  => $birthDate,
+                'religion'    => $religion,
+                'rombel'      => '',
+            ];
+        }
+
+        return $students;
     }
 
     public function downloadTemplate()
