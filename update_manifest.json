@@ -1,6 +1,6 @@
 {
     "version": "2.0.0",
-    "generated": "2026-09-07 06:25:17",
+    "generated": "2026-09-07 06:42:14",
     "last_update": "2026-09-03 00:00",
     "total_files": 867,
     "files": {
@@ -409,7 +409,7 @@
         "app/Views/admin/cbt/attendance/pdf.php": "8b37722f550f114eecb3c9ccfc1024d1",
         "app/Views/admin/cbt/attendance/print.php": "97e59620b60d79f82639860f8d52aeee",
         "app/Views/admin/cbt/banksoal/_form_soal.php": "184f0a4a65af0da2181080630621723a",
-        "app/Views/admin/cbt/banksoal/detail.php": "b02c19d32e00f866b145eb30571d956c",
+        "app/Views/admin/cbt/banksoal/detail.php": "f1efae8cf41760bb8d9fcaa3c1868c4e",
         "app/Views/admin/cbt/banksoal/edit_soal.php": "ab6138ab1876eff59acd951bb5ff8a50",
         "app/Views/admin/cbt/banksoal/form.php": "f7e9560cbe942352145824d9a3661536",
         "app/Views/admin/cbt/banksoal/index.php": "11db218fa4d2f896eed56e8d743caeef",
