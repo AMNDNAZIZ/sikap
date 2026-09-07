@@ -1207,6 +1207,7 @@ class CbtBankSoal extends BaseController
                     if (!empty($parsed['question'])) {
                         $q['question_text'] = trim($parsed['question']);
                     }
+                    // (opsi & kunci diisi di bawah)
                     // Isi options dari hasil parse jika kolom option masih kosong
                     if (!empty($parsed['options'])) {
                         foreach (['A','B','C','D','E'] as $optKey) {
@@ -1225,6 +1226,12 @@ class CbtBankSoal extends BaseController
                 } catch (\Throwable $e) {
                     log_message('warning', '[Backup] Parse gagal QID ' . ($q['id'] ?? '?') . ': ' . $e->getMessage());
                 }
+            }
+
+            // Kompatibilitas editor CBT: editor restore memuat raw_text lebih dulu.
+            // Jika raw_text kosong, isi dari question_text agar tidak kosong saat diedit.
+            if (empty(trim((string) ($q['raw_text'] ?? ''))) && !empty(trim((string) ($q['question_text'] ?? '')))) {
+                $q['raw_text'] = $q['question_text'];
             }
         }
         unset($q);

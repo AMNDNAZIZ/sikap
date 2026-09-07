@@ -1479,25 +1479,91 @@ class CbtBankSoal extends BaseController
             'total_bs'          => 0
         ];
 
+        // Kolom yang benar-benar ada di tabel cbt_questions target.
+        // Backup dari aplikasi lain (SIAKAD) bisa membawa kolom asing
+        // yang membuat insert gagal/terpotong.
+        $allowedCols = [
+            'bank_id', 'question_text', 'raw_text',
+            'option_a', 'option_b', 'option_c', 'option_d', 'option_e',
+            'correct_option', 'question_type', 'essay_answer', 'score',
+            'media_image', 'media_audio', 'media_video',
+            'has_image', 'has_audio',
+            'audio_a', 'audio_b', 'audio_c', 'audio_d', 'audio_e',
+        ];
+
+        $failed = 0;
         foreach ($data['questions'] as $q) {
             unset($q['id']);
             $q['bank_id'] = $newBankId;
 
-            // Normalize URLs in question_text
-            if (!empty($oldBaseUrl)) {
-                $q['question_text'] = str_replace($oldBaseUrl, $newBaseUrl, $q['question_text']);
-                $q['raw_text'] = str_replace($oldBaseUrl, $newBaseUrl, $q['raw_text'] ?? '');
+            // ── Cross-fill teks soal ────────────────────────────────────────
+            // Jaminan: question_text & raw_text tidak boleh kosong bersamaan,
+            // karena tampilan list pakai question_text dan editor pakai raw_text.
+            $qText   = trim((string) ($q['question_text'] ?? ''));
+            $rawText = trim((string) ($q['raw_text'] ?? ''));
+
+            if ($qText === '' && $rawText !== '') {
+                // Turunkan question_text dari raw_text
+                try {
+                    $parsed = $this->questionModel->parseRawQuestion($rawText);
+                    $qText = trim((string) ($parsed['question'] ?? ''));
+                } catch (\Throwable $e) {
+                    $qText = '';
+                }
+                if ($qText === '') {
+                    $qText = trim(strip_tags($rawText)); // fallback terakhir
+                }
+            }
+            if ($rawText === '' && $qText !== '') {
+                $rawText = $qText; // editor tetap punya isi
             }
 
-            // Normalize media_image URLs
-            $images = json_decode($q['media_image'], true) ?? [];
+            $q['question_text'] = $qText;
+            $q['raw_text']      = $rawText;
+
+            // Normalize URLs di teks soal & raw_text
+            if (!empty($oldBaseUrl)) {
+                $q['question_text'] = str_replace($oldBaseUrl, $newBaseUrl, $q['question_text']);
+                $q['raw_text']      = str_replace($oldBaseUrl, $newBaseUrl, $q['raw_text']);
+            }
+
+            // Normalize media_image URLs (dukung JSON array maupun string tunggal)
+            $rawMedia = $q['media_image'] ?? '';
+            $images = [];
+            if (is_string($rawMedia) && $rawMedia !== '') {
+                $decoded = json_decode($rawMedia, true);
+                $images = is_array($decoded) ? $decoded : [$rawMedia];
+            } elseif (is_array($rawMedia)) {
+                $images = $rawMedia;
+            }
             $newImages = [];
             foreach ($images as $img) {
-                $newImages[] = str_replace($oldBaseUrl, $newBaseUrl, $img);
+                $newImages[] = $oldBaseUrl ? str_replace($oldBaseUrl, $newBaseUrl, $img) : $img;
             }
             $q['media_image'] = json_encode($newImages);
 
-            $this->questionModel->insert($q);
+            // Buang kolom asing yang tidak ada di tabel target
+            $q = array_intersect_key($q, array_flip($allowedCols));
+
+            // Lewati soal yang benar-benar tidak punya teks
+            if (trim((string) $q['question_text']) === '') {
+                $failed++;
+                log_message('warning', '[Restore CBT] Soal tanpa teks dilewati.');
+                continue;
+            }
+
+            try {
+                if (!$this->questionModel->insert($q)) {
+                    $failed++;
+                    log_message('error', '[Restore CBT] Insert gagal: '
+                        . json_encode($this->questionModel->errors()));
+                    continue;
+                }
+            } catch (\Throwable $e) {
+                $failed++;
+                log_message('error', '[Restore CBT] Insert exception: ' . $e->getMessage());
+                continue;
+            }
 
             // Update stats
             $type = $q['question_type'] ?? 'pg';
@@ -1512,7 +1578,16 @@ class CbtBankSoal extends BaseController
 
         $zip->close();
 
-        return redirect()->to('/admin/cbt/banksoal')->with('success', 'Bank soal berhasil di-restore dengan kode: ' . $bankData['code']);
+        $msg = 'Bank soal berhasil di-restore dengan kode: ' . $bankData['code'];
+        $imported = ($stats['total_pg'] ?? 0) + ($stats['total_esai'] ?? 0)
+            + ($stats['total_pg_kompleks'] ?? 0) + ($stats['total_bs'] ?? 0);
+        $msg .= ' (' . $imported . ' soal masuk';
+        if ($failed > 0) {
+            $msg .= ', ' . $failed . ' dilewati - cek log';
+        }
+        $msg .= ').';
+
+        return redirect()->to('/admin/cbt/banksoal')->with('success', $msg);
     }
 
     /**
