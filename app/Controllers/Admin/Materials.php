@@ -100,37 +100,40 @@ class Materials extends BaseController
         $yearId = (int)($year['id'] ?? 0);
 
         if ($this->isAdmin()) {
+            // Daftar mapel yang diampu (dengan jumlah kelas)
             $subjects = $this->db->table('teaching_assignments ta')
-                ->select('s.id, s.name,
-                          COUNT(DISTINCT ta.class_id) as total_classes,
-                          COUNT(DISTINCT sm.id) as total_parents')
+                ->select('s.id, s.name, COUNT(DISTINCT ta.class_id) as total_classes')
                 ->join('subjects s', 's.id = ta.subject_id')
-                ->join('subject_materials sm',
-                    "sm.subject_id = s.id AND sm.year_id = {$yearId} AND sm.parent_id IS NULL", 'left')
                 ->where('ta.academic_year_id', $yearId)
                 ->groupBy('s.id')
                 ->orderBy('s.name', 'ASC')
                 ->get()->getResultArray();
+
+            // Hitung sub materi & sub materi terbit per mapel (parent_id NOT NULL)
+            foreach ($subjects as &$s) {
+                $s = array_merge($s, $this->_materialCounts((int)$s['id'], $yearId, null));
+            }
+            unset($s);
         } else {
             $tid = $this->teacherId();
             if (!$tid) return redirect()->to('dashboard')->with('error', 'Data guru tidak ditemukan.');
 
-            // Materi induk dihitung berdasarkan level yang diampu guru untuk mapel tsb
-            // (materi induk dari ATP, cocok level dengan kelas yang diampu)
+            // Daftar mapel yang diampu guru + jumlah kelas
             $subjects = $this->db->table('teaching_assignments ta')
-                ->select('s.id, s.name,
-                          COUNT(DISTINCT ta.class_id) as total_classes,
-                          COUNT(DISTINCT sm.id) as total_parents')
+                ->select('s.id, s.name, COUNT(DISTINCT ta.class_id) as total_classes')
                 ->join('subjects s', 's.id = ta.subject_id')
-                ->join('classes tc', 'tc.id = ta.class_id', 'left')
-                ->join('subject_materials sm',
-                    "sm.subject_id = s.id AND sm.year_id = {$yearId} AND sm.parent_id IS NULL
-                     AND (sm.level = tc.level OR sm.level = 0)", 'left')
                 ->where('ta.teacher_id', $tid)
                 ->where('ta.academic_year_id', $yearId)
                 ->groupBy('s.id')
                 ->orderBy('s.name', 'ASC')
                 ->get()->getResultArray();
+
+            // Hitung sub materi berdasarkan level yang diampu guru untuk mapel tsb
+            foreach ($subjects as &$s) {
+                $levels = $this->getLevelsForSubject((int)$s['id'], $yearId);
+                $s = array_merge($s, $this->_materialCounts((int)$s['id'], $yearId, $levels));
+            }
+            unset($s);
         }
 
         return view('admin/materials/subject_list', [
@@ -138,6 +141,41 @@ class Materials extends BaseController
             'subjects'   => $subjects,
             'activeYear' => $year,
         ]);
+    }
+
+    /**
+     * Hitung jumlah sub materi & sub materi terbit untuk satu mapel.
+     * Sub materi = subject_materials dengan parent_id NOT NULL.
+     * $levels: null = semua level (admin); array = filter level (guru).
+     * "Terbit" = is_published = 1 (materi selesai dibuat/siap dipublikasikan).
+     *
+     * @return array{total_materi:int, total_published:int}
+     */
+    private function _materialCounts(int $subjectId, int $yearId, ?array $levels): array
+    {
+        $base = $this->db->table('subject_materials')
+            ->where('subject_id', $subjectId)
+            ->where('year_id',    $yearId)
+            ->where('parent_id IS NOT NULL');
+
+        if ($levels !== null) {
+            if (empty($levels)) {
+                return ['total_materi' => 0, 'total_published' => 0];
+            }
+            // Sub materi cocok level guru, atau level 0 (semua)
+            $base->groupStart()
+                    ->whereIn('level', $levels)
+                    ->orWhere('level', 0)
+                 ->groupEnd();
+        }
+
+        $total = (clone $base)->countAllResults(false);
+        $pub   = (clone $base)->where('is_published', 1)->countAllResults();
+
+        return [
+            'total_materi'    => (int) $total,
+            'total_published' => (int) $pub,
+        ];
     }
 
     // =========================================================

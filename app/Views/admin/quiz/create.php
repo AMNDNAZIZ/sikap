@@ -76,7 +76,7 @@
               foreach ($subMats as $sm) {
                   $grouped[$sm['subject_name']][$sm['parent_title']][] = $sm;
               }
-              $selectedMat = (int)($quiz['material_id'] ?? old('material_id', 0));
+              $selectedMat = (int)($quiz['material_id'] ?? old('material_id', $prefillMaterialId ?? 0));
             ?>
             <?php foreach ($grouped as $subjectName => $parents): ?>
               <optgroup label="📚 <?= esc($subjectName) ?>">
