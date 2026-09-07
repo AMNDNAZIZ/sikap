@@ -348,35 +348,23 @@ function renderHasil(soal) {
     soal.forEach(s => { s.type = normalizeType(s.type); });
 
     /**
-     * Escape HTML tapi pertahankan delimiter LaTeX agar MathJax bisa memprosesnya.
-     * Urutan penting: tangani $$ sebelum $, dan \(...\) sebelum lainnya.
+     * Escape HTML pada teks. Delimiter LaTeX ($...$, $$...$$, \(...\), \[...\])
+     * dibiarkan utuh — MathJax yang akan memindai & merender delimiter ini
+     * di dalam elemen ber-class .math-content.
+     *
+     * PENTING: JANGAN memecah teks dengan <span> di sekitar LaTeX karena
+     * memecah delimiter membuat MathJax gagal ("Math input error").
      */
     function renderMath(text) {
-        if (!text) return '';
-        // Pisahkan teks menjadi segmen: LaTeX dan non-LaTeX
-        // Pola: $$...$$, $...$, \[...\], \(...\)
-        const segments = [];
-        const pattern = /(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/g;
-        let lastIdx = 0, match;
-
-        while ((match = pattern.exec(text)) !== null) {
-            // Bagian teks biasa sebelum LaTeX — escape HTML
-            if (match.index > lastIdx) {
-                segments.push('<span>' + escHtml(text.slice(lastIdx, match.index)) + '</span>');
-            }
-            // Bagian LaTeX — bungkus dengan span khusus, TIDAK di-escape
-            segments.push('<span class="math-tex">' + match[0] + '</span>');
-            lastIdx = match.index + match[0].length;
-        }
-        // Sisa teks setelah LaTeX terakhir
-        if (lastIdx < text.length) {
-            segments.push('<span>' + escHtml(text.slice(lastIdx)) + '</span>');
-        }
-        return segments.length > 0 ? segments.join('') : escHtml(text);
+        if (text === null || text === undefined) return '';
+        return escHtml(String(text));
     }
 
     function escHtml(s) {
-        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        // Hanya escape < dan > (untuk cegah injeksi tag).
+        // & TIDAK di-escape agar entity LaTeX & perintah tetap utuh.
+        // " dan ' tidak perlu karena teks ada di dalam elemen, bukan atribut.
+        return String(s).replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     container.innerHTML = soal.map((s, i) => {
