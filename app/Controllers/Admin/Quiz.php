@@ -124,13 +124,20 @@ class Quiz extends BaseController
         $subMats    = $this->_getSubMaterials($tid);
         $activeYear = (new AcademicYearModel())->getActiveYear();
 
+        // Prefill sub materi bila datang dari halaman materi (?material_id=)
+        $prefill = null;
+        $matId   = (int) ($this->request->getGet('material_id') ?? 0);
+        if ($matId > 0) {
+            $prefill = ['material_id' => $matId];
+        }
+
         return view('admin/quiz/create', [
             'title'      => 'Buat Kuis Baru',
             'banks'      => $banks,
             'classes'    => $classes,
             'subMats'    => $subMats,
             'activeYear' => $activeYear,
-            'quiz'       => null,
+            'quiz'       => $prefill,
         ]);
     }
 

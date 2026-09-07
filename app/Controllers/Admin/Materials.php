@@ -357,6 +357,15 @@ class Materials extends BaseController
                 ->where('material_id', $subMatId)->where('status', 'in_progress')->countAllResults(),
         ];
 
+        // ── KUIS TERKAIT — kuis mandiri yang dikaitkan ke sub materi ini ──
+        $relatedQuizzes = $this->db->table('quiz_configs qc')
+            ->select('qc.id, qc.title, qc.is_published, qc.duration, qc.max_attempts,
+                      qb.code as bank_code')
+            ->join('cbt_question_banks qb', 'qb.id = qc.bank_id', 'left')
+            ->where('qc.material_id', $subMatId)
+            ->orderBy('qc.id', 'DESC')
+            ->get()->getResultArray();
+
         return view('admin/materials/show', [
             'title'      => esc($subMat['title']),
             'subMat'     => $subMat,
@@ -374,6 +383,7 @@ class Materials extends BaseController
             'currentIdx' => (int)($currentIdx !== false ? $currentIdx : 0),
             'siblings'   => $siblings,
             'progStats'  => $progStats,
+            'relatedQuizzes' => $relatedQuizzes,
         ]);
     }
 

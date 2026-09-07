@@ -181,6 +181,66 @@
 <?php endif; ?>
 
 <!-- ═══════════════════════════════════════════════════════════════
+     KUIS TERKAIT
+════════════════════════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <?php if (!empty($relatedQuizzes)): ?>
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <h6 class="fw-bold mb-0">
+          <i class="bi bi-patch-question me-2 text-success"></i>Kuis Terkait Materi Ini
+        </h6>
+        <a href="<?= site_url('admin/quiz/create?material_id=' . $subMat['id']) ?>"
+           class="btn btn-sm btn-outline-success">
+          <i class="bi bi-plus-lg me-1"></i>Tambah Kuis
+        </a>
+      </div>
+      <div class="alert alert-success-subtle border border-success-subtle small py-2 mb-3">
+        <i class="bi bi-info-circle me-1"></i>
+        Materi ini memiliki <strong><?= count($relatedQuizzes) ?> kuis</strong> yang terkait.
+        Siswa dapat mengerjakannya dari halaman materi.
+      </div>
+      <div class="list-group">
+        <?php foreach ($relatedQuizzes as $qz): ?>
+          <a href="<?= site_url('admin/quiz/edit/' . $qz['id']) ?>"
+             class="list-group-item list-group-item-action d-flex align-items-center justify-content-between">
+            <div class="me-2">
+              <div class="fw-semibold small">
+                <i class="bi bi-journal-check me-1 text-success"></i><?= esc($qz['title']) ?>
+              </div>
+              <div class="text-muted" style="font-size:0.72rem;">
+                <?php if (!empty($qz['bank_code'])): ?>
+                  Bank: <?= esc($qz['bank_code']) ?> &middot;
+                <?php endif; ?>
+                <?= (int)$qz['duration'] > 0 ? (int)$qz['duration'] . ' menit' : 'Tanpa batas waktu' ?> &middot;
+                <?= (int)$qz['max_attempts'] > 0 ? (int)$qz['max_attempts'] . 'x percobaan' : 'Percobaan bebas' ?>
+              </div>
+            </div>
+            <?php if ((int)$qz['is_published'] === 1): ?>
+              <span class="badge bg-success">Terbit</span>
+            <?php else: ?>
+              <span class="badge bg-secondary">Draf</span>
+            <?php endif; ?>
+          </a>
+        <?php endforeach; ?>
+      </div>
+    <?php else: ?>
+      <div class="text-center py-3">
+        <i class="bi bi-patch-question text-muted" style="font-size:2.2rem;"></i>
+        <p class="mb-1 mt-2 fw-semibold small">Belum ada kuis untuk materi ini</p>
+        <p class="text-muted small mb-3">
+          Buat kuis mandiri agar siswa bisa berlatih setelah mempelajari materi ini.
+        </p>
+        <a href="<?= site_url('admin/quiz/create?material_id=' . $subMat['id']) ?>"
+           class="btn btn-success btn-sm">
+          <i class="bi bi-plus-circle me-1"></i>Buat Kuis Mandiri
+        </a>
+      </div>
+    <?php endif; ?>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
      DISKUSI
 ════════════════════════════════════════════════════════════════ -->
 <?php if (!empty($thread)): ?>
