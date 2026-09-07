@@ -333,3 +333,25 @@
 </div>
 
 <?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<!-- 🔹 Load MathJax untuk Formula Matematika -->
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'] },
+    startup: {
+      pageReady: () => {
+        return MathJax.startup.defaultPageReady().catch(() => {
+          return Promise.resolve();
+        });
+      }
+    }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+<?= $this->endSection() ?>

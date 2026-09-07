@@ -1115,6 +1115,27 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
+
+<!-- 🔹 Load MathJax untuk Formula Matematika -->
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'] },
+    startup: {
+      pageReady: () => {
+        return MathJax.startup.defaultPageReady().catch(() => {
+          return Promise.resolve();
+        });
+      }
+    }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+
 <script>
   // Lock orientation IMMEDIATELY on page load (before overlay shows)
   if (screen.orientation && screen.orientation.lock) {
@@ -2454,7 +2475,15 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
       // Render MathJax untuk formula matematika
       if (typeof MathJax !== 'undefined') {
-        MathJax.typesetPromise().catch((err) => console.log('MathJax error:', err));
+        if (typeof MathJax.typesetPromise === 'function') {
+          MathJax.typesetPromise().catch(() => {});
+        } else if (MathJax.startup && MathJax.startup.promise) {
+          MathJax.startup.promise.then(() => {
+            if (typeof MathJax.typesetPromise === 'function') {
+              MathJax.typesetPromise().catch(() => {});
+            }
+          }).catch(() => {});
+        }
       }
     };
 
