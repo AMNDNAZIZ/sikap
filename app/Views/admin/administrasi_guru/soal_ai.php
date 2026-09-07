@@ -91,7 +91,7 @@ window.MathJax = {
                         <?php foreach ($atp_list as $atp): ?>
                             <option value="<?= $atp['id'] ?>"
                                 data-semester="<?= $atp['semester'] ?>"
-                                data-tps='<?= json_encode($atp['tps'] ?? []) ?>'>
+                                data-tps="<?= htmlspecialchars(json_encode($atp['tps'] ?? [], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>">
                                 Sem <?= $atp['semester'] ?> - <?= esc($atp['lingkup_materi']) ?>
                             </option>
                         <?php endforeach; ?>
