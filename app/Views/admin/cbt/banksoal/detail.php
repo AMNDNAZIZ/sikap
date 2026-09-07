@@ -1,6 +1,20 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
+<!-- MathJax untuk render LaTeX matematika -->
+<script>
+window.MathJax = {
+    tex: {
+        inlineMath:  [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+    },
+    options: { skipHtmlTags: ['script','noscript','style','textarea','pre'] },
+    startup: { typeset: false }
+};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.min.js"></script>
+
 <div class="container-fluid">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
@@ -310,6 +324,12 @@
       // Tombol navigasi
       $('#btnPrevQuestion').prop('disabled', index === 0);
       $('#btnNextQuestion').prop('disabled', index === soalData.length - 1);
+
+      // Render LaTeX matematika di teks soal & opsi
+      if (window.MathJax && window.MathJax.typesetPromise) {
+        MathJax.typesetPromise([document.getElementById('viewText'), document.getElementById('optionList')])
+          .catch(function(err){ console.warn('MathJax:', err); });
+      }
     }
 
     /** ========================
@@ -338,11 +358,15 @@
     // Setelah set isi soal
     //$('#viewText').html(question.question_text);
 
-    // Rapikan gambar di dalamnya
+    // Rapikan gambar di dalamnya + render ulang MathJax saat modal tampil
     $(document).on('shown.bs.modal', '#modalViewQuestion', function () {
       $('#viewText img').each(function () {
         $(this).addClass('img-fluid d-block mx-auto my-2 rounded');
       });
+      if (window.MathJax && window.MathJax.typesetPromise) {
+        MathJax.typesetPromise([document.getElementById('modalViewQuestion')])
+          .catch(function(err){ console.warn('MathJax:', err); });
+      }
     });
 
     /** ========================
