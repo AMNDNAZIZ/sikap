@@ -1,6 +1,6 @@
 {
     "version": "2.0.0",
-    "generated": "2026-09-07 06:50:36",
+    "generated": "2026-09-07 07:10:51",
     "last_update": "2026-09-03 00:00",
     "total_files": 867,
     "files": {
@@ -59,7 +59,7 @@
         "app/Controllers/Admin/AcademicYear.php": "24a7f16ae4846794b723255965d3835b",
         "app/Controllers/Admin/AccountSync.php": "43f5e0b3307bb1280080003897340319",
         "app/Controllers/Admin/ActiveClasses.php": "7d0d706799cc87f96967e24ddf25ad97",
-        "app/Controllers/Admin/AdministrasiGuru.php": "056ed6b2f6e0c815a0681950a7a0290d",
+        "app/Controllers/Admin/AdministrasiGuru.php": "d4ae3728931bfbe86d1c928b52316365",
         "app/Controllers/Admin/AgendaSurat.php": "2f0ac465b5f03bbd695087c19d12a89e",
         "app/Controllers/Admin/Agendas.php": "6388fd2a14295fda94acca5f8df801e7",
         "app/Controllers/Admin/Alumni.php": "d4efc50648cababf9e790052c742f7e3",
