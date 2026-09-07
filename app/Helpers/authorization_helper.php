@@ -226,16 +226,23 @@ if (!function_exists('is_school_swasta')) {
             return $cached === 'swasta';
         }
 
-        $db = \Config\Database::connect();
-        $school = $db->table('school_profile')
-            ->select('status')
-            ->get()
-            ->getRowArray();
+        try {
+            $db = \Config\Database::connect();
+            if (!$db->fieldExists('status', 'school_profile')) {
+                return false;
+            }
+            $school = $db->table('school_profile')
+                ->select('status')
+                ->get()
+                ->getRowArray();
 
-        $status = $school['status'] ?? null;
-        $cache->save('school_status', $status, 3600); // cache 1 hour
+            $status = $school['status'] ?? null;
+            $cache->save('school_status', $status, 3600); // cache 1 hour
 
-        return $status === 'swasta';
+            return $status === 'swasta';
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 }
 
@@ -254,16 +261,23 @@ if (!function_exists('is_school_negeri')) {
             return $cached === 'negeri';
         }
 
-        $db = \Config\Database::connect();
-        $school = $db->table('school_profile')
-            ->select('status')
-            ->get()
-            ->getRowArray();
+        try {
+            $db = \Config\Database::connect();
+            if (!$db->fieldExists('status', 'school_profile')) {
+                return false;
+            }
+            $school = $db->table('school_profile')
+                ->select('status')
+                ->get()
+                ->getRowArray();
 
-        $status = $school['status'] ?? null;
-        $cache->save('school_status', $status, 3600);
+            $status = $school['status'] ?? null;
+            $cache->save('school_status', $status, 3600);
 
-        return $status === 'negeri';
+            return $status === 'negeri';
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 }
 

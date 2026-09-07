@@ -209,6 +209,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('holidays/edit/(:num)', 'Holidays::edit/$1', $auth127);
     $routes->post('holidays/update/(:num)', 'Holidays::update/$1', $auth127);
     $routes->get('holidays/delete/(:num)', 'Holidays::delete/$1', $auth127);
+    $routes->post('holidays/sync', 'Holidays::sync', $auth127);
 
     $routes->get('teachingassignments', 'TeachingAssignments::index', $auth127);
     $routes->get('teachingassignments/create', 'TeachingAssignments::create', $auth127);
