@@ -168,15 +168,40 @@ $(function(){
   refreshChat();
   setInterval(refreshChat, 5000);
 
+  var CSRF_NAME = "<?= csrf_token() ?>";
+
+  // Update field CSRF di semua form dengan token terbaru dari response
+  function updateCsrf(res) {
+    if (res && res.csrf) {
+      $('input[name="' + CSRF_NAME + '"]').val(res.csrf);
+    }
+  }
+
   $('#chat-form').on('submit', function(e){
     e.preventDefault();
-    $.post("<?= site_url('siswa/chat/send') ?>", $(this).serialize(), function(res){
+    var $form = $(this);
+    $.post("<?= site_url('siswa/chat/send') ?>", $form.serialize(), function(res){
+      updateCsrf(res);
       if (res.status === 'ok') {
         $('#chat-input').val('');
         clearReply();
         refreshChat();
+      } else if (res.message) {
+        alert('Gagal mengirim: ' + res.message);
       }
-    }, 'json');
+    }, 'json').fail(function(xhr){
+      // CSRF gagal (403) — ambil token baru lalu minta user coba lagi
+      if (xhr.status === 403) {
+        // Refresh halaman token via reload ringan CSRF
+        $.get("<?= site_url('siswa/chat/csrf') ?>", function(r){
+          if (r && r.csrf) $('input[name="' + CSRF_NAME + '"]').val(r.csrf);
+        }, 'json').always(function(){
+          alert('Sesi keamanan diperbarui. Silakan kirim pesan lagi.');
+        });
+      } else {
+        alert('Gagal mengirim pesan. Coba lagi.');
+      }
+    });
   });
 
   // Mobile long-press untuk munculkan tombol balas
