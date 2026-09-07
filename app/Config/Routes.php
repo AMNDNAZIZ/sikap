@@ -144,6 +144,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('students/delete/(:num)', 'Students::delete/$1', $auth127);
     $routes->get('students/show/(:num)', 'Students::show/$1', $auth127);
     $routes->post('students/import', 'Students::import', $auth127);
+    $routes->post('students/confirm-import', 'Students::confirmImport', $auth127);
     $routes->get('students/download-template', 'Students::downloadTemplate', $auth127);
 
     // Student Map (Admin, Principal, Teacher)
