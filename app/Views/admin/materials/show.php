@@ -430,11 +430,15 @@ function renderAdminReplyItem(array $r, int $userId, int $threadId, int $subMatI
 
         <!-- Aksi moderasi + upvote -->
         <div class="d-flex align-items-center gap-1 flex-shrink-0">
-          <!-- Upvote (read-only info untuk guru) -->
-          <span class="d-flex align-items-center gap-1 text-muted" style="font-size:0.72rem;">
-            <i class="bi bi-hand-thumbs-up"></i>
-            <span><?= $upvotes ?></span>
-          </span>
+          <!-- Upvote (bisa diklik) -->
+          <button type="button"
+                  class="btn-upvote d-flex align-items-center gap-1 text-<?= $upvoted ? 'primary' : 'muted' ?>"
+                  data-reply-id="<?= $rid ?>"
+                  title="Suka"
+                  style="font-size:0.72rem; border:none; background:none; cursor:pointer; padding:0 4px;">
+            <i class="bi bi-hand-thumbs-up<?= $upvoted ? '-fill' : '' ?>"></i>
+            <span class="uv-count"><?= $upvotes ?></span>
+          </button>
 
           <?php if (!$isDeleted): ?>
             <!-- Best Answer -->
@@ -545,6 +549,35 @@ if (btnCancelReply) {
     if (mainReplyBody)  mainReplyBody.focus();
   });
 }
+
+// ── Upvote / Suka komentar ────────────────────────────────────────
+var UPVOTE_URL = "<?= base_url('forum/reply') ?>/";
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.btn-upvote');
+  if (!btn) return;
+
+  var rid  = btn.dataset.replyId;
+  var body = new URLSearchParams();
+  body.append(CSRF_NAME, CSRF_HASH);
+
+  btn.disabled = true;
+  fetch(UPVOTE_URL + rid + '/upvote', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/x-www-form-urlencoded', 'X-Requested-With':'XMLHttpRequest' },
+    body: body.toString()
+  }).then(function(r){ return r.json(); }).then(function(d){
+    btn.disabled = false;
+    if (d && d.success) {
+      btn.querySelector('.uv-count').textContent = d.count;
+      var icon   = btn.querySelector('i');
+      var filled = icon.classList.contains('bi-hand-thumbs-up-fill');
+      icon.classList.toggle('bi-hand-thumbs-up',      filled);
+      icon.classList.toggle('bi-hand-thumbs-up-fill', !filled);
+      btn.classList.toggle('text-primary', !filled);
+      btn.classList.toggle('text-muted',    filled);
+    }
+  }).catch(function(){ btn.disabled = false; });
+});
 
 })();
 </script>
