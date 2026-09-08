@@ -1,6 +1,6 @@
 {
     "version": "2.0.0",
-    "generated": "2026-09-08 01:38:59",
+    "generated": "2026-09-08 03:06:30",
     "last_update": "2026-09-03 00:00",
     "total_files": 869,
     "files": {
@@ -506,7 +506,7 @@
         "app/Views/admin/materials/progress.php": "090ff446605fe0edbbf9a263023e2c8f",
         "app/Views/admin/materials/progress_detail.php": "0b40d95f0c185420e203177358b63604",
         "app/Views/admin/materials/publish.php": "da180f02f99059e00ca48a2815682b31",
-        "app/Views/admin/materials/show.php": "0a0f4201564a5aa347f92f434251cb74",
+        "app/Views/admin/materials/show.php": "b365f61f85b9f591ee03944daffa9ebf",
         "app/Views/admin/materials/subject_list.php": "9683149df19c6971bad20e4ed95f7b55",
         "app/Views/admin/materials/use.php": "73bbb57c441f7160708dae3a48e2b4d7",
         "app/Views/admin/placement/index.php": "cb2adf34513df3255f8177b7f6bea33b",
