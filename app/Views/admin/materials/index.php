@@ -3,6 +3,48 @@
 
 <?php $csrfName = csrf_token(); $csrfHash = csrf_hash(); ?>
 
+<style>
+  /* Judul materi induk maksimal 2 baris */
+  .text-truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .min-w-0 { min-width: 0; }
+
+  /* Tombol aksi sub materi */
+  .mat-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .mat-actions .btn { font-size: 0.75rem; }
+
+  /* ── Mobile (< 576px): tombol aksi jadi grid penuh, mudah disentuh ── */
+  @media (max-width: 575.98px) {
+    .mat-child-item { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+    .mat-actions {
+      padding-left: 0 !important;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .mat-actions .btn {
+      width: 100%;
+      padding-top: 0.4rem;
+      padding-bottom: 0.4rem;
+      font-size: 0.8rem;
+    }
+    .mat-child-item .ps-4 { padding-left: 0 !important; }
+  }
+
+  /* ── Desktop (>= 768px): tombol ringkas rata kiri ── */
+  @media (min-width: 768px) {
+    .mat-actions { justify-content: flex-start; }
+  }
+</style>
+
+<!-- Header halaman -->
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
   <h5 class="fw-bold mb-0">
     <i class="bi bi-book me-2 text-primary"></i><?= esc($title) ?>
@@ -10,14 +52,14 @@
   <div class="d-flex gap-2 flex-wrap">
     <a href="<?= site_url('admin/materials/use/' . $subject['id']) ?>"
        class="btn btn-sm btn-outline-info">
-      <i class="bi bi-box-arrow-in-down me-1"></i>Gunakan Materi
+      <i class="bi bi-box-arrow-in-down me-1"></i><span class="d-none d-sm-inline">Gunakan </span>Materi
     </a>
     <a href="<?= site_url('admin/materials/progress/' . $subject['id']) ?>"
        class="btn btn-sm btn-outline-secondary">
       <i class="bi bi-bar-chart me-1"></i>Progress
     </a>
     <button type="button" id="btnSyncAtp" class="btn btn-sm btn-primary">
-      <i class="bi bi-arrow-repeat me-1"></i>Sinkron Materi dari ATP
+      <i class="bi bi-arrow-repeat me-1"></i><span class="d-none d-sm-inline">Sinkron </span>ATP
     </button>
   </div>
 </div>
@@ -27,7 +69,7 @@
   <div>
     <strong>Materi</strong> otomatis diambil dari <strong>ATP</strong> (Alur Tujuan Pembelajaran) yang sudah Anda buat.
     Tugas Anda adalah menambahkan <strong>Sub Materi</strong> (pertemuan) pada setiap materi, lalu mempublikasikannya ke kelas.
-    Jika materi belum muncul, klik <strong>Sinkron Materi dari ATP</strong>.
+    Jika materi belum muncul, klik <strong>Sinkron ATP</strong>.
   </div>
 </div>
 
@@ -56,28 +98,35 @@
       $semLabel  = $parent['semester'] == 1 ? 'Ganjil' : 'Genap';
       $lvLabel   = \App\Models\SubjectMaterialModel::getLevelLabel((int)$parent['level']);
     ?>
-    <div class="card border-0 shadow-sm mb-4" id="parent-<?= $parent['id'] ?>">
+    <div class="card border-0 shadow-sm mb-3 mat-parent-card" id="parent-<?= $parent['id'] ?>">
 
       <!-- ── Header Materi Induk ── -->
-      <div class="card-header bg-primary bg-opacity-10 border-bottom py-2
-                  d-flex align-items-center justify-content-between flex-wrap gap-2">
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-folder2-open text-primary fs-5"></i>
-          <div>
-            <span class="fw-bold"><?= esc($parent['title']) ?></span>
-            <span class="ms-2 badge bg-secondary" style="font-size:0.62rem;"><?= $semLabel ?></span>
-            <span class="ms-1 badge bg-info text-dark" style="font-size:0.62rem;"><?= $lvLabel ?></span>
-            <?php if ($parent['is_published']): ?>
-              <span class="ms-1 badge bg-success" style="font-size:0.62rem;">Siap</span>
-            <?php else: ?>
-              <span class="ms-1 badge bg-warning text-dark" style="font-size:0.62rem;">Draft</span>
-            <?php endif; ?>
+      <div class="card-header bg-primary bg-opacity-10 border-bottom py-2 px-3">
+        <div class="d-flex align-items-start justify-content-between gap-2">
+          <div class="d-flex align-items-start gap-2 flex-grow-1 min-w-0">
+            <i class="bi bi-folder2-open text-primary fs-5 flex-shrink-0" style="margin-top:2px;"></i>
+            <div class="min-w-0">
+              <div class="fw-bold text-truncate-2" style="font-size:0.9rem;line-height:1.3;">
+                <?= esc($parent['title']) ?>
+              </div>
+              <div class="d-flex flex-wrap gap-1 mt-1">
+                <span class="badge bg-secondary" style="font-size:0.6rem;"><?= $semLabel ?></span>
+                <span class="badge bg-info text-dark" style="font-size:0.6rem;"><?= $lvLabel ?></span>
+                <?php if ($parent['is_published']): ?>
+                  <span class="badge bg-success" style="font-size:0.6rem;">Siap</span>
+                <?php else: ?>
+                  <span class="badge bg-warning text-dark" style="font-size:0.6rem;">Draft</span>
+                <?php endif; ?>
+                <span class="badge bg-light text-dark border" style="font-size:0.6rem;">
+                  <i class="bi bi-list-ol me-1"></i><?= count($children) ?> sub materi
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="d-flex gap-1">
           <a href="<?= site_url('admin/materials/create/' . $subject['id'] . '?parent_id=' . $parent['id']) ?>"
-             class="btn btn-sm btn-primary py-0 px-2" title="Tambah Sub Materi (Pertemuan)" style="font-size:0.78rem;">
-            <i class="bi bi-plus-circle me-1"></i>Sub Materi
+             class="btn btn-sm btn-primary flex-shrink-0 px-2" title="Tambah Sub Materi (Pertemuan)"
+             style="font-size:0.75rem;white-space:nowrap;">
+            <i class="bi bi-plus-circle"></i><span class="d-none d-sm-inline ms-1">Sub Materi</span>
           </a>
         </div>
       </div>
@@ -107,70 +156,70 @@
                 ->where('is_system', 1)
                 ->countAllResults() > 0;
             ?>
-            <div class="list-group-item px-4 py-3" id="child-<?= $child['id'] ?>">
-              <div class="d-flex align-items-start gap-3">
+            <div class="list-group-item px-3 py-3 mat-child-item" id="child-<?= $child['id'] ?>">
 
-                <!-- Nomor -->
+              <!-- Baris atas: nomor + judul + badge -->
+              <div class="d-flex align-items-start gap-2 mb-2">
                 <span class="flex-shrink-0 rounded-circle bg-primary text-white d-flex align-items-center
                              justify-content-center fw-bold"
-                      style="width:26px;height:26px;font-size:0.72rem;margin-top:3px;">
+                      style="width:26px;height:26px;font-size:0.72rem;">
                   <?= $idx + 1 ?>
                 </span>
-
-                <!-- Info -->
-                <div class="flex-grow-1 overflow-hidden">
-                  <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                    <span class="fw-semibold" style="font-size:0.875rem;"><?= esc($child['title']) ?></span>
+                <div class="flex-grow-1 min-w-0">
+                  <div class="fw-semibold" style="font-size:0.875rem;line-height:1.3;">
+                    <?= esc($child['title']) ?>
+                  </div>
+                  <div class="d-flex align-items-center flex-wrap gap-1 mt-1">
                     <?php if ($child['is_published']): ?>
-                      <span class="badge bg-success" style="font-size:0.62rem;">Siap</span>
+                      <span class="badge bg-success" style="font-size:0.6rem;">Siap</span>
                     <?php else: ?>
-                      <span class="badge bg-warning text-dark" style="font-size:0.62rem;">Draft</span>
+                      <span class="badge bg-warning text-dark" style="font-size:0.6rem;">Draft</span>
                     <?php endif; ?>
                     <?php if ($publishedIds > 0): ?>
-                      <span class="badge bg-primary" style="font-size:0.62rem;">
-                        Published ke <?= $publishedIds ?> kelas
+                      <span class="badge bg-primary" style="font-size:0.6rem;">
+                        <i class="bi bi-send me-1"></i><?= $publishedIds ?> kelas
                       </span>
                     <?php endif; ?>
                   </div>
-                  <div class="d-flex flex-wrap gap-3" style="font-size:0.72rem;color:#6c757d;">
-                    <span><i class="<?= $icon ?> me-1"></i><?= $typeLabel ?></span>
-                    <?php if ($child['estimated_minutes']): ?>
-                      <span><i class="bi bi-clock me-1"></i><?= $child['estimated_minutes'] ?> menit</span>
-                    <?php endif; ?>
-                    <span class="<?= $child['is_published'] ? 'text-success' : '' ?>">
-                      <i class="bi bi-check2-circle me-1"></i><?= $prog['completed'] ?> selesai
-                    </span>
-                    <span class="<?= $hasThread ? 'text-primary' : '' ?>">
-                      <i class="bi bi-chat-dots me-1"></i><?= $hasThread ? 'Diskusi aktif' : 'Belum ada diskusi' ?>
-                    </span>
-                  </div>
                 </div>
-
-                <!-- Aksi -->
-                <div class="d-flex gap-1 flex-shrink-0">
-                  <a href="<?= site_url('admin/materials/show/' . $child['id']) ?>"
-                     class="btn btn-sm btn-outline-primary py-0 px-2"
-                     title="Lihat Konten & Diskusi" style="font-size:0.72rem;">
-                    <i class="bi bi-eye me-1"></i>Lihat
-                  </a>
-                  <?php if ($child['is_published']): ?>
-                    <a href="<?= site_url('admin/materials/publish/' . $child['id']) ?>"
-                       class="btn btn-sm btn-outline-success py-0 px-2"
-                       title="Kelola Publikasi ke Kelas" style="font-size:0.72rem;">
-                      <i class="bi bi-send me-1"></i>Publish
-                    </a>
-                  <?php endif; ?>
-                  <a href="<?= site_url('admin/materials/edit/' . $child['id']) ?>"
-                     class="btn btn-sm btn-outline-warning py-0 px-2" title="Edit">
-                    <i class="bi bi-pencil"></i>
-                  </a>
-                  <button class="btn btn-sm btn-outline-danger py-0 px-2 btn-delete"
-                          data-id="<?= $child['id'] ?>" data-title="<?= esc($child['title']) ?>">
-                    <i class="bi bi-trash"></i>
-                  </button>
-                </div>
-
               </div>
+
+              <!-- Baris meta: tipe, durasi, progres, diskusi -->
+              <div class="d-flex flex-wrap gap-2 mb-2 ps-4" style="font-size:0.7rem;color:#6c757d;">
+                <span><i class="<?= $icon ?> me-1"></i><?= $typeLabel ?></span>
+                <?php if ($child['estimated_minutes']): ?>
+                  <span><i class="bi bi-clock me-1"></i><?= $child['estimated_minutes'] ?> mnt</span>
+                <?php endif; ?>
+                <span class="<?= $child['is_published'] ? 'text-success' : '' ?>">
+                  <i class="bi bi-check2-circle me-1"></i><?= $prog['completed'] ?> selesai
+                </span>
+                <span class="<?= $hasThread ? 'text-primary' : '' ?>">
+                  <i class="bi bi-chat-dots me-1"></i><?= $hasThread ? 'Diskusi aktif' : 'Belum ada diskusi' ?>
+                </span>
+              </div>
+
+              <!-- Baris aksi: tombol full-width di HP, ringkas di desktop -->
+              <div class="mat-actions ps-4">
+                <a href="<?= site_url('admin/materials/show/' . $child['id']) ?>"
+                   class="btn btn-sm btn-outline-primary" title="Lihat Konten & Diskusi">
+                  <i class="bi bi-eye"></i><span class="ms-1">Lihat</span>
+                </a>
+                <?php if ($child['is_published']): ?>
+                  <a href="<?= site_url('admin/materials/publish/' . $child['id']) ?>"
+                     class="btn btn-sm btn-outline-success" title="Kelola Publikasi ke Kelas">
+                    <i class="bi bi-send"></i><span class="ms-1">Publish</span>
+                  </a>
+                <?php endif; ?>
+                <a href="<?= site_url('admin/materials/edit/' . $child['id']) ?>"
+                   class="btn btn-sm btn-outline-warning" title="Edit">
+                  <i class="bi bi-pencil"></i><span class="ms-1 d-sm-none">Edit</span>
+                </a>
+                <button class="btn btn-sm btn-outline-danger btn-delete"
+                        data-id="<?= $child['id'] ?>" data-title="<?= esc($child['title']) ?>" title="Hapus">
+                  <i class="bi bi-trash"></i><span class="ms-1 d-sm-none">Hapus</span>
+                </button>
+              </div>
+
             </div>
           <?php endforeach; ?>
         </div>
@@ -180,7 +229,7 @@
 
 <?php endif; ?>
 
-<div class="mt-2">
+<div class="mt-2 mb-4">
   <a href="<?= site_url('admin/materials') ?>" class="btn btn-sm btn-outline-secondary">
     <i class="bi bi-arrow-left me-1"></i>Kembali ke Daftar Mapel
   </a>
@@ -188,7 +237,7 @@
 
 <!-- Modal Hapus -->
 <div class="modal fade" id="deleteModal" tabindex="-1">
-  <div class="modal-dialog modal-sm">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header py-2">
         <h6 class="modal-title">Hapus</h6>
@@ -207,6 +256,7 @@
 </div>
 
 <?= $this->endSection() ?>
+
 <?= $this->section('scripts') ?>
 <script>
 (function(){
@@ -252,7 +302,6 @@
       body: '<?= $csrfName ?>=<?= $csrfHash ?>'
     }).then(r => r.json()).then(function(d){
       if (d.success) {
-        // Reload agar materi baru muncul
         location.reload();
       } else {
         alert(d.message || 'Gagal sinkron.');
