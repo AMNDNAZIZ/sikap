@@ -898,7 +898,8 @@ class Materials extends BaseController
         $materials = $summary = [];
 
         if ($selectedClassId) {
-            $materials = $this->mat->getPublishedByClass((int)$selectedClassId, $yearId);
+            // Filter per mapel agar daftar progres tidak bercampur antar mapel
+            $materials = $this->mat->getPublishedByClass((int)$selectedClassId, $yearId, $subjectId);
             $summary   = $this->prog->getSummaryByClass((int)$selectedClassId, $yearId);
         }
 

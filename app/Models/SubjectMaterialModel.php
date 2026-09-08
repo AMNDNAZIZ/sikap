@@ -636,7 +636,7 @@ class SubjectMaterialModel extends Model
             ->findAll();
     }
 
-    public function getPublishedByClass(int $classId, int $academicYearId): array
+    public function getPublishedByClass(int $classId, int $academicYearId, ?int $subjectId = null): array
     {
         $db       = \Config\Database::connect();
         $classInfo = $db->table('classes')->where('id', $classId)->get()->getRowArray();
@@ -655,11 +655,18 @@ class SubjectMaterialModel extends Model
 
         if (empty($publishedIds)) return [];
 
-        return $db->table('subject_materials sm')
+        $builder = $db->table('subject_materials sm')
             ->select('sm.*, s.name as subject_name')
             ->join('subjects s', 's.id = sm.subject_id')
             ->whereIn('sm.id', $publishedIds)
-            ->where('sm.is_published', 1)
+            ->where('sm.is_published', 1);
+
+        // Filter per mapel (dipakai halaman progress per mapel agar tidak bercampur)
+        if ($subjectId !== null) {
+            $builder->where('sm.subject_id', $subjectId);
+        }
+
+        return $builder
             ->orderBy('s.name', 'ASC')
             ->orderBy('sm.sort_order', 'ASC')
             ->get()->getResultArray();
