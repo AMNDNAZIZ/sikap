@@ -504,6 +504,16 @@ class Materials extends BaseController
         $contentType = $data['content_type'] ?? 'text';
         $isPublished = isset($data['is_published']) ? 1 : 0;
 
+        // Konten: untuk 'html' baca field content_html (HTML mentah dari editor kode),
+        // untuk 'text' baca field content (dari CKEditor). Dipisah agar CKEditor tidak
+        // meng-encode HTML interaktif (penyebab kode tampil mentah).
+        $contentValue = null;
+        if ($contentType === 'html') {
+            $contentValue = $data['content_html'] ?? ($data['content'] ?? null);
+        } elseif ($contentType === 'text') {
+            $contentValue = $data['content'] ?? null;
+        }
+
         $insertData = [
             'parent_id'         => $parentId,
             'level'             => $level,
@@ -514,7 +524,7 @@ class Materials extends BaseController
             'description'       => $data['description'] ?? null,
             'content_type'      => $contentType,
             // 'html' menyimpan HTML mentah (interaktif) tanpa filtering — dirender di iframe sandbox.
-            'content'           => in_array($contentType, ['text', 'html'], true) ? ($data['content'] ?? null) : null,
+            'content'           => $contentValue,
             'file_path'         => $contentType === 'pdf'   ? $filePath                         : null,
             'video_url'         => $contentType === 'video' ? ($data['video_url']      ?? null) : null,
             'external_link'     => $contentType === 'link'  ? ($data['external_link']  ?? null) : null,
@@ -607,7 +617,9 @@ class Materials extends BaseController
             'description'       => $data['description'] ?? null,
             'content_type'      => $contentType,
             // 'html' menyimpan HTML mentah (interaktif) tanpa filtering — dirender di iframe sandbox.
-            'content'           => in_array($contentType, ['text', 'html'], true) ? ($data['content'] ?? null) : null,
+            'content'           => $contentType === 'html'
+                                     ? ($data['content_html'] ?? ($data['content'] ?? null))
+                                     : ($contentType === 'text' ? ($data['content'] ?? null) : null),
             'file_path'         => $contentType === 'pdf'   ? $filePath                        : null,
             'video_url'         => $contentType === 'video' ? ($data['video_url']     ?? null) : null,
             'external_link'     => $contentType === 'link'  ? ($data['external_link'] ?? null) : null,

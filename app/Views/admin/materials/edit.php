@@ -281,11 +281,12 @@
 
   // Saat submit tipe HTML: salin editor kode ke field 'content' yang dibaca controller
   var form          = contentTypeSel.closest('form');
+  // Saat tipe html, kosongkan field 'content' (CKEditor) agar tidak menimpa;
+  // controller membaca 'content_html' langsung dari editor kode.
   var editorContent = document.getElementById('editorContent'); // name="content"
-  var htmlContent   = document.getElementById('htmlContent');    // name="content_html"
   form.addEventListener('submit', function() {
-    if (contentTypeSel.value === 'html' && htmlContent) {
-      editorContent.value = htmlContent.value;
+    if (contentTypeSel.value === 'html' && editorContent) {
+      editorContent.value = '';
     }
   });
 

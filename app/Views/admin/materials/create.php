@@ -274,12 +274,12 @@
   // Saat submit: jika tipe HTML, salin isi editor kode ke field 'content'
   // dan nonaktifkan textarea CKEditor agar tidak menimpa. Sebaliknya untuk text.
   var form           = contentTypeSel.closest('form');
+  // Cegah CKEditor mengganggu konten HTML: saat tipe html, kosongkan field
+  // 'content' (CKEditor) agar tidak terkirim; controller membaca 'content_html'.
   var editorContent  = document.getElementById('editorContent'); // name="content"
-  var htmlContent    = document.getElementById('htmlContent');    // name="content_html"
   form.addEventListener('submit', function() {
-    if (contentTypeSel.value === 'html') {
-      // Pindahkan HTML mentah ke field 'content' yang dibaca controller
-      editorContent.value = htmlContent.value;
+    if (contentTypeSel.value === 'html' && editorContent) {
+      editorContent.value = '';
     }
   });
 
