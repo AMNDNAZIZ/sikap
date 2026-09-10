@@ -1,6 +1,6 @@
 {
     "version": "2.0.0",
-    "generated": "2026-09-10 03:31:31",
+    "generated": "2026-09-10 06:13:33",
     "last_update": "2026-09-03 00:00",
     "total_files": 871,
     "files": {
@@ -95,7 +95,7 @@
         "app/Controllers/Admin/KartuPeserta.php": "7a31b84672d7cea46370467a4f72e861",
         "app/Controllers/Admin/Kokurikuler.php": "604cb3d7ed05365f4a2e3b7ad255a96e",
         "app/Controllers/Admin/MapelMaster.php": "0d2839d2596124dd8a342e7be4aede87",
-        "app/Controllers/Admin/Materials.php": "26d53e08bf79efbf775318406a4a08d9",
+        "app/Controllers/Admin/Materials.php": "4d92a11e0034dca80cd08e724424e953",
         "app/Controllers/Admin/Placement.php": "fca788aaf1a5c90c65e5d5737fe7fcb4",
         "app/Controllers/Admin/Promotions.php": "48040a584a352649305d34709f1be7d5",
         "app/Controllers/Admin/Quiz.php": "006396bbed54493fae5d5650e26a5bb3",
@@ -501,9 +501,9 @@
         "app/Views/admin/learning/class_list.php": "885e6fd2db9356e31dfd62bf11c6ec67",
         "app/Views/admin/mapel_master/index.php": "8aeff95d5e01259f78f8da282eb81948",
         "app/Views/admin/materials/_html_frame.php": "315da4c67e802082a09669a75976b4a5",
-        "app/Views/admin/materials/create.php": "1c1c8bed2f5fe9207167d154fc846f1d",
+        "app/Views/admin/materials/create.php": "8b67b7f39b5963127ceb551949d3da7e",
         "app/Views/admin/materials/delete.php": "a8ef76f8754650c123fdedfeea839ac8",
-        "app/Views/admin/materials/edit.php": "17b796878e860e8e75bc9a21014a1b12",
+        "app/Views/admin/materials/edit.php": "6d19fb9110e9378a31c87ca9da554ad6",
         "app/Views/admin/materials/index.php": "35c997f91e69882235aa2fb4f4b00b1c",
         "app/Views/admin/materials/progress.php": "090ff446605fe0edbbf9a263023e2c8f",
         "app/Views/admin/materials/progress_detail.php": "0b40d95f0c185420e203177358b63604",
