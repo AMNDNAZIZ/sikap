@@ -92,6 +92,14 @@
         <?php endif; ?>
       </div>
 
+    <?php elseif ($contentType === 'html'): ?>
+      <!-- ── Halaman HTML Interaktif (iframe sandbox, terisolasi) ── -->
+      <?php if (!empty($subMat['content'])): ?>
+        <?= view('admin/materials/_html_frame', ['html' => $subMat['content']]) ?>
+      <?php else: ?>
+        <p class="text-muted fst-italic">Konten belum tersedia.</p>
+      <?php endif; ?>
+
     <?php elseif ($contentType === 'pdf'): ?>
       <?php if (!empty($subMat['file_path'])): ?>
         <div class="ratio mb-3" style="--bs-aspect-ratio: 75%; min-height: 420px;">

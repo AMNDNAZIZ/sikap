@@ -513,7 +513,8 @@ class Materials extends BaseController
             'title'             => $data['title'],
             'description'       => $data['description'] ?? null,
             'content_type'      => $contentType,
-            'content'           => $contentType === 'text'  ? ($data['content']        ?? null) : null,
+            // 'html' menyimpan HTML mentah (interaktif) tanpa filtering — dirender di iframe sandbox.
+            'content'           => in_array($contentType, ['text', 'html'], true) ? ($data['content'] ?? null) : null,
             'file_path'         => $contentType === 'pdf'   ? $filePath                         : null,
             'video_url'         => $contentType === 'video' ? ($data['video_url']      ?? null) : null,
             'external_link'     => $contentType === 'link'  ? ($data['external_link']  ?? null) : null,
@@ -605,7 +606,8 @@ class Materials extends BaseController
             'title'             => $data['title'],
             'description'       => $data['description'] ?? null,
             'content_type'      => $contentType,
-            'content'           => $contentType === 'text'  ? ($data['content']       ?? null) : null,
+            // 'html' menyimpan HTML mentah (interaktif) tanpa filtering — dirender di iframe sandbox.
+            'content'           => in_array($contentType, ['text', 'html'], true) ? ($data['content'] ?? null) : null,
             'file_path'         => $contentType === 'pdf'   ? $filePath                        : null,
             'video_url'         => $contentType === 'video' ? ($data['video_url']     ?? null) : null,
             'external_link'     => $contentType === 'link'  ? ($data['external_link'] ?? null) : null,

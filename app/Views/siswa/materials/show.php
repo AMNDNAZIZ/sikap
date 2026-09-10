@@ -50,6 +50,14 @@
         <?php endif; ?>
       </div>
 
+    <?php elseif ($contentType === 'html'): ?>
+      <!-- ── Halaman HTML Interaktif (iframe sandbox, terisolasi) ── -->
+      <?php if (!empty($material['content'])): ?>
+        <?= view('admin/materials/_html_frame', ['html' => $material['content']]) ?>
+      <?php else: ?>
+        <p class="text-muted fst-italic">Konten materi belum tersedia.</p>
+      <?php endif; ?>
+
     <?php elseif ($contentType === 'pdf'): ?>
       <!-- ── File PDF ── -->
       <?php if (!empty($material['file_path'])): ?>

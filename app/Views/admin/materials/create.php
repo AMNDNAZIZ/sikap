@@ -86,7 +86,8 @@
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Tipe Konten <span class="text-danger">*</span></label>
           <select name="content_type" id="contentType" class="form-select form-select-sm" required>
-            <option value="text"  <?= old('content_type') === 'text'  ? 'selected' : '' ?>>Teks HTML</option>
+            <option value="text"  <?= old('content_type') === 'text'  ? 'selected' : '' ?>>Teks (Editor)</option>
+            <option value="html"  <?= old('content_type') === 'html'  ? 'selected' : '' ?>>Halaman HTML Interaktif</option>
             <option value="pdf"   <?= old('content_type') === 'pdf'   ? 'selected' : '' ?>>File PDF</option>
             <option value="video" <?= old('content_type') === 'video' ? 'selected' : '' ?>>Video YouTube/Vimeo</option>
             <option value="link"  <?= old('content_type') === 'link'  ? 'selected' : '' ?>>Link Eksternal</option>
@@ -103,6 +104,18 @@
         <div class="col-12" id="panelText">
           <label class="form-label small fw-semibold">Konten Materi</label>
           <textarea name="content" id="editorContent" class="form-control" rows="10"><?= old('content') ?></textarea>
+        </div>
+        <div class="col-12" id="panelHtml" style="display:none;">
+          <label class="form-label small fw-semibold">Kode HTML Interaktif</label>
+          <textarea name="content_html" id="htmlContent" class="form-control" rows="16" spellcheck="false"
+                    style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:0.82rem;line-height:1.5;"
+                    placeholder="<!DOCTYPE html>&#10;<html>&#10;<head><style> /* CSS Anda */ </style></head>&#10;<body>&#10;  <!-- HTML & JavaScript interaktif Anda -->&#10;</body>&#10;</html>"><?= old('content_html') ?></textarea>
+          <div class="alert alert-warning border-0 py-2 small mt-2 mb-0">
+            <i class="bi bi-shield-lock me-1"></i>
+            Tempelkan HTML lengkap (boleh berisi CSS &amp; JavaScript). Halaman ini akan
+            dijalankan dalam <strong>iframe terisolasi (sandbox)</strong> demi keamanan —
+            script hanya berjalan di dalam materi, tidak dapat mengakses sesi/aplikasi utama.
+          </div>
         </div>
         <div class="col-12" id="panelPdf" style="display:none;">
           <label class="form-label small fw-semibold">Upload PDF <span class="text-danger">*</span></label>
@@ -199,6 +212,7 @@
 
   var panels = {
     text:  document.getElementById('panelText'),
+    html:  document.getElementById('panelHtml'),
     pdf:   document.getElementById('panelPdf'),
     video: document.getElementById('panelVideo'),
     link:  document.getElementById('panelLink')
@@ -233,18 +247,44 @@
     }).catch(console.error);
   }
 
-  function switchPanel(type) {
-    Object.keys(panels).forEach(function(k) {
-      panels[k].style.display = (k === type) ? 'block' : 'none';
-    });
-    if (type === 'text') initEditor();
+  function destroyEditor() {
+    if (inst) {
+      try { inst.destroy(); } catch (e) {}
+      inst = null;
+    }
   }
 
-  document.getElementById('contentType').addEventListener('change', function() {
+  function switchPanel(type) {
+    Object.keys(panels).forEach(function(k) {
+      if (panels[k]) panels[k].style.display = (k === type) ? 'block' : 'none';
+    });
+    if (type === 'text') {
+      initEditor();
+    } else {
+      // Non-text: pastikan CKEditor tidak aktif agar tidak menimpa field content
+      destroyEditor();
+    }
+  }
+
+  var contentTypeSel = document.getElementById('contentType');
+  contentTypeSel.addEventListener('change', function() {
     switchPanel(this.value);
   });
 
-  switchPanel('text');
+  // Saat submit: jika tipe HTML, salin isi editor kode ke field 'content'
+  // dan nonaktifkan textarea CKEditor agar tidak menimpa. Sebaliknya untuk text.
+  var form           = contentTypeSel.closest('form');
+  var editorContent  = document.getElementById('editorContent'); // name="content"
+  var htmlContent    = document.getElementById('htmlContent');    // name="content_html"
+  form.addEventListener('submit', function() {
+    if (contentTypeSel.value === 'html') {
+      // Pindahkan HTML mentah ke field 'content' yang dibaca controller
+      editorContent.value = htmlContent.value;
+    }
+  });
+
+  // Aktifkan panel sesuai pilihan awal (mendukung old() saat validasi gagal)
+  switchPanel(contentTypeSel.value || 'text');
 })();
 </script>
 <?= $this->endSection() ?>

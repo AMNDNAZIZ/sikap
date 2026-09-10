@@ -77,7 +77,8 @@
         <div class="col-md-4">
           <label class="form-label small fw-semibold">Tipe Konten</label>
           <select name="content_type" id="contentType" class="form-select form-select-sm">
-            <option value="text"  <?= ($material['content_type'] ?? 'text') === 'text'  ? 'selected' : '' ?>>Teks HTML</option>
+            <option value="text"  <?= ($material['content_type'] ?? 'text') === 'text'  ? 'selected' : '' ?>>Teks (Editor)</option>
+            <option value="html"  <?= ($material['content_type'] ?? '') === 'html'  ? 'selected' : '' ?>>Halaman HTML Interaktif</option>
             <option value="pdf"   <?= ($material['content_type'] ?? '') === 'pdf'   ? 'selected' : '' ?>>File PDF</option>
             <option value="video" <?= ($material['content_type'] ?? '') === 'video' ? 'selected' : '' ?>>Video</option>
             <option value="link"  <?= ($material['content_type'] ?? '') === 'link'  ? 'selected' : '' ?>>Link</option>
@@ -89,9 +90,26 @@
                  min="1" max="300" value="<?= esc($material['estimated_minutes'] ?? '') ?>">
         </div>
 
+        <?php
+          $curType    = $material['content_type'] ?? 'text';
+          // Isi konten dipisah: textarea CKEditor untuk 'text', textarea kode untuk 'html'
+          $textValue  = ($curType === 'html') ? '' : ($material['content'] ?? '');
+          $htmlValue  = ($curType === 'html') ? ($material['content'] ?? '') : '';
+        ?>
         <div class="col-12" id="panelText">
           <label class="form-label small fw-semibold">Konten</label>
-          <textarea name="content" id="editorContent" class="form-control" rows="10"><?= esc($material['content'] ?? '') ?></textarea>
+          <textarea name="content" id="editorContent" class="form-control" rows="10"><?= esc($textValue) ?></textarea>
+        </div>
+        <div class="col-12" id="panelHtml" style="display:none;">
+          <label class="form-label small fw-semibold">Kode HTML Interaktif</label>
+          <textarea name="content_html" id="htmlContent" class="form-control" rows="16" spellcheck="false"
+                    style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:0.82rem;line-height:1.5;"
+                    placeholder="<!DOCTYPE html> ..."><?= esc($htmlValue) ?></textarea>
+          <div class="alert alert-warning border-0 py-2 small mt-2 mb-0">
+            <i class="bi bi-shield-lock me-1"></i>
+            HTML lengkap (boleh CSS &amp; JavaScript). Dijalankan dalam
+            <strong>iframe terisolasi (sandbox)</strong> demi keamanan.
+          </div>
         </div>
         <div class="col-12" id="panelPdf" style="display:none;">
           <label class="form-label small fw-semibold">File PDF</label>
@@ -203,6 +221,7 @@
 
   var panels = {
     text:  document.getElementById('panelText'),
+    html:  document.getElementById('panelHtml'),
     pdf:   document.getElementById('panelPdf'),
     video: document.getElementById('panelVideo'),
     link:  document.getElementById('panelLink')
@@ -237,15 +256,37 @@
     }).catch(console.error);
   }
 
-  function switchPanel(type) {
-    Object.keys(panels).forEach(function(k) {
-      panels[k].style.display = (k === type) ? 'block' : 'none';
-    });
-    if (type === 'text') initEditor();
+  function destroyEditor() {
+    if (inst) {
+      try { inst.destroy(); } catch (e) {}
+      inst = null;
+    }
   }
 
-  document.getElementById('contentType').addEventListener('change', function() {
+  function switchPanel(type) {
+    Object.keys(panels).forEach(function(k) {
+      if (panels[k]) panels[k].style.display = (k === type) ? 'block' : 'none';
+    });
+    if (type === 'text') {
+      initEditor();
+    } else {
+      destroyEditor();
+    }
+  }
+
+  var contentTypeSel = document.getElementById('contentType');
+  contentTypeSel.addEventListener('change', function() {
     switchPanel(this.value);
+  });
+
+  // Saat submit tipe HTML: salin editor kode ke field 'content' yang dibaca controller
+  var form          = contentTypeSel.closest('form');
+  var editorContent = document.getElementById('editorContent'); // name="content"
+  var htmlContent   = document.getElementById('htmlContent');    // name="content_html"
+  form.addEventListener('submit', function() {
+    if (contentTypeSel.value === 'html' && htmlContent) {
+      editorContent.value = htmlContent.value;
+    }
   });
 
   switchPanel(initType);
