@@ -37,7 +37,8 @@
                             </thead>
                             <tbody>
                                 <?php foreach ($results as $i => $r): ?>
-                                    <tr>
+                                    <?php $ikut = $r['ikut_ujian'] ?? true; ?>
+                                    <tr class="<?= $ikut ? '' : 'table-warning' ?>">
                                         <td class="text-center">
                                             <?= $i + 1 ?>
                                         </td>
@@ -46,11 +47,16 @@
                                             <div class="text-muted extra-small">
                                                 <?= esc($r['nis']) ?>
                                             </div>
+                                            <?php if (!$ikut): ?>
+                                                <span class="badge bg-warning text-dark" style="font-size:0.6rem;">
+                                                    <i class="bi bi-exclamation-triangle"></i> Tidak ikut ujian
+                                                </span>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="text-center">
-                                            <?= $r['raw_score'] ?>
+                                            <?= $ikut ? $r['raw_score'] : '<span class="text-muted">-</span>' ?>
                                         </td>
-                                        <td class="text-center fw-bold text-primary bg-light">
+                                        <td class="text-center fw-bold <?= $ikut ? 'text-primary' : 'text-muted' ?> bg-light">
                                             <?= $r['converted_score'] ?>
                                         </td>
                                     </tr>

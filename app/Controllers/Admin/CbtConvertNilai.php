@@ -104,32 +104,59 @@ class CbtConvertNilai extends BaseController
             return redirect()->back()->with('error', 'Anda tidak memiliki akses untuk mengkonversi nilai mata pelajaran ini.');
         }
 
-        // Ambil nilai siswa di kelas tersebut
-        $sessions = $this->db->table('cbt_sessions cs')
-            ->select('cs.student_id, st.name as student_name, st.nis, cs.score, cs.total_score')
-            ->join('students st', 'st.id = cs.student_id')
-            ->join('student_records sr', 'sr.student_id = st.id')
-            ->where('cs.test_id', $test['id'])
+        // Ambil SEMUA siswa aktif di kelas tersebut, beserta nilai CBT-nya (bila ada).
+        // Siswa yang tidak mengikuti ujian (tanpa session) tetap muncul dengan nilai 0
+        // agar bisa disimpan (dikosongkan/0) dan tidak mengganggu penyimpanan siswa lain.
+        $sessions = $this->db->table('student_records sr')
+            ->select('st.id as student_id, st.name as student_name, st.nis,
+                      cs.score, cs.total_score')
+            ->join('students st', 'st.id = sr.student_id')
+            ->join('cbt_sessions cs', "cs.student_id = st.id AND cs.test_id = {$test['id']}", 'left')
             ->where('sr.class_id', $classId)
+            ->where('sr.status', 'aktif')
+            ->orderBy('st.name', 'ASC')
             ->get()->getResultArray();
 
         if (empty($sessions)) {
-            return redirect()->back()->with('error', 'Tidak ada data nilai untuk kelas ini pada ujian tersebut.');
+            return redirect()->back()->with('error', 'Tidak ada siswa aktif di kelas ini.');
         }
 
-        // Cari XA (Max Asli) dan XB (Min Asli)
-        $rawScores = array_map(function ($s) {
-            return (float) ($s['total_score'] ?? $s['score'] ?? 0);
-        }, $sessions);
+        // Cari XA (Max Asli) dan XB (Min Asli) HANYA dari siswa yang benar-benar ikut ujian
+        // (punya nilai), agar rentang konversi tidak terdistorsi oleh nilai 0 siswa absen.
+        $participantScores = [];
+        foreach ($sessions as $s) {
+            if ($s['total_score'] !== null || $s['score'] !== null) {
+                $participantScores[] = (float) ($s['total_score'] ?? $s['score'] ?? 0);
+            }
+        }
 
-        $xa = max($rawScores);
-        $xb = min($rawScores);
+        if (empty($participantScores)) {
+            return redirect()->back()->with('error', 'Belum ada siswa yang mengikuti ujian ini.');
+        }
+
+        $xa = max($participantScores);
+        $xb = min($participantScores);
 
         // Jika XA == XB, hindari pembagian nol
         $denominator = ($xa - $xb) ?: 1;
 
         $results = [];
         foreach ($sessions as $s) {
+            // Siswa tidak ikut ujian (tanpa session) → nilai 0, tidak dikonversi
+            $ikutUjian = ($s['total_score'] !== null || $s['score'] !== null);
+
+            if (!$ikutUjian) {
+                $results[] = [
+                    'student_id' => $s['student_id'],
+                    'student_name' => $s['student_name'],
+                    'nis' => $s['nis'],
+                    'raw_score' => null,
+                    'converted_score' => 0,
+                    'ikut_ujian' => false,
+                ];
+                continue;
+            }
+
             $nx = (float) ($s['total_score'] ?? $s['score'] ?? 0);
 
             // Rumus: ((YA-YB)/(XA-XB)) x (NX-XB) + YB
@@ -145,7 +172,8 @@ class CbtConvertNilai extends BaseController
                 'student_name' => $s['student_name'],
                 'nis' => $s['nis'],
                 'raw_score' => $nx,
-                'converted_score' => round($converted, 2)
+                'converted_score' => round($converted, 2),
+                'ikut_ujian' => true,
             ];
         }
 
@@ -184,7 +212,7 @@ class CbtConvertNilai extends BaseController
         $semester = $this->request->getPost('semester');
         $studentScores = $this->request->getPost('student_scores'); // [student_id => score]
 
-        if (empty($studentScores)) {
+        if (empty($studentScores) || !is_array($studentScores)) {
             return redirect()->to('admin/cbt/convertnilai')->with('error', 'Tidak ada data untuk disimpan.');
         }
 
@@ -193,13 +221,60 @@ class CbtConvertNilai extends BaseController
             return redirect()->to('admin/cbt/convertnilai')->with('error', 'Anda tidak memiliki akses untuk mengkonversi nilai mata pelajaran ini.');
         }
 
+        // Validasi tipe tujuan
+        if (!in_array($type, ['formatif', 'sumatif', 'final'], true)) {
+            return redirect()->to('admin/cbt/convertnilai')->with('error', 'Tujuan penyimpanan nilai tidak valid.');
+        }
+
+        // Validasi field wajib per tipe (agar tidak gagal di tengah transaksi)
+        if ($type === 'formatif' && empty($this->request->getPost('material_id'))) {
+            return redirect()->back()->with('error', 'Pilih Lingkup Materi (ATP) terlebih dahulu.');
+        }
+        if (in_array($type, ['sumatif', 'final'], true) && empty($semester)) {
+            // final tidak menyimpan semester, tapi UI tetap meminta; abaikan bila kosong utk final
+            if ($type === 'sumatif') {
+                return redirect()->back()->with('error', 'Pilih semester terlebih dahulu.');
+            }
+        }
+
+        // ── Normalisasi metode agar cocok dengan ENUM kolom `type` ───────────
+        // material_scores.type  : tulis|lisan|projek|observasi
+        // summative_scores.type : tulis|penugasan
+        $normFormatif = function (?string $m): string {
+            $m = strtolower(trim((string) $m));
+            $map = [
+                'tulis' => 'tulis', 'tertulis' => 'tulis', 'tes' => 'tulis',
+                'lisan' => 'lisan',
+                'projek' => 'projek', 'proyek' => 'projek', 'praktek' => 'projek', 'praktik' => 'projek',
+                'observasi' => 'observasi', 'pengamatan' => 'observasi',
+            ];
+            return $map[$m] ?? 'tulis';
+        };
+        $normSumatif = function (?string $m): string {
+            $m = strtolower(trim((string) $m));
+            // STS/tengah → tulis; SAS/akhir/penugasan → penugasan (default tulis)
+            if (in_array($m, ['penugasan', 'sas', 'akhir'], true)) return 'penugasan';
+            return 'tulis';
+        };
+
         $this->db->transStart();
 
         $updateCount = 0;
         $ignoreCount = 0;
 
         foreach ($studentScores as $studentId => $newScore) {
+            // Siswa tanpa nilai (tidak ikut ujian / input kosong) → anggap 0
+            // agar tidak menggagalkan penyimpanan nilai siswa lain.
+            if ($newScore === '' || $newScore === null || !is_numeric($newScore)) {
+                $newScore = 0.0;
+            }
             $newScore = (float) $newScore;
+            // Batasi rentang wajar 0–100
+            if ($newScore < 0)   $newScore = 0.0;
+            if ($newScore > 100) $newScore = 100.0;
+
+            $studentId = (int) $studentId;
+            if ($studentId <= 0) { $ignoreCount++; continue; }
             $existingScore = null;
             $table = '';
             $where = [
@@ -210,8 +285,10 @@ class CbtConvertNilai extends BaseController
 
             if ($type === 'formatif') {
                 $materialId = $this->request->getPost('material_id');
-                $method = $this->request->getPost('material_method'); // "tulis" as default requested
+                $method = $normFormatif($this->request->getPost('material_method'));
                 $table = 'material_scores';
+
+                if (empty($materialId)) { $ignoreCount++; continue; }
 
                 $row = $this->db->table($table)
                     ->where('student_id', $studentId)
@@ -230,7 +307,7 @@ class CbtConvertNilai extends BaseController
                 ];
 
             } elseif ($type === 'sumatif') {
-                $method = $this->request->getPost('sumatif_method');
+                $method = $normSumatif($this->request->getPost('sumatif_method'));
                 $table = 'summative_scores';
                 $where['semester'] = $semester;
                 $where['type'] = $method;
@@ -242,7 +319,8 @@ class CbtConvertNilai extends BaseController
 
             } elseif ($type === 'final') {
                 $table = 'final_exam_scores';
-                $where['semester'] = $semester;
+                // final_exam_scores TIDAK punya kolom semester — hanya student/subject/year
+                // Jangan tambah semester ke where/data
 
                 $row = $this->db->table($table)->where($where)->get()->getRowArray();
                 $existingScore = $row ? (float) $row['score'] : -1;
