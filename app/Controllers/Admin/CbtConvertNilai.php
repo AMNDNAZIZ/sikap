@@ -177,12 +177,39 @@ class CbtConvertNilai extends BaseController
             ];
         }
 
-        // Ambil data materi dari ATP (Lingkup Materi)
+        // Ambil data materi dari ATP (Lingkup Materi).
+        // Konsisten dgn Assessment::formatifList: ATP dikaitkan per-level, dan bila
+        // mapel single-guru, ATP bisa tersimpan di kelas lain se-level. Ambil ATP
+        // se-level agar material_id yang dipilih PASTI muncul di daftar formatif.
         $activeYear = (new AcademicYearModel())->getActiveYear() ?: [];
-        $materials = $this->db->table('alur_tujuan_pembelajaran')
-            ->select('id, lingkup_materi as title, semester')
-            ->where('subject_id', $test['subject_id'])
-            ->where('class_id', $classId)
+
+        $classRow   = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+        $classLevel = (int) ($classRow['level'] ?? 0);
+
+        // Deteksi multi-guru untuk mapel+level ini
+        $guruCount = $this->db->table('teaching_assignments ta')
+            ->distinct()->select('ta.teacher_id')
+            ->join('classes c', 'c.id = ta.class_id')
+            ->where('ta.subject_id', $test['subject_id'])
+            ->where('c.level', $classLevel)
+            ->where('ta.academic_year_id', $activeYear['id'] ?? 0)
+            ->countAllResults();
+        $isMultiGuru = $guruCount > 1;
+
+        $matBuilder = $this->db->table('alur_tujuan_pembelajaran atp')
+            ->select('atp.id, atp.lingkup_materi as title, atp.semester')
+            ->join('classes c_atp', 'c_atp.id = atp.class_id', 'left')
+            ->where('atp.subject_id', $test['subject_id']);
+
+        if ($isMultiGuru) {
+            $matBuilder->where('atp.class_id', $classId);
+        } else {
+            $matBuilder->where('c_atp.level', $classLevel);
+        }
+
+        $materials = $matBuilder
+            ->orderBy('atp.semester', 'ASC')
+            ->orderBy('atp.id', 'ASC')
             ->get()->getResultArray();
 
         return view('admin/cbt/convert/preview', [
