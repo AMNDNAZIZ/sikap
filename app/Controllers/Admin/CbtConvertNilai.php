@@ -302,13 +302,11 @@ class CbtConvertNilai extends BaseController
 
             $studentId = (int) $studentId;
             if ($studentId <= 0) { $ignoreCount++; continue; }
-            $existingScore = null;
+
             $table = '';
-            $where = [
-                'student_id' => $studentId,
-                'subject_id' => $subjectId,
-                'year_id' => $yearId
-            ];
+            $row = null;                 // baris nilai lama (jika ada)
+            $matchWhere = [];            // where untuk update baris yang tepat
+            $data = [];                  // data insert
 
             if ($type === 'formatif') {
                 $materialId = $this->request->getPost('material_id');
@@ -317,64 +315,59 @@ class CbtConvertNilai extends BaseController
 
                 if (empty($materialId)) { $ignoreCount++; continue; }
 
-                $row = $this->db->table($table)
-                    ->where('student_id', $studentId)
-                    ->where('material_id', $materialId)
-                    ->where('type', $method)
-                    ->get()->getRowArray();
-
-                $existingScore = $row ? (float) $row['score'] : -1;
-
-                $data = [
-                    'student_id' => $studentId,
+                $matchWhere = [
+                    'student_id'  => $studentId,
                     'material_id' => $materialId,
-                    'type' => $method,
-                    'score' => $newScore,
-                    'created_by' => session()->get('user')['id']
+                    'type'        => $method,
+                ];
+                $row = $this->db->table($table)->where($matchWhere)->get()->getRowArray();
+
+                $data = $matchWhere + [
+                    'score'      => $newScore,
+                    'created_by' => session()->get('user')['id'],
                 ];
 
             } elseif ($type === 'sumatif') {
                 $method = $normSumatif($this->request->getPost('sumatif_method'));
                 $table = 'summative_scores';
-                $where['semester'] = $semester;
-                $where['type'] = $method;
 
-                $row = $this->db->table($table)->where($where)->get()->getRowArray();
-                $existingScore = $row ? (float) $row['score'] : -1;
+                $matchWhere = [
+                    'student_id' => $studentId,
+                    'subject_id' => $subjectId,
+                    'year_id'    => $yearId,
+                    'semester'   => $semester,
+                    'type'       => $method,
+                ];
+                $row = $this->db->table($table)->where($matchWhere)->get()->getRowArray();
 
-                $data = array_merge($where, ['score' => $newScore]);
+                $data = $matchWhere + ['score' => $newScore];
 
             } elseif ($type === 'final') {
                 $table = 'final_exam_scores';
                 // final_exam_scores TIDAK punya kolom semester — hanya student/subject/year
-                // Jangan tambah semester ke where/data
+                $matchWhere = [
+                    'student_id' => $studentId,
+                    'subject_id' => $subjectId,
+                    'year_id'    => $yearId,
+                ];
+                $row = $this->db->table($table)->where($matchWhere)->get()->getRowArray();
 
-                $row = $this->db->table($table)->where($where)->get()->getRowArray();
-                $existingScore = $row ? (float) $row['score'] : -1;
-
-                $data = array_merge($where, ['score' => $newScore]);
+                $data = $matchWhere + ['score' => $newScore];
             }
 
-            // Simpan nilai bersifat update jika pada materi yang dipilih sudah ada nilai 
-            // maka rubah jika nilai lebih besar dan abaikan jika nilai lebih kecil nilai sebelumnya
-            if ($newScore > $existingScore) {
-                if ($existingScore === -1.0) {
-                    $this->db->table($table)->insert($data);
-                } else {
-                    // Update needs specific where
-                    if ($type === 'formatif') {
-                        $this->db->table($table)
-                            ->where('student_id', $studentId)
-                            ->where('material_id', $materialId)
-                            ->where('type', $method)
-                            ->update(['score' => $newScore]);
-                    } else {
-                        $this->db->table($table)->where($where)->update(['score' => $newScore]);
-                    }
-                }
+            // Belum ada nilai → INSERT. Sudah ada → UPDATE hanya jika nilai baru lebih besar
+            // (agar nilai bagus tidak tertimpa nilai konversi yang lebih rendah).
+            if (!$row) {
+                $this->db->table($table)->insert($data);
                 $updateCount++;
             } else {
-                $ignoreCount++;
+                $existingScore = (float) $row['score'];
+                if ($newScore > $existingScore) {
+                    $this->db->table($table)->where($matchWhere)->update(['score' => $newScore]);
+                    $updateCount++;
+                } else {
+                    $ignoreCount++;
+                }
             }
         }
 
