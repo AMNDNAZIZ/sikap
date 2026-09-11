@@ -553,27 +553,46 @@ class Assessment extends BaseController
             return redirect()->back()->with('error', 'Tipe penilaian tidak diketahui.');
         }
 
+        // Normalisasi daftar nilai. Bila form tidak mengirim 'scores' (mis. tidak ada
+        // siswa atau semua input kosong), jadikan array kosong agar tidak error.
+        $scores = $data['scores'] ?? [];
+        if (!is_array($scores)) {
+            $scores = [];
+        }
+        if (empty($scores)) {
+            return redirect()->back()->withInput()
+                ->with('error', 'Tidak ada nilai yang diisi. Masukkan minimal satu nilai.');
+        }
+
         $this->db->transStart();
 
         // =================== FORMATIF ===================
         if ($type === 'formatif') {
+            $materialId = $data['material_id'] ?? null;
+            $method     = $data['method'] ?? null;
+
+            if (empty($materialId) || empty($method)) {
+                return redirect()->back()->withInput()
+                    ->with('error', 'Materi atau metode penilaian tidak valid.');
+            }
+
             $model = new MaterialScoresModel();
 
-            foreach ($data['scores'] as $studentId => $score) {
+            foreach ($scores as $studentId => $score) {
                 if ($score === '' || $score === null)
                     continue;
 
                 $existing = $this->db->table('material_scores')
                     ->where('student_id', $studentId)
-                    ->where('material_id', $data['material_id'])
-                    ->where('type', $data['method'])
+                    ->where('material_id', $materialId)
+                    ->where('type', $method)
                     ->get()
                     ->getRowArray();
 
                 $insertData = [
                     'student_id' => $studentId,
-                    'material_id' => $data['material_id'],
-                    'type' => $data['method'],
+                    'material_id' => $materialId,
+                    'type' => $method,
                     'score' => (int) $score,
                     'created_by' => $userId,
                 ];
@@ -585,7 +604,7 @@ class Assessment extends BaseController
                 }
             }
 
-            $redirect = site_url("admin/assessments/viewScores/formatif/{$data['material_id']}/{$data['method']}");
+            $redirect = site_url("admin/assessments/viewScores/formatif/{$materialId}/{$method}");
         }
 
         // =================== SUMATIF ===================
@@ -598,7 +617,7 @@ class Assessment extends BaseController
                 return redirect()->back()->with('error', 'Semester, metode, atau tahun ajaran tidak valid.');
             }
 
-            foreach ($data['scores'] as $studentId => $score) {
+            foreach ($scores as $studentId => $score) {
                 if ($score === '' || $score === null)
                     continue;
 
@@ -638,7 +657,7 @@ class Assessment extends BaseController
                 return redirect()->back()->with('error', 'Tahun ajaran tidak valid.');
             }
 
-            foreach ($data['scores'] as $studentId => $score) {
+            foreach ($scores as $studentId => $score) {
                 if ($score === '' || $score === null)
                     continue;
 
@@ -694,7 +713,7 @@ class Assessment extends BaseController
 
             // Kumpulkan user_id dari student_id yang punya nilai (tidak kosong)
             $studentIds = [];
-            foreach ($data['scores'] as $studentId => $score) {
+            foreach ($scores as $studentId => $score) {
                 if ($score !== '' && $score !== null) {
                     $studentIds[] = (int) $studentId;
                 }

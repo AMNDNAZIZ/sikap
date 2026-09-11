@@ -153,7 +153,9 @@
   <?php endif; ?>
 
   <div class="mt-3">
-    <button type="submit" class="btn btn-success">💾 Simpan Nilai</button>
+    <?php if (!empty($students)): ?>
+      <button type="submit" class="btn btn-success">💾 Simpan Nilai</button>
+    <?php endif; ?>
     <?php if ($type === 'formatif'): ?>
       <a href="<?= site_url("admin/assessments/formatifList/{$classId}/{$subjectId}") ?>" class="btn btn-secondary">⬅️
         Kembali</a>
