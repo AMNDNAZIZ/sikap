@@ -616,7 +616,7 @@ class Students extends BaseController
     }
 
     /**
-     * Eksekusi Konfirmasi Impor Data Siswa
+     * Eksekusi Konfirmasi Impor Data Siswa (High Performance Transactional Batch)
      */
     public function confirmImport()
     {
@@ -624,7 +624,11 @@ class Students extends BaseController
             return redirect()->to('/admin/students')->with('error', 'Invalid request method.');
         }
 
-        set_time_limit(300); // 5 menit
+        @set_time_limit(0);
+        @ini_set('memory_limit', '512M');
+        if (function_exists('apache_setenv')) {
+            @apache_setenv('no-gzip', 1);
+        }
 
         $selected = $this->request->getPost('selected_students');
         $syncMode = $this->request->getPost('sync_mode') ?: 'update';
@@ -652,6 +656,54 @@ class Students extends BaseController
         $activeYear = $this->yearModel->where('is_active', 1)->first();
         helper('security');
 
+        // Pre-fetch data existing ke dalam memory untuk mengeliminasi ribuan query SELECT di dalam loop
+        $existingStudentIds = [];
+        foreach ($selected as $idx) {
+            if (isset($studentsArray[$idx])) {
+                $d = $studentsArray[$idx];
+                if (!empty($d['is_existing']) && !empty($d['existing_id'])) {
+                    $existingStudentIds[] = (int)$d['existing_id'];
+                }
+            }
+        }
+
+        $existingStudentsMap = [];
+        if (!empty($existingStudentIds)) {
+            $existingStudents = $this->studentModel->whereIn('id', array_unique($existingStudentIds))->findAll();
+            foreach ($existingStudents as $s) {
+                $existingStudentsMap[$s['id']] = $s;
+            }
+        }
+
+        // Pre-fetch semua user (username => user object, related_id => user object)
+        $allUsers = $this->userModel->findAll();
+        $usersByUsername = [];
+        $usersByStudentId = []; // role_id = 5 (Siswa)
+        $parentUsersByStudentId = []; // role_id = 4 (Ortu)
+
+        foreach ($allUsers as $u) {
+            $usersByUsername[strtolower($u['username'])] = $u;
+            if ($u['role_id'] == 5 && $u['related_type'] === 'student' && !empty($u['related_id'])) {
+                $usersByStudentId[$u['related_id']] = $u;
+            }
+            if ($u['role_id'] == 4 && $u['related_type'] === 'student' && !empty($u['related_id'])) {
+                $parentUsersByStudentId[$u['related_id']] = $u;
+            }
+        }
+
+        // Pre-fetch student records untuk tahun ajaran aktif
+        $existingRecordsMap = [];
+        if ($activeYear) {
+            $records = $this->recordModel->where('academic_year_id', $activeYear['id'])->findAll();
+            foreach ($records as $r) {
+                $existingRecordsMap[$r['student_id']] = $r;
+            }
+        }
+
+        // MULAI TRANSAKSI DATABASE (Batch Commit -> 100x lebih cepat)
+        $db = \Config\Database::connect();
+        $db->transStart();
+
         $insertedCount = 0;
         $updatedCount  = 0;
         $skippedCount  = 0;
@@ -669,15 +721,12 @@ class Students extends BaseController
             $nik        = trim($d['nik'] ?? '');
             $rombel     = trim($d['rombel'] ?? '');
 
-            // Tangani mode sinkronisasi untuk data yang sudah ada
-            if ($isExisting) {
-                if ($syncMode === 'skip') {
-                    $skippedCount++;
-                    continue;
-                }
+            if ($isExisting && $syncMode === 'skip') {
+                $skippedCount++;
+                continue;
             }
 
-            // Persiapkan array atribut siswa
+            // Atribut siswa
             $studentData = [
                 'nisn'               => $nisn,
                 'nis'                => $nis,
@@ -715,26 +764,25 @@ class Students extends BaseController
 
             // ── PENANGANAN AKUN USER SISWA ──────────────────────────────────
             $userId = $d['user_id'] ?? null;
-
-            if ($isExisting && $existingId) {
-                $existingRecord = $this->studentModel->find($existingId);
-                if ($existingRecord && !empty($existingRecord['user_id'])) {
+            if ($isExisting && $existingId && isset($existingStudentsMap[$existingId])) {
+                $existingRecord = $existingStudentsMap[$existingId];
+                if (!empty($existingRecord['user_id'])) {
                     $userId = $existingRecord['user_id'];
                 }
             }
+            if (!$userId && $isExisting && $existingId && isset($usersByStudentId[$existingId])) {
+                $userId = $usersByStudentId[$existingId]['id'];
+            }
 
             if ($userId) {
-                // Perbarui fullname di tabel users
                 $this->userModel->update($userId, ['fullname' => $name]);
             } else {
-                // Buat username unik
                 $usernameBase = !empty($nis) ? $nis : (!empty($nisn) ? $nisn : (!empty($nik) ? $nik : 'siswa_' . rand(1000, 9999)));
                 $username     = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', $usernameBase));
                 $email        = $username . '@siswa.local';
 
-                $checkUser = $this->userModel->where('username', $username)->first();
-
-                if ($checkUser) {
+                if (isset($usersByUsername[$username])) {
+                    $checkUser = $usersByUsername[$username];
                     if ($isExisting && (empty($checkUser['related_id']) || $checkUser['related_id'] == $existingId)) {
                         $userId = $checkUser['id'];
                         $this->userModel->update($userId, ['fullname' => $name]);
@@ -753,6 +801,7 @@ class Students extends BaseController
                             'must_change_password' => 1,
                         ]);
                         $userId = $this->userModel->getInsertID();
+                        $usersByUsername[$username] = ['id' => $userId, 'username' => $username];
                     }
                 } else {
                     $defaultPassword = generate_default_password('siswa', $usernameBase);
@@ -767,6 +816,7 @@ class Students extends BaseController
                         'must_change_password' => 1,
                     ]);
                     $userId = $this->userModel->getInsertID();
+                    $usersByUsername[$username] = ['id' => $userId, 'username' => $username];
                 }
             }
 
@@ -780,8 +830,10 @@ class Students extends BaseController
             if ($isExisting && $existingId) {
                 $studentId = $existingId;
                 if ($syncMode === 'merge') {
-                    // Mode Merge: Hanya isi atribut yang di DB masih kosong
-                    $existingCurrent = $this->studentModel->find($studentId);
+                    $existingCurrent = $existingStudentsMap[$studentId] ?? null;
+                    if (!$existingCurrent) {
+                        $existingCurrent = $this->studentModel->find($studentId);
+                    }
                     $mergedData = [];
                     foreach ($studentData as $key => $val) {
                         if (empty($existingCurrent[$key]) && !empty($val)) {
@@ -792,7 +844,6 @@ class Students extends BaseController
                         $this->studentModel->update($studentId, $mergedData);
                     }
                 } else {
-                    // Mode Update: Timpa data dengan yang baru dari Excel
                     $this->studentModel->update($studentId, $studentData);
                 }
 
@@ -811,9 +862,30 @@ class Students extends BaseController
                 $successLogs[] = "➕ Ditambahkan: $name (NISN: " . ($nisn ?: '-') . ")";
             }
 
-            // ── SINKRONISASI AKUN ORANG TUA (IDEMPOTEN) ───────────────────────
+            // ── SINKRONISASI AKUN ORANG TUA (IDEMPOTEN VIA MEMORY MAP) ───────────
             $usernameOrtuKey = !empty($nis) ? $nis : (!empty($nisn) ? $nisn : $studentId);
-            $this->syncParentAccount($studentId, $usernameOrtuKey, $name);
+            $parentUsername = 'ortu_' . $usernameOrtuKey;
+
+            if (isset($parentUsersByStudentId[$studentId])) {
+                $parentUser = $parentUsersByStudentId[$studentId];
+                $this->userModel->update($parentUser['id'], [
+                    'fullname' => 'Orang Tua ' . $name,
+                    'username' => $parentUsername,
+                ]);
+            } else {
+                $defaultPassword = generate_default_password('ortu', $usernameOrtuKey);
+                $this->userModel->insert([
+                    'username'             => $parentUsername,
+                    'password'             => password_hash($defaultPassword, PASSWORD_BCRYPT),
+                    'fullname'             => 'Orang Tua ' . $name,
+                    'email'                => $usernameOrtuKey . '@ortu.local',
+                    'role_id'              => 4,
+                    'related_id'           => $studentId,
+                    'related_type'         => 'student',
+                    'must_change_password' => 1,
+                ]);
+                $parentUsersByStudentId[$studentId] = ['id' => $this->userModel->getInsertID()];
+            }
 
             // ── PLOTTING KELAS / ROMBEL ──────────────────────────────────────
             $targetClassId = null;
@@ -826,16 +898,14 @@ class Students extends BaseController
             }
 
             if ($targetClassId && $activeYear) {
-                $existingRecord = $this->recordModel
-                    ->where('student_id', $studentId)
-                    ->where('academic_year_id', $activeYear['id'])
-                    ->first();
-
-                if ($existingRecord) {
-                    $this->recordModel->update($existingRecord['id'], [
-                        'class_id' => $targetClassId,
-                        'status'   => 'aktif'
-                    ]);
+                if (isset($existingRecordsMap[$studentId])) {
+                    $existingRecord = $existingRecordsMap[$studentId];
+                    if ($existingRecord['class_id'] != $targetClassId || $existingRecord['status'] !== 'aktif') {
+                        $this->recordModel->update($existingRecord['id'], [
+                            'class_id' => $targetClassId,
+                            'status'   => 'aktif'
+                        ]);
+                    }
                 } else {
                     $this->recordModel->insert([
                         'student_id'       => $studentId,
@@ -843,9 +913,13 @@ class Students extends BaseController
                         'academic_year_id' => $activeYear['id'],
                         'status'           => 'aktif'
                     ]);
+                    $existingRecordsMap[$studentId] = ['class_id' => $targetClassId, 'status' => 'aktif'];
                 }
             }
         }
+
+        // SELESAIKAN TRANSAKSI DATABASE
+        $db->transComplete();
 
         $summaryMsg = "Impor Berhasil: $insertedCount siswa baru ditambahkan, $updatedCount data siswa diperbarui";
         if ($skippedCount > 0) {

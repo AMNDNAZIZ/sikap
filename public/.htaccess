@@ -1,6 +1,11 @@
 # Disable directory browsing
 Options -Indexes
 
+# LiteSpeed / Apache Timeout Prevention for long running scripts
+<IfModule mod_env.c>
+    SetEnv nogoabrt 1
+</IfModule>
+
 # ----------------------------------------------------------------------
 # Rewrite engine
 # ----------------------------------------------------------------------
