@@ -87,6 +87,7 @@
           <label class="form-label small fw-semibold">Tipe Konten <span class="text-danger">*</span></label>
           <select name="content_type" id="contentType" class="form-select form-select-sm" required>
             <option value="text"  <?= old('content_type') === 'text'  ? 'selected' : '' ?>>Teks (Editor)</option>
+            <option value="slide" <?= old('content_type') === 'slide' ? 'selected' : '' ?>>Slide Gambar</option>
             <option value="html"  <?= old('content_type') === 'html'  ? 'selected' : '' ?>>Halaman HTML Interaktif</option>
             <option value="pdf"   <?= old('content_type') === 'pdf'   ? 'selected' : '' ?>>File PDF</option>
             <option value="video" <?= old('content_type') === 'video' ? 'selected' : '' ?>>Video YouTube/Vimeo</option>
@@ -116,6 +117,18 @@
             dijalankan dalam <strong>iframe terisolasi (sandbox)</strong> demi keamanan —
             script hanya berjalan di dalam materi, tidak dapat mengakses sesi/aplikasi utama.
           </div>
+        </div>
+        <div class="col-12" id="panelSlide" style="display:none;">
+          <label class="form-label small fw-semibold">Upload Gambar Slide</label>
+          <input type="file" name="slide_images[]" id="slideInput" class="form-control form-control-sm"
+                 accept="image/jpeg,image/png,image/webp,image/gif" multiple>
+          <div class="form-text">
+            Pilih beberapa gambar sekaligus (JPG/PNG/WEBP/GIF, maks 5 MB per gambar).
+            Ekspor slide presentasi Anda menjadi gambar dulu (di PowerPoint/Google Slides/Canva:
+            menu <em>Export / Download as JPG/PNG</em> per slide).
+          </div>
+          <!-- Preview + atur urutan (drag) -->
+          <div id="slidePreview" class="row g-2 mt-1"></div>
         </div>
         <div class="col-12" id="panelPdf" style="display:none;">
           <label class="form-label small fw-semibold">Upload PDF <span class="text-danger">*</span></label>
@@ -212,11 +225,35 @@
 
   var panels = {
     text:  document.getElementById('panelText'),
+    slide: document.getElementById('panelSlide'),
     html:  document.getElementById('panelHtml'),
     pdf:   document.getElementById('panelPdf'),
     video: document.getElementById('panelVideo'),
     link:  document.getElementById('panelLink')
   };
+
+  // ── Preview gambar slide yang dipilih (sebelum upload) ──────────────
+  var slideInput = document.getElementById('slideInput');
+  if (slideInput) {
+    slideInput.addEventListener('change', function() {
+      var box = document.getElementById('slidePreview');
+      box.innerHTML = '';
+      var files = Array.from(this.files || []);
+      if (!files.length) return;
+      files.forEach(function(f, idx) {
+        if (!f.type.startsWith('image/')) return;
+        var url = URL.createObjectURL(f);
+        var col = document.createElement('div');
+        col.className = 'col-4 col-md-3';
+        col.innerHTML =
+          '<div class="border rounded p-1 h-100 text-center">' +
+          '<img src="' + url + '" style="width:100%;height:90px;object-fit:cover;border-radius:4px;">' +
+          '<div class="text-muted text-truncate" style="font-size:0.62rem;">Slide ' + (idx + 1) + '</div>' +
+          '</div>';
+        box.appendChild(col);
+      });
+    });
+  }
 
   function initEditor() {
     if (inst) return;

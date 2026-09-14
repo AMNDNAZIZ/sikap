@@ -76,6 +76,13 @@
         <p class="text-muted fst-italic">Konten belum tersedia.</p>
       <?php endif; ?>
 
+    <?php elseif ($contentType === 'slide'): ?>
+      <!-- ── Slide Gambar (slideshow) ── -->
+      <?= view('admin/materials/_slide_show', ['slides' => $slides ?? [], 'canComplete' => true, 'subMat' => $subMat]) ?>
+      <div id="ssCompleteInfo" class="alert alert-success py-2 small mt-2 mb-0 <?= (($progress['status'] ?? '') === 'completed') ? '' : 'd-none' ?>">
+        <i class="bi bi-check2-circle me-1"></i>Materi ditandai selesai setelah Anda melihat seluruh slide.
+      </div>
+
     <?php elseif ($contentType === 'pdf'): ?>
       <?php if (!empty($subMat['file_path'])): ?>
         <div class="ratio mb-3" style="--bs-aspect-ratio: 75%; min-height: 420px;">

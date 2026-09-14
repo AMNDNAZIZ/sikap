@@ -78,6 +78,7 @@
           <label class="form-label small fw-semibold">Tipe Konten</label>
           <select name="content_type" id="contentType" class="form-select form-select-sm">
             <option value="text"  <?= ($material['content_type'] ?? 'text') === 'text'  ? 'selected' : '' ?>>Teks (Editor)</option>
+            <option value="slide" <?= ($material['content_type'] ?? '') === 'slide' ? 'selected' : '' ?>>Slide Gambar</option>
             <option value="html"  <?= ($material['content_type'] ?? '') === 'html'  ? 'selected' : '' ?>>Halaman HTML Interaktif</option>
             <option value="pdf"   <?= ($material['content_type'] ?? '') === 'pdf'   ? 'selected' : '' ?>>File PDF</option>
             <option value="video" <?= ($material['content_type'] ?? '') === 'video' ? 'selected' : '' ?>>Video</option>
@@ -110,6 +111,37 @@
             HTML lengkap (boleh CSS &amp; JavaScript). Dijalankan dalam
             <strong>iframe terisolasi (sandbox)</strong> demi keamanan.
           </div>
+        </div>
+        <div class="col-12" id="panelSlide" style="display:none;">
+          <label class="form-label small fw-semibold">Slide Gambar</label>
+
+          <!-- Slide yang sudah ada -->
+          <?php if (!empty($slides)): ?>
+            <div class="row g-2 mb-2" id="existingSlides">
+              <?php foreach ($slides as $sl): ?>
+                <div class="col-4 col-md-3" id="slide-<?= $sl['id'] ?>">
+                  <div class="border rounded p-1 h-100 text-center position-relative">
+                    <img src="<?= base_url('uploads/materials/slides/' . esc($sl['image_path'])) ?>"
+                         style="width:100%;height:90px;object-fit:cover;border-radius:4px;">
+                    <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 py-0 px-1 btn-del-slide"
+                            data-id="<?= $sl['id'] ?>" title="Hapus slide" style="font-size:0.62rem;">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          <?php else: ?>
+            <div class="text-muted small mb-2" id="noSlideMsg">Belum ada slide.</div>
+          <?php endif; ?>
+
+          <label class="form-label small fw-semibold">Tambah Gambar Slide</label>
+          <input type="file" name="slide_images[]" id="slideInput" class="form-control form-control-sm"
+                 accept="image/jpeg,image/png,image/webp,image/gif" multiple>
+          <div class="form-text">
+            Gambar baru ditambahkan setelah slide yang ada (JPG/PNG/WEBP/GIF, maks 5 MB per gambar).
+          </div>
+          <div id="slidePreview" class="row g-2 mt-1"></div>
         </div>
         <div class="col-12" id="panelPdf" style="display:none;">
           <label class="form-label small fw-semibold">File PDF</label>
@@ -221,11 +253,56 @@
 
   var panels = {
     text:  document.getElementById('panelText'),
+    slide: document.getElementById('panelSlide'),
     html:  document.getElementById('panelHtml'),
     pdf:   document.getElementById('panelPdf'),
     video: document.getElementById('panelVideo'),
     link:  document.getElementById('panelLink')
   };
+
+  // ── Preview gambar slide baru + hapus slide existing ────────────────
+  var slideInput = document.getElementById('slideInput');
+  if (slideInput) {
+    slideInput.addEventListener('change', function() {
+      var box = document.getElementById('slidePreview');
+      box.innerHTML = '';
+      Array.from(this.files || []).forEach(function(f, idx) {
+        if (!f.type.startsWith('image/')) return;
+        var url = URL.createObjectURL(f);
+        var col = document.createElement('div');
+        col.className = 'col-4 col-md-3';
+        col.innerHTML =
+          '<div class="border rounded p-1 h-100 text-center border-success">' +
+          '<img src="' + url + '" style="width:100%;height:90px;object-fit:cover;border-radius:4px;">' +
+          '<div class="text-success" style="font-size:0.62rem;">Baru ' + (idx + 1) + '</div>' +
+          '</div>';
+        box.appendChild(col);
+      });
+    });
+  }
+
+  // Hapus slide existing via AJAX
+  document.querySelectorAll('.btn-del-slide').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (!confirm('Hapus slide ini?')) return;
+      var id = this.dataset.id;
+      var self = this;
+      var body = new URLSearchParams();
+      body.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+      fetch('<?= site_url('admin/materials/slide-delete/') ?>' + id, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/x-www-form-urlencoded', 'X-Requested-With':'XMLHttpRequest' },
+        body: body.toString()
+      }).then(function(r){ return r.json(); }).then(function(d){
+        if (d.success) {
+          var el = document.getElementById('slide-' + id);
+          if (el) el.remove();
+        } else {
+          alert(d.message || 'Gagal menghapus slide.');
+        }
+      }).catch(function(){ alert('Terjadi kesalahan.'); });
+    });
+  });
 
   function initEditor() {
     if (inst) return;
