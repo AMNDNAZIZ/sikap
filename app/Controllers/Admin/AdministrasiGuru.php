@@ -2890,6 +2890,7 @@ class AdministrasiGuru extends BaseController
         $questionModel = new \App\Models\CbtQuestionModel();
         $bankModel = new \App\Models\CbtBankSoalModel();
         $inserted = 0;
+        $failed = 0;
 
         foreach ($soalList as $soal) {
             $tipe = $soal['type'] ?? 'pg';
@@ -2965,8 +2966,34 @@ class AdministrasiGuru extends BaseController
                 'essay_answer' => ($tipe === 'esai') ? $ans : null,
                 'raw_text' => $rawText,
             ];
-            $questionModel->insert($data);
-            $inserted++;
+
+            // Lewati soal tanpa teks (mustahil dirender)
+            if (trim((string) $data['question_text']) === '') {
+                $failed++;
+                continue;
+            }
+
+            try {
+                if ($questionModel->insert($data)) {
+                    $inserted++;
+                } else {
+                    $failed++;
+                    log_message('error', '[SoalAI] Insert gagal: ' . json_encode($questionModel->errors()));
+                }
+            } catch (\Throwable $e) {
+                $failed++;
+                log_message('error', '[SoalAI] Insert exception: ' . $e->getMessage());
+            }
+        }
+
+        // Bila tidak ada satu pun soal yang berhasil masuk → laporkan gagal
+        if ($inserted === 0) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error'   => 'Tidak ada soal yang berhasil disimpan.'
+                    . ($failed > 0 ? " {$failed} soal dilewati/gagal — cek format soal." : ''),
+                'csrf'    => csrf_hash(),
+            ]);
         }
 
         // Update totals
@@ -2984,9 +3011,17 @@ class AdministrasiGuru extends BaseController
             'total_esai' => $totalEsai,
         ]);
 
+        $message = "{$inserted} soal berhasil ditambahkan ke bank soal.";
+        if ($failed > 0) {
+            $message .= " {$failed} soal dilewati (teks kosong / format tidak valid).";
+        }
+
         return $this->response->setJSON([
-            'success' => true,
-            'message' => "{$inserted} soal berhasil ditambahkan ke bank soal.",
+            'success'  => true,
+            'message'  => $message,
+            'inserted' => $inserted,
+            'failed'   => $failed,
+            'csrf'     => csrf_hash(),
         ]);
     }
 

@@ -420,8 +420,9 @@ document.getElementById('btn-save')?.addEventListener('click', async function() 
     if (!bankId) { alert('Pilih bank soal terlebih dahulu'); return; }
     if (generatedSoal.length === 0) { alert('Tidak ada soal untuk disimpan'); return; }
 
-    this.disabled = true;
-    this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...';
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...';
 
     const body = new FormData();
     body.append('bank_id', bankId);
@@ -429,23 +430,60 @@ document.getElementById('btn-save')?.addEventListener('click', async function() 
     body.append('tipe_soal', 'multi'); // flag multi-tipe
     body.append(CSRF_NAME, csrfHash);
 
+    const restoreBtn = function() {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-floppy me-1"></i> Simpan ke Bank Soal';
+    };
+
     try {
         const res = await fetch('<?= base_url("admin/administrasi-guru/soal-ai/save-to-bank") ?>', { method: 'POST', body });
-        const data = await res.json();
+
+        // Tangani respons non-JSON (mis. error server 500) agar pesan tetap jelas
+        let data;
+        const text = await res.text();
+        try { data = JSON.parse(text); } catch (_) {
+            restoreBtn();
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal Menyimpan',
+                html: 'Server mengembalikan respons tidak terduga (kemungkinan sesi berakhir atau error server).<br><small>Status: ' + res.status + '</small>',
+            });
+            return;
+        }
+
         if (data.csrf) csrfHash = data.csrf;
 
         if (data.success) {
-            alert('Berhasil! ' + data.message);
-            location.reload();
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil Disimpan!',
+                text: data.message || 'Soal berhasil ditambahkan ke bank soal.',
+                confirmButtonText: 'Lihat Bank Soal',
+                showCancelButton: true,
+                cancelButtonText: 'Tetap di sini',
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    window.location.href = '<?= base_url("admin/cbt/banksoal") ?>';
+                } else {
+                    location.reload();
+                }
+            });
         } else {
-            alert('Gagal: ' + (data.error || 'Unknown'));
+            restoreBtn();
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal Menyimpan',
+                text: data.error || 'Terjadi kesalahan yang tidak diketahui.',
+            });
         }
     } catch (e) {
-        alert('Error: ' + e.message);
+        restoreBtn();
+        Swal.fire({
+            icon: 'error',
+            title: 'Terjadi Kesalahan',
+            text: 'Gagal terhubung ke server: ' + e.message,
+        });
     }
-
-    this.disabled = false;
-    this.innerHTML = '<i class="bi bi-floppy me-1"></i> Simpan ke Bank Soal';
 });
 
 // === Manual Prompt ===
