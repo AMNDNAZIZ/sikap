@@ -4,6 +4,7 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\AcademicYearModel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 /**
  * Erapor — Input Nilai Erapor (Prerogratif Guru)
@@ -163,18 +164,35 @@ class Erapor extends BaseController
             return redirect()->back()->with('error', 'Data tidak ditemukan.');
         }
 
-        // Daftar siswa aktif di kelas ini
+        // Daftar siswa di kelas ini pada tahun ajaran yang dipilih
         $students = $this->db->table('student_records sr')
             ->select('s.id, s.name, s.religion')
             ->join('students s', 's.id = sr.student_id')
             ->where('sr.class_id', $classId)
             ->where('sr.academic_year_id', $yearId)
-            ->where('sr.status', 'aktif')
             ->orderBy('s.name', 'ASC')
             ->get()->getResultArray();
 
         if (empty($students)) {
-            return redirect()->back()->with('error', 'Tidak ada siswa aktif di kelas ini.');
+            $students = $this->db->table('student_records sr')
+                ->select('s.id, s.name, s.religion')
+                ->join('students s', 's.id = sr.student_id')
+                ->where('sr.class_id', $classId)
+                ->groupBy('s.id')
+                ->orderBy('s.name', 'ASC')
+                ->get()->getResultArray();
+        }
+
+        if (empty($students)) {
+            $students = $this->db->table('students')
+                ->select('id, name, religion')
+                ->where('class_id', $classId)
+                ->orderBy('name', 'ASC')
+                ->get()->getResultArray();
+        }
+
+        if (empty($students)) {
+            return redirect()->back()->with('error', 'Tidak ada siswa di kelas ini.');
         }
 
         $studentIds = array_column($students, 'id');
@@ -371,4 +389,775 @@ class Erapor extends BaseController
             'saved'   => $saved,
         ]);
     }
+
+    // =========================================================
+    // WIZARD IMPORT LEGER — LANGKAH 0: Form Upload File
+    // =========================================================
+    public function importForm()
+    {
+        $user   = $this->currentUser();
+        $roleId = (int) ($user['role_id'] ?? 0);
+
+        if ($roleId == 2) {
+            return redirect()->to('admin/erapor')->with('error', 'Kepala Sekolah tidak memiliki akses untuk import nilai.');
+        }
+
+        $activeYear = $this->yearModel->getActiveYear();
+        $years      = $this->db->table('academic_years')->orderBy('year', 'DESC')->get()->getResultArray();
+        $yearId     = $this->request->getGet('year_id') ?? ($activeYear['id'] ?? null);
+        $semester   = $this->request->getGet('semester') ?? 'ganjil';
+
+        return view('admin/erapor/import_form', [
+            'title'    => 'Import Leger Nilai Erapor',
+            'years'    => $years,
+            'yearId'   => $yearId,
+            'semester' => $semester,
+        ]);
+    }
+
+    // =========================================================
+    // WIZARD IMPORT LEGER — LANGKAH 0 → 1: Parsing File & Mapping
+    // =========================================================
+    public function importParse()
+    {
+        $user   = $this->currentUser();
+        $roleId = (int) ($user['role_id'] ?? 0);
+
+        if ($roleId == 2) {
+            return redirect()->to('admin/erapor')->with('error', 'Akses ditolak.');
+        }
+
+        $file = $this->request->getFile('file_leger');
+        if (!$file || !$file->isValid()) {
+            return redirect()->back()->with('error', 'File upload tidak valid atau kosong.');
+        }
+
+        $ext = strtolower($file->getClientExtension());
+        if (!in_array($ext, ['xlsx', 'xls'])) {
+            return redirect()->back()->with('error', 'Format file harus .xlsx atau .xls.');
+        }
+
+        if ($file->getSize() > 10 * 1024 * 1024) {
+            return redirect()->back()->with('error', 'Ukuran file melebihi batas 10 MB.');
+        }
+
+        $yearId        = (int) $this->request->getPost('year_id');
+        $semester      = $this->request->getPost('semester');
+        $importAbsence = (bool) $this->request->getPost('import_absence');
+
+        try {
+            $spreadsheet = IOFactory::load($file->getTempName());
+        } catch (\Throwable $e) {
+            log_message('error', '[Erapor::importParse] Load excel error: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal membaca file Excel. Pastikan file tidak terproteksi/corrupt.');
+        }
+
+        $sheet = $spreadsheet->getSheet(0);
+        $rows  = $sheet->toArray(null, true, true, false);
+
+        if (empty($rows) || count($rows) < 5) {
+            return redirect()->back()->with('error', 'Format file leger tidak sesuai atau baris terlalu sedikit.');
+        }
+
+        // Metadata detection
+        $detectedClass = '';
+        if (isset($rows[2][2]) && !empty(trim((string)$rows[2][2]))) {
+            $detectedClass = trim((string)$rows[2][2]);
+        } elseif (isset($rows[2][1]) && !empty(trim((string)$rows[2][1]))) {
+            $detectedClass = trim((string)$rows[2][1]);
+        }
+
+        $classId = null;
+        if (!empty($detectedClass)) {
+            $cleanClassName = trim(str_replace([':', 'Kelas', 'kelas'], '', $detectedClass));
+            $cleanClassName = preg_replace('/\s+/', ' ', $cleanClassName);
+
+            $cls = $this->db->table('classes')
+                ->where('name', $cleanClassName)
+                ->orWhere('name', 'Kelas ' . $cleanClassName)
+                ->orWhere('name', $detectedClass)
+                ->get()->getRowArray();
+
+            if (!$cls) {
+                $cls = $this->db->table('classes')
+                    ->like('name', $cleanClassName)
+                    ->get()->getRowArray();
+            }
+
+            if ($cls) {
+                $classId = (int) $cls['id'];
+            }
+        }
+
+        if (!$classId) {
+            $cls = $this->db->table('classes')->where('is_active', 1)->get()->getRowArray();
+            if ($cls) {
+                $classId = (int) $cls['id'];
+            }
+        }
+
+        // Attendance columns detection (Row 6)
+        $sakitColIdx = null;
+        if (isset($rows[6])) {
+            foreach ($rows[6] as $cIdx => $cellVal) {
+                $cellValStr = strtolower(trim((string) $cellVal));
+                if (str_contains($cellValStr, 'sakit') || $cellValStr === 's') {
+                    $sakitColIdx = $cIdx;
+                    break;
+                }
+            }
+        }
+
+        $canImportAbsence = ($sakitColIdx !== null);
+        $izinColIdx       = $sakitColIdx !== null ? $sakitColIdx + 1 : null;
+        $alpaColIdx       = $sakitColIdx !== null ? $sakitColIdx + 2 : null;
+
+        // Subject headers detection (Row 4)
+        $subjectHeaders = [];
+        if (isset($rows[4])) {
+            foreach ($rows[4] as $cIdx => $cellVal) {
+                if ($cIdx < 4) continue; // Skip No, Name, NISN, NIS
+                if ($canImportAbsence && $cIdx >= $sakitColIdx) break;
+
+                $headerName = trim((string) $cellVal);
+                if (!empty($headerName)) {
+                    $subjectHeaders[$cIdx] = $headerName;
+                }
+            }
+        }
+
+        if (empty($subjectHeaders)) {
+            return redirect()->back()->with('error', 'Tidak dapat menemukan kolom mata pelajaran pada file leger.');
+        }
+
+        // Fetch DB subjects
+        $subjects = $this->db->table('subjects')->orderBy('name', 'ASC')->get()->getResultArray();
+
+        // Auto-suggest mapping
+        $suggestedMapping = [];
+        foreach ($subjectHeaders as $cIdx => $hName) {
+            $suggestedMapping[$cIdx] = $this->suggestSubjectId($hName, $subjects);
+        }
+
+        // Fetch DB students in detected class for this academic year
+        $dbStudents = [];
+        if ($classId) {
+            $dbStudents = $this->db->table('student_records sr')
+                ->select('s.id, s.name, s.nisn, s.nis')
+                ->join('students s', 's.id = sr.student_id')
+                ->where('sr.class_id', $classId)
+                ->where('sr.academic_year_id', $yearId)
+                ->orderBy('s.name', 'ASC')
+                ->get()->getResultArray();
+
+            if (empty($dbStudents)) {
+                $dbStudents = $this->db->table('students')
+                    ->select('id, name, nisn, nis')
+                    ->where('class_id', $classId)
+                    ->get()->getResultArray();
+            }
+        }
+
+        // Fetch all students as fallback pool
+        $allDbStudents = $this->db->table('students')
+            ->select('id, name, nisn, nis')
+            ->get()->getResultArray();
+
+        // Parse student rows starting from row index 7
+        $parsedStudents = [];
+        for ($r = 7; $r < count($rows); $r++) {
+            $row = $rows[$r];
+            $noCell = isset($row[0]) ? trim((string)$row[0]) : '';
+
+            // Skip footer / legend rows (rows where No is not numeric)
+            if (!is_numeric($noCell)) {
+                continue;
+            }
+
+            $fileName = isset($row[1]) ? trim((string)$row[1]) : ''; // Col B: NAMA SISWA
+            $fileNisn = isset($row[2]) ? trim((string)$row[2]) : ''; // Col C: NISN
+            $fileNis  = isset($row[3]) ? trim((string)$row[3]) : ''; // Col D: NIS
+
+            if (str_contains($fileNisn, 'E+')) {
+                $fileNisn = number_format((float)$fileNisn, 0, '', '');
+            }
+            if (str_contains($fileNis, 'E+')) {
+                $fileNis = number_format((float)$fileNis, 0, '', '');
+            }
+
+            if (empty($fileName) && empty($fileNisn) && empty($fileNis)) {
+                continue;
+            }
+
+            $dbStudentId   = null;
+            $dbStudentName = '';
+            $matchStatus   = 'not_found';
+
+            $cleanFileNisn = ltrim($fileNisn, '0');
+            $cleanFileNis  = ltrim($fileNis, '0');
+            $cleanFileName = strtolower(preg_replace('/\s+/', ' ', trim($fileName)));
+
+            $findMatch = function (array $pool) use ($cleanFileNisn, $cleanFileNis, $cleanFileName, &$dbStudentId, &$dbStudentName, &$matchStatus) {
+                foreach ($pool as $dbSt) {
+                    $dbNisn = ltrim(trim((string)($dbSt['nisn'] ?? '')), '0');
+                    $dbNis  = ltrim(trim((string)($dbSt['nis'] ?? '')), '0');
+                    $dbName = strtolower(preg_replace('/\s+/', ' ', trim((string)($dbSt['name'] ?? ''))));
+
+                    // Pass 1: NISN match
+                    if (!empty($cleanFileNisn) && !empty($dbNisn) && $cleanFileNisn === $dbNisn) {
+                        $dbStudentId   = (int) $dbSt['id'];
+                        $dbStudentName = $dbSt['name'];
+                        $matchStatus   = 'nisn_match';
+                        return true;
+                    }
+                    // Pass 2: NIS match
+                    if (!empty($cleanFileNis) && !empty($dbNis) && $cleanFileNis === $dbNis) {
+                        $dbStudentId   = (int) $dbSt['id'];
+                        $dbStudentName = $dbSt['name'];
+                        $matchStatus   = 'nis_match';
+                        return true;
+                    }
+                    // Pass 3: Exact Name match
+                    if (!empty($cleanFileName) && !empty($dbName) && $cleanFileName === $dbName) {
+                        $dbStudentId   = (int) $dbSt['id'];
+                        $dbStudentName = $dbSt['name'];
+                        $matchStatus   = 'name_match';
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            // 1st search in class pool
+            $matched = $findMatch($dbStudents);
+
+            // 2nd search in all students pool if not found in class pool
+            if (!$matched && !empty($allDbStudents)) {
+                $findMatch($allDbStudents);
+            }
+
+            $scores = [];
+            foreach ($subjectHeaders as $cIdx => $hName) {
+                $rawScore = $row[$cIdx] ?? null;
+                if ($rawScore !== null && $rawScore !== '') {
+                    $scores[$cIdx] = trim((string)$rawScore);
+                } else {
+                    $scores[$cIdx] = null;
+                }
+            }
+
+            $sick = ($canImportAbsence && isset($row[$sakitColIdx])) ? (int) $row[$sakitColIdx] : 0;
+            $permitted = ($canImportAbsence && isset($row[$izinColIdx])) ? (int) $row[$izinColIdx] : 0;
+            $absent = ($canImportAbsence && isset($row[$alpaColIdx])) ? (int) $row[$alpaColIdx] : 0;
+
+            $parsedStudents[] = [
+                'file_nis'        => $fileNis,
+                'nis'             => $fileNis,
+                'nisn'            => $fileNisn,
+                'file_name'       => $fileName,
+                'match_status'    => $matchStatus,
+                'db_student_id'   => $dbStudentId,
+                'db_student_name' => $dbStudentName,
+                'scores'          => $scores,
+                'sick'            => max(0, $sick),
+                'permitted'       => max(0, $permitted),
+                'absent'          => max(0, $absent),
+            ];
+        }
+
+        $yearRow = $this->db->table('academic_years')->where('id', $yearId)->get()->getRowArray();
+        $selectedYearText = $yearRow['year'] ?? '';
+
+        return view('admin/erapor/import_mapping', [
+            'title'            => 'Mapping Mata Pelajaran — Import Leger',
+            'subjectHeaders'   => $subjectHeaders,
+            'suggestedMapping' => $suggestedMapping,
+            'subjects'         => $subjects,
+            'detectedClass'    => $detectedClass,
+            'selectedYearText' => $selectedYearText,
+            'parsedStudents'   => $parsedStudents,
+            'studentsJson'     => json_encode($parsedStudents),
+            'canImportAbsence' => $canImportAbsence,
+            'yearId'           => $yearId,
+            'semester'         => $semester,
+            'classId'          => $classId,
+            'importAbsence'    => $importAbsence,
+        ]);
+    }
+
+    // Helper: Smart auto-suggest subject ID based on header text
+    private function suggestSubjectId(string $headerName, array $subjects): int
+    {
+        $hClean = strtoupper(trim($headerName));
+        $hClean = preg_replace('/[^A-Z0-9\s]/', '', $hClean);
+
+        $aliases = [
+            'MTK'   => ['MATEMATIKA'],
+            'MAT'   => ['MATEMATIKA'],
+            'PAI'   => ['PENDIDIKAN AGAMA ISLAM', 'AGAMA ISLAM', 'PAIBP'],
+            'AGAMA' => ['PENDIDIKAN AGAMA'],
+            'PKN'   => ['PENDIDIKAN PANCASILA', 'PPKN', 'PANCASILA'],
+            'PPKN'  => ['PENDIDIKAN PANCASILA', 'PANCASILA'],
+            'BIN'   => ['BAHASA INDONESIA'],
+            'BIND'  => ['BAHASA INDONESIA'],
+            'BIG'   => ['BAHASA INGGRIS'],
+            'BING'  => ['BAHASA INGGRIS'],
+            'IPA'   => ['ILMU PENGETAHUAN ALAM', 'IPAS'],
+            'IPAS'  => ['ILMU PENGETAHUAN ALAM DAN SOSIAL', 'IPA'],
+            'IPS'   => ['ILMU PENGETAHUAN SOSIAL'],
+            'PJOK'  => ['PENDIDIKAN JASMANI', 'PENJAS'],
+            'SBD'   => ['SENI BUDAYA', 'SBDP', 'SENI'],
+            'SBDP'  => ['SENI BUDAYA DAN PRAKARYA', 'SENI BUDAYA'],
+            'TIK'   => ['INFORMATIKA'],
+        ];
+
+        foreach ($subjects as $s) {
+            $sName = strtoupper(trim($s['name']));
+            $sCode = strtoupper(trim($s['code'] ?? ''));
+            if ($hClean === $sName || ($sCode !== '' && $hClean === $sCode)) {
+                return (int) $s['id'];
+            }
+        }
+
+        if (isset($aliases[$hClean])) {
+            foreach ($aliases[$hClean] as $targetName) {
+                foreach ($subjects as $s) {
+                    $sName = strtoupper(trim($s['name']));
+                    if (str_contains($sName, $targetName)) {
+                        return (int) $s['id'];
+                    }
+                }
+            }
+        }
+
+        foreach ($subjects as $s) {
+            $sName = strtoupper(trim($s['name']));
+            if (str_contains($sName, $hClean) || str_contains($hClean, $sName)) {
+                return (int) $s['id'];
+            }
+        }
+
+        return 0;
+    }
+
+    // =========================================================
+    // WIZARD IMPORT LEGER — LANGKAH 1 → 2: Preview & Anti-Tamper Check
+    // =========================================================
+    public function importPreview()
+    {
+        $user   = $this->currentUser();
+        $roleId = (int) ($user['role_id'] ?? 0);
+
+        if ($roleId == 2) {
+            return redirect()->to('admin/erapor')->with('error', 'Akses ditolak.');
+        }
+
+        $studentsJson     = $this->request->getPost('students_json');
+        $mapping          = (array) $this->request->getPost('mapping');
+        $yearId           = (int) $this->request->getPost('year_id');
+        $semester         = $this->request->getPost('semester');
+        $classId          = (int) $this->request->getPost('class_id');
+        $importAbsence    = (bool) $this->request->getPost('import_absence');
+        $overwriteScores  = (bool) $this->request->getPost('overwrite_scores');
+        $overwriteAbsence = (bool) $this->request->getPost('overwrite_absence');
+
+        if (empty($studentsJson) || empty($mapping) || !$yearId) {
+            return redirect()->to('admin/erapor/import')->with('error', 'Data form import tidak lengkap.');
+        }
+
+        $parsedStudents = json_decode($studentsJson, true) ?: [];
+        $activeMapping  = array_filter($mapping, fn($val) => (int)$val > 0);
+
+        if (empty($activeMapping)) {
+            return redirect()->back()->with('error', 'Pilih minimal 1 kolom mata pelajaran untuk diimport.');
+        }
+
+        $subjectRows = $this->db->table('subjects')->whereIn('id', array_values($activeMapping))->get()->getResultArray();
+        $validSubjectIds = array_column($subjectRows, 'id');
+        $subjectNames = [];
+        foreach ($subjectRows as $sr) {
+            $subjectNames[$sr['id']] = $sr['name'];
+        }
+
+        $isWaliKelas = true;
+        $skippedSubjectNamesTeacher = [];
+        if ($roleId == 3) {
+            $teacherId = $this->getTeacherId();
+            $cls = $this->db->table('classes')->where('id', $classId)->where('teacher_id', $teacherId)->get()->getRowArray();
+            $isWaliKelas = ($cls !== null);
+
+            $assignments = $this->db->table('teaching_assignments')
+                ->select('subject_id')
+                ->where('teacher_id', $teacherId)
+                ->where('class_id', $classId)
+                ->where('year_id', $yearId)
+                ->get()->getResultArray();
+            $assignedSubjectIds = array_column($assignments, 'subject_id');
+
+            foreach ($activeMapping as $cIdx => $subId) {
+                if (!in_array($subId, $assignedSubjectIds)) {
+                    $skippedSubjectNamesTeacher[] = $subjectNames[$subId] ?? "ID: {$subId}";
+                }
+            }
+        }
+
+        $studentIds = array_filter(array_column($parsedStudents, 'db_student_id'));
+        $existingScores = [];
+        if (!empty($studentIds) && !empty($validSubjectIds)) {
+            $semesterLabel = ($semester == '1' || $semester == 'ganjil') ? 'ganjil' : 'genap';
+            $scoreRows = $this->db->table('grades')
+                ->select('student_id, subject_id, erapor_score')
+                ->whereIn('student_id', $studentIds)
+                ->whereIn('subject_id', $validSubjectIds)
+                ->where('year_id', $yearId)
+                ->where('semester', $semesterLabel)
+                ->where('erapor_score IS NOT NULL')
+                ->get()->getResultArray();
+            foreach ($scoreRows as $sr) {
+                $existingScores[$sr['student_id']][$sr['subject_id']] = true;
+            }
+        }
+
+        $matchedCount  = 0;
+        $notFoundCount = 0;
+        foreach ($parsedStudents as $st) {
+            if ($st['match_status'] === 'not_found') {
+                $notFoundCount++;
+            } else {
+                $matchedCount++;
+            }
+        }
+
+        $canImportAbsence = isset($parsedStudents[0]['sick']);
+
+        return view('admin/erapor/import_preview', [
+            'title'                      => 'Preview Import Leger Nilai',
+            'parsedStudents'             => $parsedStudents,
+            'studentsJson'               => $studentsJson,
+            'mapping'                    => $mapping,
+            'activeMapping'              => $activeMapping,
+            'subjectNames'               => $subjectNames,
+            'yearId'                     => $yearId,
+            'semester'                   => $semester,
+            'classId'                    => $classId,
+            'importAbsence'              => $importAbsence,
+            'overwriteScores'            => $overwriteScores,
+            'overwriteAbsence'           => $overwriteAbsence,
+            'existingScores'             => $existingScores,
+            'isWaliKelas'                => $isWaliKelas,
+            'canImportAbsence'           => $canImportAbsence,
+            'matchedCount'               => $matchedCount,
+            'notFoundCount'              => $notFoundCount,
+            'skippedSubjectNamesTeacher' => $skippedSubjectNamesTeacher,
+        ]);
+    }
+
+    // =========================================================
+    // WIZARD IMPORT LEGER — LANGKAH 2 → SIMPAN DB: Executing Import
+    // =========================================================
+    public function importConfirm()
+    {
+        $user   = $this->currentUser();
+        $roleId = (int) ($user['role_id'] ?? 0);
+
+        if ($roleId == 2) {
+            return redirect()->to('admin/erapor')->with('error', 'Akses ditolak.');
+        }
+
+        $studentsJson     = $this->request->getPost('students_json');
+        $mapping          = (array) $this->request->getPost('mapping');
+        $yearId           = (int) $this->request->getPost('year_id');
+        $semester         = $this->request->getPost('semester');
+        $classId          = (int) $this->request->getPost('class_id');
+        $importAbsence    = (bool) $this->request->getPost('import_absence');
+        $overwriteScores  = (bool) $this->request->getPost('overwrite_scores');
+        $overwriteAbsence = (bool) $this->request->getPost('overwrite_absence');
+
+        if (empty($studentsJson) || empty($mapping) || !$yearId) {
+            return redirect()->to('admin/erapor/import')->with('error', 'Data konfirmasi import tidak lengkap.');
+        }
+
+        $parsedStudents = json_decode($studentsJson, true) ?: [];
+        $activeMapping  = array_filter($mapping, fn($val) => (int)$val > 0);
+
+        if (empty($activeMapping)) {
+            return redirect()->to('admin/erapor/import')->with('error', 'Tidak ada kolom mata pelajaran yang dipilih.');
+        }
+
+        $semesterLabel = ($semester == '1' || $semester == 'ganjil') ? 'ganjil' : 'genap';
+
+        $isWaliKelas = true;
+        $allowedSubjectIds = null;
+
+        if ($roleId == 3) {
+            $teacherId = $this->getTeacherId();
+            $cls = $this->db->table('classes')->where('id', $classId)->where('teacher_id', $teacherId)->get()->getRowArray();
+            $isWaliKelas = ($cls !== null);
+
+            $assignments = $this->db->table('teaching_assignments')
+                ->select('subject_id')
+                ->where('teacher_id', $teacherId)
+                ->where('class_id', $classId)
+                ->where('year_id', $yearId)
+                ->get()->getResultArray();
+            $allowedSubjectIds = array_column($assignments, 'subject_id');
+        }
+
+        $scoresSaved    = 0;
+        $scoresSkipped  = 0;
+        $absenceSaved   = 0;
+        $absenceSkipped = 0;
+        $scoreErrors    = [];
+        $warnings       = [];
+
+        $this->db->transStart();
+
+        foreach ($parsedStudents as $st) {
+            if ($st['match_status'] === 'not_found' || empty($st['db_student_id'])) {
+                $warnings[] = "Siswa '{$st['file_name']}' tidak ditemukan di database — data dilewati.";
+                $scoresSkipped += count($activeMapping);
+                if ($importAbsence) $absenceSkipped++;
+                continue;
+            }
+
+            $studentId = (int) $st['db_student_id'];
+
+            foreach ($activeMapping as $cIdx => $subId) {
+                $subId = (int) $subId;
+
+                if ($allowedSubjectIds !== null && !in_array($subId, $allowedSubjectIds)) {
+                    $scoresSkipped++;
+                    continue;
+                }
+
+                $rawScore = $st['scores'][$cIdx] ?? null;
+                if ($rawScore === null || $rawScore === '' || $rawScore === '-') {
+                    $scoresSkipped++;
+                    continue;
+                }
+
+                $scoreNum = (float) str_replace(',', '.', $rawScore);
+                if ($scoreNum < 0 || $scoreNum > 100) {
+                    $scoreErrors[] = "Siswa '{$st['file_name']}': nilai {$scoreNum} out of range (0-100) untuk mapel ID #{$subId}.";
+                    $scoresSkipped++;
+                    continue;
+                }
+
+                $existingScore = $this->db->table('grades')
+                    ->where('student_id', $studentId)
+                    ->where('subject_id', $subId)
+                    ->where('year_id', $yearId)
+                    ->where('semester', $semesterLabel)
+                    ->get()->getRowArray();
+
+                if ($existingScore) {
+                    if ($overwriteScores) {
+                        $this->db->table('grades')
+                            ->where('id', $existingScore['id'])
+                            ->update([
+                                'erapor_score' => $scoreNum,
+                                'report_score' => $scoreNum,
+                                'updated_at'   => date('Y-m-d H:i:s'),
+                            ]);
+                        $scoresSaved++;
+                    } else {
+                        $scoresSkipped++;
+                    }
+                } else {
+                    $this->db->table('grades')->insert([
+                        'student_id'   => $studentId,
+                        'subject_id'   => $subId,
+                        'year_id'      => $yearId,
+                        'semester'     => $semesterLabel,
+                        'erapor_score' => $scoreNum,
+                        'report_score' => $scoreNum,
+                        'created_at'   => date('Y-m-d H:i:s'),
+                        'updated_at'   => date('Y-m-d H:i:s'),
+                    ]);
+                    $scoresSaved++;
+                }
+            }
+
+            if ($importAbsence && $isWaliKelas && isset($st['sick'])) {
+                $sick      = max(0, (int) $st['sick']);
+                $permitted = max(0, (int) $st['permitted']);
+                $absent    = max(0, (int) $st['absent']);
+
+                $existingRecap = $this->db->table('attendance_recaps')
+                    ->where('student_id', $studentId)
+                    ->where('academic_year_id', $yearId)
+                    ->where('semester', $semesterLabel)
+                    ->get()->getRowArray();
+
+                if ($existingRecap) {
+                    if ($overwriteAbsence) {
+                        $this->db->table('attendance_recaps')
+                            ->where('id', $existingRecap['id'])
+                            ->update([
+                                'class_id'   => $classId,
+                                'sick'       => $sick,
+                                'permitted'  => $permitted,
+                                'absent'     => $absent,
+                                'source'     => 'import_leger',
+                                'updated_at' => date('Y-m-d H:i:s'),
+                            ]);
+                        $absenceSaved++;
+                    } else {
+                        $absenceSkipped++;
+                    }
+                } else {
+                    $this->db->table('attendance_recaps')->insert([
+                        'student_id'       => $studentId,
+                        'class_id'         => $classId,
+                        'academic_year_id' => $yearId,
+                        'semester'         => $semesterLabel,
+                        'sick'             => $sick,
+                        'permitted'        => $permitted,
+                        'absent'           => $absent,
+                        'source'           => 'import_leger',
+                        'created_at'       => date('Y-m-d H:i:s'),
+                        'updated_at'       => date('Y-m-d H:i:s'),
+                    ]);
+                    $absenceSaved++;
+                }
+            }
+        }
+
+        $this->db->transComplete();
+
+        if ($this->db->transStatus() === false) {
+            return redirect()->to('admin/erapor/import')->with('error', 'Gagal menyimpan data import ke database (Database transaction error).');
+        }
+
+        log_message('info', "Import Leger Success: year=$yearId semester=$semester class=$classId scores_saved=$scoresSaved absence_saved=$absenceSaved by user={$user['id']}");
+
+        $firstSubjectId = reset($activeMapping);
+        $redirectInputUrl = ($classId && $firstSubjectId) 
+            ? "admin/erapor/input/{$classId}/{$firstSubjectId}/" . ($semesterLabel === 'ganjil' ? '1' : '2') . "?year_id={$yearId}"
+            : "admin/erapor";
+
+        return view('admin/erapor/import_result', [
+            'title'            => 'Hasil Import Leger Nilai',
+            'stats'            => [
+                'scores_saved'    => $scoresSaved,
+                'scores_skipped'  => $scoresSkipped,
+                'absence_saved'   => $absenceSaved,
+                'absence_skipped' => $absenceSkipped,
+                'score_errors'    => $scoreErrors,
+                'warnings'        => array_unique($warnings),
+            ],
+            'redirectInputUrl' => $redirectInputUrl,
+        ]);
+    }
+
+    // =========================================================
+    // LEGER VIEW — Tampilan Leger Nilai & Rekap Absen Per Kelas
+    // =========================================================
+    public function legerView($classId, $semester = 1)
+    {
+        $user   = $this->currentUser();
+        $roleId = (int) ($user['role_id'] ?? 0);
+
+        $activeYear = $this->yearModel->getActiveYear();
+        $yearId     = $this->request->getGet('year_id') ?? ($activeYear['id'] ?? null);
+
+        $class = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+        $year  = $this->db->table('academic_years')->where('id', $yearId)->get()->getRowArray();
+
+        if (!$class || !$year) {
+            return redirect()->back()->with('error', 'Kelas atau tahun ajaran tidak ditemukan.');
+        }
+
+        // Fetch subjects assigned to this class in teaching_assignments or all active subjects
+        $assignedSubjects = $this->db->table('teaching_assignments ta')
+            ->select('s.id, s.name, s.code')
+            ->join('subjects s', 's.id = ta.subject_id')
+            ->where('ta.class_id', $classId)
+            ->where('ta.academic_year_id', $yearId)
+            ->groupBy('s.id')
+            ->orderBy('s.name', 'ASC')
+            ->get()->getResultArray();
+
+        if (empty($assignedSubjects)) {
+            $assignedSubjects = $this->db->table('subjects')
+                ->select('id, name, code')
+                ->orderBy('name', 'ASC')
+                ->get()->getResultArray();
+        }
+
+        // Fetch students in class for specified academic year
+        $students = $this->db->table('student_records sr')
+            ->select('s.id, s.name, s.nisn, s.nis')
+            ->join('students s', 's.id = sr.student_id')
+            ->where('sr.class_id', $classId)
+            ->where('sr.academic_year_id', $yearId)
+            ->orderBy('s.name', 'ASC')
+            ->get()->getResultArray();
+
+        // Only if truly no records at all for this class (no year filter fallback)
+        if (empty($students)) {
+            $students = $this->db->table('student_records sr')
+                ->select('s.id, s.name, s.nisn, s.nis')
+                ->join('students s', 's.id = sr.student_id')
+                ->where('sr.class_id', $classId)
+                ->groupBy('s.id')
+                ->orderBy('s.name', 'ASC')
+                ->get()->getResultArray();
+        }
+
+        $semesterLabel = ($semester == 1 || $semester == 'ganjil') ? 'ganjil' : 'genap';
+        $studentIds    = array_column($students, 'id');
+
+        // Fetch erapor scores from grades
+        $scores = [];
+        if (!empty($studentIds) && !empty($assignedSubjects)) {
+            $subjectIds = array_column($assignedSubjects, 'id');
+            $gradeRows = $this->db->table('grades')
+                ->select('student_id, subject_id, erapor_score, report_score')
+                ->whereIn('student_id', $studentIds)
+                ->whereIn('subject_id', $subjectIds)
+                ->where('year_id', $yearId)
+                ->where('semester', $semesterLabel)
+                ->get()->getResultArray();
+
+            foreach ($gradeRows as $gr) {
+                $val = $gr['erapor_score'] ?? $gr['report_score'];
+                $scores[$gr['student_id']][$gr['subject_id']] = $val;
+            }
+        }
+
+        // Fetch attendance recaps
+        $attendanceRecaps = [];
+        if (!empty($studentIds)) {
+            $recapRows = $this->db->table('attendance_recaps')
+                ->select('student_id, sick, permitted, absent')
+                ->whereIn('student_id', $studentIds)
+                ->where('academic_year_id', $yearId)
+                ->where('semester', $semesterLabel)
+                ->get()->getResultArray();
+
+            foreach ($recapRows as $rr) {
+                $attendanceRecaps[$rr['student_id']] = [
+                    'sick'      => $rr['sick'],
+                    'permitted' => $rr['permitted'],
+                    'absent'    => $rr['absent'],
+                ];
+            }
+        }
+
+        return view('admin/erapor/leger_view', [
+            'title'            => 'Leger Nilai & Rekap Absen — ' . $class['name'],
+            'class'            => $class,
+            'year'             => $year,
+            'semester'         => $semester,
+            'semesterLabel'    => ucfirst($semesterLabel),
+            'subjects'         => $assignedSubjects,
+            'students'         => $students,
+            'scores'           => $scores,
+            'attendanceRecaps' => $attendanceRecaps,
+            'isAdmin'          => in_array($roleId, [1, 2]),
+        ]);
+    }
 }
+
+

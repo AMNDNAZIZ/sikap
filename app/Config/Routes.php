@@ -477,6 +477,16 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('erapor/input/(:num)/(:num)/(:num)', 'Erapor::input/$1/$2/$3', $auth123);
     $routes->post('erapor/save', 'Erapor::save', $auth123);
 
+    // Wizard Import Leger — Admin (1) & Guru (3)
+    $routes->get('erapor/import',         'Erapor::importForm',    ['filter' => 'auth:1,3']);
+    $routes->post('erapor/import-parse',   'Erapor::importParse',   ['filter' => 'auth:1,3']);
+    $routes->post('erapor/import-preview', 'Erapor::importPreview', ['filter' => 'auth:1,3']);
+    $routes->post('erapor/import-confirm', 'Erapor::importConfirm', ['filter' => 'auth:1,3']);
+
+    // Leger View Nilai Kelas — Admin, Kepsek, Guru
+    $routes->get('erapor/leger/(:num)/(:num)', 'Erapor::legerView/$1/$2', $auth123);
+    $routes->get('erapor/leger/(:num)',        'Erapor::legerView/$1/1',  $auth123);
+
     $routes->get('materials', 'Materials::subjectList', $auth123);
     $routes->get('materials/(:num)', 'Materials::index/$1', $auth123);
     $routes->get('materials/index/(:num)', 'Materials::index/$1', $auth123);
