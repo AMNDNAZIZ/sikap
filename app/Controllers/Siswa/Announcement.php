@@ -48,6 +48,10 @@ class Announcement extends BaseController
         $classId = $record['class_id'] ?? null;
         $yearId  = $record['academic_year_id'] ?? null;
 
+        // Defensif: kolom academic_year_id mungkin belum ada di sebagian database
+        // (migration belum ter-apply). Bila belum ada, jangan filter per tahun.
+        $hasAnnYear = $this->db->fieldExists('academic_year_id', 'announcements');
+
         $builder = $this->announcementModel
             ->select('announcements.*, users.fullname as creator_name, classes.name as class_name')
             ->join('users',   'users.id = announcements.created_by', 'left')
@@ -59,19 +63,23 @@ class Announcement extends BaseController
                     ->where('announcements.class_id IS NULL', null, false)
                 ->groupEnd()
 
-                // target siswa, kelas ini, tahun ini
+                // target siswa, kelas ini (dan tahun ini bila kolomnya ada)
                 ->orGroupStart()
                     ->where('announcements.target', 'siswa')
-                    ->where('announcements.class_id', $classId)
-                    ->where('announcements.academic_year_id', $yearId)
-                ->groupEnd()
+                    ->where('announcements.class_id', $classId);
+        if ($hasAnnYear) {
+            $builder->where('announcements.academic_year_id', $yearId);
+        }
+        $builder->groupEnd()
 
-                // target kelas ini, tahun ini
+                // target kelas ini (dan tahun ini bila kolomnya ada)
                 ->orGroupStart()
                     ->where('announcements.target', 'class')
-                    ->where('announcements.class_id', $classId)
-                    ->where('announcements.academic_year_id', $yearId)
-                ->groupEnd()
+                    ->where('announcements.class_id', $classId);
+        if ($hasAnnYear) {
+            $builder->where('announcements.academic_year_id', $yearId);
+        }
+        $builder->groupEnd()
             ->groupEnd()
             ->orderBy('announcements.created_at', 'DESC');
 

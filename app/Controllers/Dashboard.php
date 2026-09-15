@@ -637,7 +637,11 @@ class Dashboard extends BaseController
         $attendanceRate = $activeDays > 0 ? round(($attSummary['H'] / $activeDays) * 100) : 100;
 
         // Latest relevant announcement — hanya pengumuman global atau yang terkait kelas+tahun aktif
-        $latestAnnouncement = $db->table('announcements a')
+        // Defensif: kolom academic_year_id mungkin belum ada di sebagian database
+        // (migration belum ter-apply). Cek dulu agar login siswa tidak crash.
+        $hasAnnYear = $db->fieldExists('academic_year_id', 'announcements');
+
+        $annBuilder = $db->table('announcements a')
             ->select('a.*, u.fullname as creator_name')
             ->join('users u', 'u.id = a.created_by', 'left')
             ->where("FIND_IN_SET('siswa', a.target) > 0")
@@ -645,9 +649,14 @@ class Dashboard extends BaseController
                 // Pengumuman global (tidak terikat kelas)
                 ->where('a.class_id', null)
                 ->orGroupStart()
-                    // Pengumuman per kelas harus cocok kelas DAN tahun ajaran
-                    ->where('a.class_id', $classId)
-                    ->where('a.academic_year_id', $yearId)
+                    // Pengumuman per kelas harus cocok kelas (dan tahun ajaran bila kolomnya ada)
+                    ->where('a.class_id', $classId);
+
+        if ($hasAnnYear) {
+            $annBuilder->where('a.academic_year_id', $yearId);
+        }
+
+        $latestAnnouncement = $annBuilder
                 ->groupEnd()
             ->groupEnd()
             ->orderBy('a.created_at', 'DESC')
