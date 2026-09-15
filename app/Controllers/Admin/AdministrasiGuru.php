@@ -1427,9 +1427,12 @@ class AdministrasiGuru extends BaseController
                         $classIdsAtLevel = $this->getClassIdsForDocumentSearch($classLevel, (int)$classId);
                     }
 
-                    // Filter per kelas terpilih agar ATP tidak dobel ketika ada kelas lain di level yang sama
-                    $atpClassFilter = $isMultiGuru ? $classIdsAtLevel : [(int)$classId];
-                    $atpResult = $this->loadAtpWithElemen((int)$subjectId, $classLevel, null, $atpClassFilter ?: [(int)$classId]);
+                    // Filter ATP: pakai getTeacherClassFilter (SAMA dgn halaman ATP).
+                    // - single-guru → null → loadAtpWithElemen ambil SEMUA ATP se-level
+                    //   (penting: ATP mungkin dibuat di kelas lain se-level).
+                    // - multi-guru  → array class kelas yg diajar guru → filter per kelas.
+                    $atpClassFilter = $this->getTeacherClassFilter((int)$subjectId, $classLevel, null);
+                    $atpResult = $this->loadAtpWithElemen((int)$subjectId, $classLevel, null, $atpClassFilter);
                     $atpList   = $atpResult['list'];
 
                     $modulModel = new \App\Models\ModulAjarModel();
