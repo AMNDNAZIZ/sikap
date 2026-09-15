@@ -376,6 +376,23 @@
 .fs-7 {
     font-size: 0.85rem !important;
 }
+
+/* Dropdown Select2 filter: batasi tinggi & aktifkan scroll saat data banyak */
+.select2-container--default .select2-results > .select2-results__options {
+    max-height: 280px;      /* daftar panjang otomatis bisa digulung */
+    overflow-y: auto;
+}
+/* Samakan tinggi kotak select2 dengan form-select-sm agar rapi */
+.select2-container .select2-selection--single {
+    height: calc(1.5em + 0.5rem + 2px);
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: calc(1.5em + 0.5rem);
+    font-size: 0.875rem;
+}
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: calc(1.5em + 0.5rem);
+}
 </style>
 
 <?= $this->endSection() ?>
@@ -386,8 +403,9 @@
 $(document).ready(function() {
     if ($.fn.select2) {
         $('.select2-filter').select2({
-            theme: 'bootstrap-5',
-            width: '100%'
+            width: '100%',
+            placeholder: 'Cari / pilih...',
+            allowClear: true
         });
     }
 
