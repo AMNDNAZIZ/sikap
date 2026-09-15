@@ -1,8 +1,8 @@
 {
     "version": "2.0.0",
-    "generated": "2026-09-16 01:20:16",
+    "generated": "2026-09-16 01:41:19",
     "last_update": "2026-09-03 00:00",
-    "total_files": 874,
+    "total_files": 875,
     "files": {
         "app/.htaccess": "0a949a74edc566be1e1944fbfab681a5",
         "app/Commands/CleanChatMessages.php": "15dbc4934daae5b0b0d8984a6e62575a",
@@ -221,8 +221,9 @@
         "app/Database/Migrations/2026-09-03-000002_AddHtmlContentTypeToSubjectMaterials.php": "e33a210064cb5de374eb9ebca9977078",
         "app/Database/Migrations/2026-09-11-000001_AddSlideContentType.php": "e7102a006f54b52f20b24a4252e434a9",
         "app/Database/Migrations/2026-09-15-000001_EnsureAnnouncementAcademicYear.php": "5b5e2f0c2d5840640e187ee47c08f061",
+        "app/Database/Migrations/2026-09-16-000001_AddNewFeaturePermissions.php": "cedb6eedac0c860084b3cbfb6612acd6",
         "app/Database/Migrations/README_MIGRASI.md": "a460a9d695044d861cfc21213b9f35aa",
-        "app/Database/Seeds/PermissionSeeder.php": "322f089aaf2055c17183ab0183b94449",
+        "app/Database/Seeds/PermissionSeeder.php": "10f8abf29b3b70c4730bd1a9e3628486",
         "app/Database/Seeds/TruncateLicense.php": "46bb6bbcd37dedcec33f2c489446b3ff",
         "app/Database/changelogs_sync.php": "7e4da7cfd015b044bced699ecc35e249",
         "app/Database/sync_changelogs_to_file.php": "4a0101879188920b8016640f83b7b490",
