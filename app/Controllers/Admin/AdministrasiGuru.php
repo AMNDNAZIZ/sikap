@@ -1902,6 +1902,11 @@ class AdministrasiGuru extends BaseController
 
     public function editModulAjar($id, $classId)
     {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'] ?? 0, [1, 3])) {
+            return redirect()->back()->with('error', 'Anda tidak diizinkan mengubah Modul Ajar.');
+        }
+
         $modulModel = new \App\Models\ModulAjarModel();
         $modul = $modulModel->find($id);
         if (!$modul) return redirect()->back()->with('error', 'Modul tidak ditemukan.');
@@ -1916,6 +1921,11 @@ class AdministrasiGuru extends BaseController
 
     public function updateModulAjar()
     {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'] ?? 0, [1, 3])) {
+            return redirect()->back()->with('error', 'Anda tidak diizinkan mengubah Modul Ajar.');
+        }
+
         $id = $this->request->getPost('id');
         $content = $this->request->getPost('content');
         $classId = $this->request->getPost('class_id');
