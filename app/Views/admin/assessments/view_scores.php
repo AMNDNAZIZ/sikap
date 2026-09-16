@@ -3,12 +3,15 @@
 
 <?php
 // Helper Function untuk generate URL tab (didefinisikan di atas agar bisa dipakai segera)
-function buildTabUrl($type, $entityId, $method, $semester = null) {
+function buildTabUrl($type, $entityId, $method, $semester = null, $classId = null) {
     $base = "admin/assessments/viewScores/{$type}/{$entityId}";
     if ($type === 'sumatif' && $semester) {
         $base .= "/{$semester}";
     }
     $base .= "/{$method}";
+    if (!empty($classId)) {
+        $base .= "?class_id={$classId}";
+    }
     return site_url($base);
 }
 ?>
@@ -37,14 +40,35 @@ function buildTabUrl($type, $entityId, $method, $semester = null) {
   <?php endif; ?>
 
   <!-- Info Penilaian -->
-  <div class="card mb-4">
+  <div class="card mb-4 shadow-sm">
     <div class="card-body">
-      <table class="table table-sm table-bordered w-100">
+      <table class="table table-sm table-bordered w-100 mb-0">
         <tbody>
           <?php if ($type === 'formatif' && isset($material)): ?>
             <tr>
               <th style="width:200px;">Mata Pelajaran</th>
               <td><?= esc($subject['name'] ?? '-') ?></td>
+            </tr>
+            <tr>
+              <th>Kelas</th>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <?php if (!empty($availableClasses) && count($availableClasses) > 1): ?>
+                    <form method="get" action="<?= current_url() ?>" class="d-flex align-items-center gap-2 m-0">
+                      <select name="class_id" class="form-select form-select-sm w-auto fw-bold" onchange="this.form.submit()">
+                        <?php foreach ($availableClasses as $c): ?>
+                          <option value="<?= $c['id'] ?>" <?= ($class_id == $c['id']) ? 'selected' : '' ?>>
+                            <?= esc($c['name']) ?>
+                          </option>
+                        <?php endforeach; ?>
+                      </select>
+                      <small class="text-muted">(Pilih kelas untuk memfilter nilai)</small>
+                    </form>
+                  <?php else: ?>
+                    <span class="badge bg-primary fs-6"><?= esc($currentClass['name'] ?? '-') ?></span>
+                  <?php endif; ?>
+                </div>
+              </td>
             </tr>
             <tr>
               <th>Materi</th>
@@ -64,6 +88,12 @@ function buildTabUrl($type, $entityId, $method, $semester = null) {
               <td><?= esc($subject['name']) ?></td>
             </tr>
             <tr>
+              <th>Kelas</th>
+              <td>
+                <span class="badge bg-primary fs-6"><?= esc($currentClass['name'] ?? '-') ?></span>
+              </td>
+            </tr>
+            <tr>
               <th>Semester</th>
               <td><?= esc(ucfirst($semester)) ?></td>
             </tr>
@@ -79,6 +109,12 @@ function buildTabUrl($type, $entityId, $method, $semester = null) {
             <tr>
               <th style="width:200px;">Mata Pelajaran</th>
               <td><?= esc($subject['name']) ?></td>
+            </tr>
+            <tr>
+              <th>Kelas</th>
+              <td>
+                <span class="badge bg-primary fs-6"><?= esc($currentClass['name'] ?? '-') ?></span>
+              </td>
             </tr>
             <tr>
               <th>Tahun Ajaran</th>
@@ -99,7 +135,7 @@ function buildTabUrl($type, $entityId, $method, $semester = null) {
     <ul class="nav nav-tabs mb-3" id="methodTabs" role="tablist">
       <li class="nav-item">
         <a class="nav-link <?= ($selected_method === 'all' || empty($selected_method)) ? 'active' : '' ?>"
-           href="<?= buildTabUrl($type, ($material['id'] ?? $subject['id']), 'all', $semester) ?>"
+           href="<?= buildTabUrl($type, ($material['id'] ?? $subject['id']), 'all', $semester, $class_id) ?>"
            id="all-tab" role="tab">
           Semua (<?= count($types) ?> metode)
         </a>
@@ -107,7 +143,7 @@ function buildTabUrl($type, $entityId, $method, $semester = null) {
       <?php foreach ($types as $t): ?>
         <li class="nav-item">
           <a class="nav-link <?= $selected_method === $t ? 'active' : '' ?>"
-             href="<?= buildTabUrl($type, ($material['id'] ?? $subject['id']), $t, $semester) ?>"
+             href="<?= buildTabUrl($type, ($material['id'] ?? $subject['id']), $t, $semester, $class_id) ?>"
              id="<?= esc($t) ?>-tab" role="tab">
             <?= esc(ucfirst($t)) ?>
           </a>
@@ -117,10 +153,10 @@ function buildTabUrl($type, $entityId, $method, $semester = null) {
   <?php endif; ?>
 
   <!-- Tabel Nilai -->
-  <div class="card">
-    <div class="card-header">
-      <h5 class="mb-0">Daftar Nilai Siswa</h5>
-      <small class="text-muted">Jumlah: <?= count($scores ?? []) ?> siswa</small>
+  <div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Daftar Nilai Siswa (Urut A-Z)</h5>
+      <span class="badge bg-info text-dark">Jumlah: <?= count($scores ?? []) ?> siswa</span>
     </div>
     <div class="card-body">
       <div class="table-responsive">
@@ -129,6 +165,9 @@ function buildTabUrl($type, $entityId, $method, $semester = null) {
             <tr>
               <th style="width:50px;">#</th>
               <th>Nama Siswa</th>
+              <?php if ($selected_method === 'all'): ?>
+                <th style="width:120px;">Metode</th>
+              <?php endif; ?>
               <th style="width:100px;">Nilai</th>
               <th style="width:190px;">Aksi</th>
             </tr>
@@ -138,11 +177,14 @@ function buildTabUrl($type, $entityId, $method, $semester = null) {
               <?php $no = 1; foreach ($scores as $s): ?>
                 <tr>
                   <td><?= $no++ ?></td>
-                  <td><?= esc($s['student_name'] ?? 'N/A') ?></td>
+                  <td class="fw-medium"><?= esc($s['student_name'] ?? 'N/A') ?></td>
+                  <?php if ($selected_method === 'all'): ?>
+                    <td><span class="badge bg-secondary"><?= esc(ucfirst($s['type'] ?? '-')) ?></span></td>
+                  <?php endif; ?>
                   <td class="text-center fw-bold"><?= esc($s['score']) ?></td>
                   <td>
                     <div class="btn-group btn-group-sm" role="group">
-                      <a href="<?= site_url("admin/assessments/edit/{$s['id']}/{$type}?redirect_url=" . urlencode(current_url())) ?>"
+                      <a href="<?= site_url("admin/assessments/edit/{$s['id']}/{$type}?redirect_url=" . urlencode(current_url() . ($class_id ? "?class_id={$class_id}" : ""))) ?>"
                          class="btn btn-warning" title="Edit Nilai">
                         ✏️ Edit
                       </a>
@@ -158,14 +200,13 @@ function buildTabUrl($type, $entityId, $method, $semester = null) {
               <?php endforeach; ?>
             <?php else: ?>
               <tr>
-                <td colspan="4" class="text-center text-muted py-4">
-                  <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
-                  <strong>Belum ada nilai untuk kombinasi ini.</strong><br>
+                <td colspan="<?= ($selected_method === 'all') ? '5' : '4' ?>" class="text-center text-muted py-4">
+                  <i class="fas fa-inbox fa-3x mb-3 d-block text-secondary"></i>
+                  <strong>Belum ada nilai untuk kelas dan kombinasi ini.</strong><br>
                   <small>
-                    Jika baru disimpan, cek apakah:<br>
-                    • Semua siswa sudah dinilai sebelumnya.<br>
-                    • Filter semester/metode/tahun ajaran sesuai.<br>
-                    • Data tersimpan di database (hubungi admin jika perlu).
+                    Jika baru disimpan, pastikan:<br>
+                    • Siswa sudah terdaftar aktif di kelas <?= esc($currentClass['name'] ?? '-') ?>.<br>
+                    • Metode penilaian dan materi yang dipilih sesuai.
                   </small>
                 </td>
               </tr>
@@ -201,21 +242,21 @@ function buildTabUrl($type, $entityId, $method, $semester = null) {
       <div>
         <?php if (!empty($scores)): ?>
           <?php if ($type === 'formatif'): ?>
-            <a href="<?= site_url("admin/assessments/deleteBatch/formatif/{$material['id']}/{$selected_method}") ?>"
+            <a href="<?= site_url("admin/assessments/deleteBatch/formatif/{$material['id']}/{$selected_method}" . ($class_id ? "?class_id={$class_id}" : "")) ?>"
                class="btn btn-danger"
-               onclick="return confirm('Yakin ingin menghapus semua nilai formatif untuk materi dan metode ini?')">
+               onclick="return confirm('Yakin ingin menghapus semua nilai formatif untuk materi dan metode ini di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
               🗑 Hapus Semua (<?= count($scores) ?>)
             </a>
           <?php elseif ($type === 'sumatif'): ?>
-            <a href="<?= site_url("admin/assessments/deleteBatch/sumatif/{$subject['id']}/{$semester}/{$selected_method}") ?>"
+            <a href="<?= site_url("admin/assessments/deleteBatch/sumatif/{$subject['id']}/{$semester}/{$selected_method}" . ($class_id ? "?class_id={$class_id}" : "")) ?>"
                class="btn btn-danger"
-               onclick="return confirm('Yakin ingin menghapus semua nilai sumatif untuk semester dan metode ini?')">
+               onclick="return confirm('Yakin ingin menghapus semua nilai sumatif untuk semester dan metode ini di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
               🗑 Hapus Semua (<?= count($scores) ?>)
             </a>
           <?php elseif ($type === 'final'): ?>
-            <a href="<?= site_url("admin/assessments/deleteBatch/final/{$subject['id']}") ?>"
+            <a href="<?= site_url("admin/assessments/deleteBatch/final/{$subject['id']}" . ($class_id ? "?class_id={$class_id}" : "")) ?>"
                class="btn btn-danger"
-               onclick="return confirm('Yakin ingin menghapus semua nilai ujian akhir untuk semester ini?')">
+               onclick="return confirm('Yakin ingin menghapus semua nilai ujian akhir di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
               🗑 Hapus Semua (<?= count($scores) ?>)
             </a>
           <?php endif; ?>

@@ -155,25 +155,62 @@ $isLocalhost = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'])
             <div class="card shadow-sm border-info">
                 <div class="card-header bg-info bg-opacity-10">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">🌐 Generate Manifest Update Online</h5>
+                        <h5 class="mb-0">🌐 1-Click Auto Release & Push Update Online</h5>
                         <span class="badge bg-info">DEV ONLY</span>
                     </div>
                 </div>
                 <div class="card-body">
                     <div class="row align-items-center">
                         <div class="col-md-9">
-                            <p class="mb-0">
-                                Generate file <code>update_manifest.json</code> dan langsung push ke repo <code>espata-update</code> di GitHub.
-                                Setelah selesai, client bisa cek dan apply update secara online.
+                            <p class="mb-1">
+                                Fitur otomatis untuk merilis update tanpa perlu commit manual:
                             </p>
+                            <small class="text-muted d-block">
+                                • <strong>Auto-Commit</strong> seluruh perubahan file lokal.<br>
+                                • <strong>Auto-Push</strong> ke repo utama (<code>origin/main</code>).<br>
+                                • <strong>Auto-Generate</strong> <code>update_manifest.json</code>.<br>
+                                • <strong>Auto-Deploy</strong> rilis ke repo <code>espata-update</code> di GitHub.
+                            </small>
                         </div>
                         <div class="col-md-3 text-end">
-                            <a href="<?= base_url('admin/updater/generate-manifest') ?>" class="btn btn-info"
-                               onclick="this.innerHTML='⏳ Processing...';this.classList.add('disabled')">
-                                📋 Generate & Push
-                            </a>
+                            <button type="button" class="btn btn-info px-3 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#modalGeneratePush">
+                                🚀 Generate & Push
+                            </button>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Konfirmasi Generate & Push -->
+        <div class="modal fade" id="modalGeneratePush" tabindex="-1" aria-labelledby="modalGeneratePushLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <form method="post" action="<?= base_url('admin/updater/generate-manifest') ?>">
+                        <?= csrf_field() ?>
+                        <div class="modal-header bg-info bg-opacity-10">
+                            <h5 class="modal-title" id="modalGeneratePushLabel">🚀 Rilis Update Otomatis (1-Click)</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="small text-muted mb-3">
+                                Sistem akan otomatis mendeteksi perubahan file di komputer ini, meng-commit ke <code>origin/main</code>, membuat manifest baru, dan merilisnya ke <code>espata-update</code>.
+                            </p>
+                            <div class="mb-3">
+                                <label for="commit_message" class="form-label fw-bold">Pesan Commit (Opsional):</label>
+                                <input type="text" class="form-control" id="commit_message" name="commit_message"
+                                       placeholder="Contoh: Perbaikan filter kelas dan pengurutan nilai formatif">
+                                <small class="text-muted">Jika dikosongkan, sistem akan otomatis menggunakan format <em>"Update & sync v[versi] - [tanggal]"</em>.</small>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                            <button type="submit" class="btn btn-info fw-semibold" id="btnSubmitGenerate"
+                                    onclick="this.innerHTML='⏳ Sedang Memproses & Mengirim...';this.classList.add('disabled');this.form.submit();">
+                                🚀 Jalankan Rilis Sekarang
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>

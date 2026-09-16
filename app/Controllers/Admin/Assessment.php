@@ -131,12 +131,34 @@ class Assessment extends BaseController
 
         $isMultiGuru = $guruCount > 1;
 
+        // Ambil student_id di kelas ini untuk filter ms agar akurat per kelas
+        $classStudentSub = $this->db->table('students')
+            ->distinct()->select('students.id')
+            ->join('student_records sr', 'sr.student_id = students.id AND sr.status = "aktif"', 'left')
+            ->groupStart()
+                ->where('sr.class_id', $classId)
+                ->orWhere('students.class_id', $classId)
+            ->groupEnd();
+        if (!empty($activeYear['id'])) {
+            $classStudentSub->groupStart()
+                ->where('sr.academic_year_id', $activeYear['id'])
+                ->orWhere('sr.academic_year_id IS NULL')
+            ->groupEnd();
+        }
+        $classStudentIds = array_column($classStudentSub->get()->getResultArray(), 'id');
+
         $atpBuilder = $this->db->table('alur_tujuan_pembelajaran atp')
             ->select('atp.id, atp.lingkup_materi as title, atp.semester,
                      GROUP_CONCAT(DISTINCT ms.type) as metode_terpakai,
-                     COUNT(ms.id) as jumlah_nilai')
-            ->join('material_scores ms', 'ms.material_id = atp.id', 'left')
-            ->join('classes c_atp', 'c_atp.id = atp.class_id', 'left')
+                     COUNT(ms.id) as jumlah_nilai');
+
+        if (!empty($classStudentIds)) {
+            $atpBuilder->join('material_scores ms', 'ms.material_id = atp.id AND ms.student_id IN (' . implode(',', array_map('intval', $classStudentIds)) . ')', 'left');
+        } else {
+            $atpBuilder->join('material_scores ms', '1 = 0', 'left');
+        }
+
+        $atpBuilder->join('classes c_atp', 'c_atp.id = atp.class_id', 'left')
             ->where('atp.subject_id', $subjectId);
 
         if ($isMultiGuru) {
@@ -377,7 +399,6 @@ class Assessment extends BaseController
         $db = $this->db;
 
         if ($type === 'formatif') {
-            // ... kode formatif existing (tidak berubah, no year needed) ...
             $method = $p2 ?? 'all';
 
             $material = $db->table('alur_tujuan_pembelajaran atp')
@@ -391,20 +412,104 @@ class Assessment extends BaseController
                 return redirect()->back()->with('error', 'Lingkup Materi (ATP) tidak ditemukan.');
             }
 
-            $class_id = $material['class_id'] ?? null;
+            // Ambil class_id dari query string (prioritas), fallback ke class_id dari ATP
+            $class_id = $this->request->getGet('class_id') ?: ($material['class_id'] ?? null);
 
-            $rows = $db->table('material_scores')
-                ->select('type')
-                ->distinct()
-                ->where('material_id', $id)
+            // Cari daftar kelas yang terhubung dengan mapel ini
+            $user = session()->get('user') ?? [];
+            $roleId = $user['role_id'] ?? null;
+            $teacherId = $user['related_id'] ?? null;
+
+            $classesQuery = $db->table('teaching_assignments ta')
+                ->select('classes.id, classes.name, classes.level')
+                ->join('classes', 'classes.id = ta.class_id')
+                ->where('ta.subject_id', $material['subject_id'])
+                ->where('classes.is_active', 1);
+
+            if (!empty($activeYear['id'])) {
+                $classesQuery->where('ta.academic_year_id', $activeYear['id']);
+            }
+            if ($roleId == 3 && !empty($teacherId)) {
+                $classesQuery->where('ta.teacher_id', $teacherId);
+            }
+            $availableClasses = $classesQuery->distinct()
+                ->orderBy('classes.level', 'ASC')
+                ->orderBy('classes.name', 'ASC')
                 ->get()
                 ->getResultArray();
-            $types = array_column($rows, 'type');
+
+            if (empty($availableClasses)) {
+                $availableClasses = $db->table('classes')
+                    ->where('is_active', 1)
+                    ->orderBy('level', 'ASC')
+                    ->orderBy('name', 'ASC')
+                    ->get()
+                    ->getResultArray();
+            }
+
+            if (empty($class_id) && !empty($availableClasses)) {
+                $class_id = $availableClasses[0]['id'];
+            }
+
+            $currentClass = null;
+            if (!empty($class_id)) {
+                $currentClass = $db->table('classes')->where('id', $class_id)->get()->getRowArray();
+            }
+
+            // Ambil student IDs untuk kelas yang dipilih
+            $classStudentIds = [];
+            if (!empty($class_id)) {
+                $studentQuery = $db->table('students')
+                    ->distinct()
+                    ->select('students.id')
+                    ->join('student_records sr', 'sr.student_id = students.id AND sr.status = "aktif"', 'left')
+                    ->groupStart()
+                        ->where('sr.class_id', $class_id)
+                        ->orWhere('students.class_id', $class_id)
+                    ->groupEnd();
+
+                if (!empty($activeYear['id'])) {
+                    $studentQuery->groupStart()
+                        ->where('sr.academic_year_id', $activeYear['id'])
+                        ->orWhere('sr.academic_year_id IS NULL')
+                    ->groupEnd();
+                }
+                $classStudentIds = array_column($studentQuery->get()->getResultArray(), 'id');
+            }
+
+            // Ambil metode yang tersedia
+            $typesQuery = $db->table('material_scores')
+                ->select('type')
+                ->distinct()
+                ->where('material_id', $id);
+
+            if (!empty($classStudentIds)) {
+                $typesQuery->whereIn('student_id', $classStudentIds);
+            }
+            $types = array_column($typesQuery->get()->getResultArray(), 'type');
+
+            if (empty($types)) {
+                $allRows = $db->table('material_scores')
+                    ->select('type')
+                    ->distinct()
+                    ->where('material_id', $id)
+                    ->get()
+                    ->getResultArray();
+                $types = array_column($allRows, 'type');
+            }
 
             $builder = $db->table('material_scores ms')
                 ->select('ms.*, students.name as student_name')
                 ->join('students', 'students.id = ms.student_id')
                 ->where('ms.material_id', $id);
+
+            if (!empty($class_id)) {
+                if (!empty($classStudentIds)) {
+                    $builder->whereIn('ms.student_id', $classStudentIds);
+                } else {
+                    $builder->where('1 = 0');
+                }
+            }
 
             if ($method && $method !== 'all') {
                 $builder->where('ms.type', $method);
@@ -413,7 +518,11 @@ class Assessment extends BaseController
                 $selected_method = 'all';
             }
 
-            $scores = $builder->orderBy('ms.type', 'ASC')->get()->getResultArray();
+            // Urutkan nama siswa dari A-Z, kemudian tipe metode
+            $scores = $builder->orderBy('students.name', 'ASC')
+                ->orderBy('ms.type', 'ASC')
+                ->get()
+                ->getResultArray();
 
             log_message('debug', 'Formatif Scores Count: ' . count($scores));
 
@@ -427,10 +536,12 @@ class Assessment extends BaseController
                 'material' => $material,
                 'subject' => $subject,
                 'class_id' => $class_id,
+                'currentClass' => $currentClass,
+                'availableClasses' => $availableClasses,
                 'types' => $types,
                 'selected_method' => $selected_method,
                 'scores' => $scores,
-                'activeYear' => $activeYear,  // Pass ke view (meski formatif no need)
+                'activeYear' => $activeYear,
                 'semester' => $semester,
             ]);
         }
@@ -441,13 +552,41 @@ class Assessment extends BaseController
 
             $subject = $db->table('subjects')->where('id', $id)->get()->getRowArray();
 
-            $ta = $db->table('teaching_assignments')
-                ->select('class_id')
-                ->where('subject_id', $id)
-                ->limit(1)
-                ->get()
-                ->getRowArray();
-            $class_id = $ta['class_id'] ?? null;
+            $class_id = $this->request->getGet('class_id');
+            if (empty($class_id)) {
+                $ta = $db->table('teaching_assignments')
+                    ->select('class_id')
+                    ->where('subject_id', $id)
+                    ->limit(1)
+                    ->get()
+                    ->getRowArray();
+                $class_id = $ta['class_id'] ?? null;
+            }
+
+            $currentClass = null;
+            if (!empty($class_id)) {
+                $currentClass = $db->table('classes')->where('id', $class_id)->get()->getRowArray();
+            }
+
+            $classStudentIds = [];
+            if (!empty($class_id)) {
+                $studentQuery = $db->table('students')
+                    ->distinct()
+                    ->select('students.id')
+                    ->join('student_records sr', 'sr.student_id = students.id AND sr.status = "aktif"', 'left')
+                    ->groupStart()
+                        ->where('sr.class_id', $class_id)
+                        ->orWhere('students.class_id', $class_id)
+                    ->groupEnd();
+
+                if (!empty($activeYear['id'])) {
+                    $studentQuery->groupStart()
+                        ->where('sr.academic_year_id', $activeYear['id'])
+                        ->orWhere('sr.academic_year_id IS NULL')
+                    ->groupEnd();
+                }
+                $classStudentIds = array_column($studentQuery->get()->getResultArray(), 'id');
+            }
 
             $typesQuery = $db->table('summative_scores')
                 ->select('type')
@@ -458,6 +597,9 @@ class Assessment extends BaseController
             if ($semester !== null) {
                 $typesQuery->where('semester', $semester);
             }
+            if (!empty($classStudentIds)) {
+                $typesQuery->whereIn('student_id', $classStudentIds);
+            }
 
             $types = array_column($typesQuery->get()->getResultArray(), 'type');
 
@@ -466,6 +608,14 @@ class Assessment extends BaseController
                 ->join('students', 'students.id = ss.student_id', 'left')
                 ->where('ss.subject_id', $id)
                 ->where('ss.year_id', $activeYear['id']);
+
+            if (!empty($class_id)) {
+                if (!empty($classStudentIds)) {
+                    $builder->whereIn('ss.student_id', $classStudentIds);
+                } else {
+                    $builder->where('1 = 0');
+                }
+            }
 
             if ($semester !== null) {
                 $builder->where('ss.semester', $semester);
@@ -491,6 +641,7 @@ class Assessment extends BaseController
                 'type' => $type,
                 'subject' => $subject,
                 'class_id' => $class_id,
+                'currentClass' => $currentClass,
                 'semester' => $semester,
                 'types' => $types,
                 'selected_method' => $selected_method,
@@ -506,22 +657,57 @@ class Assessment extends BaseController
                 return redirect()->back()->with('error', 'Mata pelajaran tidak ditemukan.');
             }
 
-            // Cari class_id berdasarkan teaching_assignments
-            $assignment = $db->table('teaching_assignments ta')
-                ->select('ta.class_id')
-                ->where('ta.subject_id', $id)
-                ->where('ta.academic_year_id', $activeYear['id'])
-                ->get()
-                ->getRowArray();
+            $classId = $this->request->getGet('class_id');
+            if (empty($classId)) {
+                $assignment = $db->table('teaching_assignments ta')
+                    ->select('ta.class_id')
+                    ->where('ta.subject_id', $id)
+                    ->where('ta.academic_year_id', $activeYear['id'])
+                    ->get()
+                    ->getRowArray();
+                $classId = $assignment['class_id'] ?? null;
+            }
 
-            $classId = $assignment['class_id'] ?? null;
+            $currentClass = null;
+            if (!empty($classId)) {
+                $currentClass = $db->table('classes')->where('id', $classId)->get()->getRowArray();
+            }
 
-            $scores = $db->table('final_exam_scores fs')
+            $classStudentIds = [];
+            if (!empty($classId)) {
+                $studentQuery = $db->table('students')
+                    ->distinct()
+                    ->select('students.id')
+                    ->join('student_records sr', 'sr.student_id = students.id AND sr.status = "aktif"', 'left')
+                    ->groupStart()
+                        ->where('sr.class_id', $classId)
+                        ->orWhere('students.class_id', $classId)
+                    ->groupEnd();
+
+                if (!empty($activeYear['id'])) {
+                    $studentQuery->groupStart()
+                        ->where('sr.academic_year_id', $activeYear['id'])
+                        ->orWhere('sr.academic_year_id IS NULL')
+                    ->groupEnd();
+                }
+                $classStudentIds = array_column($studentQuery->get()->getResultArray(), 'id');
+            }
+
+            $builder = $db->table('final_exam_scores fs')
                 ->select('fs.id, fs.student_id, fs.subject_id, fs.year_id, fs.score, fs.created_at, fs.updated_at, students.name as student_name')
                 ->join('students', 'students.id = fs.student_id', 'left')
                 ->where('fs.subject_id', $id)
-                ->where('fs.year_id', $activeYear['id'])
-                ->orderBy('students.name', 'ASC')
+                ->where('fs.year_id', $activeYear['id']);
+
+            if (!empty($classId)) {
+                if (!empty($classStudentIds)) {
+                    $builder->whereIn('fs.student_id', $classStudentIds);
+                } else {
+                    $builder->where('1 = 0');
+                }
+            }
+
+            $scores = $builder->orderBy('students.name', 'ASC')
                 ->get()
                 ->getResultArray();
 
@@ -532,13 +718,10 @@ class Assessment extends BaseController
                 'selected_method' => null,
                 'types' => [],
                 'activeYear' => $activeYear,
-                'class_id' => $classId, // kirim class_id yang valid
+                'class_id' => $classId,
+                'currentClass' => $currentClass,
             ]);
         }
-
-
-
-
 
         return redirect()->back()->with('error', 'Tipe penilaian belum didukung.');
     }
@@ -888,19 +1071,55 @@ class Assessment extends BaseController
     public function deleteBatch($type, $id, $p2 = null, $p3 = null)
     {
         $year = $this->academicYearModel->getActiveYear();
+        $classId = $this->request->getGet('class_id');
+
+        $classStudentIds = [];
+        if (!empty($classId)) {
+            $studentQuery = $this->db->table('students')
+                ->distinct()
+                ->select('students.id')
+                ->join('student_records sr', 'sr.student_id = students.id AND sr.status = "aktif"', 'left')
+                ->groupStart()
+                    ->where('sr.class_id', $classId)
+                    ->orWhere('students.class_id', $classId)
+                ->groupEnd();
+
+            if (!empty($year['id'])) {
+                $studentQuery->groupStart()
+                    ->where('sr.academic_year_id', $year['id'])
+                    ->orWhere('sr.academic_year_id IS NULL')
+                ->groupEnd();
+            }
+            $classStudentIds = array_column($studentQuery->get()->getResultArray(), 'id');
+        }
 
         if ($type === 'formatif') {
             $materialId = $id;
             $method = $p2;
 
-            $this->db->table('material_scores')
-                ->where('material_id', $materialId)
-                ->when($method !== 'all', function ($builder) use ($method) {
-                    return $builder->where('type', $method);
-                })
-                ->delete();
+            $builder = $this->db->table('material_scores')
+                ->where('material_id', $materialId);
 
-            return redirect()->to("admin/assessments/viewScores/formatif/{$materialId}/{$method}")
+            if ($method !== 'all') {
+                $builder->where('type', $method);
+            }
+
+            if (!empty($classId)) {
+                if (!empty($classStudentIds)) {
+                    $builder->whereIn('student_id', $classStudentIds);
+                } else {
+                    $builder->where('1 = 0');
+                }
+            }
+
+            $builder->delete();
+
+            $redirectUrl = "admin/assessments/viewScores/formatif/{$materialId}/{$method}";
+            if (!empty($classId)) {
+                $redirectUrl .= "?class_id={$classId}";
+            }
+
+            return redirect()->to($redirectUrl)
                 ->with('success', 'Semua nilai formatif berhasil dihapus.');
 
         } elseif ($type === 'sumatif') {
@@ -908,27 +1127,55 @@ class Assessment extends BaseController
             $semester = $p2;
             $method = $p3;
 
-            $this->db->table('summative_scores')
+            $builder = $this->db->table('summative_scores')
                 ->where('subject_id', $subjectId)
                 ->where('year_id', $year['id'] ?? 0)
                 ->where('semester', $semester)
-                ->where('type', $method)
-                ->delete();
+                ->where('type', $method);
 
-            return redirect()->to("admin/assessments/viewScores/sumatif/{$subjectId}/{$semester}/{$method}")
+            if (!empty($classId)) {
+                if (!empty($classStudentIds)) {
+                    $builder->whereIn('student_id', $classStudentIds);
+                } else {
+                    $builder->where('1 = 0');
+                }
+            }
+
+            $builder->delete();
+
+            $redirectUrl = "admin/assessments/viewScores/sumatif/{$subjectId}/{$semester}/{$method}";
+            if (!empty($classId)) {
+                $redirectUrl .= "?class_id={$classId}";
+            }
+
+            return redirect()->to($redirectUrl)
                 ->with('success', 'Semua nilai sumatif berhasil dihapus.');
 
         } elseif ($type === 'final') {
             $subjectId = $id;
             $semester = $p2;
 
-            $this->db->table('final_exam_scores')
+            $builder = $this->db->table('final_exam_scores')
                 ->where('subject_id', $subjectId)
                 ->where('year_id', $year['id'] ?? 0)
-                ->where('semester', $semester)
-                ->delete();
+                ->where('semester', $semester);
 
-            return redirect()->to("admin/assessments/viewScores/final/{$subjectId}/{$semester}")
+            if (!empty($classId)) {
+                if (!empty($classStudentIds)) {
+                    $builder->whereIn('student_id', $classStudentIds);
+                } else {
+                    $builder->where('1 = 0');
+                }
+            }
+
+            $builder->delete();
+
+            $redirectUrl = "admin/assessments/viewScores/final/{$subjectId}/{$semester}";
+            if (!empty($classId)) {
+                $redirectUrl .= "?class_id={$classId}";
+            }
+
+            return redirect()->to($redirectUrl)
                 ->with('success', 'Semua nilai ujian akhir berhasil dihapus.');
         }
 

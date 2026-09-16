@@ -24,7 +24,7 @@
             </td>
             <td>
               <?php if (!empty($status) && $status['jumlah'] > 0): ?>
-                <a href="<?= site_url("admin/assessments/viewScores/final/{$subjectId}") ?>" class="btn btn-sm btn-info">📋 Lihat Nilai</a>
+                <a href="<?= site_url("admin/assessments/viewScores/final/{$subjectId}?class_id={$classId}") ?>" class="btn btn-sm btn-info">📋 Lihat Nilai</a>
               <?php endif; ?>
               <a href="<?= site_url("admin/assessments/input/{$classId}/{$subjectId}/final") ?>" class="btn btn-sm btn-success">➕ Input Nilai</a>
             </td>

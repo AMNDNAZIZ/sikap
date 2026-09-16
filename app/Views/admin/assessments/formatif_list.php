@@ -58,11 +58,11 @@
 
               <?php if (!empty($methods)): ?>
                 <?php foreach ($methods as $mt): ?>
-                  <a href="<?= base_url("admin/assessments/viewScores/formatif/{$m['id']}/{$mt}") ?>"
+                  <a href="<?= base_url("admin/assessments/viewScores/formatif/{$m['id']}/{$mt}?class_id={$classId}") ?>"
                      class="btn btn-sm btn-info ms-1"><?= ucfirst($mt) ?></a>
                 <?php endforeach; ?>
                 <!-- Opsi lihat semua metode sekaligus -->
-                <a href="<?= base_url("admin/assessments/viewScores/formatif/{$m['id']}/all") ?>"
+                <a href="<?= base_url("admin/assessments/viewScores/formatif/{$m['id']}/all?class_id={$classId}") ?>"
                    class="btn btn-sm btn-secondary ms-1">Lihat Semua</a>
               <?php else: ?>
                 <span class="text-muted ms-2">—</span>

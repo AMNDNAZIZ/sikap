@@ -60,6 +60,25 @@ class Materials extends BaseController
     private function roleId(): int  { return (int)($this->user()['role_id'] ?? 0); }
     private function isAdmin(): bool { return in_array($this->roleId(), [1, 2]); }
 
+    /**
+     * Boleh mengelola (buat/ubah/hapus/publish) materi?
+     * Hanya Admin (1) & Guru (3). Kepala Sekolah (2) read-only (hanya lihat).
+     */
+    private function canManage(): bool { return in_array($this->roleId(), [1, 3], true); }
+
+    /**
+     * Tolak akses jika read-only (mis. Kepala Sekolah). Kembalikan RedirectResponse
+     * bila ditolak, atau null bila boleh lanjut.
+     */
+    private function denyIfReadonly()
+    {
+        if (!$this->canManage()) {
+            return redirect()->to('admin/materials')
+                ->with('error', 'Anda hanya memiliki akses lihat pada materi pelajaran.');
+        }
+        return null;
+    }
+
     private function teacherId(): ?int
     {
         $u = $this->user();
@@ -239,6 +258,9 @@ class Materials extends BaseController
     // =========================================================
     public function syncFromAtp(int $subjectId)
     {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
         $year   = $this->activeYear();
         $yearId = (int)($year['id'] ?? 0);
         $count  = $this->_doSyncFromAtp($subjectId, $yearId);
@@ -442,6 +464,7 @@ class Materials extends BaseController
     // =========================================================
     public function create(int $subjectId)
     {
+        if ($r = $this->denyIfReadonly()) return $r;
         $subject  = $this->subjectModel->find($subjectId);
         $year     = $this->activeYear();
         $yearId   = (int)($year['id'] ?? 0);
@@ -474,6 +497,7 @@ class Materials extends BaseController
     // =========================================================
     public function store()
     {
+        if ($r = $this->denyIfReadonly()) return $r;
         $data     = $this->request->getPost();
         $parentId = !empty($data['parent_id']) ? (int)$data['parent_id'] : null;
 
@@ -567,6 +591,7 @@ class Materials extends BaseController
     // =========================================================
     public function edit(int $id)
     {
+        if ($r = $this->denyIfReadonly()) return $r;
         $material = $this->mat->find($id);
         if (!$material) return redirect()->to('admin/materials')->with('error', 'Tidak ditemukan.');
 
@@ -602,6 +627,7 @@ class Materials extends BaseController
     // =========================================================
     public function update(int $id)
     {
+        if ($r = $this->denyIfReadonly()) return $r;
         $material    = $this->mat->find($id);
         if (!$material) return redirect()->to('admin/materials')->with('error', 'Tidak ditemukan.');
 
@@ -732,6 +758,9 @@ class Materials extends BaseController
     // =========================================================
     public function slideDelete(int $slideId)
     {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
         $slide = $this->db->table('subject_material_slides')->where('id', $slideId)->get()->getRowArray();
         if (!$slide) {
             return $this->response->setJSON(['success' => false, 'message' => 'Slide tidak ditemukan.']);
@@ -754,6 +783,9 @@ class Materials extends BaseController
     // =========================================================
     public function slideReorder()
     {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
         $order = (array) ($this->request->getPost('order') ?? []);
         $pos = 0;
         foreach ($order as $slideId) {
@@ -772,6 +804,9 @@ class Materials extends BaseController
     // =========================================================
     public function delete(int $id)
     {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Akses hanya lihat.']);
+        }
         $material = $this->mat->find($id);
         if (!$material) {
             return $this->response->setJSON(['status' => 'error', 'message' => 'Tidak ditemukan.']);
@@ -845,6 +880,9 @@ class Materials extends BaseController
     // =========================================================
     public function publishSave(int $subMatId)
     {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
         $subMat = $this->mat->find($subMatId);
         if (!$subMat || empty($subMat['parent_id'])) {
             return $this->response->setJSON(['success' => false, 'message' => 'Sub materi tidak valid.']);
@@ -918,6 +956,7 @@ class Materials extends BaseController
     // =========================================================
     public function usePage(int $subjectId)
     {
+        if ($r = $this->denyIfReadonly()) return $r;
         $subject = $this->subjectModel->find($subjectId);
         if (!$subject) return redirect()->to('admin/materials')->with('error', 'Mapel tidak ditemukan.');
 
@@ -960,6 +999,9 @@ class Materials extends BaseController
     // =========================================================
     public function useSave()
     {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
         $subMatId  = (int)$this->request->getPost('sub_mat_id');
         $classIds  = array_map('intval',
             (array)($this->request->getPost('class_ids') ?? [])
@@ -992,6 +1034,9 @@ class Materials extends BaseController
     {
         if (!$this->request->isAJAX()) {
             return $this->response->setStatusCode(403)->setJSON(['error' => ['message' => 'Forbidden']]);
+        }
+        if (!$this->canManage()) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => ['message' => 'Akses hanya lihat.']]);
         }
 
         $file = $this->request->getFile('upload');

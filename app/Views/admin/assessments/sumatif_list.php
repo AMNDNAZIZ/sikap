@@ -34,7 +34,7 @@
               <td>
                 <?php if (!empty($parts)): ?>
                   <!-- tombol lihat nilai untuk semester ini (menampilkan semua metode atau pilih metode di viewScores) -->
-                  <a href="<?= site_url("admin/assessments/viewScores/sumatif/{$subjectId}/{$sem}/all") ?>"
+                  <a href="<?= site_url("admin/assessments/viewScores/sumatif/{$subjectId}/{$sem}/all?class_id={$classId}") ?>"
                      class="btn btn-sm btn-info">📋 Lihat Nilai</a>
                 <?php endif; ?>
 
