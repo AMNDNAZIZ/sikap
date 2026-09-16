@@ -4,9 +4,11 @@
 <div class="container-fluid px-3 px-md-4 pb-5">
   <div class="d-flex justify-content-between align-items-center mt-3 mb-3 flex-wrap gap-2">
     <h4 class="fw-bold mb-0">📋 Kirim Tugas</h4>
+    <?php if (empty($isViewOnly)): ?>
     <a href="<?= site_url('admin/tugas/create') ?>" class="btn btn-primary">
       <i class="bi bi-plus-lg me-1"></i> Buat Tugas
     </a>
+    <?php endif; ?>
   </div>
 
   <?php if (session()->getFlashdata('success')): ?>
@@ -62,6 +64,7 @@
                   <a href="<?= site_url('admin/tugas/' . $t['id']) ?>" class="btn btn-sm btn-outline-primary">
                     <i class="bi bi-eye"></i> Detail
                   </a>
+                  <?php if (empty($isViewOnly)): ?>
                   <a href="<?= site_url('admin/tugas/edit/' . $t['id']) ?>" class="btn btn-sm btn-outline-secondary">
                     <i class="bi bi-pencil"></i>
                   </a>
@@ -70,6 +73,7 @@
                      onclick="return confirm('Hapus tugas ini? Semua jawaban siswa akan ikut terhapus.')">
                     <i class="bi bi-trash"></i>
                   </a>
+                  <?php endif; ?>
                 </td>
               </tr>
               <?php endforeach; endif; ?>
@@ -109,6 +113,7 @@
           <a href="<?= site_url('admin/tugas/' . $t['id']) ?>" class="btn btn-sm btn-outline-primary flex-grow-1">
             <i class="bi bi-eye me-1"></i>Detail
           </a>
+          <?php if (empty($isViewOnly)): ?>
           <a href="<?= site_url('admin/tugas/edit/' . $t['id']) ?>" class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-pencil"></i>
           </a>
@@ -117,6 +122,7 @@
              onclick="return confirm('Hapus tugas ini?')">
             <i class="bi bi-trash"></i>
           </a>
+          <?php endif; ?>
         </div>
       </div>
     </div>

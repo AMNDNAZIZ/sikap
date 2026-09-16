@@ -412,44 +412,8 @@ class Assessment extends BaseController
                 return redirect()->back()->with('error', 'Lingkup Materi (ATP) tidak ditemukan.');
             }
 
-            // Ambil class_id dari query string (prioritas), fallback ke class_id dari ATP
-            $class_id = $this->request->getGet('class_id') ?: ($material['class_id'] ?? null);
-
-            // Cari daftar kelas yang terhubung dengan mapel ini
-            $user = session()->get('user') ?? [];
-            $roleId = $user['role_id'] ?? null;
-            $teacherId = $user['related_id'] ?? null;
-
-            $classesQuery = $db->table('teaching_assignments ta')
-                ->select('classes.id, classes.name, classes.level')
-                ->join('classes', 'classes.id = ta.class_id')
-                ->where('ta.subject_id', $material['subject_id'])
-                ->where('classes.is_active', 1);
-
-            if (!empty($activeYear['id'])) {
-                $classesQuery->where('ta.academic_year_id', $activeYear['id']);
-            }
-            if ($roleId == 3 && !empty($teacherId)) {
-                $classesQuery->where('ta.teacher_id', $teacherId);
-            }
-            $availableClasses = $classesQuery->distinct()
-                ->orderBy('classes.level', 'ASC')
-                ->orderBy('classes.name', 'ASC')
-                ->get()
-                ->getResultArray();
-
-            if (empty($availableClasses)) {
-                $availableClasses = $db->table('classes')
-                    ->where('is_active', 1)
-                    ->orderBy('level', 'ASC')
-                    ->orderBy('name', 'ASC')
-                    ->get()
-                    ->getResultArray();
-            }
-
-            if (empty($class_id) && !empty($availableClasses)) {
-                $class_id = $availableClasses[0]['id'];
-            }
+            // Ambil class_id dari ATP material (sudah dibawa dari formatifList)
+            $class_id = $material['class_id'] ?? null;
 
             $currentClass = null;
             if (!empty($class_id)) {
@@ -537,7 +501,6 @@ class Assessment extends BaseController
                 'subject' => $subject,
                 'class_id' => $class_id,
                 'currentClass' => $currentClass,
-                'availableClasses' => $availableClasses,
                 'types' => $types,
                 'selected_method' => $selected_method,
                 'scores' => $scores,

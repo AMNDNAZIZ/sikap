@@ -52,22 +52,7 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
             <tr>
               <th>Kelas</th>
               <td>
-                <div class="d-flex align-items-center gap-2">
-                  <?php if (!empty($availableClasses) && count($availableClasses) > 1): ?>
-                    <form method="get" action="<?= current_url() ?>" class="d-flex align-items-center gap-2 m-0">
-                      <select name="class_id" class="form-select form-select-sm w-auto fw-bold" onchange="this.form.submit()">
-                        <?php foreach ($availableClasses as $c): ?>
-                          <option value="<?= $c['id'] ?>" <?= ($class_id == $c['id']) ? 'selected' : '' ?>>
-                            <?= esc($c['name']) ?>
-                          </option>
-                        <?php endforeach; ?>
-                      </select>
-                      <small class="text-muted">(Pilih kelas untuk memfilter nilai)</small>
-                    </form>
-                  <?php else: ?>
-                    <span class="badge bg-primary fs-6"><?= esc($currentClass['name'] ?? '-') ?></span>
-                  <?php endif; ?>
-                </div>
+                <span class="badge bg-primary fs-6"><?= esc($currentClass['name'] ?? '-') ?></span>
               </td>
             </tr>
             <tr>
@@ -135,7 +120,7 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
     <ul class="nav nav-tabs mb-3" id="methodTabs" role="tablist">
       <li class="nav-item">
         <a class="nav-link <?= ($selected_method === 'all' || empty($selected_method)) ? 'active' : '' ?>"
-           href="<?= buildTabUrl($type, ($material['id'] ?? $subject['id']), 'all', $semester, $class_id) ?>"
+           href="<?= buildTabUrl($type, ($material['id'] ?? $subject['id']), 'all', $semester) ?>"
            id="all-tab" role="tab">
           Semua (<?= count($types) ?> metode)
         </a>
@@ -143,7 +128,7 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
       <?php foreach ($types as $t): ?>
         <li class="nav-item">
           <a class="nav-link <?= $selected_method === $t ? 'active' : '' ?>"
-             href="<?= buildTabUrl($type, ($material['id'] ?? $subject['id']), $t, $semester, $class_id) ?>"
+             href="<?= buildTabUrl($type, ($material['id'] ?? $subject['id']), $t, $semester) ?>"
              id="<?= esc($t) ?>-tab" role="tab">
             <?= esc(ucfirst($t)) ?>
           </a>
@@ -184,7 +169,7 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
                   <td class="text-center fw-bold"><?= esc($s['score']) ?></td>
                   <td>
                     <div class="btn-group btn-group-sm" role="group">
-                      <a href="<?= site_url("admin/assessments/edit/{$s['id']}/{$type}?redirect_url=" . urlencode(current_url() . ($class_id ? "?class_id={$class_id}" : ""))) ?>"
+                      <a href="<?= site_url("admin/assessments/edit/{$s['id']}/{$type}?redirect_url=" . urlencode(current_url())) ?>"
                          class="btn btn-warning" title="Edit Nilai">
                         ✏️ Edit
                       </a>
@@ -242,7 +227,7 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
       <div>
         <?php if (!empty($scores)): ?>
           <?php if ($type === 'formatif'): ?>
-            <a href="<?= site_url("admin/assessments/deleteBatch/formatif/{$material['id']}/{$selected_method}" . ($class_id ? "?class_id={$class_id}" : "")) ?>"
+            <a href="<?= site_url("admin/assessments/deleteBatch/formatif/{$material['id']}/{$selected_method}") ?>"
                class="btn btn-danger"
                onclick="return confirm('Yakin ingin menghapus semua nilai formatif untuk materi dan metode ini di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
               🗑 Hapus Semua (<?= count($scores) ?>)
