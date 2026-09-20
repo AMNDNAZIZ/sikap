@@ -412,8 +412,11 @@ class Assessment extends BaseController
                 return redirect()->back()->with('error', 'Lingkup Materi (ATP) tidak ditemukan.');
             }
 
-            // Ambil class_id dari ATP material (sudah dibawa dari formatifList)
-            $class_id = $material['class_id'] ?? null;
+            // Ambil class_id dari query string (atau fallback dari ATP material)
+            $class_id = $this->request->getGet('class_id');
+            if (empty($class_id)) {
+                $class_id = $material['class_id'] ?? null;
+            }
 
             $currentClass = null;
             if (!empty($class_id)) {
@@ -750,7 +753,8 @@ class Assessment extends BaseController
                 }
             }
 
-            $redirect = site_url("admin/assessments/viewScores/formatif/{$materialId}/{$method}");
+            $classIdForRedirect = $data['class_id'] ?? '';
+            $redirect = site_url("admin/assessments/viewScores/formatif/{$materialId}/{$method}" . ($classIdForRedirect ? "?class_id={$classIdForRedirect}" : ""));
         }
 
         // =================== SUMATIF ===================
@@ -792,7 +796,8 @@ class Assessment extends BaseController
                 }
             }
 
-            $redirect = site_url("admin/assessments/viewScores/sumatif/{$data['subject_id']}/{$semester}/{$method}");
+            $classIdForRedirect = $data['class_id'] ?? '';
+            $redirect = site_url("admin/assessments/viewScores/sumatif/{$data['subject_id']}/{$semester}/{$method}" . ($classIdForRedirect ? "?class_id={$classIdForRedirect}" : ""));
         }
 
         // =================== FINAL ===================
@@ -830,7 +835,8 @@ class Assessment extends BaseController
                 }
             }
 
-            $redirect = site_url("admin/assessments/viewScores/final/{$data['subject_id']}");
+            $classIdForRedirect = $data['class_id'] ?? '';
+            $redirect = site_url("admin/assessments/viewScores/final/{$data['subject_id']}" . ($classIdForRedirect ? "?class_id={$classIdForRedirect}" : ""));
         } else {
             return redirect()->back()->with('error', 'Tipe penilaian tidak didukung.');
         }
