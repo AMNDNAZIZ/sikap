@@ -173,6 +173,7 @@
 <?= $this->endSection() ?>
 <?= $this->section('scripts') ?>
 <script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 <script>
 (function(){
   var inst      = null;
@@ -232,27 +233,70 @@
     link:  document.getElementById('panelLink')
   };
 
-  // ── Preview gambar slide yang dipilih (sebelum upload) ──────────────
+  // ── Preview gambar slide yang dipilih (sebelum upload) & Reordering ──────────────
   var slideInput = document.getElementById('slideInput');
+  var currentSlideFiles = [];
+
   if (slideInput) {
     slideInput.addEventListener('change', function() {
       var box = document.getElementById('slidePreview');
       box.innerHTML = '';
       var files = Array.from(this.files || []);
-      if (!files.length) return;
-      files.forEach(function(f, idx) {
-        if (!f.type.startsWith('image/')) return;
+      if (!files.length) {
+        currentSlideFiles = [];
+        return;
+      }
+      
+      currentSlideFiles = files.filter(function(f) { return f.type.startsWith('image/'); });
+      
+      currentSlideFiles.forEach(function(f, idx) {
         var url = URL.createObjectURL(f);
         var col = document.createElement('div');
-        col.className = 'col-4 col-md-3';
+        col.className = 'col-4 col-md-3 slide-item';
+        col.dataset.index = idx; // Simpan index asli
         col.innerHTML =
-          '<div class="border rounded p-1 h-100 text-center">' +
+          '<div class="border rounded p-1 h-100 text-center" style="cursor: move;" title="Geser untuk mengubah urutan">' +
           '<img src="' + url + '" style="width:100%;height:90px;object-fit:cover;border-radius:4px;">' +
-          '<div class="text-muted text-truncate" style="font-size:0.62rem;">Slide ' + (idx + 1) + '</div>' +
+          '<div class="text-muted text-truncate slide-label mt-1" style="font-size:0.62rem;">Slide ' + (idx + 1) + '</div>' +
           '</div>';
         box.appendChild(col);
       });
+
+      // Aktifkan SortableJS
+      if (typeof Sortable !== 'undefined') {
+        new Sortable(box, {
+          animation: 150,
+          ghostClass: 'opacity-50',
+          onEnd: function() {
+            // Update label setelah di-reorder
+            var items = box.querySelectorAll('.slide-item');
+            items.forEach(function(item, i) {
+              item.querySelector('.slide-label').innerText = 'Slide ' + (i + 1);
+            });
+            // Update input files
+            updateSlideInputFiles();
+          }
+        });
+      }
     });
+  }
+
+  function updateSlideInputFiles() {
+    if (!window.DataTransfer) return;
+    var box = document.getElementById('slidePreview');
+    var items = box.querySelectorAll('.slide-item');
+    var dt = new DataTransfer();
+    
+    items.forEach(function(item) {
+      var origIndex = parseInt(item.dataset.index, 10);
+      if (currentSlideFiles[origIndex]) {
+        dt.items.add(currentSlideFiles[origIndex]);
+      }
+    });
+    
+    if (slideInput) {
+      slideInput.files = dt.files;
+    }
   }
 
   function initEditor() {
