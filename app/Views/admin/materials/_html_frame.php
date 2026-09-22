@@ -80,7 +80,7 @@ $__srcdoc = $__innerCsp . "\n" . $html . "\n" . $__resizeScript;
     if (d && d.__matFrame === '<?= $__frameId ?>' && typeof d.height === 'number'){
       // Batasi tinggi wajar (hindari 0 atau ekstrem)
       var h = Math.min(Math.max(d.height, 200), 20000);
-      frame.style.height = (h + 24) + 'px';
+      frame.style.height = h + 'px';
     }
   });
 })();
