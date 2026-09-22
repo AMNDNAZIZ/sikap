@@ -1389,6 +1389,11 @@ class CbtAktivitas extends BaseController
 
     public function belumTes($testId)
     {
+        // Paksa browser tidak cache response ini agar selalu menampilkan data terbaru
+        $this->response->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $this->response->setHeader('Pragma', 'no-cache');
+        $this->response->setHeader('Expires', '0');
+
         $db = $this->db;
 
         $test = $db->table('cbt_test_status')
