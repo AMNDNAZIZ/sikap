@@ -1,6 +1,6 @@
 {
     "version": "2.0.0",
-    "generated": "2026-09-22 10:37:58",
+    "generated": "2026-09-22 12:48:37",
     "last_update": "2026-09-03 00:00",
     "total_files": 875,
     "files": {
@@ -503,7 +503,7 @@
         "app/Views/admin/learning/class.php": "030fddae8d3fe39119719f6d593964b0",
         "app/Views/admin/learning/class_list.php": "885e6fd2db9356e31dfd62bf11c6ec67",
         "app/Views/admin/mapel_master/index.php": "8aeff95d5e01259f78f8da282eb81948",
-        "app/Views/admin/materials/_html_frame.php": "315da4c67e802082a09669a75976b4a5",
+        "app/Views/admin/materials/_html_frame.php": "df817c8511b578b16b5859ef2b25caa9",
         "app/Views/admin/materials/_slide_show.php": "7ecf4d331c5062f4945724eaf4c33869",
         "app/Views/admin/materials/create.php": "12ac6260a62e1af19221805fe8e8057c",
         "app/Views/admin/materials/delete.php": "a8ef76f8754650c123fdedfeea839ac8",
