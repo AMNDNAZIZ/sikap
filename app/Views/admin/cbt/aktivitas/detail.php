@@ -741,7 +741,6 @@
             });
           });
       });
-      });
     });
 
     // Auto countdown secara visual untuk ujian yang sedang aktif
