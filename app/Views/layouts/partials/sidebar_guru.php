@@ -164,6 +164,27 @@
       </a>
     </li>
 
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/bk*') ? 'active' : '' ?>"
+        href="<?= base_url('admin/bk/dashboard') ?>">
+        📊 <span class="label">Modul BP/BK Terpadu</span>
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/counseling-appointment*') ? 'active' : '' ?>"
+        href="<?= base_url('admin/counseling-appointment') ?>">
+        📅 <span class="label">Janji Temu (BK)</span>
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/counseling-summon*') ? 'active' : '' ?>"
+        href="<?= base_url('admin/counseling-summon') ?>">
+        📨 <span class="label">Surat Panggilan Ortu</span>
+      </a>
+    </li>
+
     <?php
     $guruUserEbook    = session()->get('user');
     $guruClassIdEbook = $guruUserEbook['class_id'] ?? null;

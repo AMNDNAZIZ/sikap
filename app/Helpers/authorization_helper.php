@@ -322,3 +322,97 @@ if (!function_exists('can_access_class')) {
         return false;
     }
 }
+
+if (!function_exists('get_school_level')) {
+    /**
+     * Get the school level from db (1=SD, 2=SMP, 3=SMA)
+     *
+     * @return int e.g. 1, 2, or 3
+     */
+    function get_school_level(): int
+    {
+        $cache = cache();
+        $cached = $cache->get('school_level_int');
+
+        if ($cached !== null) {
+            return (int)$cached;
+        }
+
+        try {
+            $db = \Config\Database::connect();
+            if (!$db->fieldExists('level', 'school_profile')) {
+                return 3; // default fallback SMA
+            }
+            $school = $db->table('school_profile')
+                ->select('level')
+                ->get()
+                ->getRowArray();
+
+            $level = (int)($school['level'] ?? 3);
+            $cache->save('school_level_int', $level, 3600);
+
+            return $level;
+        } catch (\Throwable $e) {
+            return 3;
+        }
+    }
+}
+
+if (!function_exists('is_school_sd')) {
+    /** Returns true jika sekolah adalah SD/MI */
+    function is_school_sd(): bool
+    {
+        return get_school_level() === 1;
+    }
+}
+
+if (!function_exists('is_school_smp')) {
+    /** Returns true jika sekolah adalah SMP/MTs */
+    function is_school_smp(): bool
+    {
+        return get_school_level() === 2;
+    }
+}
+
+if (!function_exists('is_school_sma')) {
+    /** Returns true jika sekolah adalah SMA/MA/SMK */
+    function is_school_sma(): bool
+    {
+        return get_school_level() === 3;
+    }
+}
+
+if (!function_exists('bk_counseling_types')) {
+    /**
+     * Kembalikan array jenis bimbingan yang sesuai dengan jenjang sekolah.
+     * SD: hanya Pribadi, Sosial, Belajar
+     * SMP: tambah Karir dasar
+     * SMA/K: semua termasuk Karir lanjut dan Akademik
+     */
+    function bk_counseling_types(): array
+    {
+        if (is_school_sd()) {
+            return [
+                'Pribadi' => 'Bimbingan Pribadi',
+                'Sosial'  => 'Bimbingan Sosial',
+                'Belajar' => 'Bimbingan Belajar',
+            ];
+        } elseif (is_school_smp()) {
+            return [
+                'Pribadi'  => 'Bimbingan Pribadi',
+                'Sosial'   => 'Bimbingan Sosial',
+                'Belajar'  => 'Bimbingan Belajar',
+                'Karir'    => 'Bimbingan Karir & Minat',
+            ];
+        } else {
+            // SMA/K/MA
+            return [
+                'Pribadi'   => 'Bimbingan Pribadi',
+                'Sosial'    => 'Bimbingan Sosial',
+                'Belajar'   => 'Bimbingan Belajar',
+                'Karir'     => 'Bimbingan Karir & Studi Lanjut',
+                'Akademik'  => 'Bimbingan Akademik',
+            ];
+        }
+    }
+}
