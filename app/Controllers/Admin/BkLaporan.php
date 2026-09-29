@@ -474,6 +474,8 @@ class BkLaporan extends BaseController
         $yearId   = (int)($f['academic_year_id'] ?? 0);
         $dateFrom = $f['date_from'] ?? '';
         $dateTo   = $f['date_to']   ?? '';
+        // Ambil data tahun ajaran (dipakai filter kasus & tindak lanjut)
+        $ay = $yearId ? $this->academicYearModel->find($yearId) : null;
 
         // ── A. Data Program ──────────────────────────────────────────────────
         $progQ = $this->db->table('bk_programs')->where('status !=', 'Draft');
@@ -532,28 +534,29 @@ class BkLaporan extends BaseController
         )->getRowArray()['n'] ?? 0;
 
         // ── C. Data Kasus ───────────────────────────────────────────────────
-        $kasusBase = $this->db->table('bk_cases c')
-            ->join('students s','s.id = c.student_id','left')
-            ->join('student_records sr',
-                'sr.student_id = s.id AND sr.status = \'aktif\'','left');
-        if ($yearId) {
-            $ay = $this->academicYearModel->find($yearId);
-            if ($ay) {
-                $kasusBase->where('c.created_at >=', $ay['start_date'].' 00:00:00')
-                          ->where('c.created_at <=', $ay['end_date'].' 23:59:59');
+        // Bangun kondisi kasus untuk digunakan berulang
+        $kasusAyStart = isset($ay) ? $ay['start_date'].' 00:00:00' : null;
+        $kasusAyEnd   = isset($ay) ? $ay['end_date'].' 23:59:59' : null;
+
+        // Closure membangun query kasus baru (menghindari shared builder state)
+        $buildKasusQ = function() use ($kasusAyStart, $kasusAyEnd, $dateFrom, $dateTo) {
+            $q = $this->db->table('bk_cases c')
+                ->join('students s','s.id = c.student_id','left')
+                ->join('student_records sr',
+                    'sr.student_id = s.id AND sr.status = \'aktif\'','left');
+            if ($kasusAyStart) {
+                $q->where('c.created_at >=', $kasusAyStart)
+                  ->where('c.created_at <=', $kasusAyEnd);
             }
-        }
-        if ($dateFrom) $kasusBase->where('c.incident_date >=', $dateFrom);
-        if ($dateTo)   $kasusBase->where('c.incident_date <=', $dateTo);
+            if ($dateFrom) $q->where('c.incident_date >=', $dateFrom);
+            if ($dateTo)   $q->where('c.incident_date <=', $dateTo);
+            return $q;
+        };
 
-        $totalKasus = $kasusBase->countAllResults(false);
-
-        $kasusSelesai  = (clone $kasusBase)
-            ->whereIn('c.status', ['RESOLVED','CLOSED'])->countAllResults(false);
-        $kasusProses   = (clone $kasusBase)
-            ->whereIn('c.status', ['IN_PROGRESS','MONITORING'])->countAllResults(false);
-        $kasusReferred = (clone $kasusBase)
-            ->where('c.status','REFERRED')->countAllResults(false);
+        $totalKasus    = $buildKasusQ()->countAllResults();
+        $kasusSelesai  = $buildKasusQ()->whereIn('c.status', ['RESOLVED','CLOSED'])->countAllResults();
+        $kasusProses   = $buildKasusQ()->whereIn('c.status', ['IN_PROGRESS','MONITORING'])->countAllResults();
+        $kasusReferred = $buildKasusQ()->where('c.status','REFERRED')->countAllResults();
 
         // Kasus per kategori (tanpa nama/detail sensitif)
         $kasusByKategori = $this->db->table('bk_cases c')
