@@ -22,6 +22,8 @@
             margin-top: 60px;
             display: flex;
             justify-content: space-between;
+            clear: both;
+            page-break-inside: avoid;
         }
         .signature-block {
             width: 45%;
@@ -68,9 +70,33 @@
             $content = $modul['content'];
             $content = preg_replace('/<h3>\s*Bagian\s+([A-K])\s*\(([^)]+)\)\s*<\/h3>/i', '<h3>$1. $2</h3>', $content);
             $content = preg_replace('/<h3>\s*Bagian\s+([A-K])\s*[:\-–]\s*(.+?)\s*<\/h3>/i', '<h3>$1. $2</h3>', $content);
+
+            // Normalisasi HTML hasil AI: tutup otomatis tag <table>/<tr>/<td> yang menggantung
+            // agar blok tanda tangan tidak ikut masuk ke dalam sel tabel terakhir.
+            if (trim($content) !== '' && class_exists('DOMDocument')) {
+                $dom = new DOMDocument('1.0', 'UTF-8');
+                libxml_use_internal_errors(true);
+                // Bungkus dengan wrapper + deklarasi charset agar UTF-8 terbaca benar
+                $dom->loadHTML(
+                    '<?xml encoding="UTF-8"><div id="__ma_wrap">' . $content . '</div>',
+                    LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+                );
+                libxml_clear_errors();
+                $wrap = $dom->getElementById('__ma_wrap');
+                if ($wrap) {
+                    $fixed = '';
+                    foreach ($wrap->childNodes as $child) {
+                        $fixed .= $dom->saveHTML($child);
+                    }
+                    $content = $fixed;
+                }
+            }
+
             echo $content;
         ?>
     </div>
+
+    <div style="clear: both;"></div>
 
     <div class="signature-section">
         <div class="signature-block">
