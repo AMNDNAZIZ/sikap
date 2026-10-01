@@ -1,7 +1,7 @@
 {
-    "version": "2.0.8",
-    "generated": "2026-10-01 13:46:23",
-    "last_update": "2026-10-01 13:46",
+    "version": "2.0.9",
+    "generated": "2026-10-01 14:20:29",
+    "last_update": "2026-10-01 14:20",
     "total_files": 979,
     "files": {
         "app/.htaccess": "0a949a74edc566be1e1944fbfab681a5",
@@ -112,7 +112,7 @@
         "app/Controllers/Admin/Placement.php": "fca788aaf1a5c90c65e5d5737fe7fcb4",
         "app/Controllers/Admin/Promotions.php": "48040a584a352649305d34709f1be7d5",
         "app/Controllers/Admin/Quiz.php": "006396bbed54493fae5d5650e26a5bb3",
-        "app/Controllers/Admin/Rapor.php": "ed4056d9e25dc4e0e2e2d2303e8f3bce",
+        "app/Controllers/Admin/Rapor.php": "fd3b45e2a80164c87f5a4cd18f06f123",
         "app/Controllers/Admin/RolePermission.php": "cdd27d67ca50774c70233147ee9489f2",
         "app/Controllers/Admin/ScheduleController.php": "da8e8416c1d615474aeb4a8e8aded912",
         "app/Controllers/Admin/School.php": "47c3637888f6ee288df1dff8be06a049",
@@ -252,7 +252,7 @@
         "app/Database/Seeds/.gitkeep": "d41d8cd98f00b204e9800998ecf8427e",
         "app/Database/Seeds/PermissionSeeder.php": "75ee03de06a19a578134ecc4b16270d1",
         "app/Database/Seeds/TruncateLicense.php": "46bb6bbcd37dedcec33f2c489446b3ff",
-        "app/Database/changelogs_sync.php": "f3098b8f6b532f88add6403e650b1133",
+        "app/Database/changelogs_sync.php": "6d8f4d999fdfad422a763ead85e53491",
         "app/Database/sync_changelogs_to_file.php": "4a0101879188920b8016640f83b7b490",
         "app/Filters/.gitkeep": "d41d8cd98f00b204e9800998ecf8427e",
         "app/Filters/Auth.php": "c1ce42c48ea29b4a3ed4711601b25db1",
