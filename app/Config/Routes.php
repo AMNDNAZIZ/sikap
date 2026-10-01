@@ -448,9 +448,15 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('assessments/formatifList/(:num)/(:num)', 'Assessment::formatifList/$1/$2', $auth123);
     $routes->get('assessments/sumatifList/(:num)/(:num)', 'Assessment::sumatifList/$1/$2', $auth123);
     $routes->get('assessments/finalList/(:num)/(:num)', 'Assessment::finalList/$1/$2', $auth123);
+    $routes->get('assessments/ptsList/(:num)/(:num)', 'Assessment::ptsList/$1/$2', $auth123);
     $routes->get('assessments/viewScores/formatif/(:num)/(:alpha)', 'Assessment::viewScores/formatif/$1/$2', $auth123);
     $routes->get('assessments/viewScores/sumatif/(:num)/(:num)/(:alpha)', 'Assessment::viewScores/sumatif/$1/$2/$3', $auth123);
     $routes->get('assessments/viewScores/final/(:num)', 'Assessment::viewScores/final/$1', $auth123);
+    $routes->get('assessments/viewScores/pts/(:num)/(:num)', 'Assessment::viewScores/pts/$1/$2', $auth123);
+
+    // ── Modul Rapor (Admin & Wali Kelas) ──────────────────────────────
+    $routes->get('rapor', 'Rapor::index', $auth13);
+    $routes->get('rapor/pts/(:num)/(:num)', 'Rapor::cetakPts/$1/$2', $auth13);
     $routes->get('assessments/edit/(:num)/(:segment)', 'Assessment::edit/$1/$2', $auth123);
     $routes->post('assessments/update/(:num)/(:segment)', 'Assessment::update/$1/$2', $auth123);
     $routes->get('assessments/deleteOne/(:num)/(:segment)', 'Assessment::deleteOne/$1/$2', $auth123);

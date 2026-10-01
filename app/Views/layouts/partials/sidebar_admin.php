@@ -28,7 +28,7 @@
     $inKurikulum = url_is('admin/administrasi-guru*') && !url_is('admin/administrasi-guru/cp-master*') && !url_is('admin/administrasi-guru/mapping*');
     $inJadwal    = url_is('admin/schedules*') || url_is('admin/agendas*') || url_is('admin/teaching-journal*');
     $inPresensi  = url_is('admin/attendance*') || url_is('admin/teacher-attendance*');
-    $inNilai     = url_is('admin/assessments*') || url_is('admin/grades*') || url_is('admin/erapor*');
+    $inNilai     = url_is('admin/assessments*') || url_is('admin/grades*') || url_is('admin/erapor*') || url_is('admin/rapor*');
     $inLearning  = url_is('admin/materials*') || url_is('admin/tugas*') || url_is('admin/quiz*') ||
                    url_is('learning*') || url_is('kalender*');
     $inKokuri    = url_is('admin/kokurikuler*');
@@ -205,6 +205,7 @@
           <li><a class="nav-link <?= url_is('admin/grades/rekap*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/rekap') ?>">📋 <span class="label">Rekap Nilai Kelas</span></a></li>
           <li><a class="nav-link <?= url_is('admin/grades') && !url_is('admin/grades/tracking*') && !url_is('admin/grades/rekap*') ? 'active' : '' ?>" href="<?= base_url('admin/grades') ?>">📊 <span class="label">Laporan Rapor</span></a></li>
           <li><a class="nav-link <?= url_is('admin/grades/tracking*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/tracking') ?>">🕵️ <span class="label">Tracking Nilai</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/rapor*') ? 'active' : '' ?>" href="<?= base_url('admin/rapor') ?>">🖨️ <span class="label">Cetak Rapor</span></a></li>
         </ul>
       </div>
     </li>

@@ -105,6 +105,25 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
               <th>Tahun Ajaran</th>
               <td><?= esc($activeYear['name'] ?? $activeYear['year'] ?? '-') ?></td>
             </tr>
+          <?php elseif ($type === 'pts' && isset($subject)): ?>
+            <tr>
+              <th style="width:200px;">Mata Pelajaran</th>
+              <td><?= esc($subject['name']) ?></td>
+            </tr>
+            <tr>
+              <th>Kelas</th>
+              <td>
+                <span class="badge bg-primary fs-6"><?= esc($currentClass['name'] ?? '-') ?></span>
+              </td>
+            </tr>
+            <tr>
+              <th>Semester</th>
+              <td>Semester <?= esc($semester ?? '-') ?> <span class="badge bg-warning text-dark ms-1">PTS</span></td>
+            </tr>
+            <tr>
+              <th>Tahun Ajaran</th>
+              <td><?= esc($activeYear['name'] ?? $activeYear['year'] ?? '-') ?></td>
+            </tr>
           <?php else: ?>
             <tr>
               <td colspan="2" class="text-center text-muted">Informasi penilaian tidak lengkap.</td>
@@ -169,10 +188,12 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
                   <td class="text-center fw-bold"><?= esc($s['score']) ?></td>
                   <td>
                     <div class="btn-group btn-group-sm" role="group">
-                      <a href="<?= site_url("admin/assessments/edit/{$s['id']}/{$type}?redirect_url=" . urlencode(current_url())) ?>"
-                         class="btn btn-warning" title="Edit Nilai">
-                        ✏️ Edit
-                      </a>
+                      <?php if ($type !== 'pts'): ?>
+                        <a href="<?= site_url("admin/assessments/edit/{$s['id']}/{$type}?redirect_url=" . urlencode(current_url())) ?>"
+                           class="btn btn-warning" title="Edit Nilai">
+                          ✏️ Edit
+                        </a>
+                      <?php endif; ?>
                       <a href="<?= site_url("admin/assessments/deleteOne/{$s['id']}/{$type}") ?>"
                          class="btn btn-danger"
                          onclick="return confirm('Yakin ingin menghapus nilai siswa <?= esc($s['student_name'] ?? '-') ?>?')"
@@ -217,6 +238,10 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
         <?php elseif ($type === 'final' && isset($subject, $class_id)): ?>
           <a href="<?= site_url("admin/assessments/finalList/{$class_id}/{$subject['id']}") ?>" class="btn btn-secondary">
             ⬅️ Kembali ke Daftar Ujian Akhir
+          </a>
+        <?php elseif ($type === 'pts' && isset($subject, $class_id)): ?>
+          <a href="<?= site_url("admin/assessments/ptsList/{$class_id}/{$subject['id']}") ?>" class="btn btn-secondary">
+            ⬅️ Kembali ke Daftar PTS
           </a>
         <?php else: ?>
           <a href="<?= site_url('admin/assessments') ?>" class="btn btn-secondary">⬅️ Kembali</a>

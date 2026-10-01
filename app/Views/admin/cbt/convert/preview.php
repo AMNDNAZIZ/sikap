@@ -97,7 +97,9 @@
                                 <option value="formatif">Nilai Formatif (Materi)</option>
                                 <option value="sumatif">Nilai Sumatif (STS/SAS)</option>
                                 <option value="final">Nilai Akhir (Semester)</option>
+                                <option value="pts">Nilai PTS (Tengah Semester)</option>
                             </select>
+                            <div class="form-text">Nilai PTS disimpan terpisah dan tidak masuk perhitungan rapor akhir.</div>
                         </div>
 
                         <div id="section_semester" class="mb-3 d-none">
@@ -178,6 +180,9 @@
             s_sem.classList.remove('d-none');
             s_sum.classList.remove('d-none');
         } else if (type === 'final') {
+            s_sem.classList.remove('d-none');
+        } else if (type === 'pts') {
+            // PTS butuh semester
             s_sem.classList.remove('d-none');
         }
     });

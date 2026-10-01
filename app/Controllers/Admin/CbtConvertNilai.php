@@ -249,7 +249,7 @@ class CbtConvertNilai extends BaseController
         }
 
         // Validasi tipe tujuan
-        if (!in_array($type, ['formatif', 'sumatif', 'final'], true)) {
+        if (!in_array($type, ['formatif', 'sumatif', 'final', 'pts'], true)) {
             return redirect()->to('admin/cbt/convertnilai')->with('error', 'Tujuan penyimpanan nilai tidak valid.');
         }
 
@@ -257,9 +257,9 @@ class CbtConvertNilai extends BaseController
         if ($type === 'formatif' && empty($this->request->getPost('material_id'))) {
             return redirect()->back()->with('error', 'Pilih Lingkup Materi (ATP) terlebih dahulu.');
         }
-        if (in_array($type, ['sumatif', 'final'], true) && empty($semester)) {
+        if (in_array($type, ['sumatif', 'final', 'pts'], true) && empty($semester)) {
             // final tidak menyimpan semester, tapi UI tetap meminta; abaikan bila kosong utk final
-            if ($type === 'sumatif') {
+            if ($type === 'sumatif' || $type === 'pts') {
                 return redirect()->back()->with('error', 'Pilih semester terlebih dahulu.');
             }
         }
@@ -353,6 +353,23 @@ class CbtConvertNilai extends BaseController
                 $row = $this->db->table($table)->where($matchWhere)->get()->getRowArray();
 
                 $data = $matchWhere + ['score' => $newScore];
+
+            } elseif ($type === 'pts') {
+                // PTS disimpan terpisah di pts_scores (tidak masuk perhitungan rapor akhir)
+                $table = 'pts_scores';
+                $matchWhere = [
+                    'student_id' => $studentId,
+                    'subject_id' => $subjectId,
+                    'year_id'    => $yearId,
+                    'semester'   => $semester,
+                ];
+                $row = $this->db->table($table)->where($matchWhere)->get()->getRowArray();
+
+                $data = $matchWhere + [
+                    'score'      => $newScore,
+                    'source'     => 'cbt_convert',
+                    'created_by' => session()->get('user')['id'] ?? null,
+                ];
             }
 
             // Belum ada nilai → INSERT. Sudah ada → UPDATE hanya jika nilai baru lebih besar

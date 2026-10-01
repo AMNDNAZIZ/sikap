@@ -38,6 +38,8 @@
              class="btn btn-sm btn-primary">Formatif</a>
           <a href="<?= site_url("admin/assessments/sumatifList/{$a['class_id']}/{$a['subject_id']}") ?>" 
              class="btn btn-sm btn-warning">📝 Sumatif</a>
+          <a href="<?= site_url("admin/assessments/ptsList/{$a['class_id']}/{$a['subject_id']}") ?>" 
+             class="btn btn-sm btn-secondary">🗓️ PTS</a>
           <?php
           $maxLevel = db_connect()->table('classes')->selectMax('level')->get()->getRowArray();
           $finalLevel = $maxLevel['level'] ?? null;

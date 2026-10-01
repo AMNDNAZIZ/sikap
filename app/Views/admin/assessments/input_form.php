@@ -109,11 +109,44 @@
     <div class="alert alert-info">
       📊 Penilaian Final hanya dilakukan sekali di kelas akhir (tidak terkait semester).
     </div>
+
+  <?php elseif ($type === 'pts'): ?>
+    <!-- === PTS (Penilaian Tengah Semester) === -->
+    <input type="hidden" name="year_id" value="<?= esc($activeYear['id'] ?? '') ?>">
+    <div class="mb-3">
+      <label class="form-label">Semester</label>
+      <select name="semester" class="form-select" required
+        onchange="if(this.value){ window.location='<?= base_url("admin/assessments/input/{$classId}/{$subjectId}/pts") ?>?semester='+this.value }">
+        <option value="">-- Pilih Semester --</option>
+        <option value="1" <?= (string)($semester ?? '') === '1' ? 'selected' : '' ?>>Semester 1 (Ganjil)</option>
+        <option value="2" <?= (string)($semester ?? '') === '2' ? 'selected' : '' ?>>Semester 2 (Genap)</option>
+      </select>
+    </div>
+    <div class="alert alert-info">
+      📝 Nilai PTS disimpan terpisah dan <strong>tidak</strong> ikut dalam perhitungan nilai rapor akhir.
+    </div>
+    <?php if (!empty($semester)): ?>
+      <div class="mb-3">
+        <a href="<?= base_url("admin/assessments/input/{$classId}/{$subjectId}/pts") ?>?semester=<?= esc($semester) ?>&import_cbt=1"
+           class="btn btn-outline-primary btn-sm"
+           onclick="return confirm('Impor nilai dari hasil CBT (apa adanya) untuk mapel & kelas ini? Nilai pada form akan terisi otomatis — Anda masih bisa mengubahnya sebelum menyimpan.');">
+          📥 Impor dari CBT
+        </a>
+        <small class="text-muted d-block mt-1">Mengisi otomatis nilai dari hasil CBT yang sudah dilaksanakan (nilai tertinggi bila ada lebih dari satu ujian).</small>
+      </div>
+    <?php endif; ?>
   <?php endif; ?>
 
 
   <!-- === Tabel Nilai === -->
-  <?php $showTable = ($type !== 'formatif') || ($materialId && $method); ?>
+  <?php
+    $showTable = true;
+    if ($type === 'formatif') {
+        $showTable = ($materialId && $method);
+    } elseif ($type === 'pts') {
+        $showTable = !empty($semester);
+    }
+  ?>
   <?php if ($showTable): ?>
     <div class="table-responsive">
       <table class="table table-bordered align-middle">
@@ -135,7 +168,7 @@
                 <td><span class="badge bg-info text-dark"><?= esc($s['religion'] ?? '-') ?></span></td>
                 <td>
                   <input type="number" name="scores[<?= $s['id'] ?>]" class="form-control text-center" min="0" max="100"
-                    step="1" required>
+                    step="1" value="<?= isset($s['prefill_score']) && $s['prefill_score'] !== null ? esc($s['prefill_score']) : '' ?>" required>
                 </td>
               </tr>
             <?php endforeach ?>
@@ -161,6 +194,9 @@
         Kembali</a>
     <?php elseif ($type === 'sumatif'): ?>
       <a href="<?= site_url("admin/assessments/sumatifList/{$classId}/{$subjectId}") ?>" class="btn btn-secondary">⬅️
+        Kembali</a>
+    <?php elseif ($type === 'pts'): ?>
+      <a href="<?= site_url("admin/assessments/ptsList/{$classId}/{$subjectId}") ?>" class="btn btn-secondary">⬅️
         Kembali</a>
     <?php else: ?>
       <a href="<?= site_url("admin/assessments/finalList/{$classId}/{$subjectId}") ?>" class="btn btn-secondary">⬅️

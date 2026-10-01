@@ -341,6 +341,40 @@ class Assessment extends BaseController
                     )")
                     ->findAll();
             }
+        } elseif ($type === 'pts') {
+            // PTS: satu nilai per siswa per mapel per semester (seperti final, tapi per semester)
+            $semester = $this->request->getGet('semester');
+
+            if (!empty($semester)) {
+                $students = $this->studentModel
+                    ->select('students.*')
+                    ->join('student_records sr', 'sr.student_id = students.id')
+                    ->where('sr.class_id', $classId)
+                    ->where('sr.academic_year_id', $activeYear['id'])
+                    ->where('sr.status', 'aktif')
+                    ->where("students.id NOT IN (
+                        SELECT student_id FROM pts_scores 
+                        WHERE subject_id = {$subjectId} 
+                          AND semester = " . $this->db->escape($semester) . "
+                          AND year_id = " . (int) $activeYear['id'] . "
+                          AND score IS NOT NULL
+                    )")
+                    ->findAll();
+            } else {
+                // Tanpa semester terpilih → jangan tampilkan tabel input
+                $students = [];
+            }
+
+            // Siapkan nilai impor CBT (bila guru menekan "Impor dari CBT")
+            $importCbt = $this->request->getGet('import_cbt');
+            if ($importCbt && !empty($semester) && !empty($students)) {
+                $cbtScores = $this->getCbtScoresForImport((int) $classId, (int) $subjectId, $activeYear['id'], (int) $semester);
+                // Tempelkan ke tiap siswa sebagai prefill
+                foreach ($students as &$st) {
+                    $st['prefill_score'] = $cbtScores[$st['id']] ?? null;
+                }
+                unset($st);
+            }
         }
 
         return view('admin/assessments/input_form', [
@@ -689,7 +723,177 @@ class Assessment extends BaseController
             ]);
         }
 
+        if ($type === 'pts') {
+            // $id = subject_id, $p2 = semester
+            $semester = $p2 ?? null;
+
+            $subject = $db->table('subjects')->where('id', $id)->get()->getRowArray();
+            if (!$subject) {
+                return redirect()->back()->with('error', 'Mata pelajaran tidak ditemukan.');
+            }
+
+            $class_id = $this->request->getGet('class_id');
+            if (empty($class_id)) {
+                $ta = $db->table('teaching_assignments')
+                    ->select('class_id')
+                    ->where('subject_id', $id)
+                    ->where('academic_year_id', $activeYear['id'])
+                    ->limit(1)
+                    ->get()->getRowArray();
+                $class_id = $ta['class_id'] ?? null;
+            }
+
+            $currentClass = null;
+            if (!empty($class_id)) {
+                $currentClass = $db->table('classes')->where('id', $class_id)->get()->getRowArray();
+            }
+
+            $classStudentIds = [];
+            if (!empty($class_id)) {
+                $studentQuery = $db->table('students')
+                    ->distinct()->select('students.id')
+                    ->join('student_records sr', 'sr.student_id = students.id AND sr.status = "aktif"', 'left')
+                    ->groupStart()
+                        ->where('sr.class_id', $class_id)
+                        ->orWhere('students.class_id', $class_id)
+                    ->groupEnd();
+                if (!empty($activeYear['id'])) {
+                    $studentQuery->groupStart()
+                        ->where('sr.academic_year_id', $activeYear['id'])
+                        ->orWhere('sr.academic_year_id IS NULL')
+                    ->groupEnd();
+                }
+                $classStudentIds = array_column($studentQuery->get()->getResultArray(), 'id');
+            }
+
+            $builder = $db->table('pts_scores ps')
+                ->select('ps.id, ps.student_id, ps.subject_id, ps.year_id, ps.semester, ps.score, ps.source, students.name as student_name')
+                ->join('students', 'students.id = ps.student_id', 'left')
+                ->where('ps.subject_id', $id)
+                ->where('ps.year_id', $activeYear['id']);
+
+            if ($semester !== null) {
+                $builder->where('ps.semester', $semester);
+            }
+            if (!empty($class_id)) {
+                if (!empty($classStudentIds)) {
+                    $builder->whereIn('ps.student_id', $classStudentIds);
+                } else {
+                    $builder->where('1 = 0');
+                }
+            }
+
+            $scores = $builder->orderBy('students.name', 'ASC')->get()->getResultArray();
+
+            return view('admin/assessments/view_scores', [
+                'type' => $type,
+                'subject' => $subject,
+                'scores' => $scores,
+                'selected_method' => null,
+                'types' => [],
+                'semester' => $semester,
+                'activeYear' => $activeYear,
+                'class_id' => $class_id,
+                'currentClass' => $currentClass,
+            ]);
+        }
+
         return redirect()->back()->with('error', 'Tipe penilaian belum didukung.');
+    }
+
+    /**
+     * Helper: ambil nilai CBT (apa adanya, 0-100) untuk impor ke PTS.
+     * Skema CBT: cbt_sessions (hasil) → cbt_test_status (ujian) → cbt_question_banks (mapel).
+     * Kelas dicocokkan via cbt_test_status.class_codes yang memuat kode/nama kelas.
+     * Nilai akhir siswa = total_score (fallback score).
+     * Jika seorang siswa punya >1 hasil CBT untuk mapel ini, ambil nilai TERTINGGI.
+     *
+     * @param int|null $semesterNum 1 (ganjil) / 2 (genap) — opsional, memfilter semester ujian.
+     * @return array [student_id => score]
+     */
+    protected function getCbtScoresForImport(int $classId, int $subjectId, $yearId, ?int $semesterNum = null): array
+    {
+        $db = $this->db;
+
+        if (!$db->tableExists('cbt_sessions') || !$db->tableExists('cbt_test_status') || !$db->tableExists('cbt_question_banks')) {
+            return [];
+        }
+
+        // Kode kelas untuk pencocokan class_codes
+        $class = $db->table('classes')->select('name')->where('id', $classId)->get()->getRowArray();
+        $className = $class['name'] ?? null;
+
+        $builder = $db->table('cbt_sessions cs')
+            ->select('cs.student_id, cs.score, cs.total_score, ts.class_codes')
+            ->join('cbt_test_status ts', 'ts.id = cs.test_id', 'inner')
+            ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'inner')
+            ->where('qb.subject_id', $subjectId);
+
+        // Filter semester bila diminta (cbt_test_status.semester: ganjil/genap)
+        if ($semesterNum === 1) {
+            $builder->where('ts.semester', 'ganjil');
+        } elseif ($semesterNum === 2) {
+            $builder->where('ts.semester', 'genap');
+        }
+
+        $rows = $builder->get()->getResultArray();
+
+        // Kumpulkan nilai tertinggi per siswa; filter kelas via class_codes bila ada nama kelas.
+        $map = [];
+        foreach ($rows as $r) {
+            // Cocokkan kelas: class_codes memuat daftar kode kelas (dipisah koma/spasi).
+            if ($className !== null && !empty($r['class_codes'])) {
+                if (stripos($r['class_codes'], $className) === false) {
+                    continue;
+                }
+            }
+            $sid   = (int) $r['student_id'];
+            $value = $r['total_score'] !== null ? (float) $r['total_score'] : (float) ($r['score'] ?? 0);
+            if ($value < 0)   $value = 0.0;
+            if ($value > 100) $value = 100.0;
+            if (!isset($map[$sid]) || $value > $map[$sid]) {
+                $map[$sid] = round($value, 2);
+            }
+        }
+        return $map;
+    }
+
+    /**
+     * Halaman daftar status PTS per semester + aksi input.
+     */
+    public function ptsList($classId, $subjectId)
+    {
+        $activeYear = $this->academicYearModel->getActiveYear();
+        if (!$activeYear) {
+            return redirect()->to('admin/academic-years')->with('error', 'Belum ada tahun ajaran aktif.');
+        }
+
+        $class = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+        $subject = $this->db->table('subjects')->where('id', $subjectId)->get()->getRowArray();
+        if (!$class || !$subject) {
+            return redirect()->back()->with('error', 'Kelas atau Mata Pelajaran tidak ditemukan.');
+        }
+
+        // Status terisi per semester (1 & 2)
+        $status = [];
+        foreach (['1', '2'] as $sem) {
+            $info = $this->db->table('pts_scores')
+                ->select('COUNT(id) as jumlah, COUNT(DISTINCT student_id) as siswa_terisi')
+                ->where('subject_id', $subjectId)
+                ->where('year_id', $activeYear['id'])
+                ->where('semester', $sem)
+                ->get()->getRowArray();
+            $status[$sem] = $info;
+        }
+
+        return view('admin/assessments/pts_list', [
+            'class'     => $class,
+            'subject'   => $subject,
+            'classId'   => $classId,
+            'subjectId' => $subjectId,
+            'status'    => $status,
+            'activeYear' => $activeYear,
+        ]);
     }
 
     public function store()
@@ -837,6 +1041,49 @@ class Assessment extends BaseController
 
             $classIdForRedirect = $data['class_id'] ?? '';
             $redirect = site_url("admin/assessments/viewScores/final/{$data['subject_id']}" . ($classIdForRedirect ? "?class_id={$classIdForRedirect}" : ""));
+        }
+
+        // =================== PTS (Penilaian Tengah Semester) ===================
+        // Disimpan di pts_scores — TERPISAH, tidak masuk perhitungan rapor akhir.
+        elseif ($type === 'pts') {
+            $semester = (int) ($data['semester'] ?? 0);
+            $yearId   = (int) ($data['year_id'] ?? 0);
+
+            if (!$semester || !$yearId) {
+                return redirect()->back()->with('error', 'Semester atau tahun ajaran tidak valid.');
+            }
+
+            foreach ($scores as $studentId => $score) {
+                if ($score === '' || $score === null)
+                    continue;
+
+                $existing = $this->db->table('pts_scores')
+                    ->where('student_id', $studentId)
+                    ->where('subject_id', $data['subject_id'])
+                    ->where('year_id', $yearId)
+                    ->where('semester', $semester)
+                    ->get()
+                    ->getRowArray();
+
+                $insertData = [
+                    'student_id' => $studentId,
+                    'subject_id' => $data['subject_id'],
+                    'year_id'    => $yearId,
+                    'semester'   => $semester,
+                    'score'      => (float) $score,
+                    'source'     => 'manual',
+                    'created_by' => $userId,
+                ];
+
+                if ($existing) {
+                    $this->db->table('pts_scores')->update($insertData, ['id' => $existing['id']]);
+                } else {
+                    $this->db->table('pts_scores')->insert($insertData);
+                }
+            }
+
+            $classIdForRedirect = $data['class_id'] ?? '';
+            $redirect = site_url("admin/assessments/viewScores/pts/{$data['subject_id']}/{$semester}" . ($classIdForRedirect ? "?class_id={$classIdForRedirect}" : ""));
         } else {
             return redirect()->back()->with('error', 'Tipe penilaian tidak didukung.');
         }
@@ -860,6 +1107,7 @@ class Assessment extends BaseController
                 'formatif' => 'Formatif',
                 'sumatif'  => 'Sumatif',
                 'final'    => 'Ujian Akhir',
+                'pts'      => 'PTS',
                 default    => 'Nilai',
             };
 
@@ -1169,6 +1417,12 @@ class Assessment extends BaseController
             $this->db->table('final_exam_scores')
                 ->where('id', $id)
                 ->update(['score' => null]);
+
+        } elseif ($type === 'pts') {
+            // Hapus baris PTS (bukan soft delete) agar siswa muncul lagi di form input
+            $this->db->table('pts_scores')
+                ->where('id', $id)
+                ->delete();
         } else {
             return redirect()->back()->with('error', 'Jenis penilaian tidak valid.');
         }
