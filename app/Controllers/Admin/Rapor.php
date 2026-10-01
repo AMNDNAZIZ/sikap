@@ -161,20 +161,30 @@ class Rapor extends BaseController
         $kopBase64 = $this->getKopBase64();
 
         // Mata pelajaran untuk kelas ini: berdasarkan teaching_assignments di tahun aktif.
-        // Fallback: semua subject aktif bila belum ada penugasan.
+        // Kecualikan mapel BK/BP/Konseling yang bersifat layanan (tidak masuk penilaian rapor).
+        $bkKeywords = ['%Bimbingan%', '%Konseling%', '%BK%', '%BP%'];
         $subjects = $this->db->table('subjects s')
             ->select('s.id, s.name, s.subject_group, s.sort_order')
             ->distinct()
             ->join('teaching_assignments ta', 'ta.subject_id = s.id AND ta.class_id = ' . $classId . ' AND ta.academic_year_id = ' . (int) $activeYearId, 'inner')
             ->where('s.is_active', 1)
+            ->groupStart()
+                ->where('s.name NOT LIKE', $bkKeywords[0])
+                ->where('s.name NOT LIKE', $bkKeywords[1])
+            ->groupEnd()
             ->orderBy('s.sort_order', 'ASC')
             ->orderBy('s.name', 'ASC')
             ->get()->getResultArray();
 
         if (empty($subjects)) {
+            // Fallback: semua subject aktif non-BK bila belum ada penugasan
             $subjects = $this->db->table('subjects')
                 ->select('id, name, subject_group, sort_order')
                 ->where('is_active', 1)
+                ->groupStart()
+                    ->where('name NOT LIKE', $bkKeywords[0])
+                    ->where('name NOT LIKE', $bkKeywords[1])
+                ->groupEnd()
                 ->orderBy('sort_order', 'ASC')
                 ->orderBy('name', 'ASC')
                 ->get()->getResultArray();
@@ -232,21 +242,43 @@ class Rapor extends BaseController
                 ];
             }
 
-            // Rekap ketidakhadiran: dihitung dari awal tahun ajaran aktif sampai hari cetak
-            $startDate = $activeYear['start_date'] ?? '1970-01-01';
-            $today     = date('Y-m-d');
+            // Rekap ketidakhadiran.
+            // Status di tabel: 'S'=Sakit, 'I'=Izin, 'A'=Alpa (bukan teks panjang).
+            // Filter: class_id kelas ini + semua tanggal sampai hari cetak.
+            // Cari tahun ajaran siswa terdaftar di kelas ini untuk batas tanggal yang tepat.
+            $yearRecord = $this->db->table('student_records sr')
+                ->select('ay.start_date, ay.end_date')
+                ->join('academic_years ay', 'ay.id = sr.academic_year_id', 'inner')
+                ->where('sr.student_id', $sid)
+                ->where('sr.class_id', $classId)
+                ->where('sr.status', 'aktif')
+                ->orderBy('ay.start_date', 'DESC')
+                ->get()->getRowArray();
+
+            $attStart = $yearRecord['start_date'] ?? '1970-01-01';
+            $attEnd   = min(date('Y-m-d'), $yearRecord['end_date'] ?? date('Y-m-d'));
+
             $att = [
                 'sakit' => $this->db->table('attendances')
-                    ->where('student_id', $sid)->where('status', 'Sakit')
-                    ->where('date >=', $startDate)->where('date <=', $today)
+                    ->where('student_id', $sid)
+                    ->where('class_id', $classId)
+                    ->where('status', 'S')
+                    ->where('date >=', $attStart)
+                    ->where('date <=', $attEnd)
                     ->countAllResults(),
                 'izin'  => $this->db->table('attendances')
-                    ->where('student_id', $sid)->where('status', 'Izin')
-                    ->where('date >=', $startDate)->where('date <=', $today)
+                    ->where('student_id', $sid)
+                    ->where('class_id', $classId)
+                    ->where('status', 'I')
+                    ->where('date >=', $attStart)
+                    ->where('date <=', $attEnd)
                     ->countAllResults(),
                 'alpa'  => $this->db->table('attendances')
-                    ->where('student_id', $sid)->where('status', 'Alpa')
-                    ->where('date >=', $startDate)->where('date <=', $today)
+                    ->where('student_id', $sid)
+                    ->where('class_id', $classId)
+                    ->where('status', 'A')
+                    ->where('date >=', $attStart)
+                    ->where('date <=', $attEnd)
                     ->countAllResults(),
             ];
 
