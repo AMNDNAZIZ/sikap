@@ -37,6 +37,9 @@ class BkModule extends BaseController
     protected $caseLogModel;
     protected $db;
 
+    /** Cache hasil scope kelas guru per academicYearId dalam satu request. */
+    protected $scopedClassIdsCache = [];
+
     public function __construct()
     {
         $this->caseModel          = new BkCaseModel();
@@ -136,7 +139,126 @@ class BkModule extends BaseController
             $builder->where('sr.class_id', $classId);
         }
 
+        // Batasi otomatis ke kelas yang diampu guru (kasus SD: guru kelas merangkap BK).
+        // Admin / Guru BK khusus / Kepsek → null (tanpa batasan, lihat semua siswa).
+        $scopedClassIds = $this->getTeacherScopedClassIds($academicYearId);
+        if ($scopedClassIds !== null) {
+            $builder->whereIn('sr.class_id', $scopedClassIds ?: [0]);
+        }
+
         return $builder->orderBy('cl.name', 'ASC')->orderBy('s.name', 'ASC');
+    }
+
+    // =========================================================
+    // HELPER: Daftar class_id yang menjadi tanggung jawab guru login
+    //  - Admin (1) / Kepsek (2) / Guru BK khusus (7 atau jenis_ptk BK) → null (tanpa batasan)
+    //  - Guru (3) biasa / guru kelas merangkap BK (SD) → kelas yang diampu:
+    //      a) sebagai wali kelas (classes.teacher_id)
+    //      b) sebagai guru mapel (teaching_assignments) di tahun ajaran aktif
+    // Mengembalikan null = tanpa batasan; array (bisa kosong) = batasi ke class_id tsb.
+    // =========================================================
+    protected function getTeacherScopedClassIds($academicYearId = null): ?array
+    {
+        if (empty($academicYearId)) {
+            $activeYear     = $this->getActiveYear();
+            $academicYearId = $activeYear['id'] ?? null;
+        }
+
+        $cacheKey = (string)($academicYearId ?? 'null');
+        if (array_key_exists($cacheKey, $this->scopedClassIdsCache)) {
+            return $this->scopedClassIdsCache[$cacheKey];
+        }
+
+        $result = $this->computeTeacherScopedClassIds($academicYearId);
+        $this->scopedClassIdsCache[$cacheKey] = $result;
+        return $result;
+    }
+
+    protected function computeTeacherScopedClassIds($academicYearId): ?array
+    {
+        $user = session()->get('user');
+        if (!$user) {
+            return null;
+        }
+
+        $roleId = (int)($user['role_id'] ?? 0);
+
+        // Admin, Kepala Sekolah, dan Guru BK khusus melihat seluruh siswa.
+        if (in_array($roleId, [1, 2, 7], true)) {
+            return null;
+        }
+
+        // Guru BK khusus terdeteksi dari jenis_ptk juga dibebaskan dari batasan.
+        $teacher = null;
+        if (!empty($user['related_id'])) {
+            $teacher = $this->teacherModel->find($user['related_id']);
+        }
+        if (!$teacher && !empty($user['id'])) {
+            $teacher = $this->teacherModel->where('user_id', $user['id'])->first();
+        }
+        if ($teacher && stripos($teacher['jenis_ptk'] ?? '', 'BK') !== false) {
+            return null;
+        }
+
+        // Hanya guru biasa (role 3) yang dibatasi; peran lain tanpa teacher → tanpa batasan.
+        if ($roleId !== 3 || !$teacher) {
+            return null;
+        }
+
+        $teacherId = (int)$teacher['id'];
+        $classIds  = [];
+
+        // a) Kelas sebagai wali kelas
+        $homeroom = $this->db->table('classes')
+            ->select('id')
+            ->where('teacher_id', $teacherId)
+            ->get()->getResultArray();
+        foreach ($homeroom as $row) {
+            $classIds[] = (int)$row['id'];
+        }
+
+        // b) Kelas tempat guru mengajar (teaching_assignments) di tahun ajaran aktif
+        $assignments = [];
+        if (!empty($academicYearId)) {
+            $assignments = $this->db->table('teaching_assignments')
+                ->distinct()->select('class_id')
+                ->where('teacher_id', $teacherId)
+                ->where('academic_year_id', $academicYearId)
+                ->get()->getResultArray();
+        }
+        // Fallback: bila belum ada penugasan di tahun aktif (mis. data belum dimigrasi),
+        // pakai penugasan tahun manapun agar akses guru tidak terkunci keliru.
+        if (empty($assignments)) {
+            $assignments = $this->db->table('teaching_assignments')
+                ->distinct()->select('class_id')
+                ->where('teacher_id', $teacherId)
+                ->get()->getResultArray();
+        }
+        foreach ($assignments as $row) {
+            $classIds[] = (int)$row['class_id'];
+        }
+
+        return array_values(array_unique($classIds));
+    }
+
+    // =========================================================
+    // HELPER: Daftar kelas untuk dropdown, dibatasi scope guru
+    // =========================================================
+    protected function getScopedClasses($academicYearId = null): array
+    {
+        $scopedClassIds = $this->getTeacherScopedClassIds($academicYearId);
+
+        $builder = $this->classModel->where('is_active', 1);
+        if ($scopedClassIds !== null) {
+            $builder->whereIn('id', $scopedClassIds ?: [0]);
+        }
+        $classes = $builder->findAll();
+
+        // Fallback: jika tak ada kelas aktif sama sekali & tanpa batasan, ambil semua
+        if (empty($classes) && $scopedClassIds === null) {
+            $classes = $this->classModel->findAll();
+        }
+        return $classes;
     }
 
     // =========================================================
@@ -206,17 +328,29 @@ class BkModule extends BaseController
         $activeYear   = $this->getActiveYear();
         $activeYearId = $activeYear['id'] ?? null;
 
+        // Scope kelas guru (SD: guru kelas merangkap BK). null = tanpa batasan (admin/BK/kepsek).
+        $scopedClassIds = $this->getTeacherScopedClassIds($activeYearId);
+
         // 1. Total siswa aktif di tahun ajaran berjalan
-        $totalStudents = $this->db->table('student_records')
+        $totalStudentsBuilder = $this->db->table('student_records')
             ->where('status', 'aktif')
-            ->where('academic_year_id', $activeYearId)
-            ->countAllResults();
+            ->where('academic_year_id', $activeYearId);
+        if ($scopedClassIds !== null) {
+            $totalStudentsBuilder->whereIn('class_id', $scopedClassIds ?: [0]);
+        }
+        $totalStudents = $totalStudentsBuilder->countAllResults();
 
         // 2. Siswa yang menerima layanan BK (unik, tahun berjalan)
-        $servedStudentsCount = $this->db->table('bk_service_participants bsp')
+        $servedStudentsBuilder = $this->db->table('bk_service_participants bsp')
             ->select('bsp.student_id')
             ->join('bk_services bs', 'bs.id = bsp.service_id', 'inner')
-            ->where('bs.academic_year_id', $activeYearId)
+            ->where('bs.academic_year_id', $activeYearId);
+        if ($scopedClassIds !== null) {
+            $servedStudentsBuilder
+                ->join('student_records sr', 'sr.student_id = bsp.student_id AND sr.status = \'aktif\' AND sr.academic_year_id = ' . (int)$activeYearId, 'inner')
+                ->whereIn('sr.class_id', $scopedClassIds ?: [0]);
+        }
+        $servedStudentsCount = $servedStudentsBuilder
             ->groupBy('bsp.student_id')
             ->countAllResults();
 
@@ -256,12 +390,16 @@ class BkModule extends BaseController
         // ===================================================
 
         // 🟡 Kehadiran Menurun (Alpa >= 2 pada tahun berjalan)
-        $lowAttendanceStudents = $this->db->table('attendances a')
+        $lowAttendanceBuilder = $this->db->table('attendances a')
             ->select('s.id, s.name, s.nisn, cl.name as class_name, COUNT(a.id) as total_alpa')
             ->join('students s', 's.id = a.student_id', 'inner')
             ->join('student_records sr', 'sr.student_id = s.id AND sr.status = \'aktif\' AND sr.academic_year_id = ' . (int)$activeYearId, 'inner')
             ->join('classes cl', 'cl.id = sr.class_id', 'left')
-            ->where('a.status', 'Alpa')
+            ->where('a.status', 'Alpa');
+        if ($scopedClassIds !== null) {
+            $lowAttendanceBuilder->whereIn('sr.class_id', $scopedClassIds ?: [0]);
+        }
+        $lowAttendanceStudents = $lowAttendanceBuilder
             ->groupBy('a.student_id')
             ->having('total_alpa >= 2')
             ->orderBy('total_alpa', 'DESC')
@@ -269,11 +407,15 @@ class BkModule extends BaseController
             ->get()->getResultArray();
 
         // 🟡 Capaian Akademik Menurun (Rata-rata Nilai < 75)
-        $lowAcademicStudents = $this->db->table('subject_scores ss')
+        $lowAcademicBuilder = $this->db->table('subject_scores ss')
             ->select('s.id, s.name, s.nisn, cl.name as class_name, ROUND(AVG(ss.report_score), 1) as avg_score')
             ->join('students s', 's.id = ss.student_id', 'inner')
             ->join('student_records sr', 'sr.student_id = s.id AND sr.status = \'aktif\' AND sr.academic_year_id = ' . (int)$activeYearId, 'inner')
-            ->join('classes cl', 'cl.id = sr.class_id', 'left')
+            ->join('classes cl', 'cl.id = sr.class_id', 'left');
+        if ($scopedClassIds !== null) {
+            $lowAcademicBuilder->whereIn('sr.class_id', $scopedClassIds ?: [0]);
+        }
+        $lowAcademicStudents = $lowAcademicBuilder
             ->groupBy('ss.student_id')
             ->having('avg_score > 0 AND avg_score < 75')
             ->orderBy('avg_score', 'ASC')
@@ -281,34 +423,39 @@ class BkModule extends BaseController
             ->get()->getResultArray();
 
         // 🟡 Perubahan Perilaku (Catatan Observasi Guru Mapel / Wali Kelas)
-        $behaviorNotesStudents = $this->db->table('student_notes sn')
+        $behaviorNotesBuilder = $this->db->table('student_notes sn')
             ->select('s.id, s.name, s.nisn, cl.name as class_name, COUNT(sn.id) as total_notes, MAX(sn.created_at) as last_note_date')
             ->join('students s', 's.id = sn.student_id', 'inner')
             ->join('student_records sr', 'sr.student_id = s.id AND sr.status = \'aktif\' AND sr.academic_year_id = ' . (int)$activeYearId, 'inner')
-            ->join('classes cl', 'cl.id = sr.class_id', 'left')
+            ->join('classes cl', 'cl.id = sr.class_id', 'left');
+        if ($scopedClassIds !== null) {
+            $behaviorNotesBuilder->whereIn('sr.class_id', $scopedClassIds ?: [0]);
+        }
+        $behaviorNotesStudents = $behaviorNotesBuilder
             ->groupBy('sn.student_id')
             ->orderBy('last_note_date', 'DESC')
             ->limit(10)
             ->get()->getResultArray();
 
         // 🟡 Kasus Aktif Siswa
-        $activeCaseStudents = $this->db->table('bk_cases bc')
+        $activeCaseBuilder = $this->db->table('bk_cases bc')
             ->select('s.id, s.name, s.nisn, cl.name as class_name, bc.case_code, bc.category, bc.severity, bc.status, bc.workflow_step')
             ->join('students s', 's.id = bc.student_id', 'inner')
             ->join('student_records sr', 'sr.student_id = s.id AND sr.status = \'aktif\' AND sr.academic_year_id = ' . (int)$activeYearId, 'inner')
             ->join('classes cl', 'cl.id = sr.class_id', 'left')
-            ->whereIn('bc.status', ['REPORTED', 'VERIFIED', 'IN_ASSESSMENT', 'IN_PROGRESS', 'MONITORING', 'REFERRED'])
+            ->whereIn('bc.status', ['REPORTED', 'VERIFIED', 'IN_ASSESSMENT', 'IN_PROGRESS', 'MONITORING', 'REFERRED']);
+        if ($scopedClassIds !== null) {
+            $activeCaseBuilder->whereIn('sr.class_id', $scopedClassIds ?: [0]);
+        }
+        $activeCaseStudents = $activeCaseBuilder
             ->orderBy('bc.created_at', 'DESC')
             ->limit(10)
             ->get()->getResultArray();
 
-        // Dropdown Quick Action - siswa aktif tahun berjalan
+        // Dropdown Quick Action - siswa aktif tahun berjalan (otomatis dibatasi scope guru)
         $studentsList = $this->getActiveStudentsQuery($activeYearId)->get()->getResultArray();
 
-        $classesList = $this->classModel->where('is_active', 1)->findAll();
-        if (empty($classesList)) {
-            $classesList = $this->classModel->findAll();
-        }
+        $classesList = $this->getScopedClasses($activeYearId);
 
         $academicYears = $this->academicYearModel->orderBy('start_date', 'DESC')->findAll();
 
@@ -344,18 +491,22 @@ class BkModule extends BaseController
         $instrumentModel = new \App\Models\BkInstrumentModel();
         $assessments = $instrumentModel->findAll();
 
-        $classes = $this->classModel->where('is_active', 1)->findAll();
-        if (empty($classes)) {
-            $classes = $this->classModel->findAll();
-        }
+        $classes = $this->getScopedClasses($activeYearId);
+
+        // Batasi hasil asesmen ke kelas yang diampu guru (SD: guru kelas merangkap BK)
+        $scopedClassIds = $this->getTeacherScopedClassIds($activeYearId);
 
         // Hasil asesmen dari siswa aktif
-        $responses = $this->db->table('bk_student_results bsr')
+        $responsesBuilder = $this->db->table('bk_student_results bsr')
             ->select('bsr.*, s.name as student_name, s.nisn, cl.name as class_name, bi.title as assessment_title, bi.assessment_type')
             ->join('students s', 's.id = bsr.student_id', 'left')
             ->join('student_records sr', 'sr.student_id = s.id AND sr.status = \'aktif\' AND sr.academic_year_id = ' . (int)$activeYearId, 'inner')
             ->join('classes cl', 'cl.id = sr.class_id', 'left')
-            ->join('bk_instruments bi', 'bi.id = bsr.instrument_id', 'left')
+            ->join('bk_instruments bi', 'bi.id = bsr.instrument_id', 'left');
+        if ($scopedClassIds !== null) {
+            $responsesBuilder->whereIn('sr.class_id', $scopedClassIds ?: [0]);
+        }
+        $responses = $responsesBuilder
             ->orderBy('bsr.calculated_at', 'DESC')
             ->get()->getResultArray();
 
@@ -381,10 +532,7 @@ class BkModule extends BaseController
             ->orderBy('r.created_at', 'DESC')
             ->get()->getResultArray();
 
-        $classes = $this->classModel->where('is_active', 1)->findAll();
-        if (empty($classes)) {
-            $classes = $this->classModel->findAll();
-        }
+        $classes = $this->getScopedClasses();
 
         return view('admin/bk/program', [
             'title'      => 'Program & RPL BK',
@@ -542,13 +690,10 @@ class BkModule extends BaseController
         }
         unset($srv);
 
-        // Selector: siswa AKTIF di tahun berjalan
+        // Selector: siswa AKTIF di tahun berjalan (dibatasi scope guru)
         $students = $this->getActiveStudentsQuery($activeYearId)->get()->getResultArray();
 
-        $classes = $this->classModel->where('is_active', 1)->findAll();
-        if (empty($classes)) {
-            $classes = $this->classModel->findAll();
-        }
+        $classes = $this->getScopedClasses($activeYearId);
 
         $teachers = $this->teacherModel->where('is_active', 1)->findAll();
         if (empty($teachers)) {
@@ -791,17 +936,20 @@ class BkModule extends BaseController
             'date'       => $this->request->getGet('date'),
         ];
 
+        // Batasi daftar kasus ke kelas yang diampu guru (SD: guru kelas merangkap BK).
+        $scopedClassIds = $this->getTeacherScopedClassIds($activeYearId);
+        if ($scopedClassIds !== null) {
+            $filters['class_ids'] = $scopedClassIds;
+        }
+
         $isGuruBk = $this->isGuruBkOrAdmin();
         $cases    = $this->caseModel->getCasesWithDetails($filters, $isGuruBk);
         $stats    = $this->caseModel->getStatistics();
 
-        // Selector: hanya siswa aktif di tahun berjalan
+        // Selector: hanya siswa aktif di tahun berjalan (dibatasi scope guru)
         $students = $this->getActiveStudentsQuery($activeYearId)->get()->getResultArray();
 
-        $classes = $this->classModel->where('is_active', 1)->findAll();
-        if (empty($classes)) {
-            $classes = $this->classModel->findAll();
-        }
+        $classes = $this->getScopedClasses($activeYearId);
 
         $teachers = $this->teacherModel->where('is_active', 1)->findAll();
         if (empty($teachers)) {
@@ -1093,6 +1241,23 @@ class BkModule extends BaseController
             return $this->response->setJSON(['status' => false, 'message' => 'Kasus tidak ditemukan']);
         }
 
+        // IDOR guard: guru kelas (SD) hanya boleh membuka kasus siswa di kelas yang diampu.
+        $scopedClassIds = $this->getTeacherScopedClassIds();
+        if ($scopedClassIds !== null) {
+            $studentClassId = (int)$this->db->table('student_records')
+                ->select('class_id')
+                ->where('student_id', (int)$case['student_id'])
+                ->where('status', 'aktif')
+                ->orderBy('academic_year_id', 'DESC')
+                ->get()->getRowArray()['class_id'] ?? 0;
+            if (!in_array($studentClassId, $scopedClassIds, true)) {
+                return $this->response->setStatusCode(403)->setJSON([
+                    'status'  => false,
+                    'message' => 'Anda tidak memiliki akses ke kasus siswa di luar kelas yang Anda ampu.',
+                ]);
+            }
+        }
+
         // Sensor catatan rahasia jika bukan Guru BK/Admin
         if (!$isGuruBk && $case['is_confidential'] == 1) {
             $case['confidential_notes'] = '🔒 [CATATAN RAHASIA GURU BK - Akses Terbatas Khusus Konselor]';
@@ -1137,13 +1302,19 @@ class BkModule extends BaseController
     // =========================================================
     public function kolaborasi()
     {
-        $referrals = $this->db->table('bk_cases c')
+        $scopedClassIds = $this->getTeacherScopedClassIds();
+
+        $referralsBuilder = $this->db->table('bk_cases c')
             ->select('c.*, s.name as student_name, s.nisn, cl.name as class_name, t.name as reporter_name')
             ->join('students s', 's.id = c.student_id', 'left')
             ->join('student_records sr', 'sr.student_id = s.id', 'left')
             ->join('classes cl', 'cl.id = sr.class_id', 'left')
             ->join('teachers t', 't.id = c.reporter_id', 'left')
-            ->whereIn('c.source', ['Rujukan Internal', 'Pengaduan'])
+            ->whereIn('c.source', ['Rujukan Internal', 'Pengaduan']);
+        if ($scopedClassIds !== null) {
+            $referralsBuilder->whereIn('sr.class_id', $scopedClassIds ?: [0]);
+        }
+        $referrals = $referralsBuilder
             ->orderBy('c.created_at', 'DESC')
             ->get()->getResultArray();
 
@@ -1161,16 +1332,22 @@ class BkModule extends BaseController
         $activeYear   = $this->getActiveYear();
         $activeYearId = $activeYear['id'] ?? null;
 
-        $plans = $this->db->table('bk_individual_plans ip')
+        $scopedClassIds = $this->getTeacherScopedClassIds($activeYearId);
+
+        $plansBuilder = $this->db->table('bk_individual_plans ip')
             ->select('ip.*, s.name as student_name, s.nisn, s.gender, cl.name as class_name')
             ->join('students s', 's.id = ip.student_id', 'left')
             ->join('student_records sr', 'sr.student_id = s.id AND sr.status = \'aktif\' AND sr.academic_year_id = ' . (int)$activeYearId, 'inner')
-            ->join('classes cl', 'cl.id = sr.class_id', 'left')
+            ->join('classes cl', 'cl.id = sr.class_id', 'left');
+        if ($scopedClassIds !== null) {
+            $plansBuilder->whereIn('sr.class_id', $scopedClassIds ?: [0]);
+        }
+        $plans = $plansBuilder
             ->orderBy('cl.name', 'ASC')
             ->orderBy('s.name', 'ASC')
             ->get()->getResultArray();
 
-        // Siswa aktif untuk selector
+        // Siswa aktif untuk selector (dibatasi scope guru)
         $students = $this->getActiveStudentsQuery($activeYearId)->get()->getResultArray();
 
         return view('admin/bk/individual_planning', [
@@ -1341,10 +1518,7 @@ class BkModule extends BaseController
         }
         unset($student);
 
-        $classes = $this->classModel->where('is_active', 1)->findAll();
-        if (empty($classes)) {
-            $classes = $this->classModel->findAll();
-        }
+        $classes = $this->getScopedClasses($filterYearId);
 
         $academicYears = $this->academicYearModel->orderBy('start_date', 'DESC')->findAll();
 
@@ -1385,6 +1559,13 @@ class BkModule extends BaseController
 
         if (!$student) {
             return redirect()->to(base_url('admin/bk/siswa'))->with('error', 'Data siswa tidak ditemukan.');
+        }
+
+        // IDOR guard: guru kelas (SD) hanya boleh membuka profil siswa di kelas yang diampu.
+        $scopedClassIds = $this->getTeacherScopedClassIds($activeYearId);
+        if ($scopedClassIds !== null && !in_array((int)($student['class_id'] ?? 0), $scopedClassIds, true)) {
+            return redirect()->to(base_url('admin/bk/siswa'))
+                ->with('error', 'Anda tidak memiliki akses ke profil siswa di luar kelas yang Anda ampu.');
         }
 
         // 2. Kehadiran / Absensi (READ-ONLY)

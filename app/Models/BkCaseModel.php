@@ -78,6 +78,12 @@ class BkCaseModel extends Model
             $builder->where('s.class_id', $filters['class_id']);
         }
 
+        // Batasi ke daftar kelas tertentu (scope guru kelas SD yang merangkap BK).
+        // Nilai array kosong → tidak ada kelas yang cocok → kembalikan nol baris.
+        if (isset($filters['class_ids']) && is_array($filters['class_ids'])) {
+            $builder->whereIn('s.class_id', $filters['class_ids'] ?: [0]);
+        }
+
         if (!empty($filters['status'])) {
             if (is_array($filters['status'])) {
                 $builder->whereIn('c.status', $filters['status']);
