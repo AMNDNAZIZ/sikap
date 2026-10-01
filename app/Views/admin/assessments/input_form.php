@@ -126,13 +126,9 @@
       📝 Nilai PTS disimpan terpisah dan <strong>tidak</strong> ikut dalam perhitungan nilai rapor akhir.
     </div>
     <?php if (!empty($semester)): ?>
-      <div class="mb-3">
-        <a href="<?= base_url("admin/assessments/input/{$classId}/{$subjectId}/pts") ?>?semester=<?= esc($semester) ?>&import_cbt=1"
-           class="btn btn-outline-primary btn-sm"
-           onclick="return confirm('Impor nilai dari hasil CBT (apa adanya) untuk mapel & kelas ini? Nilai pada form akan terisi otomatis — Anda masih bisa mengubahnya sebelum menyimpan.');">
-          📥 Impor dari CBT
-        </a>
-        <small class="text-muted d-block mt-1">Mengisi otomatis nilai dari hasil CBT yang sudah dilaksanakan (nilai tertinggi bila ada lebih dari satu ujian).</small>
+      <div class="alert alert-light border small">
+        💡 Untuk mengisi dari hasil CBT, gunakan tombol <strong>📥 Impor dari CBT</strong>
+        di halaman <a href="<?= base_url("admin/assessments/ptsList/{$classId}/{$subjectId}") ?>">Daftar PTS</a>.
       </div>
     <?php endif; ?>
   <?php endif; ?>
@@ -168,7 +164,7 @@
                 <td><span class="badge bg-info text-dark"><?= esc($s['religion'] ?? '-') ?></span></td>
                 <td>
                   <input type="number" name="scores[<?= $s['id'] ?>]" class="form-control text-center" min="0" max="100"
-                    step="1" value="<?= isset($s['prefill_score']) && $s['prefill_score'] !== null ? esc($s['prefill_score']) : '' ?>" required>
+                    step="1" required>
                 </td>
               </tr>
             <?php endforeach ?>

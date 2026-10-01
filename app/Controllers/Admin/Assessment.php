@@ -364,17 +364,6 @@ class Assessment extends BaseController
                 // Tanpa semester terpilih → jangan tampilkan tabel input
                 $students = [];
             }
-
-            // Siapkan nilai impor CBT (bila guru menekan "Impor dari CBT")
-            $importCbt = $this->request->getGet('import_cbt');
-            if ($importCbt && !empty($semester) && !empty($students)) {
-                $cbtScores = $this->getCbtScoresForImport((int) $classId, (int) $subjectId, $activeYear['id'], (int) $semester);
-                // Tempelkan ke tiap siswa sebagai prefill
-                foreach ($students as &$st) {
-                    $st['prefill_score'] = $cbtScores[$st['id']] ?? null;
-                }
-                unset($st);
-            }
         }
 
         return view('admin/assessments/input_form', [
@@ -799,63 +788,6 @@ class Assessment extends BaseController
         }
 
         return redirect()->back()->with('error', 'Tipe penilaian belum didukung.');
-    }
-
-    /**
-     * Helper: ambil nilai CBT (apa adanya, 0-100) untuk impor ke PTS.
-     * Skema CBT: cbt_sessions (hasil) → cbt_test_status (ujian) → cbt_question_banks (mapel).
-     * Kelas dicocokkan via cbt_test_status.class_codes yang memuat kode/nama kelas.
-     * Nilai akhir siswa = total_score (fallback score).
-     * Jika seorang siswa punya >1 hasil CBT untuk mapel ini, ambil nilai TERTINGGI.
-     *
-     * @param int|null $semesterNum 1 (ganjil) / 2 (genap) — opsional, memfilter semester ujian.
-     * @return array [student_id => score]
-     */
-    protected function getCbtScoresForImport(int $classId, int $subjectId, $yearId, ?int $semesterNum = null): array
-    {
-        $db = $this->db;
-
-        if (!$db->tableExists('cbt_sessions') || !$db->tableExists('cbt_test_status') || !$db->tableExists('cbt_question_banks')) {
-            return [];
-        }
-
-        // Kode kelas untuk pencocokan class_codes
-        $class = $db->table('classes')->select('name')->where('id', $classId)->get()->getRowArray();
-        $className = $class['name'] ?? null;
-
-        $builder = $db->table('cbt_sessions cs')
-            ->select('cs.student_id, cs.score, cs.total_score, ts.class_codes')
-            ->join('cbt_test_status ts', 'ts.id = cs.test_id', 'inner')
-            ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'inner')
-            ->where('qb.subject_id', $subjectId);
-
-        // Filter semester bila diminta (cbt_test_status.semester: ganjil/genap)
-        if ($semesterNum === 1) {
-            $builder->where('ts.semester', 'ganjil');
-        } elseif ($semesterNum === 2) {
-            $builder->where('ts.semester', 'genap');
-        }
-
-        $rows = $builder->get()->getResultArray();
-
-        // Kumpulkan nilai tertinggi per siswa; filter kelas via class_codes bila ada nama kelas.
-        $map = [];
-        foreach ($rows as $r) {
-            // Cocokkan kelas: class_codes memuat daftar kode kelas (dipisah koma/spasi).
-            if ($className !== null && !empty($r['class_codes'])) {
-                if (stripos($r['class_codes'], $className) === false) {
-                    continue;
-                }
-            }
-            $sid   = (int) $r['student_id'];
-            $value = $r['total_score'] !== null ? (float) $r['total_score'] : (float) ($r['score'] ?? 0);
-            if ($value < 0)   $value = 0.0;
-            if ($value > 100) $value = 100.0;
-            if (!isset($map[$sid]) || $value > $map[$sid]) {
-                $map[$sid] = round($value, 2);
-            }
-        }
-        return $map;
     }
 
     /**

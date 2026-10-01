@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\AcademicYearModel;
 use App\Models\SchoolModel;
 use App\Models\TeacherModel;
+use App\Models\SettingsModel;
 
 /**
  * Modul Rapor.
@@ -21,13 +22,44 @@ class Rapor extends BaseController
     protected $yearModel;
     protected $schoolModel;
     protected $teacherModel;
+    protected $settingsModel;
 
     public function __construct()
     {
-        $this->db          = \Config\Database::connect();
-        $this->yearModel   = new AcademicYearModel();
-        $this->schoolModel = new SchoolModel();
-        $this->teacherModel = new TeacherModel();
+        $this->db            = \Config\Database::connect();
+        $this->yearModel     = new AcademicYearModel();
+        $this->schoolModel   = new SchoolModel();
+        $this->teacherModel  = new TeacherModel();
+        $this->settingsModel = new SettingsModel();
+    }
+
+    /**
+     * Konversi level kelas ke Fase Kurikulum Merdeka (SD/SMP/SMA).
+     * Level 1-2 → A, 3-4 → B, 5-6 → C, 7-8 → D, 9 → E, 10-12 → F.
+     */
+    protected function levelToFase(int $level): string
+    {
+        if ($level <= 0)       return '-';
+        if ($level <= 2)       return 'A';
+        if ($level <= 4)       return 'B';
+        if ($level <= 6)       return 'C';
+        if ($level <= 8)       return 'D';
+        if ($level === 9)      return 'E';
+        return 'F';
+    }
+
+    /**
+     * Ambil gambar KOP surat sebagai base64 data URI agar terbaca di browser print.
+     */
+    protected function getKopBase64(): string
+    {
+        $kopPath = $this->settingsModel->getValue('kop_surat');
+        if (!$kopPath) return '';
+        $abs = FCPATH . ltrim($kopPath, '/');
+        if (!file_exists($abs)) return '';
+        $ext  = strtolower(pathinfo($abs, PATHINFO_EXTENSION));
+        $mime = in_array($ext, ['jpg', 'jpeg']) ? 'jpeg' : $ext; // png, jpeg, gif, webp
+        return 'data:image/' . $mime . ';base64,' . base64_encode(file_get_contents($abs));
     }
 
     /**
@@ -121,6 +153,13 @@ class Rapor extends BaseController
 
         $school = $this->schoolModel->getProfile();
 
+        // Level & Fase Kurikulum Merdeka
+        $classLevel = (int) ($class['level'] ?? 0);
+        $fase       = $this->levelToFase($classLevel);
+
+        // KOP surat sebagai base64
+        $kopBase64 = $this->getKopBase64();
+
         // Mata pelajaran untuk kelas ini: berdasarkan teaching_assignments di tahun aktif.
         // Fallback: semua subject aktif bila belum ada penugasan.
         $subjects = $this->db->table('subjects s')
@@ -140,8 +179,6 @@ class Rapor extends BaseController
                 ->orderBy('name', 'ASC')
                 ->get()->getResultArray();
         }
-
-        $classLevel = (int) ($class['level'] ?? 0);
 
         // Siswa aktif di kelas & tahun aktif
         $students = $this->db->table('student_records sr')
@@ -195,11 +232,22 @@ class Rapor extends BaseController
                 ];
             }
 
-            // Rekap ketidakhadiran (semester terkait tahun ajaran aktif)
+            // Rekap ketidakhadiran: dihitung dari awal tahun ajaran aktif sampai hari cetak
+            $startDate = $activeYear['start_date'] ?? '1970-01-01';
+            $today     = date('Y-m-d');
             $att = [
-                'sakit' => $this->db->table('attendances')->where('student_id', $sid)->where('status', 'Sakit')->countAllResults(),
-                'izin'  => $this->db->table('attendances')->where('student_id', $sid)->where('status', 'Izin')->countAllResults(),
-                'alpa'  => $this->db->table('attendances')->where('student_id', $sid)->where('status', 'Alpa')->countAllResults(),
+                'sakit' => $this->db->table('attendances')
+                    ->where('student_id', $sid)->where('status', 'Sakit')
+                    ->where('date >=', $startDate)->where('date <=', $today)
+                    ->countAllResults(),
+                'izin'  => $this->db->table('attendances')
+                    ->where('student_id', $sid)->where('status', 'Izin')
+                    ->where('date >=', $startDate)->where('date <=', $today)
+                    ->countAllResults(),
+                'alpa'  => $this->db->table('attendances')
+                    ->where('student_id', $sid)->where('status', 'Alpa')
+                    ->where('date >=', $startDate)->where('date <=', $today)
+                    ->countAllResults(),
             ];
 
             $reportData[] = [
@@ -216,6 +264,8 @@ class Rapor extends BaseController
             'activeYear' => $activeYear,
             'reportData' => $reportData,
             'subjects'   => $subjects,
+            'kopBase64'  => $kopBase64,
+            'fase'       => $fase,
         ]);
     }
 }

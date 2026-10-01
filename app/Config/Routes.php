@@ -727,6 +727,11 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('cbt/convertnilai/preview', 'CbtConvertNilai::preview', $auth123);
     $routes->post('cbt/convertnilai/save', 'CbtConvertNilai::save', $auth123);
 
+    // Impor nilai CBT apa adanya langsung ke PTS (tanpa konversi)
+    $routes->get('cbt/pts-import', 'CbtConvertNilai::indexPtsImport', $auth123);
+    $routes->post('cbt/pts-import/preview', 'CbtConvertNilai::previewPtsImport', $auth123);
+    $routes->post('cbt/pts-import/save', 'CbtConvertNilai::savePtsImport', $auth123);
+
     // ── Kuis Mandiri (Admin, Kepsek, Guru) ─────────────────────────────
     $routes->get('quiz',                     'Quiz::index',          $auth123);
     $routes->get('quiz/create',              'Quiz::create',         $auth123);

@@ -396,4 +396,214 @@ class CbtConvertNilai extends BaseController
 
         return redirect()->to('admin/cbt/convertnilai')->with('success', "Berhasil memproses nilai. $updateCount diperbarui/ditambah, $ignoreCount diabaikan (nilai lama lebih besar).");
     }
+
+    // ============================================================
+    // ALUR KHUSUS: IMPOR NILAI CBT LANGSUNG KE PTS (tanpa konversi)
+    // URL: /admin/cbt/pts-import?class_id=X&subject_id=Y&semester=Z
+    // ============================================================
+
+    /**
+     * Pilih bank soal untuk impor ke PTS.
+     * Bank soal difilter ke mapel yang sesuai (subject_id dari URL).
+     */
+    public function indexPtsImport()
+    {
+        helper('cbt');
+
+        $classId   = (int) $this->request->getGet('class_id');
+        $subjectId = (int) $this->request->getGet('subject_id');
+        $semester  = $this->request->getGet('semester');
+
+        if (!$classId || !$subjectId || !in_array($semester, ['1', '2'], true)) {
+            return redirect()->to('admin/assessments')->with('error', 'Parameter tidak valid.');
+        }
+
+        $class   = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+        $subject = $this->db->table('subjects')->where('id', $subjectId)->get()->getRowArray();
+
+        if (!$class || !$subject) {
+            return redirect()->back()->with('error', 'Kelas atau Mata Pelajaran tidak ditemukan.');
+        }
+
+        // Daftar bank soal untuk mapel ini saja
+        $banks = $this->db->table('cbt_question_banks qb')
+            ->select('qb.id, qb.code, s.name as subject_name')
+            ->join('subjects s', 's.id = qb.subject_id')
+            ->where('qb.subject_id', $subjectId)
+            ->where('qb.is_active', 1)
+            ->orderBy('qb.id', 'DESC')
+            ->get()->getResultArray();
+
+        return view('admin/cbt/convert/pts_import_index', [
+            'class'     => $class,
+            'subject'   => $subject,
+            'classId'   => $classId,
+            'subjectId' => $subjectId,
+            'semester'  => $semester,
+            'banks'     => $banks,
+        ]);
+    }
+
+    /**
+     * Preview nilai CBT apa adanya (tanpa konversi) untuk PTS.
+     */
+    public function previewPtsImport()
+    {
+        helper('cbt');
+
+        $bankId    = (int) $this->request->getPost('bank_id');
+        $classId   = (int) $this->request->getPost('class_id');
+        $subjectId = (int) $this->request->getPost('subject_id');
+        $semester  = $this->request->getPost('semester');
+
+        if (!$bankId || !$classId || !$subjectId || !in_array($semester, ['1', '2'], true)) {
+            return redirect()->back()->with('error', 'Data tidak lengkap.');
+        }
+
+        // Ambil info test untuk bank soal ini
+        $test = $this->db->table('cbt_test_status ts')
+            ->select('ts.id, qb.code as bank_code, s.name as subject_name, s.id as subject_id')
+            ->join('cbt_question_banks qb', 'qb.id = ts.bank_id')
+            ->join('subjects s', 's.id = qb.subject_id')
+            ->where('ts.bank_id', $bankId)
+            ->get()->getRowArray();
+
+        if (!$test) {
+            return redirect()->back()->with('error', 'Tidak ada jadwal ujian untuk Bank Soal ini. Pastikan bank soal sudah dijadwalkan.');
+        }
+
+        if ((int) $test['subject_id'] !== $subjectId) {
+            return redirect()->back()->with('error', 'Bank soal tidak sesuai dengan mata pelajaran yang dipilih.');
+        }
+
+        // Ambil semua siswa aktif di kelas + nilai CBT apa adanya
+        $sessions = $this->db->table('student_records sr')
+            ->select('st.id as student_id, st.name as student_name, st.nis,
+                      cs.score, cs.total_score, cs.status as session_status')
+            ->join('students st', 'st.id = sr.student_id')
+            ->join('cbt_sessions cs', "cs.student_id = st.id AND cs.test_id = {$test['id']}", 'left')
+            ->where('sr.class_id', $classId)
+            ->where('sr.status', 'aktif')
+            ->orderBy('st.name', 'ASC')
+            ->get()->getResultArray();
+
+        if (empty($sessions)) {
+            return redirect()->back()->with('error', 'Tidak ada siswa aktif di kelas ini.');
+        }
+
+        // Hitung nilai raw per siswa (total_score atau score, apa adanya 0–100)
+        $results = [];
+        foreach ($sessions as $s) {
+            $ikutUjian = ($s['total_score'] !== null || $s['score'] !== null);
+            $rawScore  = null;
+            if ($ikutUjian) {
+                $rawScore = (float) ($s['total_score'] ?? $s['score'] ?? 0);
+                $rawScore = max(0, min(100, $rawScore));
+            }
+            $results[] = [
+                'student_id'   => $s['student_id'],
+                'student_name' => $s['student_name'],
+                'nis'          => $s['nis'],
+                'raw_score'    => $rawScore,
+                'ikut_ujian'   => $ikutUjian,
+            ];
+        }
+
+        $class   = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+        $subject = $this->db->table('subjects')->where('id', $subjectId)->get()->getRowArray();
+        $activeYear = (new AcademicYearModel())->getActiveYear() ?: [];
+
+        return view('admin/cbt/convert/pts_import_preview', [
+            'test'       => $test,
+            'class'      => $class,
+            'subject'    => $subject,
+            'classId'    => $classId,
+            'subjectId'  => $subjectId,
+            'semester'   => $semester,
+            'results'    => $results,
+            'activeYear' => $activeYear,
+        ]);
+    }
+
+    /**
+     * Simpan hasil CBT apa adanya ke pts_scores.
+     * Nilai yang sudah ada diganti jika nilai baru lebih besar.
+     */
+    public function savePtsImport()
+    {
+        helper('cbt');
+
+        $subjectId     = (int) $this->request->getPost('subject_id');
+        $yearId        = (int) $this->request->getPost('year_id');
+        $semester      = $this->request->getPost('semester');
+        $classId       = (int) $this->request->getPost('class_id');
+        $studentScores = $this->request->getPost('student_scores'); // [student_id => score]
+
+        if (!$subjectId || !$yearId || !in_array($semester, ['1', '2'], true)) {
+            return redirect()->back()->with('error', 'Data tidak valid.');
+        }
+
+        if (empty($studentScores) || !is_array($studentScores)) {
+            return redirect()->to("admin/assessments/ptsList/{$classId}/{$subjectId}")->with('error', 'Tidak ada data untuk disimpan.');
+        }
+
+        if (!can_convert_subject_score($subjectId)) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses untuk mapel ini.');
+        }
+
+        $this->db->transStart();
+        $saved = 0;
+        $skipped = 0;
+        $userId = session()->get('user')['id'] ?? null;
+
+        foreach ($studentScores as $studentId => $newScore) {
+            if ($newScore === '' || $newScore === null || !is_numeric($newScore)) {
+                $skipped++; continue;
+            }
+            $studentId = (int) $studentId;
+            if ($studentId <= 0) { $skipped++; continue; }
+
+            $newScore = (float) $newScore;
+            $newScore = max(0, min(100, $newScore));
+
+            $existing = $this->db->table('pts_scores')
+                ->where('student_id', $studentId)
+                ->where('subject_id', $subjectId)
+                ->where('year_id', $yearId)
+                ->where('semester', $semester)
+                ->get()->getRowArray();
+
+            if (!$existing) {
+                $this->db->table('pts_scores')->insert([
+                    'student_id' => $studentId,
+                    'subject_id' => $subjectId,
+                    'year_id'    => $yearId,
+                    'semester'   => $semester,
+                    'score'      => $newScore,
+                    'source'     => 'cbt',
+                    'created_by' => $userId,
+                ]);
+                $saved++;
+            } elseif ($newScore > (float) $existing['score']) {
+                $this->db->table('pts_scores')->where([
+                    'student_id' => $studentId,
+                    'subject_id' => $subjectId,
+                    'year_id'    => $yearId,
+                    'semester'   => $semester,
+                ])->update(['score' => $newScore, 'source' => 'cbt']);
+                $saved++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        $this->db->transComplete();
+
+        if ($this->db->transStatus() === false) {
+            return redirect()->back()->with('error', 'Gagal menyimpan nilai PTS.');
+        }
+
+        return redirect()->to("admin/assessments/ptsList/{$classId}/{$subjectId}")
+            ->with('success', "Nilai PTS dari CBT berhasil disimpan: {$saved} siswa diperbarui, {$skipped} diabaikan.");
+    }
 }

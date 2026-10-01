@@ -50,7 +50,9 @@
                      class="btn btn-sm btn-info">📋 Lihat Nilai</a>
                 <?php endif; ?>
                 <a href="<?= site_url("admin/assessments/input/{$classId}/{$subjectId}/pts") ?>?semester=<?= $sem ?>"
-                   class="btn btn-sm btn-success">➕ Input Nilai</a>
+                   class="btn btn-sm btn-success">➕ Input Manual</a>
+                <a href="<?= site_url("admin/cbt/pts-import?class_id={$classId}&subject_id={$subjectId}&semester={$sem}") ?>"
+                   class="btn btn-sm btn-outline-primary">📥 Impor dari CBT</a>
               </td>
             </tr>
           <?php endforeach; ?>
