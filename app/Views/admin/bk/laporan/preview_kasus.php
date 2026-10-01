@@ -19,13 +19,13 @@ $severityBadge = ['Ringan'=>'success','Sedang'=>'warning','Berat'=>'danger'];
 
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
         <div class="d-flex align-items-center gap-2">
-            <a href="<?= base_url('bk/laporan/kasus') ?>" class="btn btn-sm btn-outline-secondary">
+            <a href="<?= base_url('admin/bk/laporan/kasus') ?>" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>Kembali ke Filter
             </a>
             <h5 class="fw-bold mb-0"><i class="bi bi-shield-exclamation text-danger me-1"></i>Preview Laporan Penanganan Kasus BK</h5>
         </div>
         <?php if (!empty($rows)): ?>
-        <form method="post" action="<?= base_url('bk/laporan/kasus/pdf') ?>">
+        <form method="post" action="<?= base_url('admin/bk/laporan/kasus/pdf') ?>">
             <?= csrf_field() ?>
             <?php foreach ($filter as $k => $v): ?><input type="hidden" name="<?= esc($k) ?>" value="<?= esc($v) ?>"><?php endforeach; ?>
             <button type="submit" class="btn btn-danger rounded-pill fw-semibold"><i class="bi bi-file-earmark-pdf me-1"></i>Cetak PDF</button>
@@ -48,7 +48,7 @@ $severityBadge = ['Ringan'=>'success','Sedang'=>'warning','Berat'=>'danger'];
         <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
         <h5 class="fw-semibold text-muted">Tidak ditemukan data kasus BK</h5>
         <p class="text-muted small mb-4">Tidak ada kasus yang sesuai dengan filter yang dipilih.</p>
-        <a href="<?= base_url('bk/laporan/kasus') ?>" class="btn btn-outline-danger rounded-pill"><i class="bi bi-arrow-left me-1"></i>Kembali ke Filter</a>
+        <a href="<?= base_url('admin/bk/laporan/kasus') ?>" class="btn btn-outline-danger rounded-pill"><i class="bi bi-arrow-left me-1"></i>Kembali ke Filter</a>
     </div>
     <?php else: ?>
 
@@ -172,7 +172,7 @@ $severityBadge = ['Ringan'=>'success','Sedang'=>'warning','Berat'=>'danger'];
     </div>
 
     <div class="mt-3 d-flex justify-content-end">
-        <form method="post" action="<?= base_url('bk/laporan/kasus/pdf') ?>">
+        <form method="post" action="<?= base_url('admin/bk/laporan/kasus/pdf') ?>">
             <?= csrf_field() ?>
             <?php foreach ($filter as $k => $v): ?><input type="hidden" name="<?= esc($k) ?>" value="<?= esc($v) ?>"><?php endforeach; ?>
             <button type="submit" class="btn btn-danger rounded-pill fw-semibold"><i class="bi bi-file-earmark-pdf me-1"></i>Cetak PDF Laporan Ini</button>

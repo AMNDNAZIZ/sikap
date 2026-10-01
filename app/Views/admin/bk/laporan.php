@@ -76,7 +76,7 @@
                         kunjungan rumah, dan jenis layanan lainnya.<br>
                         <span class="text-info fw-semibold">Filter: tahun ajaran, semester, jenis layanan, kelas, periode.</span>
                     </p>
-                    <a href="<?= base_url('bk/laporan/layanan') ?>"
+                    <a href="<?= base_url('admin/bk/laporan/layanan') ?>"
                        class="btn btn-outline-info rounded-pill fw-semibold mt-2">
                         <i class="bi bi-funnel me-1"></i>Filter &amp; Cetak PDF Layanan
                     </a>
@@ -97,7 +97,7 @@
                         dan status penyelesaian. Data sensitif tidak ditampilkan.<br>
                         <span class="text-danger fw-semibold">Filter: kategori, bobot kasus, status, kelas, periode.</span>
                     </p>
-                    <a href="<?= base_url('bk/laporan/kasus') ?>"
+                    <a href="<?= base_url('admin/bk/laporan/kasus') ?>"
                        class="btn btn-outline-danger rounded-pill fw-semibold mt-2">
                         <i class="bi bi-funnel me-1"></i>Filter &amp; Cetak PDF Kasus
                     </a>
@@ -118,7 +118,7 @@
                         kebutuhan) tanpa membuka catatan konseling rahasia.<br>
                         <span class="text-primary fw-semibold">Filter: tahun ajaran, semester, periode.</span>
                     </p>
-                    <a href="<?= base_url('bk/laporan/eksekutif') ?>"
+                    <a href="<?= base_url('admin/bk/laporan/eksekutif') ?>"
                        class="btn btn-primary rounded-pill fw-semibold mt-2">
                         <i class="bi bi-funnel me-1"></i>Filter &amp; Cetak Laporan Kepsek
                     </a>

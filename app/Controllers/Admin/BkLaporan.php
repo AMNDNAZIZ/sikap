@@ -50,12 +50,20 @@ class BkLaporan extends BaseController
     /** Hanya Admin (1), Kepsek (2), Guru (3) boleh cetak laporan BK. */
     private function canAccessBkReport(): bool
     {
+        // Cek via tabel permission (dinamis) — helper has_permission() membaca role_permissions.
+        // Fallback ke role_id bila helper belum tersedia.
+        if (function_exists('has_permission')) {
+            return has_permission('bk.report') || has_permission('bk.manage');
+        }
         return in_array($this->currentRoleId(), [1, 2, 3], true);
     }
 
-    /** Laporan Eksekutif: hanya Admin (1) dan Kepsek (2). Guru BK (3) tetap boleh. */
+    /** Laporan Eksekutif: perlu permission bk.report_executive. */
     private function canAccessEksekutif(): bool
     {
+        if (function_exists('has_permission')) {
+            return has_permission('bk.report_executive');
+        }
         return in_array($this->currentRoleId(), [1, 2, 3], true);
     }
 
@@ -67,7 +75,7 @@ class BkLaporan extends BaseController
 
     private function denyRedirect(): \CodeIgniter\HTTP\RedirectResponse
     {
-        return redirect()->to('bk/laporan')->with('error', 'Anda tidak memiliki akses ke laporan ini.');
+        return redirect()->to('admin/bk/laporan')->with('error', 'Anda tidak memiliki akses ke laporan ini.');
     }
 
     private function getActiveYear(): array

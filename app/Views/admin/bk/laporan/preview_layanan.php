@@ -17,7 +17,7 @@ $statusMap = [
     <!-- ── Header bar ─────────────────────────────────────────────────── -->
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
         <div class="d-flex align-items-center gap-2">
-            <a href="<?= base_url('bk/laporan/layanan') ?>" class="btn btn-sm btn-outline-secondary">
+            <a href="<?= base_url('admin/bk/laporan/layanan') ?>" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>Kembali ke Filter
             </a>
             <h5 class="fw-bold mb-0">
@@ -28,7 +28,7 @@ $statusMap = [
 
         <?php if (!empty($rows)): ?>
         <!-- form meneruskan semua filter ke endpoint PDF -->
-        <form method="post" action="<?= base_url('bk/laporan/layanan/pdf') ?>" id="formCetakPdf">
+        <form method="post" action="<?= base_url('admin/bk/laporan/layanan/pdf') ?>" id="formCetakPdf">
             <?= csrf_field() ?>
             <?php foreach ($filter as $k => $v): ?>
                 <input type="hidden" name="<?= esc($k) ?>" value="<?= esc($v) ?>">
@@ -71,7 +71,7 @@ $statusMap = [
             Coba ubah filter atau perluas periode tanggal.
         </p>
         <div>
-            <a href="<?= base_url('bk/laporan/layanan') ?>" class="btn btn-outline-info rounded-pill">
+            <a href="<?= base_url('admin/bk/laporan/layanan') ?>" class="btn btn-outline-info rounded-pill">
                 <i class="bi bi-arrow-left me-1"></i>Kembali ke Filter
             </a>
         </div>
@@ -202,7 +202,7 @@ $statusMap = [
     </div>
 
     <div class="mt-3 d-flex justify-content-end">
-        <form method="post" action="<?= base_url('bk/laporan/layanan/pdf') ?>">
+        <form method="post" action="<?= base_url('admin/bk/laporan/layanan/pdf') ?>">
             <?= csrf_field() ?>
             <?php foreach ($filter as $k => $v): ?>
                 <input type="hidden" name="<?= esc($k) ?>" value="<?= esc($v) ?>">

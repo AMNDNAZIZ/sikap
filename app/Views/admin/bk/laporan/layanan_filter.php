@@ -3,7 +3,7 @@
 <div class="container-fluid py-4">
 
     <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
-        <a href="<?= base_url('bk/laporan') ?>" class="btn btn-sm btn-outline-secondary">
+        <a href="<?= base_url('admin/bk/laporan') ?>" class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Kembali
         </a>
         <div>
@@ -23,7 +23,7 @@
         <div class="card-body p-4">
 
             <!-- ── Form Preview ── -->
-            <form method="post" action="<?= base_url('bk/laporan/layanan/preview') ?>" id="formPreview">
+            <form method="post" action="<?= base_url('admin/bk/laporan/layanan/preview') ?>" id="formPreview">
                 <?= csrf_field() ?>
                 <div class="row g-3">
 
@@ -125,7 +125,7 @@
             </form>
 
             <!-- form pdf duplikasi filter (disubmit ke endpoint pdf) -->
-            <form method="post" action="<?= base_url('bk/laporan/layanan/pdf') ?>" id="formPdf">
+            <form method="post" action="<?= base_url('admin/bk/laporan/layanan/pdf') ?>" id="formPdf">
                 <?= csrf_field() ?>
                 <div id="hiddenInputsPdf"></div>
             </form>

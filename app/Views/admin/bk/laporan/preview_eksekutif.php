@@ -10,13 +10,13 @@ $noData = ($totalLayanan === 0 && $totalKasus === 0 && $totalProgram === 0);
 
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
         <div class="d-flex align-items-center gap-2">
-            <a href="<?= base_url('bk/laporan/eksekutif') ?>" class="btn btn-sm btn-outline-secondary">
+            <a href="<?= base_url('admin/bk/laporan/eksekutif') ?>" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>Kembali ke Filter
             </a>
             <h5 class="fw-bold mb-0"><i class="bi bi-building text-primary me-1"></i>Preview Laporan Eksekutif BK</h5>
         </div>
         <?php if (!$noData): ?>
-        <form method="post" action="<?= base_url('bk/laporan/eksekutif/pdf') ?>">
+        <form method="post" action="<?= base_url('admin/bk/laporan/eksekutif/pdf') ?>">
             <?= csrf_field() ?>
             <?php foreach ($filter as $k => $v): ?><input type="hidden" name="<?= esc($k) ?>" value="<?= esc($v) ?>"><?php endforeach; ?>
             <button type="submit" class="btn btn-primary rounded-pill fw-semibold"><i class="bi bi-file-earmark-pdf me-1"></i>Cetak Laporan Kepsek</button>
@@ -43,7 +43,7 @@ $noData = ($totalLayanan === 0 && $totalKasus === 0 && $totalProgram === 0);
         <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
         <h5 class="fw-semibold text-muted">Tidak terdapat data BK pada periode yang dipilih</h5>
         <p class="text-muted small mb-4">Pastikan data layanan, kasus, atau program BK sudah diinput terlebih dahulu.</p>
-        <a href="<?= base_url('bk/laporan/eksekutif') ?>" class="btn btn-outline-primary rounded-pill"><i class="bi bi-arrow-left me-1"></i>Kembali ke Filter</a>
+        <a href="<?= base_url('admin/bk/laporan/eksekutif') ?>" class="btn btn-outline-primary rounded-pill"><i class="bi bi-arrow-left me-1"></i>Kembali ke Filter</a>
     </div>
     <?php else: ?>
 
@@ -196,7 +196,7 @@ $noData = ($totalLayanan === 0 && $totalKasus === 0 && $totalProgram === 0);
     </div>
 
     <div class="mt-3 d-flex justify-content-end">
-        <form method="post" action="<?= base_url('bk/laporan/eksekutif/pdf') ?>">
+        <form method="post" action="<?= base_url('admin/bk/laporan/eksekutif/pdf') ?>">
             <?= csrf_field() ?>
             <?php foreach ($filter as $k => $v): ?><input type="hidden" name="<?= esc($k) ?>" value="<?= esc($v) ?>"><?php endforeach; ?>
             <button type="submit" class="btn btn-primary rounded-pill fw-semibold"><i class="bi bi-file-earmark-pdf me-1"></i>Cetak Laporan Kepsek</button>

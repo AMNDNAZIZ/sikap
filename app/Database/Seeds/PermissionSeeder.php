@@ -65,6 +65,16 @@ class PermissionSeeder extends Seeder
             ['module' => 'soal_ai', 'action' => 'manage', 'label' => 'Pembuatan Soal dengan AI', 'group_name' => 'Kurikulum', 'sort_order' => 45],
             ['module' => 'kokurikuler', 'action' => 'manage', 'label' => 'Kelola Kokurikuler (P5)', 'group_name' => 'Kurikulum', 'sort_order' => 46],
 
+            // ═══════ Bimbingan Konseling (BK) ═══════
+            // Catatan: Di SD tidak ada guru BK khusus — guru kelas merangkap BK.
+            // Permission ini diberikan ke Guru (role 3) agar guru kelas dapat mengakses
+            // seluruh modul BK sesuai kewenangannya. Kepsek mendapat akses lihat & laporan.
+            ['module' => 'bk', 'action' => 'view',              'label' => 'Lihat Data BP/BK (Dashboard & Profil Siswa)',      'group_name' => 'BK', 'sort_order' => 70],
+            ['module' => 'bk', 'action' => 'manage',            'label' => 'Kelola BP/BK (Program, RPL, Layanan, Pemetaan)',   'group_name' => 'BK', 'sort_order' => 71],
+            ['module' => 'bk', 'action' => 'case_manage',       'label' => 'Penanganan Kasus BK (data sensitif)',              'group_name' => 'BK', 'sort_order' => 72],
+            ['module' => 'bk', 'action' => 'report',            'label' => 'Cetak Laporan Rekap BK (Layanan & Kasus)',         'group_name' => 'BK', 'sort_order' => 73],
+            ['module' => 'bk', 'action' => 'report_executive',  'label' => 'Laporan Eksekutif BK (Kepala Sekolah)',            'group_name' => 'BK', 'sort_order' => 74],
+
             // ═══════ CBT (Ujian Online) ═══════
             ['module' => 'cbt', 'action' => 'view', 'label' => 'Lihat Data CBT', 'group_name' => 'CBT', 'sort_order' => 47],
             ['module' => 'cbt', 'action' => 'manage', 'label' => 'Kelola Bank Soal & Ujian', 'group_name' => 'CBT', 'sort_order' => 48],
@@ -140,6 +150,8 @@ class PermissionSeeder extends Seeder
             'materials.manage', 'quiz.manage', 'forum.manage', 'learning_analytics.view',
             'student_notes.manage', 'behaviors.manage',
             'chat.manage', 'staff_chat.manage',
+            // BK: kepsek lihat dashboard, laporan, laporan eksekutif (tanpa edit data BK)
+            'bk.view', 'bk.report', 'bk.report_executive',
         ];
         $this->assignPermissions(2, $this->resolvePermIds($permMap, $kepsekPerms));
 
@@ -159,6 +171,8 @@ class PermissionSeeder extends Seeder
             'student_notes.manage', 'behaviors.manage',
             'ebook.manage', 'ebook.view',
             'teacher_attendance.manage',
+            // BK: guru (termasuk guru kelas SD yg merangkap BK) kelola penuh modul BK
+            'bk.view', 'bk.manage', 'bk.case_manage', 'bk.report',
         ];
         $this->assignPermissions(3, $this->resolvePermIds($permMap, $guruPerms));
 

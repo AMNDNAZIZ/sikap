@@ -62,14 +62,15 @@
                                 <?php
                                     $icons = [
                                         'Pengaturan' => '⚙️',
-                                        'Kesiswaan' => '🎓',
+                                        'Kesiswaan'  => '🎓',
                                         'Personalia' => '👨‍🏫',
-                                        'Akademik' => '📚',
-                                        'Kurikulum' => '📜',
-                                        'CBT' => '💻',
+                                        'Akademik'   => '📚',
+                                        'Kurikulum'  => '📜',
+                                        'CBT'        => '💻',
+                                        'BK'         => '🤝',
                                         'Tata Usaha' => '📂',
-                                        'CMS' => '🌐',
-                                        'Lainnya' => '📋',
+                                        'CMS'        => '🌐',
+                                        'Lainnya'    => '📋',
                                     ];
                                     echo $icons[$groupName] ?? '📌';
                                 ?>

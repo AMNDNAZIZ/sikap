@@ -65,6 +65,49 @@ class BkModule extends BaseController
     }
 
     // =========================================================
+    // HELPER: Server-side permission check untuk operasi tulis BK
+    // =========================================================
+
+    /**
+     * Cek apakah user boleh mengelola data BK (buat/ubah/hapus).
+     * Menggunakan has_permission() agar terhubung ke tabel role_permissions.
+     * Fallback ke role_id untuk backward-compat bila helper belum tersedia.
+     */
+    protected function canManageBk(): bool
+    {
+        if (function_exists('has_permission')) {
+            return has_permission('bk.manage');
+        }
+        $roleId = (int)(session()->get('user')['role_id'] ?? 0);
+        return in_array($roleId, [1, 3], true); // admin & guru
+    }
+
+    /**
+     * Cek apakah user boleh mengelola kasus BK (data sensitif).
+     */
+    protected function canManageBkCase(): bool
+    {
+        if (function_exists('has_permission')) {
+            return has_permission('bk.case_manage');
+        }
+        $roleId = (int)(session()->get('user')['role_id'] ?? 0);
+        return in_array($roleId, [1, 3], true);
+    }
+
+    /**
+     * Kembalikan JSON 403 bila tidak punya permission manage BK.
+     * Dipakai di method POST (AJAX/redirect).
+     */
+    protected function denyBkManage(bool $isJson = false)
+    {
+        $msg = 'Anda tidak memiliki permission untuk mengelola data BK.';
+        if ($isJson) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => $msg]);
+        }
+        return redirect()->to('admin/bk')->with('error', $msg);
+    }
+
+    // =========================================================
     // HELPER: Query Siswa Aktif di Tahun Ajaran Berjalan
     // Menggunakan student_records.status = 'aktif' dan academic_year_id
     // =========================================================
@@ -357,6 +400,7 @@ class BkModule extends BaseController
     // ------------------------------------------------------------------
     public function storeProgram()
     {
+        if (!$this->canManageBk()) return $this->denyBkManage();
         $activeYear = $this->getActiveYear();
         $user       = session()->get('user');
         $teacher    = $this->teacherModel->where('user_id', $user['id'] ?? 0)->first();
@@ -379,6 +423,7 @@ class BkModule extends BaseController
 
     public function updateProgram($id)
     {
+        if (!$this->canManageBk()) return $this->denyBkManage();
         $data = [
             'title'           => $this->request->getPost('title'),
             'program_type'    => $this->request->getPost('program_type'),
@@ -394,6 +439,7 @@ class BkModule extends BaseController
 
     public function deleteProgram($id)
     {
+        if (!$this->canManageBk()) return $this->denyBkManage();
         $this->programModel->delete($id);
         return redirect()->to('admin/bk/program')->with('success', 'Program BK berhasil dihapus.');
     }
@@ -403,6 +449,7 @@ class BkModule extends BaseController
     // ------------------------------------------------------------------
     public function storeRpl()
     {
+        if (!$this->canManageBk()) return $this->denyBkManage();
         $user    = session()->get('user');
         $teacher = $this->teacherModel->where('user_id', $user['id'] ?? 0)->first();
 
@@ -426,6 +473,9 @@ class BkModule extends BaseController
 
     public function updateRpl($id)
     {
+        if (!$this->canManageBk()) {
+            return $this->denyBkManage();
+        }
         $data = [
             'program_id'       => $this->request->getPost('program_id') ?: null,
             'title'            => $this->request->getPost('title'),
@@ -444,6 +494,7 @@ class BkModule extends BaseController
 
     public function deleteRpl($id)
     {
+        if (!$this->canManageBk()) return $this->denyBkManage();
         $this->rplModel->delete($id);
         return redirect()->to('admin/bk/program')->with('success', 'RPL BK berhasil dihapus.');
     }
@@ -523,6 +574,7 @@ class BkModule extends BaseController
      */
     public function storeLayanan()
     {
+        if (!$this->canManageBk()) return $this->denyBkManage();
         $user       = session()->get('user');
         $activeYear = $this->getActiveYear();
 
@@ -615,6 +667,9 @@ class BkModule extends BaseController
      */
     public function updateLayanan($id)
     {
+        if (!$this->canManageBk()) {
+            return $this->denyBkManage();
+        }
         $id      = (int)$id;
         $service = $this->serviceModel->find($id);
         if (!$service) {
@@ -705,6 +760,7 @@ class BkModule extends BaseController
      */
     public function deleteLayanan($id)
     {
+        if (!$this->canManageBk()) return $this->denyBkManage(true);
         $id      = (int)$id;
         $service = $this->serviceModel->find($id);
         if (!$service) {
@@ -770,6 +826,7 @@ class BkModule extends BaseController
      */
     public function storeKasus()
     {
+        if (!$this->canManageBkCase()) return $this->denyBkManage();
         $user = session()->get('user');
 
         // Generasi Kode Kasus Otomatis unik (e.g. KASUS-202609-001)
@@ -845,6 +902,9 @@ class BkModule extends BaseController
      */
     public function updateKasus($id)
     {
+        if (!$this->canManageBkCase()) {
+            return $this->denyBkManage();
+        }
         $id   = (int)$id;
         $case = $this->findCaseOrFail($id);
         if (!$case) {
@@ -895,6 +955,9 @@ class BkModule extends BaseController
      */
     public function updateStatusKasus($id)
     {
+        if (!$this->canManageBkCase()) {
+            return $this->denyBkManage();
+        }
         $id   = (int)$id;
         $case = $this->findCaseOrFail($id);
         if (!$case) {
@@ -951,6 +1014,7 @@ class BkModule extends BaseController
      */
     public function addActionKasus($id)
     {
+        if (!$this->canManageBkCase()) return $this->denyBkManage(true);
         $id   = (int)$id;
         $case = $this->findCaseOrFail($id);
         if (!$case) {
@@ -978,6 +1042,7 @@ class BkModule extends BaseController
      */
     public function addReferralKasus($id)
     {
+        if (!$this->canManageBkCase()) return $this->denyBkManage(true);
         $id   = (int)$id;
         $case = $this->findCaseOrFail($id);
         if (!$case) {
@@ -1052,6 +1117,7 @@ class BkModule extends BaseController
      */
     public function deleteKasus($id)
     {
+        if (!$this->canManageBkCase()) return $this->denyBkManage(true);
         $id   = (int)$id;
         $case = $this->findCaseOrFail($id);
         if (!$case) {
@@ -1117,6 +1183,9 @@ class BkModule extends BaseController
 
     public function storeIndividualPlan()
     {
+        if (!$this->canManageBkCase()) {
+            return $this->denyBkManage();
+        }
         $activeYear = $this->getActiveYear();
 
         // Cek apakah siswa sudah punya rencana di tahun ajaran ini
@@ -1150,6 +1219,9 @@ class BkModule extends BaseController
 
     public function updateIndividualPlan($id)
     {
+        if (!$this->canManageBkCase()) {
+            return $this->denyBkManage();
+        }
         $data = [
             'strengths'       => $this->request->getPost('strengths'),
             'growth_areas'    => $this->request->getPost('growth_areas'),
@@ -1166,12 +1238,18 @@ class BkModule extends BaseController
 
     public function deleteIndividualPlan($id)
     {
+        if (!$this->canManageBkCase()) {
+            return $this->denyBkManage();
+        }
         $this->planModel->delete($id);
         return redirect()->to('admin/bk/perencanaan-individual')->with('success', 'Target individual berhasil dihapus.');
     }
 
     public function updateIndividualProgress($id)
     {
+        if (!$this->canManageBkCase()) {
+            return $this->denyBkManage();
+        }
         $progress = min(100, max(0, (int)$this->request->getPost('progress_percent')));
         $this->planModel->update($id, ['progress_percent' => $progress]);
         return redirect()->to('admin/bk/perencanaan-individual')->with('success', 'Progress berhasil diperbarui.');
