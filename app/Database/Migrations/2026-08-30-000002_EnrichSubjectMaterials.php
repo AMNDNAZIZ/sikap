@@ -9,6 +9,11 @@ class EnrichSubjectMaterials extends Migration
     public function up()
     {
         // Tambah kolom konten & publikasi ke tabel subject_materials yang sudah ada
+        // Guard: cek kolom sentinel (content_type) sebelum addColumn massal.
+        if ($this->db->fieldExists('content_type', 'subject_materials')) {
+            return; // Sudah pernah dijalankan
+        }
+
         $fields = [
             // Tipe konten: teks HTML, PDF upload, embed video, atau link eksternal
             'content_type' => [
@@ -91,8 +96,8 @@ class EnrichSubjectMaterials extends Migration
         $this->forge->addColumn('subject_materials', $fields);
 
         // Index untuk query portal siswa (hanya published)
-        $this->db->query('ALTER TABLE subject_materials ADD INDEX idx_published (is_published)');
-        $this->db->query('ALTER TABLE subject_materials ADD INDEX idx_subject_year_semester (subject_id, year_id, semester)');
+        try { $this->db->query('ALTER TABLE subject_materials ADD INDEX idx_published (is_published)'); } catch (\Exception $e) {}
+        try { $this->db->query('ALTER TABLE subject_materials ADD INDEX idx_subject_year_semester (subject_id, year_id, semester)'); } catch (\Exception $e) {}
     }
 
     public function down()
