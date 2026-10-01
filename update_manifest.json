@@ -1,7 +1,7 @@
 {
-    "version": "2.0.7",
-    "generated": "2026-10-01 12:56:58",
-    "last_update": "2026-10-01 12:56",
+    "version": "2.0.8",
+    "generated": "2026-10-01 13:46:23",
+    "last_update": "2026-10-01 13:46",
     "total_files": 979,
     "files": {
         "app/.htaccess": "0a949a74edc566be1e1944fbfab681a5",
@@ -112,7 +112,7 @@
         "app/Controllers/Admin/Placement.php": "fca788aaf1a5c90c65e5d5737fe7fcb4",
         "app/Controllers/Admin/Promotions.php": "48040a584a352649305d34709f1be7d5",
         "app/Controllers/Admin/Quiz.php": "006396bbed54493fae5d5650e26a5bb3",
-        "app/Controllers/Admin/Rapor.php": "b7aaf0ef06edcd78c67ef254390cdf87",
+        "app/Controllers/Admin/Rapor.php": "ed4056d9e25dc4e0e2e2d2303e8f3bce",
         "app/Controllers/Admin/RolePermission.php": "cdd27d67ca50774c70233147ee9489f2",
         "app/Controllers/Admin/ScheduleController.php": "da8e8416c1d615474aeb4a8e8aded912",
         "app/Controllers/Admin/School.php": "47c3637888f6ee288df1dff8be06a049",
