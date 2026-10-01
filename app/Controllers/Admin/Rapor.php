@@ -162,12 +162,17 @@ class Rapor extends BaseController
 
         // Mata pelajaran untuk kelas ini: berdasarkan teaching_assignments di tahun aktif.
         // Kecualikan mapel BK/BP/Konseling yang bersifat layanan (tidak masuk penilaian rapor).
-        $bkKeywords = ['%Bimbingan%', '%Konseling%', '%BK%', '%BP%'];
-        $subjects = $this->db->table('subjects s')
-            ->select('s.id, s.name, s.subject_group, s.sort_order')
+        // Sertakan mapel agama aktif (subjects.religion != '') yang ada di kelas ini atau
+        // yang punya assignment di kelas ini — difilter per-siswa berdasarkan agama siswa.
+        $bkKeywords = ['%Bimbingan%', '%Konseling%'];
+
+        // Mapel non-agama via teaching_assignments
+        $subjectsRegular = $this->db->table('subjects s')
+            ->select('s.id, s.name, s.subject_group, s.sort_order, s.religion')
             ->distinct()
             ->join('teaching_assignments ta', 'ta.subject_id = s.id AND ta.class_id = ' . $classId . ' AND ta.academic_year_id = ' . (int) $activeYearId, 'inner')
             ->where('s.is_active', 1)
+            ->where("(s.religion IS NULL OR s.religion = '')")
             ->groupStart()
                 ->where('s.name NOT LIKE', $bkKeywords[0])
                 ->where('s.name NOT LIKE', $bkKeywords[1])
@@ -176,10 +181,30 @@ class Rapor extends BaseController
             ->orderBy('s.name', 'ASC')
             ->get()->getResultArray();
 
-        if (empty($subjects)) {
-            // Fallback: semua subject aktif non-BK bila belum ada penugasan
-            $subjects = $this->db->table('subjects')
-                ->select('id, name, subject_group, sort_order')
+        // Mapel agama aktif — diambil semua, difilter per-siswa saat render
+        // (bisa ada lewat TA atau standalone karena biasanya guru agama ditugaskan terpisah)
+        $subjectsAgama = $this->db->table('subjects s')
+            ->select('s.id, s.name, s.subject_group, s.sort_order, s.religion')
+            ->where('s.is_active', 1)
+            ->where("s.religion IS NOT NULL")
+            ->where("s.religion !=", '')
+            ->groupStart()
+                ->where('s.name NOT LIKE', $bkKeywords[0])
+                ->where('s.name NOT LIKE', $bkKeywords[1])
+            ->groupEnd()
+            ->orderBy('s.sort_order', 'ASC')
+            ->orderBy('s.name', 'ASC')
+            ->get()->getResultArray();
+
+        // Gabungkan & deduplicate berdasarkan id, lalu urutkan sort_order
+        $subjectMap = [];
+        foreach (array_merge($subjectsAgama, $subjectsRegular) as $s) {
+            $subjectMap[$s['id']] = $s; // regular menimpa agama bila sama id
+        }
+        // Fallback bila tidak ada TA sama sekali (sistem baru): ambil semua non-BK aktif
+        if (empty($subjectMap)) {
+            $all = $this->db->table('subjects')
+                ->select('id, name, subject_group, sort_order, religion')
                 ->where('is_active', 1)
                 ->groupStart()
                     ->where('name NOT LIKE', $bkKeywords[0])
@@ -188,11 +213,18 @@ class Rapor extends BaseController
                 ->orderBy('sort_order', 'ASC')
                 ->orderBy('name', 'ASC')
                 ->get()->getResultArray();
+            foreach ($all as $s) $subjectMap[$s['id']] = $s;
         }
+        // Sort final berdasarkan sort_order ASC lalu name
+        uasort($subjectMap, function ($a, $b) {
+            $diff = (int)$a['sort_order'] - (int)$b['sort_order'];
+            return $diff !== 0 ? $diff : strcmp($a['name'], $b['name']);
+        });
+        $subjects = array_values($subjectMap);
 
-        // Siswa aktif di kelas & tahun aktif
+        // Siswa aktif di kelas & tahun aktif (sertakan religion untuk filter mapel agama)
         $students = $this->db->table('student_records sr')
-            ->select('s.id, s.name, s.nisn, s.nis')
+            ->select('s.id, s.name, s.nisn, s.nis, s.religion')
             ->join('students s', 's.id = sr.student_id', 'inner')
             ->where('sr.class_id', $classId)
             ->where('sr.academic_year_id', $activeYearId)
@@ -210,6 +242,17 @@ class Rapor extends BaseController
             $rows = [];
             foreach ($subjects as $subj) {
                 $subjectId = (int) $subj['id'];
+
+                // Filter mapel agama: tampilkan hanya yang sesuai agama siswa.
+                // Jika mapel punya kolom religion terisi (mis. 'Islam', 'Kristen'), 
+                // bandingkan dengan religion siswa. Tidak cocok → skip (fallback: hilang dari rapor).
+                $subjReligion = $subj['religion'] ?? '';
+                if ($subjReligion !== '' && $subjReligion !== null) {
+                    $stuReligion = $stu['religion'] ?? '';
+                    if (strcasecmp(trim($subjReligion), trim($stuReligion)) !== 0) {
+                        continue; // Agama tidak cocok → lewati mapel ini untuk siswa ini
+                    }
+                }
 
                 // Nilai Materi = rata-rata seluruh nilai formatif (material_scores) siswa
                 // untuk materi (ATP) mapel ini, di semester terpilih bila kolom semester ada.
