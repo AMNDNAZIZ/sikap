@@ -63,7 +63,7 @@
   <div class="container-fluid">
     <nav class="navbar navbar-light sticky-top shadow-sm px-3" style="height: 56px;">
       <div class="container-fluid d-flex justify-content-between align-items-center">
-        <a class="navbar-brand">CBT V.2.1.1</a>
+        <a class="navbar-brand">CBT V.<?= defined('APP_VERSION') ? APP_VERSION : '1.0.0' ?></a>
         <div class="d-flex align-items-center">
           <!--<span class="navbar-user"><?= esc($studentName) ?></span>-->
           <?php if (empty($hideLogout)): ?>

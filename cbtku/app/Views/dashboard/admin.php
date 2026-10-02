@@ -397,10 +397,20 @@
                 <div class="modern-card-header">
                     <h3 class="modern-card-title">
                         <i class="fas fa-chart-line"></i> Aktivitas Ujian Real-Time
-                        <?php if (!empty($recentActivity)): ?>
-                            <span class="badge badge-modern badge-success-gradient ms-2">
-                                <?= count($recentActivity) ?> Siswa Aktif
+                        <?php if (!empty($recentActivity) || (isset($finishedActivityCount) && $finishedActivityCount > 0) || (isset($notStartedActivityCount) && $notStartedActivityCount > 0)): ?>
+                            <span class="badge badge-modern badge-success-gradient ms-2" title="Siswa Sedang Mengerjakan Ujian">
+                                <?= count($recentActivity ?? []) ?> Aktif
                             </span>
+                            <?php if (isset($finishedActivityCount)): ?>
+                            <span class="badge badge-modern badge-primary-gradient ms-1" title="Siswa Selesai Ujian Hari Ini">
+                                <?= $finishedActivityCount ?> Selesai
+                            </span>
+                            <?php endif; ?>
+                            <?php if (isset($notStartedActivityCount)): ?>
+                            <span class="badge badge-modern badge-warning-gradient ms-1" title="Siswa Belum Mengerjakan Ujian">
+                                <?= $notStartedActivityCount ?> Belum
+                            </span>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </h3>
                 </div>

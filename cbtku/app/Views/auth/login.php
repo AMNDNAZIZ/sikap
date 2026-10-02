@@ -562,7 +562,7 @@ if ($row && !empty($row->logo)) {
       </form>
 
       <div class="login-footer">
-        &copy; <?= date('Y'); ?> <strong>SakaSalika CBT 2.1.1</strong><br>
+        &copy; <?= date('Y'); ?> <strong>SakaSalika CBT <?= defined('APP_VERSION') ? APP_VERSION : '1.0.0' ?></strong><br>
         <small>Powered by SakaSalika Host VPS</small>
       </div>
     </div>

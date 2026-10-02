@@ -191,25 +191,59 @@ class Updater extends BaseController
         $readme = "# Update CBT-KU\n\nDistribusi update otomatis untuk aplikasi CBT-KU.\n\n**Versi:** {$version}\n**Generated:** " . date('Y-m-d H:i:s') . "\n\n> File ini digenerate otomatis. Jangan edit manual.\n";
         file_put_contents($repoDir . 'README.md', $readme);
 
-        // Git init, orphan commit, force push
-        $remoteUrl = "https://github.com/{$this->githubRepo}.git";
+        // Ambil token GitHub dari .env agar push tidak bergantung pada
+        // Git Credential Manager per-user (proses web server tidak punya akses).
+        $token = trim((string) env('GITHUB_TOKEN', ''));
+        if ($token === '') {
+            $this->deleteDirectory($repoDir);
+            return [
+                'success' => false,
+                'error'   => 'GITHUB_TOKEN belum diset di .env. Tambahkan Personal Access Token GitHub (scope: repo) sebagai GITHUB_TOKEN.',
+            ];
+        }
+
+        // Identitas commit dari .env (opsional, ada fallback default).
+        $gitName  = trim((string) env('GITHUB_COMMITTER_NAME', 'CBT-KU Updater'));
+        $gitEmail = trim((string) env('GITHUB_COMMITTER_EMAIL', 'updater@cbtku.local'));
+
+        // Remote dengan token disematkan (dipakai hanya untuk push).
+        // Format <token>@ kompatibel dengan PAT classic (ghp_) maupun
+        // fine-grained (github_pat_). Hindari 'x-access-token:' yang hanya
+        // untuk GitHub App/OAuth dan ditolak 403 oleh PAT fine-grained.
+        $authRemote = "https://{$token}@github.com/{$this->githubRepo}.git";
+
+        // cd /d agar aman lintas-drive di Windows; normalisasi separator.
+        $repoDirClean = rtrim(str_replace('/', DIRECTORY_SEPARATOR, $repoDir), DIRECTORY_SEPARATOR);
+        $isWindows = strncasecmp(PHP_OS, 'WIN', 3) === 0;
+        $cdPrefix  = $isWindows ? "cd /d \"{$repoDirClean}\"" : "cd \"{$repoDirClean}\"";
+
+        // Set identity per-repo lewat flag -c agar tidak bergantung config global.
+        $identity = "-c user.name=\"{$gitName}\" -c user.email=\"{$gitEmail}\" -c core.autocrlf=false";
+
+        // Git init (orphan main), commit, force push.
         $commands = [
-            'git init',
-            'git checkout --orphan main',
-            'git add -A',
-            "git commit -m \"Update v{$version} - " . date('Y-m-d H:i') . "\"",
-            "git remote add origin {$remoteUrl}",
-            'git push -f origin main',
+            'init'   => "git init -b main",
+            'add'    => "git add -A",
+            'commit' => "git {$identity} commit -m \"Update v{$version} - " . date('Y-m-d H:i') . "\"",
+            'push'   => "git push -f \"{$authRemote}\" main",
         ];
 
         $allOutput = [];
-        foreach ($commands as $cmd) {
-            exec("cd \"{$repoDir}\" && {$cmd} 2>&1", $cmdOutput, $cmdReturn);
-            $allOutput[] = $cmd . ' => ' . implode(' | ', $cmdOutput);
+        foreach ($commands as $step => $cmd) {
             $cmdOutput = [];
-            if ($cmdReturn !== 0 && strpos($cmd, 'push') !== false) {
-                log_message('error', '[GitPush] Failed: ' . implode("\n", $allOutput));
-                return ['success' => false, 'error' => 'Git push gagal. Pastikan credentials GitHub sudah dikonfigurasi.'];
+            exec("{$cdPrefix} && {$cmd} 2>&1", $cmdOutput, $cmdReturn);
+
+            // Samarkan token dari output agar tidak bocor ke log/pesan.
+            $safeOutput = str_replace($token, '***', implode(' | ', $cmdOutput));
+            $allOutput[] = $step . ' => ' . $safeOutput;
+
+            if ($cmdReturn !== 0) {
+                log_message('error', '[GitPush] Failed at "' . $step . '": ' . implode("\n", $allOutput));
+                $this->deleteDirectory($repoDir);
+                return [
+                    'success' => false,
+                    'error'   => 'Git ' . $step . ' gagal: ' . $safeOutput,
+                ];
             }
         }
 
@@ -325,6 +359,18 @@ class Updater extends BaseController
             echo $this->buildUpdateResultPage(false, 'Tidak ada file yang perlu diupdate.', []);
             return;
         }
+
+        // 🔹 STEP 0 (KRUSIAL): Tutup & lepas session SEKARANG, sebelum menyentuh
+        // koneksi DB / file apa pun. Alasannya:
+        // - Proses update menutup & me-reconnect koneksi DB (STEP 5) dan
+        //   men-truncate ci_sessions (STEP 11). Bila session masih aktif, koneksi
+        //   yang memegang GET_LOCK dirusak, sehingga saat PHP shutdown memanggil
+        //   session_write_close() otomatis, handler gagal RELEASE_LOCK → memanggil
+        //   fail() → ini_set() saat session aktif → FATAL ERROR di bagian bawah
+        //   halaman hasil update.
+        // Dengan menutup session di awal, tidak ada lock/koneksi session yang
+        // menggantung dan shutdown PHP tidak lagi menyentuh session.
+        $this->closeSessionEarly();
 
         // STEP 1: Enable maintenance mode
         $this->enableMaintenanceMode();
@@ -541,9 +587,31 @@ class Updater extends BaseController
         log_message('info', '[Update] Security hashes regenerated');
     }
 
+    /**
+     * Tutup & lepas session PHP sedini mungkin dalam proses update.
+     *
+     * Setelah session_write_close(), lock advisory (GET_LOCK) untuk baris
+     * ci_sessions dilepas dan PHP tidak akan lagi memanggil handler close()
+     * pada shutdown request — sehingga menutup/mentruncate koneksi & tabel
+     * ci_sessions di langkah berikutnya tidak memicu fatal error ini_set().
+     */
+    private function closeSessionEarly(): void
+    {
+        try {
+            if (\session_status() === \PHP_SESSION_ACTIVE) {
+                // Lepaskan lock & tulis data sesi terakhir, lalu tutup.
+                \session_write_close();
+            }
+        } catch (\Throwable $e) {
+            log_message('warning', '[Update] closeSessionEarly gagal (diabaikan): ' . $e->getMessage());
+        }
+    }
+
     private function clearSessions(): void
     {
         try {
+            // Session sudah ditutup di awal applyOnlineUpdate() via closeSessionEarly(),
+            // jadi truncate di sini tidak lagi mengganggu lock/koneksi session aktif.
             $db = \Config\Database::connect();
             $db->query('TRUNCATE TABLE ci_sessions');
             log_message('info', '[Update] Sessions cleared');
@@ -1059,7 +1127,17 @@ class Updater extends BaseController
         if (!is_dir($dir)) return;
         foreach (array_diff(scandir($dir), ['.', '..']) as $f) {
             $p = $dir . '/' . $f;
-            is_dir($p) ? $this->deleteDirectory($p) : @unlink($p);
+            if (is_dir($p)) {
+                $this->deleteDirectory($p);
+            } else {
+                // File di dalam .git (pack, objects) sering read-only di Windows,
+                // sehingga unlink gagal senyap. Lepas atribut read-only dulu.
+                @chmod($p, 0666);
+                if (!@unlink($p)) {
+                    @chmod($p, 0777);
+                    @unlink($p);
+                }
+            }
         }
         @rmdir($dir);
     }

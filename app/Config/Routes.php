@@ -734,6 +734,11 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('cbt/pts-import/preview', 'CbtConvertNilai::previewPtsImport', $auth123);
     $routes->post('cbt/pts-import/save', 'CbtConvertNilai::savePtsImport', $auth123);
 
+    // Import nilai dari CBT Mandiri (aplikasi CBT terpisah, via file JSON)
+    $routes->post('cbt/import-mandiri/preview', 'CbtConvertNilai::importCbtMandiri', $auth123);
+    $routes->post('cbt/import-mandiri/save', 'CbtConvertNilai::saveCbtMandiri', $auth123);
+    $routes->get('cbt/import-mandiri/atp/(:num)', 'CbtConvertNilai::getAtpBySubject/$1', $auth123);
+
     // ── Kuis Mandiri (Admin, Kepsek, Guru) ─────────────────────────────
     $routes->get('quiz',                     'Quiz::index',          $auth123);
     $routes->get('quiz/create',              'Quiz::create',         $auth123);

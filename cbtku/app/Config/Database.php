@@ -32,7 +32,13 @@ class Database extends Config
         'database'     => '',
         'DBDriver'     => 'MySQLi',
         'DBPrefix'     => '',
-        'pConnect'     => true,
+        // 🔹 OPTIMASI KONKURENSI: pConnect dimatikan.
+        // Persistent connection + GET_LOCK (dipakai DatabaseHandler session)
+        // membuat lock/koneksi tertahan lintas request pada worker PHP yang sama,
+        // sehingga max_connections MySQL cepat habis saat 80-100+ peserta ujian
+        // bersamaan → session gagal dibaca → peserta ter-logout. Non-persistent
+        // memastikan koneksi (dan lock advisory) dilepas di akhir tiap request.
+        'pConnect'     => false,
         'DBDebug'      => true,
         'charset'      => 'utf8mb4',
         'DBCollat'     => 'utf8mb4_general_ci',

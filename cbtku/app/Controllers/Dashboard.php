@@ -91,6 +91,38 @@ class Dashboard extends BaseController
                 // Get database connection for progress calculation
                 $db = \Config\Database::connect();
 
+                // --- Tambahan: Rekap Siswa Selesai & Belum Ujian ---
+                $activeExams = $testStatusModel->where('is_active', 1)
+                    ->where('start_time <=', $now)
+                    ->where('end_time >=', $now)
+                    ->findAll();
+                
+                $finishedActivityCount = 0;
+                $notStartedActivityCount = 0;
+                
+                if (!empty($activeExams)) {
+                    $activeExamIds = array_column($activeExams, 'id');
+                    
+                    $finishedActivityCount = $sessionModel->whereIn('test_id', $activeExamIds)
+                        ->where('status', 'finished')
+                        ->countAllResults();
+                        
+                    $eligibleStudentIds = [];
+                    foreach ($activeExams as $exam) {
+                        $classes = json_decode($exam['class_codes'] ?? '[]', true);
+                        if (!empty($classes)) {
+                            $stds = $db->table('students')->select('id')->whereIn('class_id', $classes)->get()->getResultArray();
+                            foreach ($stds as $s) {
+                                $eligibleStudentIds[$s['id']] = true;
+                            }
+                        }
+                    }
+                    $totalEligible = count($eligibleStudentIds);
+                    $totalActiveAndFinished = $sessionModel->whereIn('test_id', $activeExamIds)->countAllResults();
+                    $notStartedActivityCount = max(0, $totalEligible - $totalActiveAndFinished);
+                }
+
+
                 // Optimize: Batch query for answer counts instead of N+1 queries
                 $sessionIds = array_column($recentActivity, 'id');
                 $studentIds = array_column($recentActivity, 'student_id');
@@ -166,6 +198,8 @@ class Dashboard extends BaseController
                     'license' => $license,
                     'upcomingExams' => $upcomingExams,
                     'recentActivity' => $recentActivity,
+                    'finishedActivityCount' => $finishedActivityCount,
+                    'notStartedActivityCount' => $notStartedActivityCount,
                     'systemInfo' => $systemInfo
                 ]);
 

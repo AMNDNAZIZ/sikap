@@ -606,4 +606,260 @@ class CbtConvertNilai extends BaseController
         return redirect()->to("admin/assessments/ptsList/{$classId}/{$subjectId}")
             ->with('success', "Nilai PTS dari CBT berhasil disimpan: {$saved} siswa diperbarui, {$skipped} diabaikan.");
     }
+
+    // ============================================================
+    // IMPORT DARI CBT MANDIRI
+    // Flow: upload JSON → parse → cocokkan NIS → konversi → preview
+    //       → user pilih mapel + tipe tujuan → simpan
+    // ============================================================
+
+    /**
+     * Preview: upload file JSON export CBT Mandiri, parse, cocokkan NIS,
+     * hitung konversi nilai, tampilkan halaman preview + form mapping mapel.
+     *
+     * POST admin/cbt/import-mandiri/preview
+     */
+    public function importCbtMandiri()
+    {
+        helper('cbt');
+
+        // --- 1. Validasi upload ---
+        $file = $this->request->getFile('nilai_file');
+        if (!$file || !$file->isValid() || $file->getExtension() !== 'json') {
+            return redirect()->to('admin/cbt/convertnilai?tab=mandiri')
+                ->with('error', 'File tidak valid. Harap upload file .json dari CBT Mandiri.');
+        }
+
+        $json = file_get_contents($file->getTempName());
+        $payload = json_decode($json, true);
+
+        if (!$payload || ($payload['format'] ?? '') !== 'espata_cbt_export_v1') {
+            return redirect()->to('admin/cbt/convertnilai?tab=mandiri')
+                ->with('error', 'Format file tidak dikenali. Pastikan file diexport dari CBT Mandiri versi terbaru.');
+        }
+
+        $students = $payload['students'] ?? [];
+        if (empty($students)) {
+            return redirect()->to('admin/cbt/convertnilai?tab=mandiri')
+                ->with('error', 'File tidak mengandung data siswa.');
+        }
+
+        // --- 2. Parameter konversi ---
+        $ya = (float) ($this->request->getPost('ya') ?? 100);
+        $yb = (float) ($this->request->getPost('yb') ?? 0);
+        if ($ya < $yb) { $ya = 100; $yb = 0; } // fallback aman
+
+        // --- 3. Cocokkan NIS → student_id di ESPATA ---
+        // Ambil semua NIS dari file
+        $nisList = array_filter(array_column($students, 'nis'));
+        $nisList = array_values(array_unique($nisList));
+
+        $espataStudents = [];
+        if (!empty($nisList)) {
+            $rows = $this->db->table('students')
+                ->select('id, nis, name, class_id')
+                ->whereIn('nis', $nisList)
+                ->get()->getResultArray();
+            foreach ($rows as $r) {
+                $espataStudents[$r['nis']] = $r; // NIS → data siswa ESPATA
+            }
+        }
+
+        // --- 4. Hitung konversi nilai ---
+        // Hanya siswa yang ikut ujian (ikut_ujian = true) masuk perhitungan range
+        $participantScores = [];
+        foreach ($students as $s) {
+            if (!empty($s['ikut_ujian'])) {
+                $participantScores[] = (float) $s['score'];
+            }
+        }
+
+        $xa = !empty($participantScores) ? max($participantScores) : 100;
+        $xb = !empty($participantScores) ? min($participantScores) : 0;
+        $denominator = ($xa - $xb) ?: 1;
+
+        $results = [];
+        foreach ($students as $s) {
+            $nis           = $s['nis'] ?? '';
+            $rawScore      = (float) ($s['score'] ?? 0);
+            $ikutUjian     = !empty($s['ikut_ujian']);
+            $espata        = $espataStudents[$nis] ?? null;
+
+            // Hitung nilai konversi
+            $convertedScore = 0;
+            if ($ikutUjian) {
+                if ($ya == $yb || ($xa == $xb)) {
+                    $convertedScore = $ya;
+                } else {
+                    $convertedScore = (($ya - $yb) / $denominator) * ($rawScore - $xb) + $yb;
+                }
+                $convertedScore = round(min(100, max(0, $convertedScore)), 2);
+            }
+
+            $results[] = [
+                'nis'             => $nis,
+                'name'            => $s['name']       ?? '-',
+                'class_name'      => $s['class_name'] ?? '-',
+                'raw_score'       => $rawScore,
+                'converted_score' => $convertedScore,
+                'ikut_ujian'      => $ikutUjian,
+                'espata_id'       => $espata['id']   ?? null,
+                'espata_name'     => $espata['name'] ?? null,
+                'matched'         => ($espata !== null),
+            ];
+        }
+
+        $matchedCount   = count(array_filter($results, fn($r) => $r['matched']));
+        $unmatchedCount = count($results) - $matchedCount;
+
+        // --- 5. Daftar mapel ESPATA untuk dropdown mapping ---
+        $espataSubjects = $this->db->table('subjects')
+            ->select('id, name, code')
+            ->where('is_active', 1)
+            ->orderBy('sort_order', 'ASC')
+            ->orderBy('name', 'ASC')
+            ->get()->getResultArray();
+
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear() ?: [];
+
+        return view('admin/cbt/convert/preview_cbt_mandiri', [
+            'payload'        => $payload,
+            'results'        => $results,
+            'matchedCount'   => $matchedCount,
+            'unmatchedCount' => $unmatchedCount,
+            'ya'             => $ya,
+            'yb'             => $yb,
+            'xa'             => $xa,
+            'xb'             => $xb,
+            'espataSubjects' => $espataSubjects,
+            'activeYear'     => $activeYear,
+        ]);
+    }
+
+    /**
+     * Simpan hasil import CBT Mandiri ke tabel nilai ESPATA.
+     * Hanya menyimpan siswa yang matched (NIS ditemukan).
+     *
+     * POST admin/cbt/import-mandiri/save
+     */
+    public function saveCbtMandiri()
+    {
+        helper('cbt');
+
+        $subjectId  = (int)   $this->request->getPost('subject_id');
+        $yearId     = (int)   $this->request->getPost('year_id');
+        $semester   =         $this->request->getPost('semester');
+        $destType   =         $this->request->getPost('dest_type');   // formatif|sumatif|pts|final
+        $scores     =         $this->request->getPost('student_scores'); // [student_id => score]
+
+        if (!$subjectId || !$yearId || !$destType || empty($scores)) {
+            return redirect()->to('admin/cbt/convertnilai?tab=mandiri')
+                ->with('error', 'Data tidak lengkap. Harap isi semua field yang wajib.');
+        }
+
+        if (!in_array($destType, ['formatif', 'sumatif', 'pts', 'final'], true)) {
+            return redirect()->back()->with('error', 'Tipe tujuan tidak valid.');
+        }
+
+        if (in_array($destType, ['sumatif', 'pts'], true) && empty($semester)) {
+            return redirect()->back()->with('error', 'Pilih semester untuk tipe ' . strtoupper($destType) . '.');
+        }
+
+        // Validasi akses mapel
+        if (!can_convert_subject_score($subjectId)) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses untuk mapel ini.');
+        }
+
+        // Untuk formatif butuh material_id
+        $materialId = $this->request->getPost('material_id');
+        if ($destType === 'formatif' && empty($materialId)) {
+            return redirect()->back()->with('error', 'Pilih Lingkup Materi (ATP) untuk tipe Formatif.');
+        }
+
+        $this->db->transStart();
+        $saved   = 0;
+        $skipped = 0;
+        $userId  = session()->get('user')['id'] ?? null;
+        $now     = date('Y-m-d H:i:s');
+
+        foreach ($scores as $studentId => $newScore) {
+            $studentId = (int) $studentId;
+            if ($studentId <= 0) { $skipped++; continue; }
+
+            $newScore = ($newScore === '' || $newScore === null || !is_numeric($newScore))
+                ? 0.0 : (float) $newScore;
+            $newScore = max(0, min(100, $newScore));
+
+            // ── Tentukan tabel & where berdasarkan destType ──
+            $table      = '';
+            $matchWhere = [];
+            $insertData = [];
+
+            if ($destType === 'formatif') {
+                $normMethod = 'tulis'; // nilai dari CBT = tulis
+                $table      = 'material_scores';
+                $matchWhere = ['student_id' => $studentId, 'material_id' => $materialId, 'type' => $normMethod];
+                $insertData = array_merge($matchWhere, ['score' => $newScore, 'created_by' => $userId]);
+
+            } elseif ($destType === 'sumatif') {
+                $table      = 'summative_scores';
+                $matchWhere = ['student_id' => $studentId, 'subject_id' => $subjectId,
+                               'year_id' => $yearId, 'semester' => $semester, 'type' => 'tulis'];
+                $insertData = array_merge($matchWhere, ['score' => $newScore]);
+
+            } elseif ($destType === 'pts') {
+                $table      = 'pts_scores';
+                $matchWhere = ['student_id' => $studentId, 'subject_id' => $subjectId,
+                               'year_id' => $yearId, 'semester' => $semester];
+                $insertData = array_merge($matchWhere, ['score' => $newScore,
+                               'source' => 'cbt_mandiri', 'created_by' => $userId]);
+
+            } elseif ($destType === 'final') {
+                $table      = 'final_exam_scores';
+                $matchWhere = ['student_id' => $studentId, 'subject_id' => $subjectId, 'year_id' => $yearId];
+                $insertData = array_merge($matchWhere, ['score' => $newScore]);
+            }
+
+            if (!$table) { $skipped++; continue; }
+
+            $existing = $this->db->table($table)->where($matchWhere)->get()->getRowArray();
+            if (!$existing) {
+                $this->db->table($table)->insert($insertData);
+                $saved++;
+            } elseif ($newScore > (float) $existing['score']) {
+                $this->db->table($table)->where($matchWhere)->update(['score' => $newScore]);
+                $saved++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        $this->db->transComplete();
+
+        if ($this->db->transStatus() === false) {
+            return redirect()->back()->with('error', 'Gagal menyimpan nilai ke database.');
+        }
+
+        return redirect()->to('admin/cbt/convertnilai?tab=mandiri')
+            ->with('success', "Import CBT Mandiri selesai: {$saved} nilai disimpan, {$skipped} diabaikan (nilai lama lebih besar atau tidak diikuti).");
+    }
+
+    /**
+     * AJAX: daftar ATP/Lingkup Materi untuk subject_id tertentu.
+     * Dipakai oleh view preview_cbt_mandiri untuk dropdown Formatif.
+     *
+     * GET admin/cbt/import-mandiri/atp/:subjectId
+     */
+    public function getAtpBySubject(int $subjectId)
+    {
+        $rows = $this->db->table('alur_tujuan_pembelajaran atp')
+            ->select('atp.id, atp.lingkup_materi AS title, atp.semester')
+            ->join('classes c', 'c.id = atp.class_id', 'left')
+            ->where('atp.subject_id', $subjectId)
+            ->orderBy('atp.semester', 'ASC')
+            ->orderBy('atp.urutan', 'ASC')
+            ->get()->getResultArray();
+
+        return $this->response->setJSON($rows);
+    }
 }
