@@ -546,6 +546,8 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('bk/perencanaan-individual/delete/(:num)', 'BkModule::deleteIndividualPlan/$1', $auth1237);
     $routes->post('bk/perencanaan-individual/progress/(:num)', 'BkModule::updateIndividualProgress/$1', $auth1237);
     $routes->get('bk/laporan', 'BkModule::laporan', $auth1237);
+    $routes->get('bk/settings', 'BkModule::settings', $auth1);
+    $routes->post('bk/settings/save', 'BkModule::saveCounselorAssignment', $auth1);
     $routes->get('bk/laporan/layanan',         'BkLaporan::filterLayanan',     $auth1237);
     $routes->post('bk/laporan/layanan/preview', 'BkLaporan::previewLayanan',   $auth1237);
     $routes->post('bk/laporan/layanan/pdf',    'BkLaporan::pdfLayanan',        $auth1237);

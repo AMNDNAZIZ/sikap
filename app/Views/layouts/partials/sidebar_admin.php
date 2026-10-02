@@ -300,6 +300,8 @@
           <li><a class="nav-link <?= url_is('admin/bk/kolaborasi*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/kolaborasi') ?>">🤝 <span class="label">Kolaborasi Multi-Role</span></a></li>
           <li><a class="nav-link <?= url_is('admin/bk/perencanaan-individual*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/perencanaan-individual') ?>">🎯 <span class="label">Perencanaan Individual</span></a></li>
           <li><a class="nav-link <?= url_is('admin/bk/laporan*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/laporan') ?>">📄 <span class="label">Laporan & Rekap BK</span></a></li>
+          <?php /* Pengaturan Guru BK — sidebar_admin hanya muncul untuk role Admin (1) */ ?>
+          <li><a class="nav-link <?= url_is('admin/bk/settings*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/settings') ?>">⚙️ <span class="label">Pengaturan Guru BK</span></a></li>
           <li><a class="nav-link <?= url_is('admin/counseling-appointment*') ? 'active' : '' ?>" href="<?= base_url('admin/counseling-appointment') ?>">📅 <span class="label">Janji Temu Siswa</span></a></li>
           <li><a class="nav-link <?= url_is('admin/counseling-summon*') ? 'active' : '' ?>" href="<?= base_url('admin/counseling-summon') ?>">📨 <span class="label">Surat Panggilan Ortu</span></a></li>
         </ul>
