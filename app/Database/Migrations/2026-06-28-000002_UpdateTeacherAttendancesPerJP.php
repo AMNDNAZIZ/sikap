@@ -36,7 +36,11 @@ class UpdateTeacherAttendancesPerJP extends Migration
         ]);
 
         // Tambah UNIQUE KEY baru (schedule_id, date, jp_ke)
-        $db->query('ALTER TABLE teacher_attendances ADD UNIQUE KEY unique_jp (schedule_id, date, jp_ke)');
+        try {
+            $db->query('ALTER TABLE teacher_attendances ADD UNIQUE KEY unique_jp (schedule_id, date, jp_ke)');
+        } catch (\Exception $e) {
+            // Index may already exist
+        }
     }
 
     public function down()
@@ -44,6 +48,10 @@ class UpdateTeacherAttendancesPerJP extends Migration
         $db = \Config\Database::connect();
         $db->query('ALTER TABLE teacher_attendances DROP INDEX unique_jp');
         $this->forge->dropColumn('teacher_attendances', 'jp_ke');
-        $db->query('ALTER TABLE teacher_attendances ADD UNIQUE KEY schedule_id (schedule_id, date)');
+        try {
+            $db->query('ALTER TABLE teacher_attendances ADD UNIQUE KEY schedule_id (schedule_id, date)');
+        } catch (\Exception $e) {
+            // Index may already exist
+        }
     }
 }

@@ -20,23 +20,27 @@ class AddBookTypeToEbooks extends Migration
             ]);
         }
 
-        // Make level nullable for umum books
-        $this->forge->modifyColumn('ebooks', [
-            'level' => [
-                'type' => 'TINYINT',
-                'constraint' => 3,
-                'unsigned' => true,
-                'null' => true,
-                'default' => null,
-            ],
-            'subject_id' => [
-                'type' => 'INT',
-                'constraint' => 11,
-                'unsigned' => true,
-                'null' => true,
-                'default' => null,
-            ],
-        ]);
+        // Make level and subject_id nullable for umum books
+        try {
+            $this->forge->modifyColumn('ebooks', [
+                'level' => [
+                    'type' => 'TINYINT',
+                    'constraint' => 3,
+                    'unsigned' => true,
+                    'null' => true,
+                    'default' => null,
+                ],
+                'subject_id' => [
+                    'type' => 'INT',
+                    'constraint' => 11,
+                    'unsigned' => true,
+                    'null' => true,
+                    'default' => null,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            log_message('warning', '[AddBookTypeToEbooks] modifyColumn: ' . $e->getMessage());
+        }
     }
 
     public function down()

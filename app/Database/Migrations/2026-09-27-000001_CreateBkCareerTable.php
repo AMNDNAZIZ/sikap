@@ -31,9 +31,11 @@ class CreateBkCareerTable extends Migration
             'updated_at'          => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->addUniqueKey('student_id'); // Satu siswa satu profil karir
-        $this->forge->addForeignKey('student_id', 'students', 'id', 'CASCADE', 'CASCADE');
-        $this->forge->createTable('bk_career_profiles');
+        $this->forge->addUniqueKey('student_id');
+        if ($this->db->tableExists('students')) {
+            $this->forge->addForeignKey('student_id', 'students', 'id', 'CASCADE', 'CASCADE');
+        }
+        $this->forge->createTable('bk_career_profiles', true);
     }
 
     public function down()

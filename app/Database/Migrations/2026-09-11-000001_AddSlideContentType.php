@@ -18,12 +18,16 @@ class AddSlideContentType extends Migration
 {
     public function up()
     {
-        // 1) Tambah 'slide' ke enum content_type
-        $this->db->query(
-            "ALTER TABLE subject_materials
-             MODIFY COLUMN content_type ENUM('text','pdf','video','link','html','slide')
-             NULL DEFAULT 'text'"
-        );
+        // 1) Tambah 'slide' ke enum content_type — wrap try/catch agar idempotent
+        try {
+            $this->db->query(
+                "ALTER TABLE subject_materials
+                 MODIFY COLUMN content_type ENUM('text','pdf','video','link','html','slide')
+                 NULL DEFAULT 'text'"
+            );
+        } catch (\Exception $e) {
+            log_message('warning', '[AddSlideContentType] MODIFY content_type: ' . $e->getMessage());
+        }
 
         // 2) Tabel slide gambar
         if (! $this->db->tableExists('subject_material_slides')) {

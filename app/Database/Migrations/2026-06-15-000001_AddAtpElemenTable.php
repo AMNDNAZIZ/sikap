@@ -63,15 +63,21 @@ class AddAtpElemenTable extends Migration
         }
 
         // 3. Jadikan cp_master_id nullable di alur_tujuan_pembelajaran
-        $this->forge->modifyColumn('alur_tujuan_pembelajaran', [
-            'cp_master_id' => [
-                'type'       => 'INT',
-                'constraint' => 11,
-                'unsigned'   => false,
-                'null'       => true,
-                'default'    => null,
-            ],
-        ]);
+        // Guard: modifyColumn ini aman dijalankan berulang (idempotent) karena
+        // hanya mengubah NULL constraint — wrap try/catch untuk jaga-jaga.
+        try {
+            $this->forge->modifyColumn('alur_tujuan_pembelajaran', [
+                'cp_master_id' => [
+                    'type'       => 'INT',
+                    'constraint' => 11,
+                    'unsigned'   => false,
+                    'null'       => true,
+                    'default'    => null,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            log_message('warning', '[AddAtpElemenTable] modifyColumn cp_master_id: ' . $e->getMessage());
+        }
     }
 
     public function down()

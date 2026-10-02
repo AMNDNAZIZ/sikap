@@ -25,9 +25,11 @@ class CreateBkTables extends Migration
             'updated_at'          => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->addForeignKey('student_id', 'students', 'id', 'CASCADE', 'CASCADE');
+        if ($this->db->tableExists('students')) {
+            $this->forge->addForeignKey('student_id', 'students', 'id', 'CASCADE', 'CASCADE');
+        }
         // counselor_id relates to teachers or users, we assume teachers table
-        $this->forge->createTable('bk_journals');
+        $this->forge->createTable('bk_journals', true);
 
         // 2. bk_appointments: Janji Temu Konseling
         $this->forge->addField([
@@ -43,8 +45,10 @@ class CreateBkTables extends Migration
             'updated_at'     => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->addForeignKey('student_id', 'students', 'id', 'CASCADE', 'CASCADE');
-        $this->forge->createTable('bk_appointments');
+        if ($this->db->tableExists('students')) {
+            $this->forge->addForeignKey('student_id', 'students', 'id', 'CASCADE', 'CASCADE');
+        }
+        $this->forge->createTable('bk_appointments', true);
 
         // 3. bk_summons: Surat Panggilan Orang Tua
         $this->forge->addField([
@@ -60,8 +64,10 @@ class CreateBkTables extends Migration
             'updated_at'  => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->addForeignKey('student_id', 'students', 'id', 'CASCADE', 'CASCADE');
-        $this->forge->createTable('bk_summons');
+        if ($this->db->tableExists('students')) {
+            $this->forge->addForeignKey('student_id', 'students', 'id', 'CASCADE', 'CASCADE');
+        }
+        $this->forge->createTable('bk_summons', true);
     }
 
     public function down()

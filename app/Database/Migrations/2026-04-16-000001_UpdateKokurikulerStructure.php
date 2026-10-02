@@ -9,14 +9,19 @@ class UpdateKokurikulerStructure extends Migration
     public function up()
     {
         // 1. Rename bentuk_kegiatan to jenis_kokurikuler
-        $this->forge->modifyColumn('kokurikuler_documents', [
-            'bentuk_kegiatan' => [
-                'name' => 'jenis_kokurikuler',
-                'type' => 'ENUM',
-                'constraint' => ['lintas_disiplin', '7kaih', 'lainnya'],
-                'comment' => 'Jenis Kokurikuler: Lintas Disiplin Ilmu, 7 KAIH, atau Kegiatan Lainnya',
-            ],
-        ]);
+        //    Guard: jika bentuk_kegiatan sudah tidak ada (rename sudah dijalankan), skip.
+        //    Jika jenis_kokurikuler sudah ada, kolom sudah terename sebelumnya.
+        if ($this->db->fieldExists('bentuk_kegiatan', 'kokurikuler_documents')
+            && !$this->db->fieldExists('jenis_kokurikuler', 'kokurikuler_documents')) {
+            $this->forge->modifyColumn('kokurikuler_documents', [
+                'bentuk_kegiatan' => [
+                    'name' => 'jenis_kokurikuler',
+                    'type' => 'ENUM',
+                    'constraint' => ['lintas_disiplin', '7kaih', 'lainnya'],
+                    'comment' => 'Jenis Kokurikuler: Lintas Disiplin Ilmu, 7 KAIH, atau Kegiatan Lainnya',
+                ],
+            ]);
+        }
 
         // 2. Add bentuk_kegiatan_konkret field (kegiatan nyata yang dilakukan)
         if (!$this->db->fieldExists('bentuk_kegiatan_konkret', 'kokurikuler_documents')) {
