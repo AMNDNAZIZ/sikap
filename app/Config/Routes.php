@@ -483,9 +483,11 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('erapor/import-preview', 'Erapor::importPreview', ['filter' => 'auth:1,3']);
     $routes->post('erapor/import-confirm', 'Erapor::importConfirm', ['filter' => 'auth:1,3']);
 
-    // Leger View Nilai Kelas — Admin, Kepsek, Guru
-    $routes->get('erapor/leger/(:num)/(:num)', 'Erapor::legerView/$1/$2', $auth123);
-    $routes->get('erapor/leger/(:num)',        'Erapor::legerView/$1/1',  $auth123);
+    // Leger View & Print Nilai Kelas — Admin, Kepsek, Guru
+    $routes->get('erapor/leger/(:num)/(:num)',       'Erapor::legerView/$1/$2',  $auth123);
+    $routes->get('erapor/leger/(:num)',              'Erapor::legerView/$1/1',   $auth123);
+    $routes->get('erapor/print-leger/(:num)/(:num)', 'Erapor::printLeger/$1/$2', $auth123);
+    $routes->get('erapor/print-leger/(:num)',        'Erapor::printLeger/$1/1',  $auth123);
 
     $routes->get('materials', 'Materials::subjectList', $auth123);
     $routes->get('materials/(:num)', 'Materials::index/$1', $auth123);

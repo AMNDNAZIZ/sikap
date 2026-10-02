@@ -790,7 +790,10 @@ class Erapor extends BaseController
                 ->select('subject_id')
                 ->where('teacher_id', $teacherId)
                 ->where('class_id', $classId)
-                ->where('year_id', $yearId)
+                ->groupStart()
+                    ->where('academic_year_id', $yearId)
+                    ->orWhere('year_id', $yearId)
+                ->groupEnd()
                 ->get()->getResultArray();
             $assignedSubjectIds = array_column($assignments, 'subject_id');
 
@@ -898,7 +901,10 @@ class Erapor extends BaseController
                 ->select('subject_id')
                 ->where('teacher_id', $teacherId)
                 ->where('class_id', $classId)
-                ->where('year_id', $yearId)
+                ->groupStart()
+                    ->where('academic_year_id', $yearId)
+                    ->orWhere('year_id', $yearId)
+                ->groupEnd()
                 ->get()->getResultArray();
             $allowedSubjectIds = array_column($assignments, 'subject_id');
         }
@@ -1068,23 +1074,6 @@ class Erapor extends BaseController
             return redirect()->back()->with('error', 'Kelas atau tahun ajaran tidak ditemukan.');
         }
 
-        // Fetch subjects assigned to this class in teaching_assignments or all active subjects
-        $assignedSubjects = $this->db->table('teaching_assignments ta')
-            ->select('s.id, s.name, s.code')
-            ->join('subjects s', 's.id = ta.subject_id')
-            ->where('ta.class_id', $classId)
-            ->where('ta.academic_year_id', $yearId)
-            ->groupBy('s.id')
-            ->orderBy('s.name', 'ASC')
-            ->get()->getResultArray();
-
-        if (empty($assignedSubjects)) {
-            $assignedSubjects = $this->db->table('subjects')
-                ->select('id, name, code')
-                ->orderBy('name', 'ASC')
-                ->get()->getResultArray();
-        }
-
         // Fetch students in class for specified academic year
         $students = $this->db->table('student_records sr')
             ->select('s.id, s.name, s.nisn, s.nis')
@@ -1107,6 +1096,46 @@ class Erapor extends BaseController
 
         $semesterLabel = ($semester == 1 || $semester == 'ganjil') ? 'ganjil' : 'genap';
         $studentIds    = array_column($students, 'id');
+
+        // Fetch subjects assigned to this class in teaching_assignments
+        $taSubjects = $this->db->table('teaching_assignments ta')
+            ->select('s.id, s.name, s.code')
+            ->join('subjects s', 's.id = ta.subject_id')
+            ->where('ta.class_id', $classId)
+            ->where('ta.academic_year_id', $yearId)
+            ->get()->getResultArray();
+
+        // ALSO fetch subjects that have scores saved in `grades` for students of this class
+        $gradeSubjects = [];
+        if (!empty($studentIds)) {
+            $gradeSubjects = $this->db->table('grades g')
+                ->select('s.id, s.name, s.code')
+                ->join('subjects s', 's.id = g.subject_id')
+                ->whereIn('g.student_id', $studentIds)
+                ->where('g.year_id', $yearId)
+                ->where('g.semester', $semesterLabel)
+                ->where('(g.erapor_score IS NOT NULL OR g.report_score IS NOT NULL)')
+                ->get()->getResultArray();
+        }
+
+        // Merge both sources and remove duplicates
+        $subjectMap = [];
+        foreach (array_merge($taSubjects, $gradeSubjects) as $sub) {
+            $subjectMap[$sub['id']] = $sub;
+        }
+
+        if (empty($subjectMap)) {
+            $allSubs = $this->db->table('subjects')
+                ->select('id, name, code')
+                ->orderBy('name', 'ASC')
+                ->get()->getResultArray();
+            foreach ($allSubs as $sub) {
+                $subjectMap[$sub['id']] = $sub;
+            }
+        }
+
+        $assignedSubjects = array_values($subjectMap);
+        usort($assignedSubjects, fn($a, $b) => strcmp($a['name'], $b['name']));
 
         // Fetch erapor scores from grades
         $scores = [];
@@ -1145,6 +1174,44 @@ class Erapor extends BaseController
             }
         }
 
+        // Fetch School Profile & Principal Info
+        $settingsModel = new \App\Models\SettingsModel();
+        $schoolModel   = new \App\Models\SchoolModel();
+        $school        = $schoolModel->first() ?? [];
+
+        $pName = trim($settingsModel->getValue('principal_name') ?? '');
+        if ($pName === '' || $pName === '-') {
+            $pName = trim($school['headmaster'] ?? '');
+        }
+        if ($pName === '' || $pName === '-') {
+            $kepsek = $this->db->table('teachers')->like('functional_position', 'Kepala Sekolah')->get()->getRowArray();
+            if ($kepsek) {
+                $pName = trim($kepsek['name']);
+            }
+        }
+
+        $pNip = trim($settingsModel->getValue('principal_nip') ?? '');
+        if ($pNip === '' || $pNip === '-') {
+            $pNip = trim($school['principal_nip'] ?? '');
+        }
+        if ($pNip === '' || $pNip === '-') {
+            if (!isset($kepsek)) {
+                $kepsek = $this->db->table('teachers')->like('functional_position', 'Kepala Sekolah')->get()->getRowArray();
+            }
+            if ($kepsek && !empty($kepsek['nip'])) {
+                $pNip = trim($kepsek['nip']);
+            }
+        }
+
+        // Fetch Wali Kelas (Homeroom Teacher)
+        $waliKelas = null;
+        if (!empty($class['teacher_id'])) {
+            $waliKelas = $this->db->table('teachers')
+                ->select('name, nip')
+                ->where('id', $class['teacher_id'])
+                ->get()->getRowArray();
+        }
+
         return view('admin/erapor/leger_view', [
             'title'            => 'Leger Nilai & Rekap Absen — ' . $class['name'],
             'class'            => $class,
@@ -1155,9 +1222,219 @@ class Erapor extends BaseController
             'students'         => $students,
             'scores'           => $scores,
             'attendanceRecaps' => $attendanceRecaps,
+            'school'           => $school,
+            'principal'        => [
+                'name' => ($pName !== '' && $pName !== '-') ? $pName : '—',
+                'nip'  => ($pNip !== '' && $pNip !== '-') ? $pNip : '—',
+            ],
+            'waliKelas'        => [
+                'name' => $waliKelas['name'] ?? '—',
+                'nip'  => $waliKelas['nip'] ?? '—',
+            ],
             'isAdmin'          => in_array($roleId, [1, 2]),
         ]);
     }
+
+    // =========================================================
+    // PRINT LEGER — Standalone Printable View (Tab Baru)
+    // =========================================================
+    public function printLeger($classId, $semester = 1)
+    {
+        $user   = $this->currentUser();
+        $roleId = (int) ($user['role_id'] ?? 0);
+
+        $activeYear = $this->yearModel->getActiveYear();
+        $yearId     = $this->request->getGet('year_id') ?? ($activeYear['id'] ?? null);
+
+        // Options: Kop & Tanda Tangan
+        $useKop       = $this->request->getGet('use_kop') !== '0';
+        $useSignature = $this->request->getGet('use_signature') !== '0';
+
+        $class = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+        $year  = $this->db->table('academic_years')->where('id', $yearId)->get()->getRowArray();
+
+        if (!$class || !$year) {
+            return 'Data kelas atau tahun ajaran tidak ditemukan.';
+        }
+
+        $students = $this->db->table('student_records sr')
+            ->select('s.id, s.name, s.nisn, s.nis')
+            ->join('students s', 's.id = sr.student_id')
+            ->where('sr.class_id', $classId)
+            ->where('sr.academic_year_id', $yearId)
+            ->orderBy('s.name', 'ASC')
+            ->get()->getResultArray();
+
+        if (empty($students)) {
+            $students = $this->db->table('student_records sr')
+                ->select('s.id, s.name, s.nisn, s.nis')
+                ->join('students s', 's.id = sr.student_id')
+                ->where('sr.class_id', $classId)
+                ->groupBy('s.id')
+                ->orderBy('s.name', 'ASC')
+                ->get()->getResultArray();
+        }
+
+        $semesterLabel = ($semester == 1 || $semester == 'ganjil') ? 'ganjil' : 'genap';
+        $studentIds    = array_column($students, 'id');
+
+        // Fetch subjects assigned to this class in teaching_assignments
+        $taSubjects = $this->db->table('teaching_assignments ta')
+            ->select('s.id, s.name, s.code')
+            ->join('subjects s', 's.id = ta.subject_id')
+            ->where('ta.class_id', $classId)
+            ->where('ta.academic_year_id', $yearId)
+            ->get()->getResultArray();
+
+        // ALSO fetch subjects that have scores saved in `grades` for students of this class
+        $gradeSubjects = [];
+        if (!empty($studentIds)) {
+            $gradeSubjects = $this->db->table('grades g')
+                ->select('s.id, s.name, s.code')
+                ->join('subjects s', 's.id = g.subject_id')
+                ->whereIn('g.student_id', $studentIds)
+                ->where('g.year_id', $yearId)
+                ->where('g.semester', $semesterLabel)
+                ->where('(g.erapor_score IS NOT NULL OR g.report_score IS NOT NULL)')
+                ->get()->getResultArray();
+        }
+
+        // Merge both sources and remove duplicates
+        $subjectMap = [];
+        foreach (array_merge($taSubjects, $gradeSubjects) as $sub) {
+            $subjectMap[$sub['id']] = $sub;
+        }
+
+        if (empty($subjectMap)) {
+            $allSubs = $this->db->table('subjects')
+                ->select('id, name, code')
+                ->orderBy('name', 'ASC')
+                ->get()->getResultArray();
+            foreach ($allSubs as $sub) {
+                $subjectMap[$sub['id']] = $sub;
+            }
+        }
+
+        $assignedSubjects = array_values($subjectMap);
+        usort($assignedSubjects, fn($a, $b) => strcmp($a['name'], $b['name']));
+
+        $scores = [];
+        if (!empty($studentIds) && !empty($assignedSubjects)) {
+            $subjectIds = array_column($assignedSubjects, 'id');
+            $gradeRows = $this->db->table('grades')
+                ->select('student_id, subject_id, erapor_score, report_score')
+                ->whereIn('student_id', $studentIds)
+                ->whereIn('subject_id', $subjectIds)
+                ->where('year_id', $yearId)
+                ->where('semester', $semesterLabel)
+                ->get()->getResultArray();
+
+            foreach ($gradeRows as $gr) {
+                $val = $gr['erapor_score'] ?? $gr['report_score'];
+                $scores[$gr['student_id']][$gr['subject_id']] = $val;
+            }
+        }
+
+        $attendanceRecaps = [];
+        if (!empty($studentIds)) {
+            $recapRows = $this->db->table('attendance_recaps')
+                ->select('student_id, sick, permitted, absent')
+                ->whereIn('student_id', $studentIds)
+                ->where('academic_year_id', $yearId)
+                ->where('semester', $semesterLabel)
+                ->get()->getResultArray();
+
+            foreach ($recapRows as $rr) {
+                $attendanceRecaps[$rr['student_id']] = [
+                    'sick'      => $rr['sick'],
+                    'permitted' => $rr['permitted'],
+                    'absent'    => $rr['absent'],
+                ];
+            }
+        }
+
+        // Fetch School Profile & Principal Info
+        $settingsModel = new \App\Models\SettingsModel();
+        $schoolModel   = new \App\Models\SchoolModel();
+        $school        = $schoolModel->first() ?? [];
+
+        $pName = trim($settingsModel->getValue('principal_name') ?? '');
+        if ($pName === '' || $pName === '-') {
+            $pName = trim($school['headmaster'] ?? '');
+        }
+        if ($pName === '' || $pName === '-') {
+            $kepsek = $this->db->table('teachers')->like('functional_position', 'Kepala Sekolah')->get()->getRowArray();
+            if ($kepsek) {
+                $pName = trim($kepsek['name']);
+            }
+        }
+
+        $pNip = trim($settingsModel->getValue('principal_nip') ?? '');
+        if ($pNip === '' || $pNip === '-') {
+            $pNip = trim($school['principal_nip'] ?? '');
+        }
+        if ($pNip === '' || $pNip === '-') {
+            if (!isset($kepsek)) {
+                $kepsek = $this->db->table('teachers')->like('functional_position', 'Kepala Sekolah')->get()->getRowArray();
+            }
+            if ($kepsek && !empty($kepsek['nip'])) {
+                $pNip = trim($kepsek['nip']);
+            }
+        }
+
+        $waliKelas = null;
+        if (!empty($class['teacher_id'])) {
+            $waliKelas = $this->db->table('teachers')
+                ->select('name, nip')
+                ->where('id', $class['teacher_id'])
+                ->get()->getRowArray();
+        }
+
+        $logoBase64 = null;
+        if (!empty($school['logo']) && file_exists(FCPATH . $school['logo'])) {
+            $ext = pathinfo(FCPATH . $school['logo'], PATHINFO_EXTENSION);
+            $mime = 'image/' . ($ext === 'jpg' || $ext === 'jpeg' ? 'jpeg' : 'png');
+            $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents(FCPATH . $school['logo']));
+        }
+
+        $pdfGenerator = new \App\Libraries\PdfGenerator();
+        $safeClassName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $class['name']);
+        $filename = "Leger_Nilai_{$safeClassName}_Sem{$semester}.pdf";
+
+        $pdfGenerator->stream(
+            'admin/erapor/pdf_leger_template',
+            [
+                'title'            => 'Leger Nilai — ' . $class['name'],
+                'class'            => $class,
+                'year'             => $year,
+                'semester'         => $semester,
+                'semesterLabel'    => ucfirst($semesterLabel),
+                'subjects'         => $assignedSubjects,
+                'students'         => $students,
+                'scores'           => $scores,
+                'attendanceRecaps' => $attendanceRecaps,
+                'school'           => $school,
+                'principal'        => [
+                    'name' => ($pName !== '' && $pName !== '-') ? $pName : '—',
+                    'nip'  => ($pNip !== '' && $pNip !== '-') ? $pNip : '—',
+                ],
+                'waliKelas'        => [
+                    'name' => $waliKelas['name'] ?? '—',
+                    'nip'  => $waliKelas['nip'] ?? '—',
+                ],
+                'useKop'           => $useKop,
+                'useSignature'     => $useSignature,
+                'logo_base64'      => $logoBase64,
+            ],
+            $filename,
+            'landscape',
+            $useKop,
+            false, // Attachment = false (Stream langsung di tab browser)
+            'A4'
+        );
+    }
 }
+
+
 
 
