@@ -728,7 +728,8 @@ class CbtConvertNilai extends BaseController
         } elseif ($context['is_teacher'] && $context['teacher_id']) {
             // Guru: hanya mapel yang diampu di teaching_assignments
             $espataSubjects = $this->db->table('teaching_assignments ta')
-                ->select('DISTINCT s.id, s.name, s.code')
+                ->distinct()
+                ->select('s.id, s.name, s.code')
                 ->join('subjects s', 's.id = ta.subject_id', 'inner')
                 ->where('ta.teacher_id', $context['teacher_id'])
                 ->where('s.is_active', 1)
