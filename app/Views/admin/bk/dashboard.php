@@ -8,8 +8,8 @@
             <div class="card bg-gradient text-white shadow-sm border-0 rounded-4" style="background: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%);">
                 <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
                     <div>
-                        <h2 class="h3 fw-bold mb-1"><i class="bi bi-heart-pulse-fill me-2"></i> Dashboard Bimbingan Konseling (BP/BK)</h2>
-                        <p class="mb-0 text-white-50">
+                        <h2 class="h3 fw-bold mb-1 text-white"><i class="bi bi-heart-pulse-fill me-2"></i> Dashboard Bimbingan Konseling (BP/BK)</h2>
+                        <p class="mb-0 text-white opacity-75">
                             Sistem Informasi BK ESPATA &mdash; Berorientasi Tindakan, Pemantauan Sinyal & Presisi Data
                             <?php if (!empty($activeYear)) : ?>
                                 &bull; <strong>Tahun Ajaran <?= esc($activeYear['year']) ?></strong>
