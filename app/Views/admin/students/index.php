@@ -173,7 +173,7 @@
           </li>
           <li class="nav-item" role="presentation">
             <button class="nav-link fw-bold" id="standard-tab" data-bs-toggle="tab" data-bs-target="#standard-import" type="button" role="tab">
-              📄 Template SIAKAD (Manual)
+              📄 Template ESPATA (Manual)
             </button>
           </li>
         </ul>
@@ -214,7 +214,7 @@
             </form>
           </div>
 
-          <!-- Tab 2: Impor Template SIAKAD -->
+          <!-- Tab 2: Impor Template ESPATA -->
           <div class="tab-pane fade" id="standard-import" role="tabpanel">
             <form action="<?= base_url('admin/students/import') ?>" method="post" enctype="multipart/form-data">
               <?= csrf_field() ?>

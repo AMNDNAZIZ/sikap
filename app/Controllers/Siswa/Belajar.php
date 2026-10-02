@@ -343,6 +343,16 @@ class Belajar extends BaseController
             $subMat['embed_url'] = SubjectMaterialModel::toEmbedUrl($subMat['video_url']);
         }
 
+        // Slide gambar
+        $slides = [];
+        if (($subMat['content_type'] ?? '') === 'slide') {
+            $slides = $this->db->table('subject_material_slides')
+                ->where('material_id', $subMatId)
+                ->orderBy('sort_order', 'ASC')
+                ->orderBy('id', 'ASC')
+                ->get()->getResultArray();
+        }
+
         $parent  = $this->mat->find($subMat['parent_id']);
         $subject = $this->db->table('subjects')
             ->where('id', $subMat['subject_id'])->get()->getRowArray();
@@ -424,6 +434,7 @@ class Belajar extends BaseController
             'threadId'   => $threadId,
             'replyTree'  => $replyTree,
             'quizzes'    => $quizzes,
+            'slides'     => $slides,
         ]);
     }
 

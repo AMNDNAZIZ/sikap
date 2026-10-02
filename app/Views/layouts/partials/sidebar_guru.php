@@ -1,4 +1,15 @@
 <div class="position-sticky pt-3 sidebar-mini">
+<?php
+  // Deteksi apakah guru ini wali kelas (untuk menu Cetak Rapor).
+  $guruIsWali = false;
+  $guruUser = session()->get('user');
+  if (($guruUser['role_id'] ?? null) == 3 && !empty($guruUser['related_id'])) {
+      $guruIsWali = (bool) \Config\Database::connect()
+          ->table('classes')
+          ->where('teacher_id', (int) $guruUser['related_id'])
+          ->countAllResults();
+  }
+?>
   <ul class="nav flex-column">
 
     <!-- Dashboard -->
@@ -63,6 +74,15 @@
         📝 <span class="label">Input Penilaian</span>
       </a>
     </li>
+
+    <?php if ($guruIsWali): ?>
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/rapor*') ? 'active' : '' ?>"
+        href="<?= base_url('admin/rapor') ?>">
+        🖨️ <span class="label">Cetak Rapor</span>
+      </a>
+    </li>
+    <?php endif; ?>
 
     <li class="nav-item">
       <a class="nav-link <?= url_is('admin/erapor*') ? 'active' : '' ?>"
@@ -161,6 +181,27 @@
       <a class="nav-link <?= url_is('admin/student-notes*') ? 'active' : '' ?>"
         href="<?= base_url('admin/student-notes') ?>">
         🗒️ <span class="label">Catatan Siswa</span>
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/bk*') ? 'active' : '' ?>"
+        href="<?= base_url('admin/bk/dashboard') ?>">
+        📊 <span class="label">Modul BP/BK Terpadu</span>
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/counseling-appointment*') ? 'active' : '' ?>"
+        href="<?= base_url('admin/counseling-appointment') ?>">
+        📅 <span class="label">Janji Temu (BK)</span>
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/counseling-summon*') ? 'active' : '' ?>"
+        href="<?= base_url('admin/counseling-summon') ?>">
+        📨 <span class="label">Surat Panggilan Ortu</span>
       </a>
     </li>
 

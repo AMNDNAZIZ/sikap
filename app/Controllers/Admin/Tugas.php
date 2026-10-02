@@ -30,6 +30,17 @@ class Tugas extends BaseController
         return in_array($this->getUser()['role_id'] ?? 0, [1, 2]);
     }
 
+    private function isHeadmaster(): bool
+    {
+        return ($this->getUser()['role_id'] ?? 0) == 2;
+    }
+
+    /** Kepala sekolah: hanya boleh lihat, tidak boleh buat/edit/hapus */
+    private function isViewOnly(): bool
+    {
+        return $this->isHeadmaster();
+    }
+
     private function getTeacherId(): ?int
     {
         $user = $this->getUser();
@@ -121,9 +132,10 @@ class Tugas extends BaseController
         unset($t);
 
         return view('admin/tugas/index', [
-            'title'     => 'Kirim Tugas',
-            'tugasList' => $tugasList,
-            'isAdmin'   => $this->isAdmin(),
+            'title'      => 'Kirim Tugas',
+            'tugasList'  => $tugasList,
+            'isAdmin'    => $this->isAdmin(),
+            'isViewOnly' => $this->isViewOnly(),
         ]);
     }
 
@@ -132,6 +144,10 @@ class Tugas extends BaseController
     // ─────────────────────────────────────────────
     public function create()
     {
+        if ($this->isViewOnly()) {
+            return redirect()->to('admin/tugas')->with('error', 'Kepala Sekolah hanya dapat melihat data tugas.');
+        }
+
         $data = $this->getClassesAndSubjects();
 
         return view('admin/tugas/create', [
@@ -140,6 +156,7 @@ class Tugas extends BaseController
             'subjects'      => $data['subjects'],
             'assignmentMap' => $data['assignmentMap'],
             'isAdmin'       => $this->isAdmin(),
+            'isViewOnly'    => $this->isViewOnly(),
         ]);
     }
 
@@ -200,6 +217,10 @@ class Tugas extends BaseController
     // ─────────────────────────────────────────────
     public function store()
     {
+        if ($this->isViewOnly()) {
+            return redirect()->to('admin/tugas')->with('error', 'Kepala Sekolah hanya dapat melihat data tugas.');
+        }
+
         $user      = $this->getUser();
         $teacherId = $this->getTeacherId();
 
@@ -338,6 +359,7 @@ class Tugas extends BaseController
             'students'      => $students,
             'submissionMap' => $submissionMap,
             'isAdmin'       => $this->isAdmin(),
+            'isViewOnly'    => $this->isViewOnly(),
         ]);
     }
 
@@ -346,6 +368,10 @@ class Tugas extends BaseController
     // ─────────────────────────────────────────────
     public function edit($id)
     {
+        if ($this->isViewOnly()) {
+            return redirect()->to('admin/tugas')->with('error', 'Kepala Sekolah hanya dapat melihat data tugas.');
+        }
+
         $tugas = $this->tugasModel->find($id);
         if (!$tugas) {
             return redirect()->to('admin/tugas')->with('error', 'Tugas tidak ditemukan.');
@@ -364,6 +390,7 @@ class Tugas extends BaseController
             'subjects'      => $data['subjects'],
             'assignmentMap' => $data['assignmentMap'],
             'isAdmin'       => $this->isAdmin(),
+            'isViewOnly'    => $this->isViewOnly(),
         ]);
     }
 
@@ -372,6 +399,10 @@ class Tugas extends BaseController
     // ─────────────────────────────────────────────
     public function update($id)
     {
+        if ($this->isViewOnly()) {
+            return redirect()->to('admin/tugas')->with('error', 'Kepala Sekolah hanya dapat melihat data tugas.');
+        }
+
         $tugas = $this->tugasModel->find($id);
         if (!$tugas) {
             return redirect()->to('admin/tugas')->with('error', 'Tugas tidak ditemukan.');
@@ -404,6 +435,10 @@ class Tugas extends BaseController
     // ─────────────────────────────────────────────
     public function delete($id)
     {
+        if ($this->isViewOnly()) {
+            return redirect()->to('admin/tugas')->with('error', 'Kepala Sekolah hanya dapat melihat data tugas.');
+        }
+
         $tugas = $this->tugasModel->find($id);
         if (!$tugas) {
             return redirect()->to('admin/tugas')->with('error', 'Tugas tidak ditemukan.');
@@ -423,6 +458,10 @@ class Tugas extends BaseController
     // ─────────────────────────────────────────────
     public function nilai($tugasId, $studentId)
     {
+        if ($this->isViewOnly()) {
+            return redirect()->back()->with('error', 'Kepala Sekolah hanya dapat melihat data tugas.');
+        }
+
         $tugas = $this->tugasModel->find($tugasId);
         if (!$tugas) {
             return redirect()->back()->with('error', 'Tugas tidak ditemukan.');

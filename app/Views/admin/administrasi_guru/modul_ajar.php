@@ -175,19 +175,27 @@
                             </td>
                             <td class="text-center">
                                 <?php if ($atp['modul']): ?>
-                                    <div class="btn-group w-100 mb-1">
-                                        <a href="<?= base_url('admin/administrasi-guru/modul-ajar/edit/' . $atp['modul']['id'] . '/' . $selected_class) ?>" class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-pencil"></i> Edit
+                                    <?php $canManage = in_array(session()->get('user')['role_id'], [1, 3]) && !$readonly; ?>
+                                    <?php if ($canManage): ?>
+                                        <div class="btn-group w-100 mb-1">
+                                            <a href="<?= base_url('admin/administrasi-guru/modul-ajar/edit/' . $atp['modul']['id'] . '/' . $selected_class) ?>" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-pencil"></i> Edit
+                                            </a>
+                                            <a href="<?= base_url('admin/administrasi-guru/modul-ajar/print/' . $atp['modul']['id'] . '/' . $selected_class) ?>" target="_blank" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-printer"></i> Cetak
+                                            </a>
+                                        </div>
+                                        <a href="<?= base_url('admin/administrasi-guru/modul-ajar/delete/' . $atp['modul']['id'] . '/' . $selected_subject . '/' . $selected_class) ?>" 
+                                           class="btn btn-sm btn-light text-danger w-100 border" 
+                                           onclick="return confirm('Hapus modul ini untuk generate ulang dari awal?')">
+                                            <i class="bi bi-trash"></i> Hapus & Regenerasi
                                         </a>
-                                        <a href="<?= base_url('admin/administrasi-guru/modul-ajar/print/' . $atp['modul']['id'] . '/' . $selected_class) ?>" target="_blank" class="btn btn-sm btn-outline-danger">
+                                    <?php else: ?>
+                                        <!-- Read-only (mis. Kepala Sekolah): hanya Cetak -->
+                                        <a href="<?= base_url('admin/administrasi-guru/modul-ajar/print/' . $atp['modul']['id'] . '/' . $selected_class) ?>" target="_blank" class="btn btn-sm btn-outline-danger w-100">
                                             <i class="bi bi-printer"></i> Cetak
                                         </a>
-                                    </div>
-                                    <a href="<?= base_url('admin/administrasi-guru/modul-ajar/delete/' . $atp['modul']['id'] . '/' . $selected_subject . '/' . $selected_class) ?>" 
-                                       class="btn btn-sm btn-light text-danger w-100 border" 
-                                       onclick="return confirm('Hapus modul ini untuk generate ulang dari awal?')">
-                                        <i class="bi bi-trash"></i> Hapus & Reginaerasi
-                                    </a>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <?php if (in_array(session()->get('user')['role_id'], [1, 3]) && !$readonly): ?>
                                         <?php if (empty($gemini_api_key)): ?>

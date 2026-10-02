@@ -60,6 +60,25 @@ class Materials extends BaseController
     private function roleId(): int  { return (int)($this->user()['role_id'] ?? 0); }
     private function isAdmin(): bool { return in_array($this->roleId(), [1, 2]); }
 
+    /**
+     * Boleh mengelola (buat/ubah/hapus/publish) materi?
+     * Hanya Admin (1) & Guru (3). Kepala Sekolah (2) read-only (hanya lihat).
+     */
+    private function canManage(): bool { return in_array($this->roleId(), [1, 3], true); }
+
+    /**
+     * Tolak akses jika read-only (mis. Kepala Sekolah). Kembalikan RedirectResponse
+     * bila ditolak, atau null bila boleh lanjut.
+     */
+    private function denyIfReadonly()
+    {
+        if (!$this->canManage()) {
+            return redirect()->to('admin/materials')
+                ->with('error', 'Anda hanya memiliki akses lihat pada materi pelajaran.');
+        }
+        return null;
+    }
+
     private function teacherId(): ?int
     {
         $u = $this->user();
@@ -239,6 +258,9 @@ class Materials extends BaseController
     // =========================================================
     public function syncFromAtp(int $subjectId)
     {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
         $year   = $this->activeYear();
         $yearId = (int)($year['id'] ?? 0);
         $count  = $this->_doSyncFromAtp($subjectId, $yearId);
@@ -353,6 +375,16 @@ class Materials extends BaseController
             $subMat['embed_url'] = SubjectMaterialModel::toEmbedUrl($subMat['video_url']);
         }
 
+        // Slide gambar
+        $slides = [];
+        if (($subMat['content_type'] ?? '') === 'slide') {
+            $slides = $this->db->table('subject_material_slides')
+                ->where('material_id', $subMatId)
+                ->orderBy('sort_order', 'ASC')
+                ->orderBy('id', 'ASC')
+                ->get()->getResultArray();
+        }
+
         // Sibling sub materi (dalam satu materi induk) untuk navigasi
         $siblings = $this->db->table('subject_materials')
             ->where('parent_id', $subMat['parent_id'])
@@ -422,6 +454,7 @@ class Materials extends BaseController
             'siblings'   => $siblings,
             'progStats'  => $progStats,
             'relatedQuizzes' => $relatedQuizzes,
+            'slides'     => $slides,
         ]);
     }
 
@@ -431,6 +464,7 @@ class Materials extends BaseController
     // =========================================================
     public function create(int $subjectId)
     {
+        if ($r = $this->denyIfReadonly()) return $r;
         $subject  = $this->subjectModel->find($subjectId);
         $year     = $this->activeYear();
         $yearId   = (int)($year['id'] ?? 0);
@@ -463,6 +497,7 @@ class Materials extends BaseController
     // =========================================================
     public function store()
     {
+        if ($r = $this->denyIfReadonly()) return $r;
         $data     = $this->request->getPost();
         $parentId = !empty($data['parent_id']) ? (int)$data['parent_id'] : null;
 
@@ -539,6 +574,11 @@ class Materials extends BaseController
         $this->mat->insert($insertData);
         $newId = (int)$this->mat->getInsertID();
 
+        // Slide Gambar: simpan gambar-gambar yang diupload
+        if ($contentType === 'slide' && $newId) {
+            $this->_handleSlideUploads($newId);
+        }
+
         $msg = $parentId ? 'Sub Materi berhasil ditambahkan.' : 'Materi berhasil ditambahkan.';
 
         $returnUrl = $this->request->getPost('return');
@@ -551,6 +591,7 @@ class Materials extends BaseController
     // =========================================================
     public function edit(int $id)
     {
+        if ($r = $this->denyIfReadonly()) return $r;
         $material = $this->mat->find($id);
         if (!$material) return redirect()->to('admin/materials')->with('error', 'Tidak ditemukan.');
 
@@ -563,6 +604,13 @@ class Materials extends BaseController
         sort($levels);
         $parents = $isSubMat ? [] : []; // tidak bisa ubah parent pada edit
 
+        // Slide gambar existing (untuk tipe 'slide')
+        $slides = $this->db->table('subject_material_slides')
+            ->where('material_id', $id)
+            ->orderBy('sort_order', 'ASC')
+            ->orderBy('id', 'ASC')
+            ->get()->getResultArray();
+
         return view('admin/materials/edit', [
             'title'     => $isSubMat ? 'Edit Sub Materi' : 'Edit Materi',
             'material'  => $material,
@@ -570,6 +618,7 @@ class Materials extends BaseController
             'activeYear'=> $year,
             'levels'    => $levels,
             'isSubMat'  => $isSubMat,
+            'slides'    => $slides,
         ]);
     }
 
@@ -578,6 +627,7 @@ class Materials extends BaseController
     // =========================================================
     public function update(int $id)
     {
+        if ($r = $this->denyIfReadonly()) return $r;
         $material    = $this->mat->find($id);
         if (!$material) return redirect()->to('admin/materials')->with('error', 'Tidak ditemukan.');
 
@@ -638,8 +688,115 @@ class Materials extends BaseController
 
         $this->mat->update($id, $updateData);
 
+        // Slide Gambar: tambah gambar baru yang diupload (jika ada)
+        if ($contentType === 'slide') {
+            $this->_handleSlideUploads($id);
+        }
+
         return redirect()->to('/admin/materials/' . $material['subject_id'])
                          ->with('success', 'Berhasil diperbarui.');
+    }
+
+    // =========================================================
+    // SLIDE — upload beberapa gambar untuk materi tipe 'slide'
+    // =========================================================
+
+    /**
+     * Simpan gambar-gambar slide yang diupload (field: slide_images[]).
+     * Ditambahkan ke urutan setelah slide yang sudah ada.
+     * Menerima jpg/jpeg/png/webp/gif, maks 5 MB per gambar.
+     */
+    private function _handleSlideUploads(int $materialId): void
+    {
+        $files = $this->request->getFileMultiple('slide_images');
+        if (empty($files)) {
+            return;
+        }
+
+        $uploadDir = FCPATH . 'uploads/materials/slides/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        // Urutan awal = jumlah slide yang sudah ada
+        $startOrder = (int) $this->db->table('subject_material_slides')
+            ->where('material_id', $materialId)
+            ->countAllResults();
+
+        $allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        $captions = (array) ($this->request->getPost('slide_captions') ?? []);
+        $i = 0;
+
+        foreach ($files as $file) {
+            if (!$file || !$file->isValid() || $file->hasMoved()) {
+                continue;
+            }
+            if (!in_array($file->getMimeType(), $allowed, true)) {
+                continue; // lewati file non-gambar
+            }
+            if ($file->getSize() > 5 * 1024 * 1024) {
+                continue; // lewati gambar > 5MB
+            }
+
+            $newName = $file->getRandomName();
+            $file->move($uploadDir, $newName);
+
+            $this->db->table('subject_material_slides')->insert([
+                'material_id' => $materialId,
+                'image_path'  => $newName,
+                'caption'     => isset($captions[$i]) ? trim((string) $captions[$i]) : null,
+                'sort_order'  => $startOrder + $i,
+                'created_at'  => date('Y-m-d H:i:s'),
+            ]);
+            $i++;
+        }
+    }
+
+    // =========================================================
+    // SLIDE — hapus satu gambar slide (AJAX POST)
+    // POST /admin/materials/slide-delete/{slideId}
+    // =========================================================
+    public function slideDelete(int $slideId)
+    {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
+        $slide = $this->db->table('subject_material_slides')->where('id', $slideId)->get()->getRowArray();
+        if (!$slide) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Slide tidak ditemukan.']);
+        }
+
+        // Hapus file fisik
+        $path = FCPATH . 'uploads/materials/slides/' . $slide['image_path'];
+        if (!empty($slide['image_path']) && is_file($path)) {
+            @unlink($path);
+        }
+
+        $this->db->table('subject_material_slides')->where('id', $slideId)->delete();
+
+        return $this->response->setJSON(['success' => true, 'message' => 'Slide dihapus.']);
+    }
+
+    // =========================================================
+    // SLIDE — simpan urutan slide (AJAX POST)
+    // POST /admin/materials/slide-reorder  body: order[]=slideId,...
+    // =========================================================
+    public function slideReorder()
+    {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
+        $order = (array) ($this->request->getPost('order') ?? []);
+        $pos = 0;
+        foreach ($order as $slideId) {
+            $slideId = (int) $slideId;
+            if ($slideId <= 0) continue;
+            $this->db->table('subject_material_slides')
+                ->where('id', $slideId)
+                ->update(['sort_order' => $pos]);
+            $pos++;
+        }
+        return $this->response->setJSON(['success' => true]);
     }
 
     // =========================================================
@@ -647,6 +804,9 @@ class Materials extends BaseController
     // =========================================================
     public function delete(int $id)
     {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Akses hanya lihat.']);
+        }
         $material = $this->mat->find($id);
         if (!$material) {
             return $this->response->setJSON(['status' => 'error', 'message' => 'Tidak ditemukan.']);
@@ -720,6 +880,9 @@ class Materials extends BaseController
     // =========================================================
     public function publishSave(int $subMatId)
     {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
         $subMat = $this->mat->find($subMatId);
         if (!$subMat || empty($subMat['parent_id'])) {
             return $this->response->setJSON(['success' => false, 'message' => 'Sub materi tidak valid.']);
@@ -793,6 +956,7 @@ class Materials extends BaseController
     // =========================================================
     public function usePage(int $subjectId)
     {
+        if ($r = $this->denyIfReadonly()) return $r;
         $subject = $this->subjectModel->find($subjectId);
         if (!$subject) return redirect()->to('admin/materials')->with('error', 'Mapel tidak ditemukan.');
 
@@ -835,6 +999,9 @@ class Materials extends BaseController
     // =========================================================
     public function useSave()
     {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
         $subMatId  = (int)$this->request->getPost('sub_mat_id');
         $classIds  = array_map('intval',
             (array)($this->request->getPost('class_ids') ?? [])
@@ -867,6 +1034,9 @@ class Materials extends BaseController
     {
         if (!$this->request->isAJAX()) {
             return $this->response->setStatusCode(403)->setJSON(['error' => ['message' => 'Forbidden']]);
+        }
+        if (!$this->canManage()) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => ['message' => 'Akses hanya lihat.']]);
         }
 
         $file = $this->request->getFile('upload');
@@ -987,6 +1157,17 @@ class Materials extends BaseController
             file_exists(FCPATH . 'uploads/materials/' . $sub['file_path'])) {
             @unlink(FCPATH . 'uploads/materials/' . $sub['file_path']);
         }
+
+        // Hapus gambar slide (file fisik + baris)
+        $slides = $this->db->table('subject_material_slides')->where('material_id', $id)->get()->getResultArray();
+        foreach ($slides as $sl) {
+            $p = FCPATH . 'uploads/materials/slides/' . $sl['image_path'];
+            if (!empty($sl['image_path']) && is_file($p)) {
+                @unlink($p);
+            }
+        }
+        $this->db->table('subject_material_slides')->where('material_id', $id)->delete();
+
         $this->db->table('material_progress')->where('material_id', $id)->delete();
         $this->db->table('subject_material_publishes')->where('material_id', $id)->delete();
         $this->db->table('forum_threads')

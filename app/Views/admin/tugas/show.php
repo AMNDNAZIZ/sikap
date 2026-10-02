@@ -7,9 +7,11 @@
       <i class="bi bi-arrow-left"></i>
     </a>
     <h4 class="fw-bold mb-0 flex-grow-1"><?= esc($tugas['judul']) ?></h4>
+    <?php if (empty($isViewOnly)): ?>
     <a href="<?= site_url('admin/tugas/edit/' . $tugas['id']) ?>" class="btn btn-sm btn-outline-primary">
       <i class="bi bi-pencil me-1"></i>Edit
     </a>
+    <?php endif; ?>
   </div>
 
   <?php if (session()->getFlashdata('success')): ?>
@@ -126,7 +128,7 @@
                           data-tugas-id="<?= $tugas['id'] ?>"
                           data-nilai="<?= $sub['nilai'] ?? '' ?>"
                           data-catatan="<?= esc($sub['catatan_guru'] ?? '') ?>">
-                    <i class="bi bi-eye me-1"></i>Lihat & Nilai
+                    <i class="bi bi-eye me-1"></i><?= empty($isViewOnly) ? 'Lihat & Nilai' : 'Lihat Jawaban' ?>
                   </button>
                 <?php endif; ?>
               </td>
@@ -169,7 +171,7 @@
                     data-tugas-id="<?= $tugas['id'] ?>"
                     data-nilai="<?= $sub['nilai'] ?? '' ?>"
                     data-catatan="<?= esc($sub['catatan_guru'] ?? '') ?>">
-              <i class="bi bi-eye me-1"></i>Lihat & Nilai
+              <i class="bi bi-eye me-1"></i><?= empty($isViewOnly) ? 'Lihat & Nilai' : 'Lihat Jawaban' ?>
             </button>
           </div>
           <?php endif; ?>
@@ -194,6 +196,7 @@
 
         <form id="formNilai" method="post">
           <?= csrf_field() ?>
+          <?php if (empty($isViewOnly)): ?>
           <div class="mb-3">
             <label class="form-label fw-semibold">Penilaian</label>
             <div class="d-flex flex-wrap gap-2">
@@ -224,6 +227,11 @@
           <button type="submit" class="btn btn-primary">
             <i class="bi bi-check-lg me-1"></i>Simpan Penilaian
           </button>
+          <?php else: ?>
+          <div class="alert alert-info mb-0 mt-2 py-2 small">
+            <i class="bi bi-info-circle me-1"></i>Kepala Sekolah hanya dapat melihat jawaban siswa.
+          </div>
+          <?php endif; ?>
         </form>
       </div>
     </div>

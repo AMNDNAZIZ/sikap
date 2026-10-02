@@ -28,12 +28,12 @@
     $inKurikulum = url_is('admin/administrasi-guru*') && !url_is('admin/administrasi-guru/cp-master*') && !url_is('admin/administrasi-guru/mapping*');
     $inJadwal    = url_is('admin/schedules*') || url_is('admin/agendas*') || url_is('admin/teaching-journal*');
     $inPresensi  = url_is('admin/attendance*') || url_is('admin/teacher-attendance*');
-    $inNilai     = url_is('admin/assessments*') || url_is('admin/grades*') || url_is('admin/erapor*');
+    $inNilai     = url_is('admin/assessments*') || url_is('admin/grades*') || url_is('admin/erapor*') || url_is('admin/rapor*');
     $inLearning  = url_is('admin/materials*') || url_is('admin/tugas*') || url_is('admin/quiz*') ||
                    url_is('learning*') || url_is('kalender*');
     $inKokuri    = url_is('admin/kokurikuler*');
     $inCbt       = url_is('admin/cbt*') || url_is('admin/exam-schedule*') || url_is('admin/kartu-peserta*');
-    $inKonseling = url_is('admin/student-notes*') || url_is('admin/behaviors*');
+    $inKonseling = url_is('admin/student-notes*') || url_is('admin/behaviors*') || url_is('admin/counseling*') || url_is('admin/counseling-appointment*') || url_is('admin/counseling-summon*') || url_is('admin/counseling-warning*') || url_is('admin/counseling-report*') || url_is('admin/bk*');
     $inKomunikasi= url_is('admin/announcements*') || url_is('admin/chat*') || url_is('admin/staff-chat*');
     $inCms       = url_is('admin/cms*') || url_is('admin/changelogs*');
     $inAkun      = url_is('admin/users*') || url_is('admin/role-permission*') || url_is('profile*') || url_is('admin/updater*');
@@ -205,6 +205,7 @@
           <li><a class="nav-link <?= url_is('admin/grades/rekap*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/rekap') ?>">📋 <span class="label">Rekap Nilai Kelas</span></a></li>
           <li><a class="nav-link <?= url_is('admin/grades') && !url_is('admin/grades/tracking*') && !url_is('admin/grades/rekap*') ? 'active' : '' ?>" href="<?= base_url('admin/grades') ?>">📊 <span class="label">Laporan Rapor</span></a></li>
           <li><a class="nav-link <?= url_is('admin/grades/tracking*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/tracking') ?>">🕵️ <span class="label">Tracking Nilai</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/rapor*') ? 'active' : '' ?>" href="<?= base_url('admin/rapor') ?>">🖨️ <span class="label">Cetak Rapor</span></a></li>
         </ul>
       </div>
     </li>
@@ -291,8 +292,16 @@
       </a>
       <div class="collapse <?= $inKonseling ? 'show' : '' ?>" id="menuKonseling">
         <ul class="nav flex-column ms-3">
-          <li><a class="nav-link <?= url_is('admin/student-notes*') ? 'active' : '' ?>" href="<?= base_url('admin/student-notes') ?>">🗒️ <span class="label">Catatan Siswa</span></a></li>
-          <li><a class="nav-link <?= url_is('admin/behaviors*') ? 'active' : '' ?>" href="<?= base_url('admin/behaviors') ?>">🎭 <span class="label">Kedisiplinan/Perilaku</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/bk/dashboard*') || url_is('admin/bk') ? 'active' : '' ?>" href="<?= base_url('admin/bk/dashboard') ?>">📊 <span class="label">Dashboard BP/BK</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/bk/pemetaan*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/pemetaan') ?>">🗺️ <span class="label">Pemetaan & Asesmen</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/bk/program*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/program') ?>">📅 <span class="label">Program & RPL BK</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/bk/layanan*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/layanan') ?>">👥 <span class="label">Layanan BK</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/bk/kasus*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/kasus') ?>">🚨 <span class="label">Penanganan Kasus</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/bk/kolaborasi*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/kolaborasi') ?>">🤝 <span class="label">Kolaborasi Multi-Role</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/bk/perencanaan-individual*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/perencanaan-individual') ?>">🎯 <span class="label">Perencanaan Individual</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/bk/laporan*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/laporan') ?>">📄 <span class="label">Laporan & Rekap BK</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/counseling-appointment*') ? 'active' : '' ?>" href="<?= base_url('admin/counseling-appointment') ?>">📅 <span class="label">Janji Temu Siswa</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/counseling-summon*') ? 'active' : '' ?>" href="<?= base_url('admin/counseling-summon') ?>">📨 <span class="label">Surat Panggilan Ortu</span></a></li>
         </ul>
       </div>
     </li>

@@ -109,11 +109,40 @@
     <div class="alert alert-info">
       📊 Penilaian Final hanya dilakukan sekali di kelas akhir (tidak terkait semester).
     </div>
+
+  <?php elseif ($type === 'pts'): ?>
+    <!-- === PTS (Penilaian Tengah Semester) === -->
+    <input type="hidden" name="year_id" value="<?= esc($activeYear['id'] ?? '') ?>">
+    <div class="mb-3">
+      <label class="form-label">Semester</label>
+      <select name="semester" class="form-select" required
+        onchange="if(this.value){ window.location='<?= base_url("admin/assessments/input/{$classId}/{$subjectId}/pts") ?>?semester='+this.value }">
+        <option value="">-- Pilih Semester --</option>
+        <option value="1" <?= (string)($semester ?? '') === '1' ? 'selected' : '' ?>>Semester 1 (Ganjil)</option>
+        <option value="2" <?= (string)($semester ?? '') === '2' ? 'selected' : '' ?>>Semester 2 (Genap)</option>
+      </select>
+    </div>
+    <div class="alert alert-info">
+      📝 Nilai PTS disimpan terpisah dan <strong>tidak</strong> ikut dalam perhitungan nilai rapor akhir.
+    </div>
+    <?php if (!empty($semester)): ?>
+      <div class="alert alert-light border small">
+        💡 Untuk mengisi dari hasil CBT, gunakan tombol <strong>📥 Impor dari CBT</strong>
+        di halaman <a href="<?= base_url("admin/assessments/ptsList/{$classId}/{$subjectId}") ?>">Daftar PTS</a>.
+      </div>
+    <?php endif; ?>
   <?php endif; ?>
 
 
   <!-- === Tabel Nilai === -->
-  <?php $showTable = ($type !== 'formatif') || ($materialId && $method); ?>
+  <?php
+    $showTable = true;
+    if ($type === 'formatif') {
+        $showTable = ($materialId && $method);
+    } elseif ($type === 'pts') {
+        $showTable = !empty($semester);
+    }
+  ?>
   <?php if ($showTable): ?>
     <div class="table-responsive">
       <table class="table table-bordered align-middle">
@@ -161,6 +190,9 @@
         Kembali</a>
     <?php elseif ($type === 'sumatif'): ?>
       <a href="<?= site_url("admin/assessments/sumatifList/{$classId}/{$subjectId}") ?>" class="btn btn-secondary">⬅️
+        Kembali</a>
+    <?php elseif ($type === 'pts'): ?>
+      <a href="<?= site_url("admin/assessments/ptsList/{$classId}/{$subjectId}") ?>" class="btn btn-secondary">⬅️
         Kembali</a>
     <?php else: ?>
       <a href="<?= site_url("admin/assessments/finalList/{$classId}/{$subjectId}") ?>" class="btn btn-secondary">⬅️

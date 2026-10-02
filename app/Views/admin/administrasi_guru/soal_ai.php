@@ -297,10 +297,14 @@ document.getElementById('btn-generate')?.addEventListener('click', async functio
     if (jenis === 'formatif') {
         body.append('atp_id', document.getElementById('atp_id').value);
     } else {
-        // Sumatif: kirim semester dan semua ATP IDs di semester itu
+        // Sumatif: kirim semester dan ATP IDs di semester itu yang TPs-nya dipilih
         const sem = document.getElementById('semester_id').value;
         body.append('semester', sem);
-        const semAtpIds = allAtp.filter(a => a.semester == sem).map(a => a.id);
+        const semAtpIds = allAtp.filter(a => {
+            if (a.semester != sem) return false;
+            if (!a.tps || a.tps.length === 0) return true;
+            return a.tps.some(tp => tpIds.includes(String(tp.id)));
+        }).map(a => a.id);
         semAtpIds.forEach(id => body.append('atp_ids[]', id));
     }
 
@@ -420,8 +424,9 @@ document.getElementById('btn-save')?.addEventListener('click', async function() 
     if (!bankId) { alert('Pilih bank soal terlebih dahulu'); return; }
     if (generatedSoal.length === 0) { alert('Tidak ada soal untuk disimpan'); return; }
 
-    this.disabled = true;
-    this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...';
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...';
 
     const body = new FormData();
     body.append('bank_id', bankId);
@@ -429,23 +434,60 @@ document.getElementById('btn-save')?.addEventListener('click', async function() 
     body.append('tipe_soal', 'multi'); // flag multi-tipe
     body.append(CSRF_NAME, csrfHash);
 
+    const restoreBtn = function() {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-floppy me-1"></i> Simpan ke Bank Soal';
+    };
+
     try {
         const res = await fetch('<?= base_url("admin/administrasi-guru/soal-ai/save-to-bank") ?>', { method: 'POST', body });
-        const data = await res.json();
+
+        // Tangani respons non-JSON (mis. error server 500) agar pesan tetap jelas
+        let data;
+        const text = await res.text();
+        try { data = JSON.parse(text); } catch (_) {
+            restoreBtn();
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal Menyimpan',
+                html: 'Server mengembalikan respons tidak terduga (kemungkinan sesi berakhir atau error server).<br><small>Status: ' + res.status + '</small>',
+            });
+            return;
+        }
+
         if (data.csrf) csrfHash = data.csrf;
 
         if (data.success) {
-            alert('Berhasil! ' + data.message);
-            location.reload();
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil Disimpan!',
+                text: data.message || 'Soal berhasil ditambahkan ke bank soal.',
+                confirmButtonText: 'Lihat Bank Soal',
+                showCancelButton: true,
+                cancelButtonText: 'Tetap di sini',
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    window.location.href = '<?= base_url("admin/cbt/banksoal") ?>';
+                } else {
+                    location.reload();
+                }
+            });
         } else {
-            alert('Gagal: ' + (data.error || 'Unknown'));
+            restoreBtn();
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal Menyimpan',
+                text: data.error || 'Terjadi kesalahan yang tidak diketahui.',
+            });
         }
     } catch (e) {
-        alert('Error: ' + e.message);
+        restoreBtn();
+        Swal.fire({
+            icon: 'error',
+            title: 'Terjadi Kesalahan',
+            text: 'Gagal terhubung ke server: ' + e.message,
+        });
     }
-
-    this.disabled = false;
-    this.innerHTML = '<i class="bi bi-floppy me-1"></i> Simpan ke Bank Soal';
 });
 
 // === Manual Prompt ===
@@ -462,24 +504,29 @@ document.getElementById('btn-manual-prompt')?.addEventListener('click', async fu
         if (jumlah > 0) tipeList.push({ tipe: chk.value, jumlah });
     });
     if (tipeList.length === 0) { alert('Pilih minimal satu tipe soal.'); return; }
+    
+    const tpIds = [...document.querySelectorAll('.tp-check:checked')].map(el => el.value);
 
     const body = new FormData();
     body.append('subject_id', subjectId);
     body.append('class_id', classId);
     body.append('tipe_list', JSON.stringify(tipeList));
     body.append('jenis_asesmen', jenis);
+    tpIds.forEach(id => body.append('tp_ids[]', id));
     body.append(CSRF_NAME, csrfHash);
 
     if (jenis === 'formatif') {
         const atpId = document.getElementById('atp_id')?.value;
         if (!atpId) { alert('Pilih materi ATP.'); return; }
         body.append('atp_id', atpId);
-        const tpChecks = document.querySelectorAll('.tp-check:checked');
-        tpChecks.forEach(c => body.append('tp_ids[]', c.value));
     } else {
         const semester = document.getElementById('semester_id')?.value;
         body.append('semester', semester);
-        const semAtpIds = allAtp.filter(a => a.semester == semester).map(a => a.id);
+        const semAtpIds = allAtp.filter(a => {
+            if (a.semester != semester) return false;
+            if (!a.tps || a.tps.length === 0) return true;
+            return a.tps.some(tp => tpIds.includes(String(tp.id)));
+        }).map(a => a.id);
         semAtpIds.forEach(id => body.append('atp_ids[]', id));
     }
 

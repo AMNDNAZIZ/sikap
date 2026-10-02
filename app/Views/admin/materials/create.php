@@ -87,6 +87,7 @@
           <label class="form-label small fw-semibold">Tipe Konten <span class="text-danger">*</span></label>
           <select name="content_type" id="contentType" class="form-select form-select-sm" required>
             <option value="text"  <?= old('content_type') === 'text'  ? 'selected' : '' ?>>Teks (Editor)</option>
+            <option value="slide" <?= old('content_type') === 'slide' ? 'selected' : '' ?>>Slide Gambar</option>
             <option value="html"  <?= old('content_type') === 'html'  ? 'selected' : '' ?>>Halaman HTML Interaktif</option>
             <option value="pdf"   <?= old('content_type') === 'pdf'   ? 'selected' : '' ?>>File PDF</option>
             <option value="video" <?= old('content_type') === 'video' ? 'selected' : '' ?>>Video YouTube/Vimeo</option>
@@ -116,6 +117,18 @@
             dijalankan dalam <strong>iframe terisolasi (sandbox)</strong> demi keamanan —
             script hanya berjalan di dalam materi, tidak dapat mengakses sesi/aplikasi utama.
           </div>
+        </div>
+        <div class="col-12" id="panelSlide" style="display:none;">
+          <label class="form-label small fw-semibold">Upload Gambar Slide</label>
+          <input type="file" name="slide_images[]" id="slideInput" class="form-control form-control-sm"
+                 accept="image/jpeg,image/png,image/webp,image/gif" multiple>
+          <div class="form-text">
+            Pilih beberapa gambar sekaligus (JPG/PNG/WEBP/GIF, maks 5 MB per gambar).
+            Ekspor slide presentasi Anda menjadi gambar dulu (di PowerPoint/Google Slides/Canva:
+            menu <em>Export / Download as JPG/PNG</em> per slide).
+          </div>
+          <!-- Preview + atur urutan (drag) -->
+          <div id="slidePreview" class="row g-2 mt-1"></div>
         </div>
         <div class="col-12" id="panelPdf" style="display:none;">
           <label class="form-label small fw-semibold">Upload PDF <span class="text-danger">*</span></label>
@@ -160,6 +173,7 @@
 <?= $this->endSection() ?>
 <?= $this->section('scripts') ?>
 <script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 <script>
 (function(){
   var inst      = null;
@@ -212,11 +226,78 @@
 
   var panels = {
     text:  document.getElementById('panelText'),
+    slide: document.getElementById('panelSlide'),
     html:  document.getElementById('panelHtml'),
     pdf:   document.getElementById('panelPdf'),
     video: document.getElementById('panelVideo'),
     link:  document.getElementById('panelLink')
   };
+
+  // ── Preview gambar slide yang dipilih (sebelum upload) & Reordering ──────────────
+  var slideInput = document.getElementById('slideInput');
+  var currentSlideFiles = [];
+
+  if (slideInput) {
+    slideInput.addEventListener('change', function() {
+      var box = document.getElementById('slidePreview');
+      box.innerHTML = '';
+      var files = Array.from(this.files || []);
+      if (!files.length) {
+        currentSlideFiles = [];
+        return;
+      }
+      
+      currentSlideFiles = files.filter(function(f) { return f.type.startsWith('image/'); });
+      
+      currentSlideFiles.forEach(function(f, idx) {
+        var url = URL.createObjectURL(f);
+        var col = document.createElement('div');
+        col.className = 'col-4 col-md-3 slide-item';
+        col.dataset.index = idx; // Simpan index asli
+        col.innerHTML =
+          '<div class="border rounded p-1 h-100 text-center" style="cursor: move;" title="Geser untuk mengubah urutan">' +
+          '<img src="' + url + '" style="width:100%;height:90px;object-fit:cover;border-radius:4px;">' +
+          '<div class="text-muted text-truncate slide-label mt-1" style="font-size:0.62rem;">Slide ' + (idx + 1) + '</div>' +
+          '</div>';
+        box.appendChild(col);
+      });
+
+      // Aktifkan SortableJS
+      if (typeof Sortable !== 'undefined') {
+        new Sortable(box, {
+          animation: 150,
+          ghostClass: 'opacity-50',
+          onEnd: function() {
+            // Update label setelah di-reorder
+            var items = box.querySelectorAll('.slide-item');
+            items.forEach(function(item, i) {
+              item.querySelector('.slide-label').innerText = 'Slide ' + (i + 1);
+            });
+            // Update input files
+            updateSlideInputFiles();
+          }
+        });
+      }
+    });
+  }
+
+  function updateSlideInputFiles() {
+    if (!window.DataTransfer) return;
+    var box = document.getElementById('slidePreview');
+    var items = box.querySelectorAll('.slide-item');
+    var dt = new DataTransfer();
+    
+    items.forEach(function(item) {
+      var origIndex = parseInt(item.dataset.index, 10);
+      if (currentSlideFiles[origIndex]) {
+        dt.items.add(currentSlideFiles[origIndex]);
+      }
+    });
+    
+    if (slideInput) {
+      slideInput.files = dt.files;
+    }
+  }
 
   function initEditor() {
     if (inst) return;

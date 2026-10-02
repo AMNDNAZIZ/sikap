@@ -668,17 +668,38 @@ class Updater extends BaseController
         // Step 0: Sinkronkan APP_VERSION dari database changelogs
         $syncedVersion = $this->syncVersionFromChangelogs();
 
-        // Step 1: Pull dari origin (skip jika gagal, lanjut generate dari state lokal)
+        // Ambil custom commit message jika dikirimkan oleh user
+        $customMsg = trim($this->request->getVar('commit_message') ?? '');
+
+        // Step 1: Cek apakah ada perubahan file lokal yang belum di-commit
+        $statusOutput = [];
+        exec("cd /d \"{$rootPath}\" && {$git} status --porcelain 2>&1", $statusOutput);
+        $hasLocalChanges = !empty(array_filter($statusOutput));
+
+        if ($hasLocalChanges) {
+            $commitMsg = !empty($customMsg)
+                ? $customMsg
+                : "Update & sync v{$syncedVersion} - " . date('Y-m-d H:i');
+
+            $escapedMsg = addslashes($commitMsg);
+            exec("cd /d \"{$rootPath}\" && {$git} add -A 2>&1", $addAllOutput);
+            exec("cd /d \"{$rootPath}\" && {$git} commit -m \"{$escapedMsg}\" 2>&1", $commitAllOutput);
+            log_message('info', '[GenerateManifest] Auto-commit local changes: ' . implode("\n", $commitAllOutput ?? []));
+        }
+
+        // Step 2: Pull rebase dari origin untuk memastikan lokal selalu terdepan
         $pullResult = [];
-        exec("cd /d \"{$rootPath}\" && {$git} pull origin main 2>&1", $pullResult, $pullCode);
+        exec("cd /d \"{$rootPath}\" && {$git} pull --rebase origin main 2>&1", $pullResult, $pullCode);
         $pullOutput = implode("\n", $pullResult);
         log_message('info', '[GenerateManifest] Pull from origin: ' . $pullOutput);
 
-        if ($pullCode !== 0 && strpos($pullOutput, 'Already up to date') === false) {
-            return redirect()->back()->with('warning', 'Pull dari origin gagal: ' . $pullOutput . '. Manifest tetap digenerate dari state lokal.');
+        if ($pullCode !== 0 
+            && strpos($pullOutput, 'Already up to date') === false 
+            && strpos($pullOutput, 'Current branch main is up to date') === false) {
+            return redirect()->back()->with('warning', 'Pull dari origin gagal: ' . $pullOutput . '. Silakan periksa status git Anda.');
         }
 
-        // Step 2: Generate manifest
+        // Step 3: Scan app/ dan public/ untuk membuat update_manifest.json
         $folders = ['app', 'public'];
         $files = [];
 
@@ -701,18 +722,23 @@ class Updater extends BaseController
         $jsonPath = ROOTPATH . 'update_manifest.json';
         file_put_contents($jsonPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
-        // Step 3: Commit manifest + Constants.php ke origin
+        // Step 4: Commit manifest + Constants.php ke origin dan push seluruh commit ke origin/main
         exec("cd /d \"{$rootPath}\" && {$git} add update_manifest.json app/Config/Constants.php 2>&1", $addResult);
         exec("cd /d \"{$rootPath}\" && {$git} commit -m \"Regenerate manifest v{$syncedVersion}\" --allow-empty 2>&1", $commitResult);
         exec("cd /d \"{$rootPath}\" && {$git} push origin main 2>&1", $pushOriginResult, $pushOriginCode);
         log_message('info', '[GenerateManifest] Push to origin: ' . implode("\n", $pushOriginResult ?? []));
 
-        // Step 4: Push orphan ke update repo (Sakajaya/espata-update)
+        // Step 5: Push orphan ke update repo (Sakajaya/espata-update)
         $pushResult = $this->pushToUpdateRepo();
 
         $message = 'Manifest berhasil digenerate: ' . count($files) . ' file (v' . $syncedVersion . ').';
-        if ($pullCode === 0 || strpos($pullOutput, 'Already up to date') !== false) {
-            $message .= ' ✅ Sinkron dengan origin.';
+        if ($hasLocalChanges) {
+            $message .= ' 📦 Perubahan file lokal otomatis di-commit.';
+        }
+        if ($pushOriginCode === 0) {
+            $message .= ' ✅ Push ke origin/main berhasil.';
+        } else {
+            $message .= ' ⚠️ Push ke origin ada catatan: ' . implode(' ', $pushOriginResult ?? []);
         }
         if ($pushResult['success']) {
             $message .= ' ✅ Push ke espata-update berhasil.';

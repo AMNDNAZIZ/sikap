@@ -52,19 +52,34 @@ class PermissionSeeder extends Seeder
             ['module' => 'grades', 'action' => 'manage', 'label' => 'Input/Kelola Nilai', 'group_name' => 'Akademik', 'sort_order' => 34],
             ['module' => 'assessments', 'action' => 'manage', 'label' => 'Kelola Asesmen', 'group_name' => 'Akademik', 'sort_order' => 35],
             ['module' => 'erapor', 'action' => 'manage', 'label' => 'Kelola E-Rapor', 'group_name' => 'Akademik', 'sort_order' => 36],
-            ['module' => 'materials', 'action' => 'manage', 'label' => 'Kelola Materi Pelajaran', 'group_name' => 'Akademik', 'sort_order' => 37],
-            ['module' => 'agendas', 'action' => 'manage', 'label' => 'Kelola Agenda Kelas', 'group_name' => 'Akademik', 'sort_order' => 38],
-            ['module' => 'teaching_journal', 'action' => 'manage', 'label' => 'Jurnal Mengajar', 'group_name' => 'Akademik', 'sort_order' => 39],
-            ['module' => 'holidays', 'action' => 'manage', 'label' => 'Kelola Hari Libur', 'group_name' => 'Akademik', 'sort_order' => 40],
+            ['module' => 'materials', 'action' => 'manage', 'label' => 'Kelola Materi Pelajaran (Teks/PDF/Video/Slide/HTML)', 'group_name' => 'Akademik', 'sort_order' => 37],
+            ['module' => 'quiz', 'action' => 'manage', 'label' => 'Kelola Kuis Mandiri (LMS)', 'group_name' => 'Akademik', 'sort_order' => 38],
+            ['module' => 'forum', 'action' => 'manage', 'label' => 'Kelola Forum Diskusi (LMS)', 'group_name' => 'Akademik', 'sort_order' => 39],
+            ['module' => 'learning_analytics', 'action' => 'view', 'label' => 'Analitik Pembelajaran', 'group_name' => 'Akademik', 'sort_order' => 40],
+            ['module' => 'agendas', 'action' => 'manage', 'label' => 'Kelola Agenda Kelas', 'group_name' => 'Akademik', 'sort_order' => 41],
+            ['module' => 'teaching_journal', 'action' => 'manage', 'label' => 'Jurnal Mengajar', 'group_name' => 'Akademik', 'sort_order' => 42],
+            ['module' => 'holidays', 'action' => 'manage', 'label' => 'Kelola Hari Libur', 'group_name' => 'Akademik', 'sort_order' => 43],
 
             // ═══════ Kurikulum Merdeka ═══════
-            ['module' => 'administrasi_guru', 'action' => 'manage', 'label' => 'Administrasi Guru (CP/TP/ATP)', 'group_name' => 'Kurikulum', 'sort_order' => 41],
-            ['module' => 'kokurikuler', 'action' => 'manage', 'label' => 'Kelola Kokurikuler (P5)', 'group_name' => 'Kurikulum', 'sort_order' => 42],
+            ['module' => 'administrasi_guru', 'action' => 'manage', 'label' => 'Administrasi Guru (CP/TP/ATP/Prota/Prosem/KKTP/Modul Ajar)', 'group_name' => 'Kurikulum', 'sort_order' => 44],
+            ['module' => 'soal_ai', 'action' => 'manage', 'label' => 'Pembuatan Soal dengan AI', 'group_name' => 'Kurikulum', 'sort_order' => 45],
+            ['module' => 'kokurikuler', 'action' => 'manage', 'label' => 'Kelola Kokurikuler (P5)', 'group_name' => 'Kurikulum', 'sort_order' => 46],
+
+            // ═══════ Bimbingan Konseling (BK) ═══════
+            // Catatan: Di SD tidak ada guru BK khusus — guru kelas merangkap BK.
+            // Permission ini diberikan ke Guru (role 3) agar guru kelas dapat mengakses
+            // seluruh modul BK sesuai kewenangannya. Kepsek mendapat akses lihat & laporan.
+            ['module' => 'bk', 'action' => 'view',              'label' => 'Lihat Data BP/BK (Dashboard & Profil Siswa)',      'group_name' => 'BK', 'sort_order' => 70],
+            ['module' => 'bk', 'action' => 'manage',            'label' => 'Kelola BP/BK (Program, RPL, Layanan, Pemetaan)',   'group_name' => 'BK', 'sort_order' => 71],
+            ['module' => 'bk', 'action' => 'case_manage',       'label' => 'Penanganan Kasus BK (data sensitif)',              'group_name' => 'BK', 'sort_order' => 72],
+            ['module' => 'bk', 'action' => 'report',            'label' => 'Cetak Laporan Rekap BK (Layanan & Kasus)',         'group_name' => 'BK', 'sort_order' => 73],
+            ['module' => 'bk', 'action' => 'report_executive',  'label' => 'Laporan Eksekutif BK (Kepala Sekolah)',            'group_name' => 'BK', 'sort_order' => 74],
 
             // ═══════ CBT (Ujian Online) ═══════
-            ['module' => 'cbt', 'action' => 'view', 'label' => 'Lihat Data CBT', 'group_name' => 'CBT', 'sort_order' => 43],
-            ['module' => 'cbt', 'action' => 'manage', 'label' => 'Kelola Bank Soal & Ujian', 'group_name' => 'CBT', 'sort_order' => 44],
-            ['module' => 'cbt', 'action' => 'take', 'label' => 'Mengerjakan Ujian (Siswa)', 'group_name' => 'CBT', 'sort_order' => 45],
+            ['module' => 'cbt', 'action' => 'view', 'label' => 'Lihat Data CBT', 'group_name' => 'CBT', 'sort_order' => 47],
+            ['module' => 'cbt', 'action' => 'manage', 'label' => 'Kelola Bank Soal & Ujian', 'group_name' => 'CBT', 'sort_order' => 48],
+            ['module' => 'cbt', 'action' => 'convert', 'label' => 'Konversi Nilai CBT ke Rapor', 'group_name' => 'CBT', 'sort_order' => 49],
+            ['module' => 'cbt', 'action' => 'take', 'label' => 'Mengerjakan Ujian (Siswa)', 'group_name' => 'CBT', 'sort_order' => 50],
 
             // ═══════ Tata Usaha ═══════
             ['module' => 'surat_masuk', 'action' => 'manage', 'label' => 'Kelola Surat Masuk', 'group_name' => 'Tata Usaha', 'sort_order' => 46],
@@ -77,19 +92,16 @@ class PermissionSeeder extends Seeder
             ['module' => 'cms', 'action' => 'manage', 'label' => 'Kelola Konten Website', 'group_name' => 'CMS', 'sort_order' => 51],
 
             // ═══════ Lainnya ═══════
-            ['module' => 'announcements', 'action' => 'manage', 'label' => 'Kelola Pengumuman', 'group_name' => 'Lainnya', 'sort_order' => 52],
-            ['module' => 'chat', 'action' => 'manage', 'label' => 'Chat Kelas', 'group_name' => 'Lainnya', 'sort_order' => 53],
-            ['module' => 'staff_chat', 'action' => 'manage', 'label' => 'Chat Staff Internal', 'group_name' => 'Lainnya', 'sort_order' => 54],
-            ['module' => 'student_notes', 'action' => 'manage', 'label' => 'Catatan Siswa', 'group_name' => 'Lainnya', 'sort_order' => 55],
-            ['module' => 'behaviors', 'action' => 'manage', 'label' => 'Kelola Perilaku/ESPATA', 'group_name' => 'Lainnya', 'sort_order' => 56],
-            ['module' => 'ebook', 'action' => 'manage', 'label' => 'Kelola Perpustakaan Digital', 'group_name' => 'Lainnya', 'sort_order' => 57],
-            ['module' => 'ebook', 'action' => 'view', 'label' => 'Akses Perpustakaan Digital', 'group_name' => 'Lainnya', 'sort_order' => 58],
-            ['module' => 'dapodik', 'action' => 'manage', 'label' => 'Integrasi Dapodik', 'group_name' => 'Lainnya', 'sort_order' => 59],
-            ['module' => 'reports', 'action' => 'view', 'label' => 'Lihat Laporan', 'group_name' => 'Lainnya', 'sort_order' => 60],
-            // ═══════ Notifikasi ═══════
-            ['module' => 'notifications', 'action' => 'view', 'label' => 'Lihat Notifikasi', 'group_name' => 'Lainnya', 'sort_order' => 61],
-            ['module' => 'dapodik', 'action' => 'manage', 'label' => 'Integrasi Dapodik', 'group_name' => 'Lainnya', 'sort_order' => 59],
-            ['module' => 'reports', 'action' => 'view', 'label' => 'Lihat Laporan', 'group_name' => 'Lainnya', 'sort_order' => 60],
+            ['module' => 'announcements', 'action' => 'manage', 'label' => 'Kelola Pengumuman', 'group_name' => 'Lainnya', 'sort_order' => 60],
+            ['module' => 'chat', 'action' => 'manage', 'label' => 'Chat Kelas', 'group_name' => 'Lainnya', 'sort_order' => 61],
+            ['module' => 'staff_chat', 'action' => 'manage', 'label' => 'Chat Staff Internal', 'group_name' => 'Lainnya', 'sort_order' => 62],
+            ['module' => 'student_notes', 'action' => 'manage', 'label' => 'Catatan Siswa', 'group_name' => 'Lainnya', 'sort_order' => 63],
+            ['module' => 'behaviors', 'action' => 'manage', 'label' => 'Kelola Perilaku/ESPATA', 'group_name' => 'Lainnya', 'sort_order' => 64],
+            ['module' => 'ebook', 'action' => 'manage', 'label' => 'Kelola Perpustakaan Digital', 'group_name' => 'Lainnya', 'sort_order' => 65],
+            ['module' => 'ebook', 'action' => 'view', 'label' => 'Akses Perpustakaan Digital', 'group_name' => 'Lainnya', 'sort_order' => 66],
+            ['module' => 'dapodik', 'action' => 'manage', 'label' => 'Integrasi Dapodik', 'group_name' => 'Lainnya', 'sort_order' => 67],
+            ['module' => 'reports', 'action' => 'view', 'label' => 'Lihat Laporan', 'group_name' => 'Lainnya', 'sort_order' => 68],
+            ['module' => 'notifications', 'action' => 'view', 'label' => 'Lihat Notifikasi', 'group_name' => 'Lainnya', 'sort_order' => 69],
         ];
 
         foreach ($permissions as $perm) {
@@ -128,15 +140,18 @@ class PermissionSeeder extends Seeder
             'teachers.view', 'teacher_attendance.view',
             'subjects.manage', 'teaching_assignments.manage', 'schedules.view',
             'attendance.view', 'grades.view', 'assessments.manage', 'erapor.manage',
-            'administrasi_guru.manage', 'kokurikuler.manage',
-            'cbt.view', 'cbt.manage',
+            'administrasi_guru.manage', 'soal_ai.manage', 'kokurikuler.manage',
+            'cbt.view', 'cbt.manage', 'cbt.convert',
             'surat_masuk.manage', 'surat_keluar.manage', 'agenda_surat.view',
             'buku_tamu.manage', 'tata_usaha.manage',
             'cms.manage', 'announcements.manage',
             'reports.view', 'dapodik.manage',
             'teaching_journal.manage', 'agendas.manage',
-            'materials.manage', 'student_notes.manage', 'behaviors.manage',
+            'materials.manage', 'quiz.manage', 'forum.manage', 'learning_analytics.view',
+            'student_notes.manage', 'behaviors.manage',
             'chat.manage', 'staff_chat.manage',
+            // BK: kepsek lihat dashboard, laporan, laporan eksekutif (tanpa edit data BK)
+            'bk.view', 'bk.report', 'bk.report_executive',
         ];
         $this->assignPermissions(2, $this->resolvePermIds($permMap, $kepsekPerms));
 
@@ -146,15 +161,18 @@ class PermissionSeeder extends Seeder
             'attendance.view', 'attendance.manage',
             'grades.view', 'grades.manage',
             'assessments.manage', 'erapor.manage',
-            'materials.manage', 'agendas.manage', 'teaching_journal.manage',
-            'administrasi_guru.manage', 'kokurikuler.manage',
+            'materials.manage', 'quiz.manage', 'forum.manage', 'learning_analytics.view',
+            'agendas.manage', 'teaching_journal.manage',
+            'administrasi_guru.manage', 'soal_ai.manage', 'kokurikuler.manage',
             'schedules.view',
-            'cbt.view', 'cbt.manage',
+            'cbt.view', 'cbt.manage', 'cbt.convert',
             'announcements.manage',
             'chat.manage', 'staff_chat.manage',
             'student_notes.manage', 'behaviors.manage',
             'ebook.manage', 'ebook.view',
             'teacher_attendance.manage',
+            // BK: guru (termasuk guru kelas SD yg merangkap BK) kelola penuh modul BK
+            'bk.view', 'bk.manage', 'bk.case_manage', 'bk.report',
         ];
         $this->assignPermissions(3, $this->resolvePermIds($permMap, $guruPerms));
 

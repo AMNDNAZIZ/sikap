@@ -66,6 +66,22 @@
       </a>
     </li>
 
+    <!-- Bimbingan Konseling -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('siswa/counseling') ? 'active' : '' ?>"
+        href="<?= site_url('siswa/counseling') ?>">
+        🤝 <span class="label">Bimbingan Konseling</span>
+      </a>
+    </li>
+
+    <!-- Angket Karir -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('siswa/counseling/career') ? 'active' : '' ?>"
+        href="<?= site_url('siswa/counseling/career') ?>">
+        🎯 <span class="label"><?= is_school_sd() ? 'Angket Minat & Bakat' : 'Angket Karir & Bakat' ?></span>
+      </a>
+    </li>
+
     <!-- Pengumuman -->
     <li class="nav-item">
       <a class="nav-link <?= url_is('siswa/announcement*') ? 'active' : '' ?>"

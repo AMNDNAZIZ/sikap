@@ -495,7 +495,7 @@
             $('#belumTesContent').html('<div class="text-center text-muted">Memuat data...</div>');
             $('#modalBelumTes').modal('show');
 
-            $.get('<?= site_url('admin/cbt/aktivitas/belumTes/') ?>' + id, function (html) {
+            $.get('<?= site_url('admin/cbt/aktivitas/belumTes/') ?>' + id + '?_=' + Date.now(), function (html) {
                 $('#belumTesContent').html(html);
             }).fail(function (xhr) {
                 $('#belumTesContent').html('<div class="alert alert-danger">Gagal memuat data.<br>' + xhr.status + ' ' + xhr.statusText + '</div>');

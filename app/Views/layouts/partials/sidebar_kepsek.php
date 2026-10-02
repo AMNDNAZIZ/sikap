@@ -33,7 +33,7 @@
                    url_is('learning*') || url_is('kalender*');
     $inKokuri    = url_is('admin/kokurikuler*');
     $inCbt       = url_is('admin/cbt*') || url_is('admin/exam-schedule*') || url_is('admin/kartu-peserta*');
-    $inKonseling = url_is('admin/student-notes*') || url_is('admin/behaviors*');
+    $inKonseling = url_is('admin/student-notes*') || url_is('admin/behaviors*') || url_is('admin/counseling*') || url_is('admin/counseling-appointment*') || url_is('admin/counseling-summon*') || url_is('admin/counseling-warning*') || url_is('admin/counseling-report*') || url_is('admin/counseling-career*') || url_is('admin/bk*');
     $inKomunikasi= url_is('admin/announcements*') || url_is('admin/chat*') || url_is('admin/staff-chat*');
     $inCms       = url_is('admin/cms*') || url_is('admin/changelogs*');
     $inAkun      = url_is('admin/users*') || url_is('profile*');
@@ -268,6 +268,11 @@
       <div class="collapse <?= $inKonseling ? 'show' : '' ?>" id="menuKonseling">
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/student-notes*') ? 'active' : '' ?>" href="<?= base_url('admin/student-notes') ?>">🗒️ <span class="label">Catatan Siswa</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/bk/dashboard*') || url_is('admin/bk') ? 'active' : '' ?>" href="<?= base_url('admin/bk/dashboard') ?>">📊 <span class="label">Dashboard BP/BK</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/bk/pemetaan*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/pemetaan') ?>">🗺️ <span class="label">Pemetaan & Asesmen</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/bk/layanan*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/layanan') ?>">👥 <span class="label">Layanan BK</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/bk/kasus*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/kasus') ?>">🚨 <span class="label">Penanganan Kasus</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/bk/laporan*') ? 'active' : '' ?>" href="<?= base_url('admin/bk/laporan') ?>">📄 <span class="label">Laporan BK Kepsek</span></a></li>
           <li><a class="nav-link <?= url_is('admin/behaviors*') ? 'active' : '' ?>" href="<?= base_url('admin/behaviors') ?>">🎭 <span class="label">Kedisiplinan/Perilaku</span></a></li>
         </ul>
       </div>

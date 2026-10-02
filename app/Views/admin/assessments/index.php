@@ -36,6 +36,8 @@
         <td>
           <a href="<?= base_url("admin/assessments/formatifList/{$a['class_id']}/{$a['subject_id']}") ?>" 
              class="btn btn-sm btn-primary">Formatif</a>
+          <a href="<?= site_url("admin/assessments/ptsList/{$a['class_id']}/{$a['subject_id']}") ?>" 
+             class="btn btn-sm btn-secondary">🗓️ PTS</a>
           <a href="<?= site_url("admin/assessments/sumatifList/{$a['class_id']}/{$a['subject_id']}") ?>" 
              class="btn btn-sm btn-warning">📝 Sumatif</a>
           <?php

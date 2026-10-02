@@ -1,7 +1,11 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<?php $csrfName = csrf_token(); $csrfHash = csrf_hash(); ?>
+<?php
+  $csrfName = csrf_token(); $csrfHash = csrf_hash();
+  // Hanya Admin (1) & Guru (3) yang boleh kelola. Kepala Sekolah (2) dsb: mode lihat.
+  $canManage = in_array((int)(session()->get('user')['role_id'] ?? 0), [1, 3], true);
+?>
 
 <style>
   /* Judul materi induk maksimal 2 baris */
@@ -50,17 +54,21 @@
     <i class="bi bi-book me-2 text-primary"></i><?= esc($title) ?>
   </h5>
   <div class="d-flex gap-2 flex-wrap">
-    <a href="<?= site_url('admin/materials/use/' . $subject['id']) ?>"
-       class="btn btn-sm btn-outline-info">
-      <i class="bi bi-box-arrow-in-down me-1"></i><span class="d-none d-sm-inline">Gunakan </span>Materi
-    </a>
+    <?php if ($canManage): ?>
+      <a href="<?= site_url('admin/materials/use/' . $subject['id']) ?>"
+         class="btn btn-sm btn-outline-info">
+        <i class="bi bi-box-arrow-in-down me-1"></i><span class="d-none d-sm-inline">Gunakan </span>Materi
+      </a>
+    <?php endif; ?>
     <a href="<?= site_url('admin/materials/progress/' . $subject['id']) ?>"
        class="btn btn-sm btn-outline-secondary">
       <i class="bi bi-bar-chart me-1"></i>Progress
     </a>
-    <button type="button" id="btnSyncAtp" class="btn btn-sm btn-primary">
-      <i class="bi bi-arrow-repeat me-1"></i><span class="d-none d-sm-inline">Sinkron </span>ATP
-    </button>
+    <?php if ($canManage): ?>
+      <button type="button" id="btnSyncAtp" class="btn btn-sm btn-primary">
+        <i class="bi bi-arrow-repeat me-1"></i><span class="d-none d-sm-inline">Sinkron </span>ATP
+      </button>
+    <?php endif; ?>
   </div>
 </div>
 
@@ -86,9 +94,11 @@
     <p class="mb-2">Belum ada materi dari ATP untuk mapel ini.</p>
     <p class="small">Pastikan Anda sudah membuat <strong>ATP (Alur Tujuan Pembelajaran)</strong>
        untuk mata pelajaran ini, lalu klik tombol Sinkron di atas.</p>
-    <button type="button" id="btnSyncAtpEmpty" class="btn btn-sm btn-primary">
-      <i class="bi bi-arrow-repeat me-1"></i>Sinkron Materi dari ATP
-    </button>
+    <?php if ($canManage): ?>
+      <button type="button" id="btnSyncAtpEmpty" class="btn btn-sm btn-primary">
+        <i class="bi bi-arrow-repeat me-1"></i>Sinkron Materi dari ATP
+      </button>
+    <?php endif; ?>
   </div>
 <?php else: ?>
 
@@ -123,11 +133,13 @@
               </div>
             </div>
           </div>
+<?php if ($canManage): ?>
           <a href="<?= site_url('admin/materials/create/' . $subject['id'] . '?parent_id=' . $parent['id']) ?>"
              class="btn btn-sm btn-primary flex-shrink-0 px-2" title="Tambah Sub Materi (Pertemuan)"
              style="font-size:0.75rem;white-space:nowrap;">
             <i class="bi bi-plus-circle"></i><span class="d-none d-sm-inline ms-1">Sub Materi</span>
           </a>
+<?php endif; ?>
         </div>
       </div>
 
@@ -204,20 +216,22 @@
                    class="btn btn-sm btn-outline-primary" title="Lihat Konten & Diskusi">
                   <i class="bi bi-eye"></i><span class="ms-1">Lihat</span>
                 </a>
-                <?php if ($child['is_published']): ?>
-                  <a href="<?= site_url('admin/materials/publish/' . $child['id']) ?>"
-                     class="btn btn-sm btn-outline-success" title="Kelola Publikasi ke Kelas">
-                    <i class="bi bi-send"></i><span class="ms-1">Publish</span>
+                <?php if ($canManage): ?>
+                  <?php if ($child['is_published']): ?>
+                    <a href="<?= site_url('admin/materials/publish/' . $child['id']) ?>"
+                       class="btn btn-sm btn-outline-success" title="Kelola Publikasi ke Kelas">
+                      <i class="bi bi-send"></i><span class="ms-1">Publish</span>
+                    </a>
+                  <?php endif; ?>
+                  <a href="<?= site_url('admin/materials/edit/' . $child['id']) ?>"
+                     class="btn btn-sm btn-outline-warning" title="Edit">
+                    <i class="bi bi-pencil"></i><span class="ms-1 d-sm-none">Edit</span>
                   </a>
+                  <button class="btn btn-sm btn-outline-danger btn-delete"
+                          data-id="<?= $child['id'] ?>" data-title="<?= esc($child['title']) ?>" title="Hapus">
+                    <i class="bi bi-trash"></i><span class="ms-1 d-sm-none">Hapus</span>
+                  </button>
                 <?php endif; ?>
-                <a href="<?= site_url('admin/materials/edit/' . $child['id']) ?>"
-                   class="btn btn-sm btn-outline-warning" title="Edit">
-                  <i class="bi bi-pencil"></i><span class="ms-1 d-sm-none">Edit</span>
-                </a>
-                <button class="btn btn-sm btn-outline-danger btn-delete"
-                        data-id="<?= $child['id'] ?>" data-title="<?= esc($child['title']) ?>" title="Hapus">
-                  <i class="bi bi-trash"></i><span class="ms-1 d-sm-none">Hapus</span>
-                </button>
               </div>
 
             </div>

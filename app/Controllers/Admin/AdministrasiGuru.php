@@ -1427,9 +1427,12 @@ class AdministrasiGuru extends BaseController
                         $classIdsAtLevel = $this->getClassIdsForDocumentSearch($classLevel, (int)$classId);
                     }
 
-                    // Filter per kelas terpilih agar ATP tidak dobel ketika ada kelas lain di level yang sama
-                    $atpClassFilter = $isMultiGuru ? $classIdsAtLevel : [(int)$classId];
-                    $atpResult = $this->loadAtpWithElemen((int)$subjectId, $classLevel, null, $atpClassFilter ?: [(int)$classId]);
+                    // Filter ATP: pakai getTeacherClassFilter (SAMA dgn halaman ATP).
+                    // - single-guru → null → loadAtpWithElemen ambil SEMUA ATP se-level
+                    //   (penting: ATP mungkin dibuat di kelas lain se-level).
+                    // - multi-guru  → array class kelas yg diajar guru → filter per kelas.
+                    $atpClassFilter = $this->getTeacherClassFilter((int)$subjectId, $classLevel, null);
+                    $atpResult = $this->loadAtpWithElemen((int)$subjectId, $classLevel, null, $atpClassFilter);
                     $atpList   = $atpResult['list'];
 
                     $modulModel = new \App\Models\ModulAjarModel();
@@ -1899,6 +1902,11 @@ class AdministrasiGuru extends BaseController
 
     public function editModulAjar($id, $classId)
     {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'] ?? 0, [1, 3])) {
+            return redirect()->back()->with('error', 'Anda tidak diizinkan mengubah Modul Ajar.');
+        }
+
         $modulModel = new \App\Models\ModulAjarModel();
         $modul = $modulModel->find($id);
         if (!$modul) return redirect()->back()->with('error', 'Modul tidak ditemukan.');
@@ -1913,6 +1921,11 @@ class AdministrasiGuru extends BaseController
 
     public function updateModulAjar()
     {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'] ?? 0, [1, 3])) {
+            return redirect()->back()->with('error', 'Anda tidak diizinkan mengubah Modul Ajar.');
+        }
+
         $id = $this->request->getPost('id');
         $content = $this->request->getPost('content');
         $classId = $this->request->getPost('class_id');
@@ -2890,6 +2903,7 @@ class AdministrasiGuru extends BaseController
         $questionModel = new \App\Models\CbtQuestionModel();
         $bankModel = new \App\Models\CbtBankSoalModel();
         $inserted = 0;
+        $failed = 0;
 
         foreach ($soalList as $soal) {
             $tipe = $soal['type'] ?? 'pg';
@@ -2965,8 +2979,34 @@ class AdministrasiGuru extends BaseController
                 'essay_answer' => ($tipe === 'esai') ? $ans : null,
                 'raw_text' => $rawText,
             ];
-            $questionModel->insert($data);
-            $inserted++;
+
+            // Lewati soal tanpa teks (mustahil dirender)
+            if (trim((string) $data['question_text']) === '') {
+                $failed++;
+                continue;
+            }
+
+            try {
+                if ($questionModel->insert($data)) {
+                    $inserted++;
+                } else {
+                    $failed++;
+                    log_message('error', '[SoalAI] Insert gagal: ' . json_encode($questionModel->errors()));
+                }
+            } catch (\Throwable $e) {
+                $failed++;
+                log_message('error', '[SoalAI] Insert exception: ' . $e->getMessage());
+            }
+        }
+
+        // Bila tidak ada satu pun soal yang berhasil masuk → laporkan gagal
+        if ($inserted === 0) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error'   => 'Tidak ada soal yang berhasil disimpan.'
+                    . ($failed > 0 ? " {$failed} soal dilewati/gagal — cek format soal." : ''),
+                'csrf'    => csrf_hash(),
+            ]);
         }
 
         // Update totals
@@ -2984,9 +3024,17 @@ class AdministrasiGuru extends BaseController
             'total_esai' => $totalEsai,
         ]);
 
+        $message = "{$inserted} soal berhasil ditambahkan ke bank soal.";
+        if ($failed > 0) {
+            $message .= " {$failed} soal dilewati (teks kosong / format tidak valid).";
+        }
+
         return $this->response->setJSON([
-            'success' => true,
-            'message' => "{$inserted} soal berhasil ditambahkan ke bank soal.",
+            'success'  => true,
+            'message'  => $message,
+            'inserted' => $inserted,
+            'failed'   => $failed,
+            'csrf'     => csrf_hash(),
         ]);
     }
 

@@ -336,7 +336,19 @@
                 </button>
               </td>
               <td class="text-center">
-                <span class="badge badge-modern bg-info"><?= $s['remaining_minutes'] ?? 0 ?> Menit</span>
+                <?php if ($s['status'] === 'active'): ?>
+                  <?php
+                    $elapsedSec = time() - $s['started_at'];
+                    $remSec = max(0, ($test['duration'] * 60) - $elapsedSec);
+                    $m = floor($remSec / 60);
+                    $sec = $remSec % 60;
+                  ?>
+                  <span class="badge badge-modern bg-info countdown-timer" data-seconds="<?= $remSec ?>">
+                    <?= sprintf("%02d:%02d", $m, $sec) ?>
+                  </span>
+                <?php else: ?>
+                  <span class="badge badge-modern bg-secondary"><?= $s['remaining_minutes'] ?? 0 ?> Menit</span>
+                <?php endif; ?>
               </td>
               <td class="text-center">
                 <?= $s['status'] === 'finished' ? '<strong class="text-success">' . $s['display_score'] . '</strong>' : '<span class="badge badge-modern bg-secondary">Belum</span>' ?>
@@ -730,6 +742,29 @@
           });
       });
     });
+
+    // Auto countdown secara visual untuk ujian yang sedang aktif
+    setInterval(function() {
+      $('.countdown-timer').each(function() {
+        let sec = parseInt($(this).attr('data-seconds'));
+        if (sec > 0) {
+          sec--;
+          $(this).attr('data-seconds', sec);
+          let m = Math.floor(sec / 60);
+          let s = sec % 60;
+          $(this).text(m.toString().padStart(2, '0') + ':' + s.toString().padStart(2, '0'));
+          
+          if (sec <= 300 && sec > 0) { // 5 menit terakhir
+            $(this).removeClass('bg-info').addClass('bg-warning text-dark');
+          }
+          if (sec === 0) {
+            $(this).removeClass('bg-warning text-dark bg-info').addClass('bg-danger text-white');
+            $(this).text('Habis');
+          }
+        }
+      });
+    }, 1000);
+
   });
 </script>
 <?= $this->endSection() ?>

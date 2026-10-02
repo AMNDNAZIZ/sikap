@@ -109,7 +109,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('updater/patch-files', 'Updater::patchFiles', ['filter' => 'auth:1']);
     $routes->get('updater/run-migrations', 'Updater::runMigrations', ['filter' => 'auth:1']);
     $routes->get('updater/generate-patch', 'Updater::generatePatch', ['filter' => 'auth:1']);
-    $routes->get('updater/generate-manifest', 'Updater::generateManifest', ['filter' => 'auth:1']);
+    $routes->match(['get', 'post'], 'updater/generate-manifest', 'Updater::generateManifest', ['filter' => 'auth:1']);
     $routes->get('updater/check-online', 'Updater::checkOnlineUpdate', ['filter' => 'auth:1']);
     $routes->post('updater/apply-online', 'Updater::applyOnlineUpdate', ['filter' => 'auth:1']);
     $routes->get('updater/backup-database', 'Updater::backupDatabase', ['filter' => 'auth:1']);
@@ -448,9 +448,15 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('assessments/formatifList/(:num)/(:num)', 'Assessment::formatifList/$1/$2', $auth123);
     $routes->get('assessments/sumatifList/(:num)/(:num)', 'Assessment::sumatifList/$1/$2', $auth123);
     $routes->get('assessments/finalList/(:num)/(:num)', 'Assessment::finalList/$1/$2', $auth123);
+    $routes->get('assessments/ptsList/(:num)/(:num)', 'Assessment::ptsList/$1/$2', $auth123);
     $routes->get('assessments/viewScores/formatif/(:num)/(:alpha)', 'Assessment::viewScores/formatif/$1/$2', $auth123);
     $routes->get('assessments/viewScores/sumatif/(:num)/(:num)/(:alpha)', 'Assessment::viewScores/sumatif/$1/$2/$3', $auth123);
     $routes->get('assessments/viewScores/final/(:num)', 'Assessment::viewScores/final/$1', $auth123);
+    $routes->get('assessments/viewScores/pts/(:num)/(:num)', 'Assessment::viewScores/pts/$1/$2', $auth123);
+
+    // ── Modul Rapor (Admin & Wali Kelas) ──────────────────────────────
+    $routes->get('rapor', 'Rapor::index', $auth13);
+    $routes->get('rapor/pts/(:num)/(:num)', 'Rapor::cetakPts/$1/$2', $auth13);
     $routes->get('assessments/edit/(:num)/(:segment)', 'Assessment::edit/$1/$2', $auth123);
     $routes->post('assessments/update/(:num)/(:segment)', 'Assessment::update/$1/$2', $auth123);
     $routes->get('assessments/deleteOne/(:num)/(:segment)', 'Assessment::deleteOne/$1/$2', $auth123);
@@ -507,6 +513,8 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('materials/show/(:num)',     'Materials::show/$1',        $auth123);
     $routes->post('materials/upload-image',   'Materials::uploadImage',    $auth123);
     $routes->post('materials/sync-atp/(:num)', 'Materials::syncFromAtp/$1', $auth123);
+    $routes->post('materials/slide-delete/(:num)', 'Materials::slideDelete/$1', $auth123);
+    $routes->post('materials/slide-reorder',   'Materials::slideReorder',      $auth123);
 
     $routes->get('student-notes', 'StudentNotes::index', $auth123);
     $routes->get('student-notes/show/(:num)', 'StudentNotes::show/$1', $auth123);
@@ -515,6 +523,121 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('student-notes/edit/(:num)', 'StudentNotes::edit/$1', $auth123);
     $routes->post('student-notes/update/(:num)', 'StudentNotes::update/$1', $auth123);
     $routes->get('student-notes/delete/(:num)', 'StudentNotes::delete/$1', $auth123);
+
+    // Bimbingan Konseling (BK) Komprehensif (A-H)
+    $routes->get('bk', 'BkModule::index', $auth1237);
+    $routes->get('bk/dashboard', 'BkModule::index', $auth1237);
+    $routes->get('bk/pemetaan', 'BkModule::pemetaan', $auth1237);
+    $routes->get('bk/program', 'BkModule::program', $auth1237);
+    $routes->post('bk/program/store', 'BkModule::storeProgram', $auth1237);
+    $routes->post('bk/program/update/(:num)', 'BkModule::updateProgram/$1', $auth1237);
+    $routes->post('bk/program/delete/(:num)', 'BkModule::deleteProgram/$1', $auth1237);
+    $routes->post('bk/rpl/store', 'BkModule::storeRpl', $auth1237);
+    $routes->post('bk/rpl/update/(:num)', 'BkModule::updateRpl/$1', $auth1237);
+    $routes->post('bk/rpl/delete/(:num)', 'BkModule::deleteRpl/$1', $auth1237);
+    $routes->get('bk/rpl/detail/(:num)', 'BkModule::detailRpl/$1', $auth1237);
+    $routes->get('bk/layanan', 'BkModule::layanan', $auth1237);
+    $routes->post('bk/layanan/store', 'BkModule::storeLayanan', $auth1237);
+    $routes->post('bk/layanan/update/(:num)', 'BkModule::updateLayanan/$1', $auth1237);
+    $routes->get('bk/layanan/detail/(:num)', 'BkModule::detailLayanan/$1', $auth1237);
+    $routes->post('bk/layanan/delete/(:num)', 'BkModule::deleteLayanan/$1', $auth1237);
+    $routes->get('bk/kasus', 'BkModule::kasus', $auth1237);
+    $routes->post('bk/kasus/store', 'BkModule::storeKasus', $auth1237);
+    $routes->post('bk/kasus/update/(:num)', 'BkModule::updateKasus/$1', $auth1237);
+    $routes->post('bk/kasus/update-status/(:num)', 'BkModule::updateStatusKasus/$1', $auth1237);
+    $routes->post('bk/kasus/add-action/(:num)', 'BkModule::addActionKasus/$1', $auth1237);
+    $routes->post('bk/kasus/add-referral/(:num)', 'BkModule::addReferralKasus/$1', $auth1237);
+    $routes->get('bk/kasus/detail/(:num)', 'BkModule::detailKasus/$1', $auth1237);
+    $routes->post('bk/kasus/delete/(:num)', 'BkModule::deleteKasus/$1', $auth1237);
+    $routes->get('bk/kolaborasi', 'BkModule::kolaborasi', $auth1237);
+    $routes->get('bk/siswa', 'BkModule::siswaIndex', $auth1237);
+    $routes->get('bk/siswa/(:num)', 'BkModule::siswaProfil/$1', $auth1237);
+    $routes->get('bk/perencanaan-individual', 'BkModule::perencanaanIndividual', $auth1237);
+    $routes->post('bk/perencanaan-individual/store', 'BkModule::storeIndividualPlan', $auth1237);
+    $routes->post('bk/perencanaan-individual/update/(:num)', 'BkModule::updateIndividualPlan/$1', $auth1237);
+    $routes->post('bk/perencanaan-individual/delete/(:num)', 'BkModule::deleteIndividualPlan/$1', $auth1237);
+    $routes->post('bk/perencanaan-individual/progress/(:num)', 'BkModule::updateIndividualProgress/$1', $auth1237);
+    $routes->get('bk/laporan', 'BkModule::laporan', $auth1237);
+    $routes->get('bk/laporan/layanan',         'BkLaporan::filterLayanan',     $auth1237);
+    $routes->post('bk/laporan/layanan/preview', 'BkLaporan::previewLayanan',   $auth1237);
+    $routes->post('bk/laporan/layanan/pdf',    'BkLaporan::pdfLayanan',        $auth1237);
+    $routes->get('bk/laporan/kasus',            'BkLaporan::filterKasus',      $auth1237);
+    $routes->post('bk/laporan/kasus/preview',   'BkLaporan::previewKasus',     $auth1237);
+    $routes->post('bk/laporan/kasus/pdf',       'BkLaporan::pdfKasus',         $auth1237);
+    $routes->get('bk/laporan/eksekutif',        'BkLaporan::filterEksekutif',  ['filter' => 'auth:1,2,3']);
+    $routes->post('bk/laporan/eksekutif/preview','BkLaporan::previewEksekutif',['filter' => 'auth:1,2,3']);
+    $routes->post('bk/laporan/eksekutif/pdf',   'BkLaporan::pdfEksekutif',     ['filter' => 'auth:1,2,3']);
+
+    // ==================== BK ASSESSMENT ENGINE ROUTES ====================
+    // 1. Instrumen Asesmen
+    $routes->get('bk/pemetaan/instrumen/create', 'BkAssessment::createInstrument', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/store', 'BkAssessment::storeInstrument', $auth1237);
+    $routes->get('bk/pemetaan/instrumen/edit/(:num)', 'BkAssessment::editInstrument/$1', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/update/(:num)', 'BkAssessment::updateInstrument/$1', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/delete/(:num)', 'BkAssessment::deleteInstrument/$1', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/publish/(:num)', 'BkAssessment::publishInstrument/$1', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/duplicate/(:num)', 'BkAssessment::duplicateInstrument/$1', $auth1237);
+    $routes->get('bk/pemetaan/instrumen/preview/(:num)', 'BkAssessment::previewInstrument/$1', $auth1237);
+    
+    // Skala
+    $routes->post('bk/pemetaan/instrumen/scale/store', 'BkAssessment::storeScale', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/scale/delete/(:num)', 'BkAssessment::deleteScale/$1', $auth1237);
+    
+    // Interpretasi
+    $routes->post('bk/pemetaan/instrumen/interp/store', 'BkAssessment::storeInterpretation', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/interp/delete/(:num)', 'BkAssessment::deleteInterpretation/$1', $auth1237);
+
+    // Aspek / Domain
+    $routes->post('bk/pemetaan/instrumen/domain/store', 'BkAssessment::storeDomain', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/domain/update/(:num)', 'BkAssessment::updateDomain/$1', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/domain/delete/(:num)', 'BkAssessment::deleteDomain/$1', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/domain/reorder', 'BkAssessment::reorderDomains', $auth1237);
+    
+    // Pertanyaan / Question
+    $routes->post('bk/pemetaan/instrumen/question/store', 'BkAssessment::storeQuestion', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/question/update/(:num)', 'BkAssessment::updateQuestion/$1', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/question/delete/(:num)', 'BkAssessment::deleteQuestion/$1', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/question/reorder', 'BkAssessment::reorderQuestions', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/question/duplicate/(:num)', 'BkAssessment::duplicateQuestion/$1', $auth1237);
+    
+    // 2. Penugasan
+    $routes->get('bk/pemetaan/penugasan', 'BkAssessment::assignments', $auth1237);
+    $routes->post('bk/pemetaan/penugasan/store', 'BkAssessment::storeAssignment', $auth1237);
+    $routes->post('bk/pemetaan/penugasan/activate/(:num)', 'BkAssessment::activateAssignment/$1', $auth1237);
+    $routes->post('bk/pemetaan/penugasan/close/(:num)', 'BkAssessment::closeAssignment/$1', $auth1237);
+    $routes->get('bk/pemetaan/penugasan/progress/(:num)', 'BkAssessment::assignmentProgress/$1', $auth1237);
+    
+    // 3. Hasil & Peta
+    $routes->get('bk/pemetaan/hasil/detail/(:num)', 'BkAssessment::studentResult/$1', $auth1237);
+    $routes->post('bk/pemetaan/peta-kelas', 'BkAssessment::classMapDetail', $auth1237);
+
+    // Legacy BK Routes
+    $routes->get('counseling', 'Counseling::index', $auth123);
+    $routes->get('counseling/create', 'Counseling::create', $auth123);
+    $routes->post('counseling/store', 'Counseling::store', $auth123);
+    $routes->get('counseling/show/(:num)', 'Counseling::show/$1', $auth123);
+    $routes->get('counseling/edit/(:num)', 'Counseling::edit/$1', $auth123);
+    $routes->post('counseling/update/(:num)', 'Counseling::update/$1', $auth123);
+    $routes->post('counseling/delete/(:num)', 'Counseling::delete/$1', $auth123);
+
+    // Janji Temu BK (Admin/Guru)
+    $routes->get('counseling-appointment', 'CounselingAppointment::index', $auth123);
+    $routes->post('counseling-appointment/updateStatus/(:num)', 'CounselingAppointment::updateStatus/$1', $auth123);
+    $routes->post('counseling-appointment/delete/(:num)', 'CounselingAppointment::delete/$1', $auth123);
+
+    // Surat Panggilan Orang Tua (Admin/Guru)
+    $routes->get('counseling-summon', 'CounselingSummon::index', $auth123);
+    $routes->get('counseling-summon/create', 'CounselingSummon::create', $auth123);
+    $routes->post('counseling-summon/store', 'CounselingSummon::store', $auth123);
+    $routes->post('counseling-summon/updateStatus/(:num)', 'CounselingSummon::updateStatus/$1', $auth123);
+    $routes->post('counseling-summon/delete/(:num)', 'CounselingSummon::delete/$1', $auth123);
+    $routes->get('counseling-summon/print-pdf/(:num)', 'CounselingSummon::printPdf/$1', $auth123);
+    $routes->get('counseling-warning', 'BkWarning::index', $auth123);
+    $routes->get('counseling-report', 'CounselingReport::index', $auth123);
+    $routes->get('counseling-career', 'CounselingCareer::index', $auth123);
+    $routes->get('counseling-career/show/(:num)', 'CounselingCareer::show/$1', $auth123);
+    $routes->post('counseling-career/save-note/(:num)', 'CounselingCareer::saveNote/$1', $auth123);
+
 
     $routes->get('behaviors', 'Behaviors::index', $auth123);
     $routes->get('behaviors/create', 'Behaviors::create', $auth123);
@@ -616,6 +739,11 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('cbt/convertnilai/preview', 'CbtConvertNilai::preview', $auth123);
     $routes->post('cbt/convertnilai/save', 'CbtConvertNilai::save', $auth123);
 
+    // Impor nilai CBT apa adanya langsung ke PTS (tanpa konversi)
+    $routes->get('cbt/pts-import', 'CbtConvertNilai::indexPtsImport', $auth123);
+    $routes->post('cbt/pts-import/preview', 'CbtConvertNilai::previewPtsImport', $auth123);
+    $routes->post('cbt/pts-import/save', 'CbtConvertNilai::savePtsImport', $auth123);
+
     // ── Kuis Mandiri (Admin, Kepsek, Guru) ─────────────────────────────
     $routes->get('quiz',                     'Quiz::index',          $auth123);
     $routes->get('quiz/create',              'Quiz::create',         $auth123);
@@ -712,7 +840,22 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
     $routes->get('agendas/date/(:segment)', 'Agendas::byDate/$1');
     $routes->get('agendas/(:num)', 'Agendas::show/$1');
     $routes->get('student-notes', 'StudentNotes::index');
+
+    // Bimbingan Konseling (Siswa) - Pengajuan Janji Temu, Riwayat & Angket Karir
+    $routes->get('counseling', 'Counseling::index');
+    $routes->post('counseling/store', 'Counseling::store');
+    $routes->get('counseling/cancel/(:num)', 'Counseling::cancel/$1');
+    $routes->get('counseling/career', 'Counseling::career');
+    $routes->post('counseling/save-career', 'Counseling::saveCareer');
     $routes->get('announcement', 'Announcement::index');
+
+    // Asesmen BK
+    $routes->get('asesmen', 'Assessment::index');
+    $routes->get('asesmen/fill/(:num)', 'Assessment::fill/$1');
+    $routes->post('asesmen/save-answer', 'Assessment::saveAnswer');
+    $routes->post('asesmen/submit/(:num)', 'Assessment::submit/$1');
+    $routes->get('asesmen/hasil/(:num)', 'Assessment::result/$1');
+
 
     // Student Location (Siswa only - role_id 5)
     $routes->get('location', 'Location::index', ['filter' => 'auth:5']);
