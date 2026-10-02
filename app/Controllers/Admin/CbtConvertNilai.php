@@ -713,12 +713,31 @@ class CbtConvertNilai extends BaseController
         $unmatchedCount = count($results) - $matchedCount;
 
         // --- 5. Daftar mapel ESPATA untuk dropdown mapping ---
-        $espataSubjects = $this->db->table('subjects')
-            ->select('id, name, code')
-            ->where('is_active', 1)
-            ->orderBy('sort_order', 'ASC')
-            ->orderBy('name', 'ASC')
-            ->get()->getResultArray();
+        // Filter berdasarkan mapel yang diampu guru (konsisten dengan can_convert_subject_score).
+        // Admin (role 1) & Kepsek (role 2) melihat semua; Guru (role 3) hanya mapelnya.
+        $context = get_cbt_user_context();
+
+        if ($context['is_admin'] || $context['is_headmaster']) {
+            // Admin & Kepsek: semua mapel aktif
+            $espataSubjects = $this->db->table('subjects')
+                ->select('id, name, code')
+                ->where('is_active', 1)
+                ->orderBy('sort_order', 'ASC')
+                ->orderBy('name', 'ASC')
+                ->get()->getResultArray();
+        } elseif ($context['is_teacher'] && $context['teacher_id']) {
+            // Guru: hanya mapel yang diampu di teaching_assignments
+            $espataSubjects = $this->db->table('teaching_assignments ta')
+                ->select('DISTINCT s.id, s.name, s.code')
+                ->join('subjects s', 's.id = ta.subject_id', 'inner')
+                ->where('ta.teacher_id', $context['teacher_id'])
+                ->where('s.is_active', 1)
+                ->orderBy('s.sort_order', 'ASC')
+                ->orderBy('s.name', 'ASC')
+                ->get()->getResultArray();
+        } else {
+            $espataSubjects = [];
+        }
 
         $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear() ?: [];
 

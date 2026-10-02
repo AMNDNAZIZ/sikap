@@ -182,13 +182,19 @@
                 <i class="bi bi-question-circle text-muted ms-1"
                    title="Pilih mapel di ESPATA yang akan menerima nilai ini. Bisa berbeda dengan nama mapel di CBT Mandiri."></i>
               </label>
+              <?php if (empty($espataSubjects)): ?>
+                <div class="alert alert-danger small py-2 mb-0">
+                  <i class="bi bi-exclamation-triangle me-1"></i>
+                  Tidak ada mapel yang dapat dipilih. Guru hanya bisa mengimpor ke mapel yang diampu.
+                  Hubungi Admin untuk mengatur penugasan mengajar.
+                </div>
+              <?php else: ?>
               <select name="subject_id" class="form-select" id="subjectSelect" required
                       onchange="updateAtpOptions()">
                 <option value="">-- Pilih Mapel ESPATA --</option>
                 <?php foreach ($espataSubjects as $s): ?>
                   <option value="<?= $s['id'] ?>"
                     <?php
-                      // Auto-select jika kode atau nama sama (case-insensitive)
                       $autoSelect = (
                         strcasecmp(trim($s['code'] ?? ''), trim($payload['subject_code'] ?? '')) === 0
                         || strcasecmp(trim($s['name']), trim($payload['subject_name'])) === 0
@@ -206,6 +212,7 @@
                 Mapel CBT Mandiri: <em><?= esc($payload['subject_name']) ?></em> —
                 sistem mencoba mencocokkan otomatis, periksa kembali sebelum menyimpan.
               </div>
+              <?php endif; ?>
             </div>
 
             <!-- ── TIPE TUJUAN ── -->
@@ -255,7 +262,8 @@
               Nilai lebih besar dari yang sudah ada akan menggantikan nilai lama.
             </div>
 
-            <button type="submit" class="btn btn-success w-100 py-2 fw-bold">
+            <button type="submit" class="btn btn-success w-100 py-2 fw-bold"
+                    <?= empty($espataSubjects) ? 'disabled' : '' ?>>
               <i class="bi bi-save me-1"></i> Simpan Nilai ke ESPATA
             </button>
           </form>
