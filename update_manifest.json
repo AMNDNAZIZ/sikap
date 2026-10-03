@@ -1,6 +1,6 @@
 {
     "version": "2.0.2",
-    "generated": "2026-10-03 20:12:59",
+    "generated": "2026-10-03 20:18:41",
     "last_update": "2026-10-01 00:00",
     "total_files": 971,
     "files": {
@@ -474,7 +474,7 @@
         "app/Views/admin/bk/program.php": "4c15b89c3f5a810fea4ebe88bac9f625",
         "app/Views/admin/bk/settings.php": "6039c43ec2b81073ca4cffd77e516570",
         "app/Views/admin/bk/siswa_index.php": "eabbcc183a927247aedaf5dc6ea7cea2",
-        "app/Views/admin/bk/siswa_profil.php": "d0d98a42f115922981a47a0d6a9891d8",
+        "app/Views/admin/bk/siswa_profil.php": "1f808a2a84508cab10c6e9c8b32926fb",
         "app/Views/admin/buku_tamu/exports/pdf_template.php": "ac3593dcc5faa716d0ef9f1d8b1c96fb",
         "app/Views/admin/buku_tamu/index.php": "48355a2b8dec9a4506ca9791477c462d",
         "app/Views/admin/buku_tamu/print_qr.php": "fda9da031c77f4c85f323153df4ef2fd",
