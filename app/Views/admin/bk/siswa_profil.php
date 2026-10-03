@@ -21,21 +21,34 @@
     </div>
 
     <!-- Student Header Summary Card -->
-    <div class="card border-0 shadow-sm rounded-4 mb-4 bg-gradient text-white" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
+    <div class="card border-0 shadow-sm rounded-4 mb-4"
+         style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;">
         <div class="card-body p-4">
             <div class="row align-items-center">
                 <div class="col-auto">
-                    <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold fs-1 shadow-sm" style="width: 80px; height: 80px;">
+                    <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold fs-1 shadow-sm" style="width: 80px; height: 80px; min-width:80px;">
                         <?= strtoupper(substr($student['name'], 0, 1)) ?>
                     </div>
                 </div>
                 <div class="col">
-                    <h3 class="fw-bold text-white mb-1"><?= esc($student['name']) ?></h3>
-                    <div class="d-flex flex-wrap gap-3 text-light fs-7">
-                        <span><i class="bi bi-card-heading text-info me-1"></i> NISN: <strong><?= esc($student['nisn'] ?: '-') ?></strong></span>
-                        <span><i class="bi bi-building text-warning me-1"></i> Kelas: <strong><?= esc($student['class_name'] ?: 'Tanpa Kelas') ?></strong></span>
-                        <span><i class="bi bi-person-badge text-success me-1"></i> Wali Kelas: <strong><?= esc($student['wali_kelas_name'] ?: '-') ?></strong></span>
-                        <span><i class="bi bi-gender-ambiguous text-danger me-1"></i> Gender: <strong><?= $student['gender'] == 'L' ? 'Laki-laki' : ($student['gender'] == 'P' ? 'Perempuan' : '-') ?></strong></span>
+                    <h3 class="fw-bold mb-1" style="color:#fff !important;"><?= esc($student['name']) ?></h3>
+                    <div class="d-flex flex-wrap gap-3" style="font-size:0.85rem;">
+                        <span style="color:rgba(255,255,255,0.85) !important;">
+                            <i class="bi bi-card-heading me-1" style="color:#67e8f9 !important;"></i>
+                            NISN: <strong style="color:#fff !important;"><?= esc($student['nisn'] ?: '-') ?></strong>
+                        </span>
+                        <span style="color:rgba(255,255,255,0.85) !important;">
+                            <i class="bi bi-building me-1" style="color:#fde68a !important;"></i>
+                            Kelas: <strong style="color:#fff !important;"><?= esc($student['class_name'] ?: 'Tanpa Kelas') ?></strong>
+                        </span>
+                        <span style="color:rgba(255,255,255,0.85) !important;">
+                            <i class="bi bi-person-badge me-1" style="color:#6ee7b7 !important;"></i>
+                            Wali Kelas: <strong style="color:#fff !important;"><?= esc($student['wali_kelas_name'] ?: '-') ?></strong>
+                        </span>
+                        <span style="color:rgba(255,255,255,0.85) !important;">
+                            <i class="bi bi-gender-ambiguous me-1" style="color:#fca5a5 !important;"></i>
+                            Gender: <strong style="color:#fff !important;"><?= $student['gender'] == 'L' ? 'Laki-laki' : ($student['gender'] == 'P' ? 'Perempuan' : '-') ?></strong>
+                        </span>
                     </div>
                 </div>
                 <div class="col-auto text-end">
