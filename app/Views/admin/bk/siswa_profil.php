@@ -170,7 +170,10 @@
                             <div class="p-4 bg-light rounded-4 border">
                                 <h6 class="fw-bold text-muted mb-2">Persentase Kehadiran</h6>
                                 <h1 class="fw-bold <?= $attendancePercentage >= 90 ? 'text-success' : ($attendancePercentage >= 80 ? 'text-warning' : 'text-danger') ?> display-4 mb-2"><?= $attendancePercentage ?>%</h1>
-                                <p class="text-muted fs-7 mb-0">Rasio total kehadiran dibanding jurnal absensi.</p>
+                                <p class="text-muted fs-7 mb-0">
+                                    <?= $attendanceSummary['hadir'] ?> hadir dari
+                                    <?= $attendanceSummary['hadir'] + $attendanceSummary['sakit'] + $attendanceSummary['izin'] + $attendanceSummary['alpa'] ?> hari sekolah aktif.
+                                </p>
                             </div>
                         </div>
                         <div class="col-md-8">

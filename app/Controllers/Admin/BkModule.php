@@ -1630,30 +1630,87 @@ class BkModule extends BaseController
         $attEnd     = min(date('Y-m-d'), $activeRecord['end_date'] ?? date('Y-m-d'));
 
         // Status enum di tabel attendances: H=Hadir, S=Sakit, I=Izin, A=Alpa
+        // PENTING: Sistem absensi ESPATA hanya menyimpan ketidakhadiran (S/I/A).
+        // Hadir TIDAK disimpan sebagai baris tersendiri — hadir dihitung sebagai
+        // total hari sekolah aktif dalam rentang DIKURANGI (S + I + A).
+        // Pola ini konsisten dengan modul Attendance.php.
+
+        $clsWhere = $attClassId ? ['class_id' => $attClassId] : [];
+
+        $sakit = $this->db->table('attendances')
+            ->where('student_id', $id)->where('status', 'S')
+            ->where('date >=', $attStart)->where('date <=', $attEnd)
+            ->where($clsWhere ?: '1=1')
+            ->countAllResults();
+
+        $izin = $this->db->table('attendances')
+            ->where('student_id', $id)->where('status', 'I')
+            ->where('date >=', $attStart)->where('date <=', $attEnd)
+            ->where($clsWhere ?: '1=1')
+            ->countAllResults();
+
+        $alpa = $this->db->table('attendances')
+            ->where('student_id', $id)->where('status', 'A')
+            ->where('date >=', $attStart)->where('date <=', $attEnd)
+            ->where($clsWhere ?: '1=1')
+            ->countAllResults();
+
+        // Hitung hari sekolah aktif dalam rentang (Senin–Jumat, non-holiday)
+        $schoolDaysCount = 0;
+        try {
+            $schoolDaysSetting = (int)(
+                $this->db->table('academic_years')
+                    ->select('school_days')
+                    ->where('start_date <=', $attEnd)
+                    ->where('end_date >=', $attStart)
+                    ->orderBy('is_active', 'DESC')
+                    ->limit(1)
+                    ->get()->getRowArray()['school_days'] ?? 5
+            ) ?: 5;
+
+            // Ambil hari libur dalam rentang
+            $holidayDates = [];
+            if ($this->db->tableExists('holidays')) {
+                $hRows = $this->db->table('holidays')
+                    ->select('date')
+                    ->where('date >=', $attStart)
+                    ->where('date <=', $attEnd)
+                    ->get()->getResultArray();
+                foreach ($hRows as $h) {
+                    $holidayDates[$h['date']] = true;
+                }
+            }
+
+            $d = new \DateTime($attStart);
+            $end = new \DateTime($attEnd);
+            while ($d <= $end) {
+                $dayOfWeek = (int) $d->format('N'); // 1=Mon … 7=Sun
+                $dateStr   = $d->format('Y-m-d');
+                $isWeekend = ($schoolDaysSetting == 5 && $dayOfWeek >= 6)
+                          || ($schoolDaysSetting == 6 && $dayOfWeek == 7);
+                if (!$isWeekend && !isset($holidayDates[$dateStr])) {
+                    $schoolDaysCount++;
+                }
+                $d->modify('+1 day');
+            }
+        } catch (\Throwable $e) {
+            // Fallback: estimasi kasaran
+            $schoolDaysCount = $sakit + $izin + $alpa + 1;
+        }
+
+        $tidakHadir = $sakit + $izin + $alpa;
+        $hadir      = max(0, $schoolDaysCount - $tidakHadir);
+
         $attendanceSummary = [
-            'hadir' => $this->db->table('attendances')
-                ->where('student_id', $id)->where('status', 'H')
-                ->where('date >=', $attStart)->where('date <=', $attEnd)
-                ->where($attClassId ? ['class_id' => $attClassId] : '1=1')
-                ->countAllResults(),
-            'sakit' => $this->db->table('attendances')
-                ->where('student_id', $id)->where('status', 'S')
-                ->where('date >=', $attStart)->where('date <=', $attEnd)
-                ->where($attClassId ? ['class_id' => $attClassId] : '1=1')
-                ->countAllResults(),
-            'izin'  => $this->db->table('attendances')
-                ->where('student_id', $id)->where('status', 'I')
-                ->where('date >=', $attStart)->where('date <=', $attEnd)
-                ->where($attClassId ? ['class_id' => $attClassId] : '1=1')
-                ->countAllResults(),
-            'alpa'  => $this->db->table('attendances')
-                ->where('student_id', $id)->where('status', 'A')
-                ->where('date >=', $attStart)->where('date <=', $attEnd)
-                ->where($attClassId ? ['class_id' => $attClassId] : '1=1')
-                ->countAllResults(),
+            'hadir' => $hadir,
+            'sakit' => $sakit,
+            'izin'  => $izin,
+            'alpa'  => $alpa,
         ];
-        $totalAtt             = array_sum($attendanceSummary);
-        $attendancePercentage = $totalAtt > 0 ? round(($attendanceSummary['hadir'] / $totalAtt) * 100, 1) : 100;
+        $totalAtt             = max($schoolDaysCount, $tidakHadir); // denominator = hari sekolah
+        $attendancePercentage = $totalAtt > 0
+            ? round(($hadir / $totalAtt) * 100, 1)
+            : 100;
 
         // 3. Ringkasan Akademik (READ-ONLY)
         $academicScores = $this->db->table('subject_scores ss')
