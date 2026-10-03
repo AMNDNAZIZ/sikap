@@ -1,6 +1,6 @@
 {
     "version": "2.0.2",
-    "generated": "2026-10-03 22:28:03",
+    "generated": "2026-10-04 06:58:24",
     "last_update": "2026-10-01 00:00",
     "total_files": 971,
     "files": {
@@ -615,7 +615,7 @@
         "app/Views/admin/role_permission/index.php": "e3f52b1a1f29d0a449899b307355052a",
         "app/Views/admin/schedule/index.php": "ebea9b1840da53d7f55285ff984dac47",
         "app/Views/admin/schedule/manage.php": "e53630578737de8bb86350d985b29a06",
-        "app/Views/admin/school/index.php": "eec2c1b36a5ac4a2bf38b4ef087b6a38",
+        "app/Views/admin/school/index.php": "0113dadd123438553fc60706ab8227c5",
         "app/Views/admin/scores/edit.php": "0676dd29c1de6a2548b151c6df89865d",
         "app/Views/admin/scores/index.php": "a36a3831c2544e1a9372bea4e287dd31",
         "app/Views/admin/scores/materials.php": "922818b2517221d2127fdc30079d04e6",
