@@ -1,6 +1,6 @@
 {
     "version": "2.0.2",
-    "generated": "2026-10-03 03:58:48",
+    "generated": "2026-10-03 20:12:59",
     "last_update": "2026-10-01 00:00",
     "total_files": 971,
     "files": {
@@ -70,7 +70,7 @@
         "app/Controllers/Admin/Behaviors.php": "c55f82f05ab34f93a07ebe0fe90d6b13",
         "app/Controllers/Admin/BkAssessment.php": "cbfef4f0c44a27b0f0cb19aae0b1ea80",
         "app/Controllers/Admin/BkLaporan.php": "9ede07db3826ae4c73ac8b2eb78506b1",
-        "app/Controllers/Admin/BkModule.php": "7841daca11618307d135a20105a9487a",
+        "app/Controllers/Admin/BkModule.php": "a71031d0d793c32ef734490a9be2ed60",
         "app/Controllers/Admin/BkWarning.php": "39125cfa672728e1d661a1932d13b2c3",
         "app/Controllers/Admin/BukuTamuAdmin.php": "02c23be8d8ad62231cb5d9eb06a9c21d",
         "app/Controllers/Admin/CbtAktivitas.php": "f0a5d8fc1ec9b8db01b46997ec1a229e",
