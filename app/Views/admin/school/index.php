@@ -1,6 +1,9 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
+<!-- Referrer Policy for OpenStreetMap tiles -->
+<meta name="referrer" content="no-referrer-when-downgrade">
+
 <div class="container-fluid px-4 pb-5">
     <!-- Header -->
     <div class="d-flex align-items-center justify-content-between mb-4">
@@ -456,10 +459,27 @@ function initMap() {
     map = L.map('schoolMap').setView([defaultLat, defaultLng], 15);
 
     // Add OpenStreetMap tiles (gratis, tanpa API key - sama dengan student-map)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const osmTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+        crossOrigin: true
+    });
+
+    // Fallback ke Esri World Street Map jika OSM diblokir (403)
+    const esriTile = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles © <a href="https://www.esri.com/">Esri</a>',
         maxZoom: 19
-    }).addTo(map);
+    });
+
+    // Coba OSM dulu, auto-fallback ke Esri jika ada error
+    osmTile.addTo(map);
+    osmTile.on('tileerror', function() {
+        if (map.hasLayer(osmTile)) {
+            map.removeLayer(osmTile);
+            esriTile.addTo(map);
+        }
+    });
 
     // Add geocoder (search)
     const geocoder = L.Control.geocoder({
