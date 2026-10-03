@@ -430,7 +430,7 @@ class BkModule extends BaseController
             ->join('students s', 's.id = a.student_id', 'inner')
             ->join('student_records sr', 'sr.student_id = s.id AND sr.status = \'aktif\' AND sr.academic_year_id = ' . (int)$activeYearId, 'inner')
             ->join('classes cl', 'cl.id = sr.class_id', 'left')
-            ->where('a.status', 'Alpa');
+            ->where('a.status', 'A');  // enum: A=Alpa
         if ($scopedClassIds !== null) {
             $lowAttendanceBuilder->whereIn('sr.class_id', $scopedClassIds ?: [0]);
         }
@@ -1528,15 +1528,26 @@ class BkModule extends BaseController
 
         $students = $builder->get()->getResultArray();
 
+        // Ambil rentang tanggal tahun ajaran filter untuk batasi hitung absensi
+        $filterYear = $this->academicYearModel->find($filterYearId);
+        $attStart   = $filterYear['start_date'] ?? '1970-01-01';
+        $attEnd     = min(date('Y-m-d'), $filterYear['end_date'] ?? date('Y-m-d'));
+
         // Tambahkan indikator ringkas untuk setiap siswa
         foreach ($students as &$student) {
-            $sid = $student['id'];
+            $sid     = $student['id'];
+            $clsId   = $student['class_id'] ?? null;
 
-            // Jumlah alpa (cepat)
-            $student['total_alpa'] = $this->db->table('attendances')
+            // Jumlah alpa — status enum 'A', filter class_id + rentang tahun ajaran
+            $alpBuilder = $this->db->table('attendances')
                 ->where('student_id', $sid)
-                ->where('status', 'Alpa')
-                ->countAllResults();
+                ->where('status', 'A')
+                ->where('date >=', $attStart)
+                ->where('date <=', $attEnd);
+            if ($clsId) {
+                $alpBuilder->where('class_id', $clsId);
+            }
+            $student['total_alpa'] = $alpBuilder->countAllResults();
 
             // Kasus aktif
             $student['active_cases'] = $this->db->table('bk_cases')
@@ -1604,11 +1615,42 @@ class BkModule extends BaseController
         }
 
         // 2. Kehadiran / Absensi (READ-ONLY)
+        // Ambil class_id aktif siswa ini dan rentang tanggal tahun ajaran terkait
+        // untuk menghitung absensi yang relevan (bukan semua sepanjang masa).
+        $activeRecord = $this->db->table('student_records sr')
+            ->select('sr.class_id, ay.start_date, ay.end_date')
+            ->join('academic_years ay', 'ay.id = sr.academic_year_id', 'inner')
+            ->where('sr.student_id', $id)
+            ->where('sr.status', 'aktif')
+            ->orderBy('ay.start_date', 'DESC')
+            ->get()->getRowArray();
+
+        $attClassId = $activeRecord['class_id']   ?? null;
+        $attStart   = $activeRecord['start_date'] ?? '1970-01-01';
+        $attEnd     = min(date('Y-m-d'), $activeRecord['end_date'] ?? date('Y-m-d'));
+
+        // Status enum di tabel attendances: H=Hadir, S=Sakit, I=Izin, A=Alpa
         $attendanceSummary = [
-            'hadir' => $this->db->table('attendances')->where('student_id', $id)->where('status', 'Hadir')->countAllResults(),
-            'sakit' => $this->db->table('attendances')->where('student_id', $id)->where('status', 'Sakit')->countAllResults(),
-            'izin'  => $this->db->table('attendances')->where('student_id', $id)->where('status', 'Izin')->countAllResults(),
-            'alpa'  => $this->db->table('attendances')->where('student_id', $id)->where('status', 'Alpa')->countAllResults(),
+            'hadir' => $this->db->table('attendances')
+                ->where('student_id', $id)->where('status', 'H')
+                ->where('date >=', $attStart)->where('date <=', $attEnd)
+                ->where($attClassId ? ['class_id' => $attClassId] : '1=1')
+                ->countAllResults(),
+            'sakit' => $this->db->table('attendances')
+                ->where('student_id', $id)->where('status', 'S')
+                ->where('date >=', $attStart)->where('date <=', $attEnd)
+                ->where($attClassId ? ['class_id' => $attClassId] : '1=1')
+                ->countAllResults(),
+            'izin'  => $this->db->table('attendances')
+                ->where('student_id', $id)->where('status', 'I')
+                ->where('date >=', $attStart)->where('date <=', $attEnd)
+                ->where($attClassId ? ['class_id' => $attClassId] : '1=1')
+                ->countAllResults(),
+            'alpa'  => $this->db->table('attendances')
+                ->where('student_id', $id)->where('status', 'A')
+                ->where('date >=', $attStart)->where('date <=', $attEnd)
+                ->where($attClassId ? ['class_id' => $attClassId] : '1=1')
+                ->countAllResults(),
         ];
         $totalAtt             = array_sum($attendanceSummary);
         $attendancePercentage = $totalAtt > 0 ? round(($attendanceSummary['hadir'] / $totalAtt) * 100, 1) : 100;
