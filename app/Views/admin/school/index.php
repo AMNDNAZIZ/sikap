@@ -455,11 +455,10 @@ function initMap() {
     // Create map
     map = L.map('schoolMap').setView([defaultLat, defaultLng], 15);
 
-    // Add CartoDB tiles (no referer restrictions)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
-        maxZoom: 19,
-        subdomains: 'abcd'
+    // Add OpenStreetMap tiles (gratis, tanpa API key - sama dengan student-map)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
     }).addTo(map);
 
     // Add geocoder (search)
