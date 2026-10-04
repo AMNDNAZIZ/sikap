@@ -585,11 +585,11 @@
                         } elseif ($schoolLvl == 1) {
                             // SD: guru_kelas → "Guru Kelas [nama kelas]", guru_mapel → "Guru [kode mapel]"
                             if ($isWali) {
-                                echo 'Mengajar: Guru Kelas' . ($waliClass ? ' ' . esc($waliClass) : '');
+                                echo 'Guru Kelas' . ($waliClass ? ' ' . esc($waliClass) : '');
                             } elseif ($isMapel && !empty($subjectList)) {
-                                echo 'Mengajar: Guru ' . esc($subjectList);
+                                echo 'Guru ' . esc($subjectList);
                             } else {
-                                echo 'Mengajar: Guru';
+                                echo 'Guru';
                             }
                         } else {
                             // SMP / SMA: wali kelas + mapel → "Wali Kelas [nama], Guru [kode]"
@@ -599,11 +599,11 @@
                                 $label .= ', Guru ' . esc($subjectList);
                                 echo 'Mengajar: ' . $label;
                             } elseif ($isWali) {
-                                echo 'Mengajar: Wali Kelas' . ($waliClass ? ' ' . esc($waliClass) : '');
+                                echo 'Wali Kelas' . ($waliClass ? ' ' . esc($waliClass) : '');
                             } elseif ($isMapel && !empty($subjectList)) {
-                                echo 'Mengajar: Guru ' . esc($subjectList);
+                                echo 'Guru ' . esc($subjectList);
                             } else {
-                                echo 'Mengajar: Guru';
+                                echo 'Guru';
                             }
                         }
                       ?>
