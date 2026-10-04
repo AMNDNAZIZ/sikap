@@ -1,6 +1,6 @@
 {
     "version": "2.0.2",
-    "generated": "2026-10-04 06:58:24",
+    "generated": "2026-10-04 15:02:25",
     "last_update": "2026-10-01 00:00",
     "total_files": 971,
     "files": {
@@ -686,7 +686,7 @@
         "app/Views/admin/tugas/index.php": "6306b2a79a566a484b179612375651f2",
         "app/Views/admin/tugas/show.php": "2da88a12303236eae04638ffa5ead8a4",
         "app/Views/admin/updater/index-update.php": "69cf700bedde099a21b44deda3e63a95",
-        "app/Views/admin/updater/index.php": "00fa826ee8b56aa7015797bb99276f3d",
+        "app/Views/admin/updater/index.php": "ca2f7ea4e8cf1dc114676d865cc99b75",
         "app/Views/admin/updater/online_update.php": "6c8bd6b5bc3b5abc4a373fc04cec5917",
         "app/Views/admin/users/create.php": "6a2137806b2f50faff628e5d63417771",
         "app/Views/admin/users/edit.php": "751e59e3e1f9bfde7b134db08401a9f8",
@@ -727,7 +727,7 @@
         "app/Views/forum/index.php": "4ded2cc629c6ba1c7ffc772693f0e9a4",
         "app/Views/forum/kelas.php": "ab53f0cbc7fd28f1bcfa25cc7c5ef31a",
         "app/Views/forum/show.php": "341180675a5decf5cffce1bfbb79d989",
-        "app/Views/index.php": "f6711ab5fa450cdb90342fbcb2a02289",
+        "app/Views/index.php": "beef040366338c8328da1a927287fc18",
         "app/Views/kalender/index.php": "0705d0592376ae66fd50c6dd821da658",
         "app/Views/layouts/app.php": "98d2c71e9a7fc29e9f947b2070cc67e7",
         "app/Views/layouts/cbt.php": "a0df7cc25f613268f0daf252dd599fef",
