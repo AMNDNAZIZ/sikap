@@ -582,6 +582,8 @@
                             echo 'Staf';
                         } elseif ($roleId == 6) {
                             echo 'Kontributor';
+                        } elseif ($roleId == 2) {
+                            echo 'Kepala Sekolah';
                         } elseif ($schoolLvl == 1) {
                             // SD: guru_kelas → "Guru Kelas [nama kelas]", guru_mapel → "Guru [kode mapel]"
                             if ($isWali) {
