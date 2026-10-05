@@ -1,6 +1,6 @@
 {
     "version": "2.0.2",
-    "generated": "2026-10-05 21:10:36",
+    "generated": "2026-10-06 06:19:09",
     "last_update": "2026-10-01 00:00",
     "total_files": 971,
     "files": {
@@ -781,7 +781,7 @@
         "app/Views/siswa/grades/index.php": "ba0ce4508e83022ff2e082fe891055b3",
         "app/Views/siswa/grades/pdf.php": "69569a226ae087b56f87c3dac0e36082",
         "app/Views/siswa/learning/index.php": "9227ab3beeeb5237e73b30732924ff03",
-        "app/Views/siswa/location/index.php": "5ead257909ebeed97f46de4d07bb8d02",
+        "app/Views/siswa/location/index.php": "96b50c8745f00697899c9c56955f48e9",
         "app/Views/siswa/materials/index.php": "e8a8db09b132ffe1c8c17291f78da8ac",
         "app/Views/siswa/materials/show.php": "89dc90743204968d3e9065a103a303e8",
         "app/Views/siswa/payment/index.php": "50dc98eac4cd1ecb8ff330f522dc130a",
