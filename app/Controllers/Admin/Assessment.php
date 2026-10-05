@@ -1401,6 +1401,64 @@ class Assessment extends BaseController
         return redirect()->back()->with('success', 'Nilai siswa berhasil dihapus.');
     }
 
+    /**
+     * Hapus masal (pilih banyak) nilai siswa berdasarkan daftar ID.
+     */
+    public function deleteSelected($type)
+    {
+        $ids = $this->request->getPost('ids');
+        $redirectUrl = $this->request->getPost('redirect_url');
+
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->back()->with('error', 'Tidak ada data nilai yang dipilih untuk dihapus.');
+        }
+
+        $ids = array_filter(array_map('intval', $ids));
+        if (empty($ids)) {
+            return redirect()->back()->with('error', 'Pilihan nilai tidak valid.');
+        }
+
+        if ($type === 'pts') {
+            // Hapus baris PTS (bukan soft delete) agar siswa muncul kembali di input form & impor CBT
+            $this->db->table('pts_scores')
+                ->whereIn('id', $ids)
+                ->delete();
+        } elseif ($type === 'formatif') {
+            $this->db->table('material_scores')
+                ->whereIn('id', $ids)
+                ->update(['score' => null]);
+        } elseif ($type === 'sumatif') {
+            $this->db->table('summative_scores')
+                ->whereIn('id', $ids)
+                ->update(['score' => null]);
+        } elseif ($type === 'final') {
+            $this->db->table('final_exam_scores')
+                ->whereIn('id', $ids)
+                ->update(['score' => null]);
+        } else {
+            return redirect()->back()->with('error', 'Jenis penilaian tidak valid.');
+        }
+
+        $count = count($ids);
+        $message = "Berhasil menghapus {$count} nilai siswa terpilih.";
+
+        $siteBase = rtrim(site_url(), '/');
+        $validRedirect = '';
+        if (!empty($redirectUrl)) {
+            if (stripos($redirectUrl, $siteBase) === 0) {
+                $validRedirect = $redirectUrl;
+            } elseif (strpos($redirectUrl, '/') === 0) {
+                $validRedirect = $siteBase . $redirectUrl;
+            }
+        }
+
+        if (!empty($validRedirect)) {
+            return redirect()->to($validRedirect)->with('success', $message);
+        }
+
+        return redirect()->back()->with('success', $message);
+    }
+
 
     public function sumatifList($classId, $subjectId)
     {
