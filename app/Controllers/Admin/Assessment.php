@@ -461,7 +461,7 @@ class Assessment extends BaseController
             $method = $p2 ?? 'all';
 
             $material = $db->table('alur_tujuan_pembelajaran atp')
-                ->select('atp.id, atp.lingkup_materi as title, atp.class_id, atp.semester, subjects.name as subject, subjects.id as subject_id')
+                ->select('atp.id, atp.lingkup_materi as title, atp.class_id, atp.semester, subjects.name as subject, subjects.id as subject_id, subjects.religion as subject_religion')
                 ->join('subjects', 'subjects.id = atp.subject_id')
                 ->where('atp.id', $id)
                 ->get()
@@ -470,6 +470,9 @@ class Assessment extends BaseController
             if (!$material) {
                 return redirect()->back()->with('error', 'Lingkup Materi (ATP) tidak ditemukan.');
             }
+
+            // Filter agama dari kolom subjects.religion
+            $religionFilter = !empty($material['subject_religion']) ? $material['subject_religion'] : null;
 
             // Ambil class_id dari query string (atau fallback dari ATP material)
             $class_id = $this->request->getGet('class_id');
@@ -482,7 +485,7 @@ class Assessment extends BaseController
                 $currentClass = $db->table('classes')->where('id', $class_id)->get()->getRowArray();
             }
 
-            // Ambil student IDs untuk kelas yang dipilih
+            // Ambil student IDs untuk kelas yang dipilih (dengan filter agama jika mapel agama)
             $classStudentIds = [];
             if (!empty($class_id)) {
                 $studentQuery = $db->table('students')
@@ -500,6 +503,11 @@ class Assessment extends BaseController
                         ->orWhere('sr.academic_year_id IS NULL')
                     ->groupEnd();
                 }
+
+                if ($religionFilter) {
+                    $studentQuery->where('students.religion', $religionFilter);
+                }
+
                 $classStudentIds = array_column($studentQuery->get()->getResultArray(), 'id');
             }
 
@@ -576,6 +584,7 @@ class Assessment extends BaseController
             $method = $p3 ?? null;
 
             $subject = $db->table('subjects')->where('id', $id)->get()->getRowArray();
+            $religionFilter = !empty($subject['religion']) ? $subject['religion'] : null;
 
             $class_id = $this->request->getGet('class_id');
             if (empty($class_id)) {
@@ -610,6 +619,11 @@ class Assessment extends BaseController
                         ->orWhere('sr.academic_year_id IS NULL')
                     ->groupEnd();
                 }
+
+                if ($religionFilter) {
+                    $studentQuery->where('students.religion', $religionFilter);
+                }
+
                 $classStudentIds = array_column($studentQuery->get()->getResultArray(), 'id');
             }
 
@@ -682,6 +696,8 @@ class Assessment extends BaseController
                 return redirect()->back()->with('error', 'Mata pelajaran tidak ditemukan.');
             }
 
+            $religionFilter = !empty($subject['religion']) ? $subject['religion'] : null;
+
             $classId = $this->request->getGet('class_id');
             if (empty($classId)) {
                 $assignment = $db->table('teaching_assignments ta')
@@ -715,6 +731,11 @@ class Assessment extends BaseController
                         ->orWhere('sr.academic_year_id IS NULL')
                     ->groupEnd();
                 }
+
+                if ($religionFilter) {
+                    $studentQuery->where('students.religion', $religionFilter);
+                }
+
                 $classStudentIds = array_column($studentQuery->get()->getResultArray(), 'id');
             }
 
@@ -757,6 +778,8 @@ class Assessment extends BaseController
                 return redirect()->back()->with('error', 'Mata pelajaran tidak ditemukan.');
             }
 
+            $religionFilter = !empty($subject['religion']) ? $subject['religion'] : null;
+
             $class_id = $this->request->getGet('class_id');
             if (empty($class_id)) {
                 $ta = $db->table('teaching_assignments')
@@ -788,6 +811,11 @@ class Assessment extends BaseController
                         ->orWhere('sr.academic_year_id IS NULL')
                     ->groupEnd();
                 }
+
+                if ($religionFilter) {
+                    $studentQuery->where('students.religion', $religionFilter);
+                }
+
                 $classStudentIds = array_column($studentQuery->get()->getResultArray(), 'id');
             }
 
