@@ -119,11 +119,12 @@ class Materials extends BaseController
         $yearId = (int)($year['id'] ?? 0);
 
         if ($this->isAdmin()) {
-            // Daftar mapel yang diampu (dengan jumlah kelas)
+            // Daftar mapel yang diampu (dengan jumlah kelas), KECUALI mapel BP/BK
             $subjects = $this->db->table('teaching_assignments ta')
                 ->select('s.id, s.name, COUNT(DISTINCT ta.class_id) as total_classes')
                 ->join('subjects s', 's.id = ta.subject_id')
                 ->where('ta.academic_year_id', $yearId)
+                ->where('s.is_bk', 0)          // Kecualikan BP/BK
                 ->groupBy('s.id')
                 ->orderBy('s.name', 'ASC')
                 ->get()->getResultArray();
@@ -137,12 +138,13 @@ class Materials extends BaseController
             $tid = $this->teacherId();
             if (!$tid) return redirect()->to('dashboard')->with('error', 'Data guru tidak ditemukan.');
 
-            // Daftar mapel yang diampu guru + jumlah kelas
+            // Daftar mapel yang diampu guru + jumlah kelas, KECUALI mapel BP/BK
             $subjects = $this->db->table('teaching_assignments ta')
                 ->select('s.id, s.name, COUNT(DISTINCT ta.class_id) as total_classes')
                 ->join('subjects s', 's.id = ta.subject_id')
                 ->where('ta.teacher_id', $tid)
                 ->where('ta.academic_year_id', $yearId)
+                ->where('s.is_bk', 0)          // Kecualikan BP/BK
                 ->groupBy('s.id')
                 ->orderBy('s.name', 'ASC')
                 ->get()->getResultArray();

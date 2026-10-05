@@ -104,12 +104,14 @@ class AdministrasiGuru extends BaseController
         }
 
         // 5. Query ALL assignments (plotting pengajaran) for active academic year
+        // Kecualikan mapel BP/BK (is_bk=1) dari monitoring administrasi
         $query = $this->teachingAssignmentModel
             ->select('teaching_assignments.id, teaching_assignments.teacher_id, teaching_assignments.class_id, teaching_assignments.subject_id, teachers.name as teacher_name, classes.name as class_name, classes.level as class_level, subjects.name as subject_name')
             ->join('teachers', 'teachers.id = teaching_assignments.teacher_id')
             ->join('classes', 'classes.id = teaching_assignments.class_id')
             ->join('subjects', 'subjects.id = teaching_assignments.subject_id')
-            ->where('teaching_assignments.academic_year_id', $activeYearId);
+            ->where('teaching_assignments.academic_year_id', $activeYearId)
+            ->where('subjects.is_bk', 0);  // Kecualikan mapel BP/BK
 
         if ($filterTeacher) {
             $query->where('teaching_assignments.teacher_id', $filterTeacher);

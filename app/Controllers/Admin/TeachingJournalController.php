@@ -315,10 +315,11 @@ class TeachingJournalController extends BaseController
                     ->join('subjects s', 's.id = ta.subject_id')
                     ->where('ta.class_id', $classId)
                     ->where('ta.academic_year_id', $activeYearId)
+                    ->where('s.is_bk', 0)  // Kecualikan BP/BK dari jurnal mengajar
                     ->groupBy('s.id')
                     ->get()->getResultArray();
             } else {
-                 $subjects = $this->subjectModel->findAll();
+                 $subjects = $this->subjectModel->where('is_bk', 0)->findAll(); // Kecualikan BP/BK
             }
         } elseif ($roleId == 3) {
             // Guru Kelas logic: find class where teacher_id = teacherId
@@ -333,7 +334,8 @@ class TeachingJournalController extends BaseController
                 ->join('classes c', 'c.id = ta.class_id')
                 ->join('subjects s', 's.id = ta.subject_id')
                 ->where('ta.teacher_id', $teacherId)
-                ->where('ta.academic_year_id', $activeYearId);
+                ->where('ta.academic_year_id', $activeYearId)
+                ->where('s.is_bk', 0);  // Kecualikan BP/BK dari jurnal mengajar
             
             $assignments = $assignmentQuery->get()->getResultArray();
 

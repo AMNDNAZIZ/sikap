@@ -50,7 +50,8 @@ class Assessment extends BaseController
                           teachers.name as teacher_name')
                 ->join('classes', 'classes.id = teaching_assignments.class_id')
                 ->join('subjects', 'subjects.id = teaching_assignments.subject_id')
-                ->join('teachers', 'teachers.id = teaching_assignments.teacher_id');
+                ->join('teachers', 'teachers.id = teaching_assignments.teacher_id')
+                ->where('subjects.is_bk', 0);  // Kecualikan mapel BP/BK dari penilaian
 
             if ($teacherId) {
                 $query->where('teaching_assignments.teacher_id', $teacherId);
@@ -80,7 +81,8 @@ class Assessment extends BaseController
                           subjects.name as subject_name')
                 ->join('classes', 'classes.id = teaching_assignments.class_id')
                 ->join('subjects', 'subjects.id = teaching_assignments.subject_id')
-                ->where('teaching_assignments.teacher_id', $teacherId);
+                ->where('teaching_assignments.teacher_id', $teacherId)
+                ->where('subjects.is_bk', 0);  // Kecualikan mapel BP/BK dari penilaian
 
             if ($activeYear) {
                 $query->where('teaching_assignments.academic_year_id', $activeYear['id']);
