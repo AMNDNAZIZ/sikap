@@ -1,6 +1,9 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
+<!-- Referrer Policy for OpenStreetMap -->
+<meta name="referrer" content="no-referrer-when-downgrade">
+
 <div class="container">
     <h3>📍 <?= esc($title) ?></h3>
     <p class="text-muted">Tandai lokasi rumah Anda pada peta untuk memudahkan sekolah dalam pendataan</p>
@@ -134,11 +137,10 @@ function initMap() {
     // Create map
     map = L.map('map').setView([defaultLat, defaultLng], 15);
 
-    // Add CartoDB tiles (no referer restrictions)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
-        maxZoom: 19,
-        subdomains: 'abcd'
+    // Add tile layer - OpenStreetMap (gratis, tanpa API key)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
     }).addTo(map);
 
     // Add geocoder (search)
