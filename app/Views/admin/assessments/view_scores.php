@@ -189,7 +189,17 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
                   <td>
                     <div class="btn-group btn-group-sm" role="group">
                       <?php if ($type !== 'pts'): ?>
-                        <a href="<?= site_url("admin/assessments/edit/{$s['id']}/{$type}?redirect_url=" . urlencode(current_url())) ?>"
+                        <?php
+                          // current_url(true) menyertakan query string (termasuk class_id)
+                          // sehingga setelah simpan, redirect kembali ke kelas yang benar
+                          $editRedirectUrl = current_url(true);
+                          // Pastikan class_id ikut jika belum ada di URL saat ini
+                          if (!empty($class_id) && strpos($editRedirectUrl, 'class_id') === false) {
+                              $editRedirectUrl .= (strpos($editRedirectUrl, '?') !== false ? '&' : '?')
+                                                . 'class_id=' . urlencode($class_id);
+                          }
+                        ?>
+                        <a href="<?= site_url("admin/assessments/edit/{$s['id']}/{$type}?redirect_url=" . urlencode($editRedirectUrl)) ?>"
                            class="btn btn-warning" title="Edit Nilai">
                           ✏️ Edit
                         </a>
