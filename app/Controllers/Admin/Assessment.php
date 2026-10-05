@@ -806,14 +806,24 @@ class Assessment extends BaseController
             return redirect()->back()->with('error', 'Kelas atau Mata Pelajaran tidak ditemukan.');
         }
 
+        // Ambil ID siswa kelas ini agar status nilai terisi spesifik untuk kelas yang dipilih
+        $classStudentIds = $this->getClassStudentIds($classId, $activeYear['id']);
+
         // Status terisi per semester (1 & 2)
         $status = [];
         foreach (['1', '2'] as $sem) {
+            if (empty($classStudentIds)) {
+                $status[$sem] = ['jumlah' => 0, 'siswa_terisi' => 0];
+                continue;
+            }
+
             $info = $this->db->table('pts_scores')
                 ->select('COUNT(id) as jumlah, COUNT(DISTINCT student_id) as siswa_terisi')
                 ->where('subject_id', $subjectId)
                 ->where('year_id', $activeYear['id'])
                 ->where('semester', $sem)
+                ->where('score IS NOT NULL')
+                ->whereIn('student_id', $classStudentIds)
                 ->get()->getRowArray();
             $status[$sem] = $info;
         }
@@ -1482,15 +1492,23 @@ class Assessment extends BaseController
             return redirect()->to('admin/assessments')->with('error', 'Kelas atau Mata Pelajaran tidak ditemukan.');
         }
 
+        $classStudentIds = $this->getClassStudentIds($classId, $activeYear['id']);
+
         // Hitung status nilai per semester dan metode
         $status = [];
         foreach ([1, 2] as $sem) {
             foreach (['tulis', 'penugasan'] as $method) {
+                if (empty($classStudentIds)) {
+                    $status[$sem][$method] = 0;
+                    continue;
+                }
                 $jumlah = $this->db->table('summative_scores')
                     ->where('subject_id', $subjectId)
                     ->where('year_id', $activeYear['id'])
                     ->where('semester', $sem)
                     ->where('type', $method)
+                    ->where('score IS NOT NULL')
+                    ->whereIn('student_id', $classStudentIds)
                     ->countAllResults();
 
                 $status[$sem][$method] = $jumlah;
@@ -1533,12 +1551,20 @@ class Assessment extends BaseController
 
         $subject = $this->db->table('subjects')->where('id', $subjectId)->get()->getRowArray();
 
-        $info = $this->db->table('final_exam_scores fs')
-            ->select('COUNT(fs.id) as jumlah, COUNT(DISTINCT fs.student_id) as siswa_terisi')
-            ->where('fs.subject_id', $subjectId)
-            ->where('fs.year_id', $activeYear['id'])
-            ->get()
-            ->getRowArray();
+        $classStudentIds = $this->getClassStudentIds($classId, $activeYear['id']);
+
+        if (!empty($classStudentIds)) {
+            $info = $this->db->table('final_exam_scores fs')
+                ->select('COUNT(fs.id) as jumlah, COUNT(DISTINCT fs.student_id) as siswa_terisi')
+                ->where('fs.subject_id', $subjectId)
+                ->where('fs.year_id', $activeYear['id'])
+                ->where('fs.score IS NOT NULL')
+                ->whereIn('fs.student_id', $classStudentIds)
+                ->get()
+                ->getRowArray();
+        } else {
+            $info = ['jumlah' => 0, 'siswa_terisi' => 0];
+        }
 
         return view('admin/assessments/final_list', [
             'class' => $class,
@@ -1547,6 +1573,33 @@ class Assessment extends BaseController
             'subjectId' => $subjectId,
             'status' => $info,
         ]);
+    }
+
+    /**
+     * Helper untuk mengambil ID seluruh siswa aktif di suatu kelas pada tahun ajaran tertentu.
+     */
+    private function getClassStudentIds($classId, $academicYearId = null): array
+    {
+        if (empty($classId)) {
+            return [];
+        }
+
+        $studentQuery = $this->db->table('students')
+            ->distinct()->select('students.id')
+            ->join('student_records sr', 'sr.student_id = students.id AND sr.status = "aktif"', 'left')
+            ->groupStart()
+                ->where('sr.class_id', $classId)
+                ->orWhere('students.class_id', $classId)
+            ->groupEnd();
+
+        if (!empty($academicYearId)) {
+            $studentQuery->groupStart()
+                ->where('sr.academic_year_id', $academicYearId)
+                ->orWhere('sr.academic_year_id IS NULL')
+            ->groupEnd();
+        }
+
+        return array_column($studentQuery->get()->getResultArray(), 'id');
     }
 
 
