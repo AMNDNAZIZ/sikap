@@ -463,6 +463,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('assessments/deleteBatch/formatif/(:num)/(:alpha)', 'Assessment::deleteBatch/formatif/$1/$2', $auth123);
     $routes->get('assessments/deleteBatch/sumatif/(:num)/(:num)/(:segment)', 'Assessment::deleteBatch/sumatif/$1/$2/$3', $auth123);
     $routes->get('assessments/deleteBatch/final/(:num)/(:num)', 'Assessment::deleteBatch/final/$1/$2', $auth123);
+    $routes->get('assessments/deleteBatch/pts/(:num)/(:num)', 'Assessment::deleteBatch/pts/$1/$2', $auth123);
 
     // ─── Kirim Tugas ───
     $routes->get('tugas', 'Tugas::index', $auth123);

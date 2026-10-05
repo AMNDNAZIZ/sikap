@@ -188,7 +188,6 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
                   <td class="text-center fw-bold"><?= esc($s['score']) ?></td>
                   <td>
                     <div class="btn-group btn-group-sm" role="group">
-                      <?php if ($type !== 'pts'): ?>
                         <?php
                           // current_url(true) menyertakan query string (termasuk class_id)
                           // sehingga setelah simpan, redirect kembali ke kelas yang benar
@@ -203,7 +202,6 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
                            class="btn btn-warning" title="Edit Nilai">
                           ✏️ Edit
                         </a>
-                      <?php endif; ?>
                       <a href="<?= site_url("admin/assessments/deleteOne/{$s['id']}/{$type}") ?>"
                          class="btn btn-danger"
                          onclick="return confirm('Yakin ingin menghapus nilai siswa <?= esc($s['student_name'] ?? '-') ?>?')"
@@ -277,6 +275,12 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
             <a href="<?= site_url("admin/assessments/deleteBatch/final/{$subject['id']}" . ($class_id ? "?class_id={$class_id}" : "")) ?>"
                class="btn btn-danger"
                onclick="return confirm('Yakin ingin menghapus semua nilai ujian akhir di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
+              🗑 Hapus Semua (<?= count($scores) ?>)
+            </a>
+          <?php elseif ($type === 'pts'): ?>
+            <a href="<?= site_url("admin/assessments/deleteBatch/pts/{$subject['id']}/{$semester}" . ($class_id ? "?class_id={$class_id}" : "")) ?>"
+               class="btn btn-danger"
+               onclick="return confirm('Yakin ingin menghapus semua nilai PTS semester ini di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
               🗑 Hapus Semua (<?= count($scores) ?>)
             </a>
           <?php endif; ?>

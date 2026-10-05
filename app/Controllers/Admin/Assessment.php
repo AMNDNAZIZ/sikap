@@ -386,7 +386,7 @@ class Assessment extends BaseController
     public function viewScores($type, $id, $p2 = null, $p3 = null)
     {
         // Validasi type
-        if (!in_array($type, ['formatif', 'sumatif', 'final'])) {
+        if (!in_array($type, ['formatif', 'sumatif', 'final', 'pts'])) {
             return redirect()->back()->with('error', 'Tipe penilaian tidak valid.');
         }
 
@@ -399,7 +399,7 @@ class Assessment extends BaseController
         $activeYear = null;  // Init
         $semester = null;
 
-        // Ambil active year (KRITIS untuk sumatif/final)
+        // Ambil active year (KRITIS untuk sumatif/final/pts)
         $activeYear = $this->academicYearModel->getActiveYear();
         if (!$activeYear) {
             // Fallback: Ambil terbaru
@@ -410,7 +410,7 @@ class Assessment extends BaseController
                 $this->academicYearModel->update($activeYear['id'], ['status' => 'active']);
             } else {
                 log_message('error', 'No academic year available in viewScores.');
-                if (in_array($type, ['sumatif', 'final'])) {
+                if (in_array($type, ['sumatif', 'final', 'pts'])) {
                     return redirect()->to('admin/academic-years/create')->with('error', 'Belum ada tahun ajaran. Silakan buat terlebih dahulu.');
                 }
             }
@@ -1110,6 +1110,8 @@ class Assessment extends BaseController
             $model = new SummativeScoresModel();
         } elseif ($type === 'final') {
             $model = new FinalExamScoresModel();
+        } elseif ($type === 'pts') {
+            $model = new \App\Models\PtsScoreModel();
         } else {
             throw new \CodeIgniter\Exceptions\PageNotFoundException("Tipe penilaian tidak dikenali");
         }
@@ -1130,11 +1132,17 @@ class Assessment extends BaseController
                 ->where('id', $score['material_id'])
                 ->get()->getRowArray();
         } else {
-            // Untuk sumatif & final → pakai data mapel
+            // Untuk sumatif, final, pts → pakai data mapel
             $material = $this->db->table('subjects')
                 ->where('id', $score['subject_id'])
                 ->get()->getRowArray();
-            $material['title'] = ($type === 'sumatif') ? 'Sumatif' : 'Ujian Akhir';
+            if ($type === 'sumatif') {
+                $material['title'] = 'Sumatif';
+            } elseif ($type === 'final') {
+                $material['title'] = 'Ujian Akhir';
+            } elseif ($type === 'pts') {
+                $material['title'] = 'Penilaian Tengah Semester (PTS)';
+            }
         }
 
         // Ambil redirect_url dari query (konsisten)
@@ -1145,6 +1153,8 @@ class Assessment extends BaseController
                 $redirectUrl = site_url("admin/assessments/viewScores/formatif/{$score['material_id']}/{$score['type']}");
             } elseif ($type === 'sumatif') {
                 $redirectUrl = site_url("admin/assessments/viewScores/sumatif/{$score['subject_id']}/{$score['semester']}/{$score['type']}");
+            } elseif ($type === 'pts') {
+                $redirectUrl = site_url("admin/assessments/viewScores/pts/{$score['subject_id']}/{$score['semester']}");
             } else {
                 $redirectUrl = site_url("admin/assessments/viewScores/final/{$score['subject_id']}/{$score['semester']}");
             }
@@ -1203,6 +1213,8 @@ class Assessment extends BaseController
             $model = new SummativeScoresModel();
         } elseif ($type === 'final') {
             $model = new FinalExamScoresModel();
+        } elseif ($type === 'pts') {
+            $model = new \App\Models\PtsScoreModel();
         } else {
             return redirect()->to($validRedirect)->with('error', 'Tipe penilaian tidak valid.');
         }
@@ -1326,6 +1338,33 @@ class Assessment extends BaseController
 
             return redirect()->to($redirectUrl)
                 ->with('success', 'Semua nilai ujian akhir berhasil dihapus.');
+
+        } elseif ($type === 'pts') {
+            $subjectId = $id;
+            $semester = $p2;
+
+            $builder = $this->db->table('pts_scores')
+                ->where('subject_id', $subjectId)
+                ->where('year_id', $year['id'] ?? 0)
+                ->where('semester', $semester);
+
+            if (!empty($classId)) {
+                if (!empty($classStudentIds)) {
+                    $builder->whereIn('student_id', $classStudentIds);
+                } else {
+                    $builder->where('1 = 0');
+                }
+            }
+
+            $builder->delete();
+
+            $redirectUrl = "admin/assessments/viewScores/pts/{$subjectId}/{$semester}";
+            if (!empty($classId)) {
+                $redirectUrl .= "?class_id={$classId}";
+            }
+
+            return redirect()->to($redirectUrl)
+                ->with('success', 'Semua nilai PTS berhasil dihapus.');
         }
 
         return redirect()->back()->with('error', 'Jenis penilaian tidak valid.');
