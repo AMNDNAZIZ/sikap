@@ -201,44 +201,18 @@ class Assessment extends BaseController
             return redirect()->to('admin/academic-years')->with('error', 'Belum ada tahun ajaran aktif.');
         }
 
-        // Default: semua siswa kelas (filter tahun ajaran aktif)
-        $studentsQuery = $this->studentModel
-            ->select('students.*')
-            ->join('student_records sr', 'sr.student_id = students.id')
-            ->where('sr.class_id', $classId)
-            ->where('sr.academic_year_id', $activeYear['id'])
-            ->where('sr.status', 'aktif');
+        // --- DETEKSI FILTER AGAMA ---
+        // Gunakan kolom subjects.religion langsung (lebih andal dari parsing nama)
+        $subjectInfo   = $this->db->table('subjects')->where('id', $subjectId)->get()->getRowArray();
+        $religionFilter = !empty($subjectInfo['religion']) ? $subjectInfo['religion'] : null;
+        // ----------------------------
 
-        // --- LOGIC AGAMA ---
-        $subjectInfo = $this->db->table('subjects')->where('id', $subjectId)->get()->getRowArray();
-        if ($subjectInfo && stripos($subjectInfo['name'], 'Agama') !== false) {
-            // Deteksi agama dari nama mapel
-            $religionFilter = null;
-            if (stripos($subjectInfo['name'], 'Islam') !== false)
-                $religionFilter = 'Islam';
-            elseif (stripos($subjectInfo['name'], 'Kristen') !== false)
-                $religionFilter = 'Kristen';
-            elseif (stripos($subjectInfo['name'], 'Katholik') !== false)
-                $religionFilter = 'Katholik';
-            elseif (stripos($subjectInfo['name'], 'Hindu') !== false)
-                $religionFilter = 'Hindu';
-            elseif (stripos($subjectInfo['name'], 'Budha') !== false)
-                $religionFilter = 'Budha';
-            elseif (stripos($subjectInfo['name'], 'Khonghucu') !== false)
-                $religionFilter = 'Khonghucu';
-
-            if ($religionFilter) {
-                $studentsQuery->where('students.religion', $religionFilter);
-            }
-        }
-        // -------------------
-
-        $students = $studentsQuery->findAll();
-
-        $materials = [];
-        $materialId = $this->request->getGet('material_id');
-        $method = $this->request->getGet('method');
+        $students     = [];
+        $materials    = [];
+        $materialId   = $this->request->getGet('material_id');
+        $method       = $this->request->getGet('method');
         $methodStatus = [];
+        $semester     = null;
 
         if ($type === 'formatif') {
             // Ambil materi dari ATP — single-guru: ambil se-level, multi-guru: per kelas
@@ -271,8 +245,8 @@ class Assessment extends BaseController
                 ->getResultArray();
 
             if (!empty($materialId) && !empty($method)) {
-                // Ambil siswa yg BELUM punya nilai valid (score IS NULL → tetap ditampilkan)
-                $students = $this->studentModel
+                // Ambil siswa yang BELUM punya nilai valid, dengan filter agama jika mapel agama
+                $q = $this->studentModel
                     ->select('students.*')
                     ->join('student_records sr', 'sr.student_id = students.id')
                     ->where('sr.class_id', $classId)
@@ -283,8 +257,13 @@ class Assessment extends BaseController
                         WHERE material_id = " . (int) $materialId . " 
                         AND type = " . $this->db->escape($method) . " 
                         AND score IS NOT NULL
-                    )")
-                    ->findAll();
+                    )");
+
+                if ($religionFilter) {
+                    $q->where('students.religion', $religionFilter);
+                }
+
+                $students = $q->findAll();
 
                 // Status metode
                 $rows = $this->db->table('material_scores')
@@ -298,14 +277,28 @@ class Assessment extends BaseController
                 foreach ($rows as $r) {
                     $methodStatus[$r['type']] = ((int) $r['total'] >= $totalStudents) ? 'full' : 'partial';
                 }
+            } else {
+                // Sebelum materi/metode dipilih: tampilkan semua siswa kelas (dengan filter agama)
+                $q = $this->studentModel
+                    ->select('students.*')
+                    ->join('student_records sr', 'sr.student_id = students.id')
+                    ->where('sr.class_id', $classId)
+                    ->where('sr.academic_year_id', $activeYear['id'])
+                    ->where('sr.status', 'aktif');
+
+                if ($religionFilter) {
+                    $q->where('students.religion', $religionFilter);
+                }
+
+                $students = $q->findAll();
             }
 
         } elseif ($type === 'sumatif') {
             $semester = $this->request->getGet('semester');
-            $method = $this->request->getGet('method');
+            $method   = $this->request->getGet('method');
 
             if (!empty($semester) && !empty($method)) {
-                $students = $this->studentModel
+                $q = $this->studentModel
                     ->select('students.*')
                     ->join('student_records sr', 'sr.student_id = students.id')
                     ->where('sr.class_id', $classId)
@@ -318,15 +311,33 @@ class Assessment extends BaseController
                           AND type = " . $this->db->escape($method) . "
                           AND year_id = " . (int) $activeYear['id'] . "
                           AND score IS NOT NULL
-                    )")
-                    ->findAll();
+                    )");
+
+                if ($religionFilter) {
+                    $q->where('students.religion', $religionFilter);
+                }
+
+                $students = $q->findAll();
+            } else {
+                $q = $this->studentModel
+                    ->select('students.*')
+                    ->join('student_records sr', 'sr.student_id = students.id')
+                    ->where('sr.class_id', $classId)
+                    ->where('sr.academic_year_id', $activeYear['id'])
+                    ->where('sr.status', 'aktif');
+
+                if ($religionFilter) {
+                    $q->where('students.religion', $religionFilter);
+                }
+
+                $students = $q->findAll();
             }
 
         } elseif ($type === 'final') {
             $semester = $this->request->getGet('semester');
 
             if (!empty($semester)) {
-                $students = $this->studentModel
+                $q = $this->studentModel
                     ->select('students.*')
                     ->join('student_records sr', 'sr.student_id = students.id')
                     ->where('sr.class_id', $classId)
@@ -338,15 +349,34 @@ class Assessment extends BaseController
                           AND semester = " . $this->db->escape($semester) . "
                           AND year_id = " . (int) $activeYear['id'] . "
                           AND score IS NOT NULL
-                    )")
-                    ->findAll();
+                    )");
+
+                if ($religionFilter) {
+                    $q->where('students.religion', $religionFilter);
+                }
+
+                $students = $q->findAll();
+            } else {
+                $q = $this->studentModel
+                    ->select('students.*')
+                    ->join('student_records sr', 'sr.student_id = students.id')
+                    ->where('sr.class_id', $classId)
+                    ->where('sr.academic_year_id', $activeYear['id'])
+                    ->where('sr.status', 'aktif');
+
+                if ($religionFilter) {
+                    $q->where('students.religion', $religionFilter);
+                }
+
+                $students = $q->findAll();
             }
+
         } elseif ($type === 'pts') {
-            // PTS: satu nilai per siswa per mapel per semester (seperti final, tapi per semester)
+            // PTS: satu nilai per siswa per mapel per semester
             $semester = $this->request->getGet('semester');
 
             if (!empty($semester)) {
-                $students = $this->studentModel
+                $q = $this->studentModel
                     ->select('students.*')
                     ->join('student_records sr', 'sr.student_id = students.id')
                     ->where('sr.class_id', $classId)
@@ -358,8 +388,13 @@ class Assessment extends BaseController
                           AND semester = " . $this->db->escape($semester) . "
                           AND year_id = " . (int) $activeYear['id'] . "
                           AND score IS NOT NULL
-                    )")
-                    ->findAll();
+                    )");
+
+                if ($religionFilter) {
+                    $q->where('students.religion', $religionFilter);
+                }
+
+                $students = $q->findAll();
             } else {
                 // Tanpa semester terpilih → jangan tampilkan tabel input
                 $students = [];
@@ -367,17 +402,18 @@ class Assessment extends BaseController
         }
 
         return view('admin/assessments/input_form', [
-            'classId' => $classId,
-            'subjectId' => $subjectId,
-            'type' => $type,
-            'materials' => $materials,
-            'students' => $students,
-            'materialId' => $materialId,
-            'method' => $method,
-            'methodStatus' => $methodStatus,
-            'activeYear' => $activeYear,
-            'semester' => $semester ?? null,
-            'redirect_url' => site_url("admin/assessments/{$type}List/{$classId}/{$subjectId}"),
+            'classId'        => $classId,
+            'subjectId'      => $subjectId,
+            'type'           => $type,
+            'materials'      => $materials,
+            'students'       => $students,
+            'materialId'     => $materialId,
+            'method'         => $method,
+            'methodStatus'   => $methodStatus,
+            'activeYear'     => $activeYear,
+            'semester'       => $semester ?? null,
+            'redirect_url'   => site_url("admin/assessments/{$type}List/{$classId}/{$subjectId}"),
+            'religionFilter' => $religionFilter,
         ]);
     }
 
