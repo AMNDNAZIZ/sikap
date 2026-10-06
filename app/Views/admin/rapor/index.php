@@ -46,7 +46,7 @@
                   <td><?= esc($activeYear['year'] ?? '-') ?></td>
                   <td>
                     <div class="mb-1">
-                      <span class="badge bg-secondary mb-1">PTS</span><br>
+                      <!--<span class="badge bg-secondary mb-1">PTS</span><br>-->
                       <a href="<?= site_url("admin/rapor/pts/{$cls['id']}/1") ?>"
                          class="btn btn-sm btn-outline-primary" target="_blank">
                         🖨️ Sem 1
@@ -56,7 +56,7 @@
                         🖨️ Sem 2
                       </a>
                     </div>
-                    <div>
+                    <!--<div>
                       <span class="badge bg-success mb-1">Akhir</span><br>
                       <a href="<?= site_url("admin/rapor/akhir/{$cls['id']}/1") ?>"
                          class="btn btn-sm btn-outline-success" target="_blank">
@@ -66,7 +66,7 @@
                          class="btn btn-sm btn-outline-success" target="_blank">
                         🖨️ Sem 2
                       </a>
-                    </div>
+                    </div>-->
                   </td>
                 </tr>
               <?php endforeach; ?>
