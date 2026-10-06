@@ -94,7 +94,7 @@
                   <?php if (session()->get('user')['role_id'] != 2): ?>
                     <div class="d-flex gap-1 justify-content-center flex-wrap">
                       <a href="<?= base_url('admin/teachers/edit/' . $t['id']) ?>"
-                         class="btn btn-sm btn-warning">✏️ Edit</a>
+                         class="btn btn-sm btn-warning">✏️</a>
 
                       <!-- Tombol Toggle Aktif/Nonaktif -->
                       <button type="button"
@@ -103,13 +103,13 @@
                               data-name="<?= esc($t['name']) ?>"
                               data-active="<?= $t['is_active'] ?>"
                               title="<?= $t['is_active'] ? 'Nonaktifkan guru ini' : 'Aktifkan guru ini' ?>">
-                        <?= $t['is_active'] ? '🚫 Nonaktifkan' : '✅ Aktifkan' ?>
+                        <?= $t['is_active'] ? '🚫' : '✅' ?>
                       </button>
 
                       <a href="<?= base_url('admin/teachers/delete/' . $t['id']) ?>"
                          class="btn btn-sm btn-danger"
                          onclick="return confirm('Yakin hapus guru <?= esc($t['name'], 'js') ?>? Akun login terkait juga akan dihapus.')">
-                        🗑 Hapus
+                        🗑
                       </a>
                     </div>
                   <?php else: ?>
