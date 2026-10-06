@@ -27,7 +27,7 @@
     $inTataUsaha = url_is('admin/tata-usaha*') || url_is('admin/surat-masuk*') || url_is('admin/surat-keluar*') || url_is('admin/agenda-surat*') || url_is('admin/buku-tamu*') || url_is('admin/settings/kop-surat*');
     $inKurikulum = url_is('admin/administrasi-guru*') && !url_is('admin/administrasi-guru/cp-master*') && !url_is('admin/administrasi-guru/mapping*');
     $inJadwal    = url_is('admin/schedules*') || url_is('admin/agendas*') || url_is('admin/teaching-journal*');
-    $inPresensi  = url_is('admin/attendance*') || url_is('admin/teacher-attendance*');
+    $inPresensi  = url_is('admin/attendance*') || url_is('admin/teacher-attendance*') || url_is('admin/ekskul-absensi*');
     $inNilai     = url_is('admin/assessments*') || url_is('admin/grades*') || url_is('admin/erapor*') || url_is('admin/rapor*');
     $inLearning  = url_is('admin/materials*') || url_is('admin/tugas*') || url_is('admin/quiz*') ||
                    url_is('learning*') || url_is('kalender*');
@@ -36,7 +36,7 @@
     $inKonseling = url_is('admin/student-notes*') || url_is('admin/behaviors*') || url_is('admin/counseling*') || url_is('admin/counseling-appointment*') || url_is('admin/counseling-summon*') || url_is('admin/counseling-warning*') || url_is('admin/counseling-report*') || url_is('admin/bk*');
     $inKomunikasi= url_is('admin/announcements*') || url_is('admin/chat*') || url_is('admin/staff-chat*');
     $inCms       = url_is('admin/cms*') || url_is('admin/changelogs*');
-    $inAkun      = url_is('admin/users*') || url_is('admin/role-permission*') || url_is('profile*') || url_is('admin/updater*');
+    $inAkun      = url_is('admin/users*') || url_is('admin/audit-logs*') || url_is('admin/role-permission*') || url_is('profile*') || url_is('admin/updater*');
     ?>
 
     <!-- ══ SETUP ══ -->
@@ -60,6 +60,7 @@
           <li><a class="nav-link <?= url_is('admin/mapel-master*') ? 'active' : '' ?>" href="<?= base_url('admin/mapel-master') ?>">📚 <span class="label">Mapel Master (CP)</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/cp-master*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/cp-master') ?>">📜 <span class="label">Data Master CP</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/mapping*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/mapping') ?>">🔗 <span class="label">Mapping Kurikulum</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/ekskul*') ? 'active' : '' ?>" href="<?= base_url('admin/ekskul') ?>">⚽ <span class="label">Master Ekskul</span></a></li>
         </ul>
       </div>
     </li>
@@ -187,6 +188,7 @@
           <?php if (is_school_swasta()): ?>
           <li><a class="nav-link <?= url_is('admin/teacher-attendance*') ? 'active' : '' ?>" href="<?= base_url('admin/teacher-attendance') ?>">👨‍🏫 <span class="label">Absensi Guru</span></a></li>
           <?php endif; ?>
+          <li><a class="nav-link <?= url_is('admin/ekskul-absensi*') ? 'active' : '' ?>" href="<?= base_url('admin/ekskul-absensi') ?>">⚽ <span class="label">Absensi Pembina Ekskul</span></a></li>
         </ul>
       </div>
     </li>
@@ -372,6 +374,7 @@
       <div class="collapse <?= $inAkun ? 'show' : '' ?>" id="menuAkun">
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/users*') ? 'active' : '' ?>" href="<?= base_url('admin/users') ?>">👤 <span class="label">User Management</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/audit-logs*') ? 'active' : '' ?>" href="<?= base_url('admin/audit-logs') ?>">🕵️ <span class="label">Log Aktivitas</span></a></li>
           <li><a class="nav-link <?= url_is('admin/role-permission*') ? 'active' : '' ?>" href="<?= base_url('admin/role-permission') ?>">🛡️ <span class="label">Role & Permission</span></a></li>
           <li><a class="nav-link <?= url_is('profile*') ? 'active' : '' ?>" href="<?= base_url('profile') ?>">⚙️ <span class="label">Pengaturan Profil</span></a></li>
           <li><a class="nav-link <?= url_is('admin/settings/session*') ? 'active' : '' ?>" href="<?= base_url('admin/settings/session') ?>">🚀 <span class="label">Cache CBT</span></a></li>

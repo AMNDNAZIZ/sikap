@@ -67,6 +67,14 @@
       </div>
     </li>
 
+    <!-- Ekstrakurikuler -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/ekskul-pembina*') ? 'active' : '' ?>"
+        href="<?= base_url('admin/ekskul-pembina') ?>">
+        ⚽ <span class="label">Dashboard Ekskul</span>
+      </a>
+    </li>
+
     <!-- ── Penilaian & Nilai ─────────────────────── -->
     <li class="nav-item">
       <a class="nav-link <?= url_is('admin/assessments*') ? 'active' : '' ?>"

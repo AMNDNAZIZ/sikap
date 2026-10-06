@@ -57,6 +57,13 @@
       </a>
     </li>
 
+    <!-- Ekstrakurikuler -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('siswa/ekskul*') ? 'active' : '' ?>" href="<?= site_url('siswa/ekskul') ?>">
+        ⚽ <span class="label">Ekstrakurikuler</span>
+      </a>
+    </li>
+
     <!-- Forum Diskusi dihapus — diskusi ada di bawah setiap sub materi -->
     <!-- Catatan Siswa -->
     <li class="nav-item">

@@ -200,6 +200,7 @@
     $stu = $entry['student'];
     $att = $entry['attendance'];
     $rows = $entry['rows'];
+    $ekskul = $entry['ekskul'] ?? [];
 ?>
   <div class="rapor-page">
 
@@ -298,7 +299,40 @@
       </tbody>
     </table>
 
-    <!-- ═══ 5. KETIDAKHADIRAN (otomatis dari absensi) ═══ -->
+    <!-- ═══ 5. EKSTRAKURIKULER ═══ -->
+    <div class="absen-section">
+      <div class="absen-label">Ekstrakurikuler</div>
+      <table class="nilai-table" style="margin-bottom: 0;">
+        <thead>
+          <tr>
+            <th class="nomor" style="width: 32px;">No</th>
+            <th style="text-align: left;">Kegiatan Ekstrakurikuler</th>
+            <th style="width: 120px;">Predikat</th>
+            <th style="text-align: left;">Keterangan</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if (empty($ekskul)): ?>
+            <tr>
+              <td colspan="4" class="kosong" style="text-align: center; padding: 6px; color: #777; font-style: italic;">
+                Tidak mengikuti kegiatan ekstrakurikuler.
+              </td>
+            </tr>
+          <?php else: ?>
+            <?php $ne = 1; foreach ($ekskul as $ek): ?>
+              <tr>
+                <td class="nomor"><?= $ne++ ?></td>
+                <td><?= esc($ek['ekskul_name']) ?></td>
+                <td class="angka" style="font-weight: 600;"><?= esc($ek['predicate']) ?></td>
+                <td><?= esc($ek['description'] ?: '-') ?></td>
+              </tr>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ═══ 6. KETIDAKHADIRAN (otomatis dari absensi) ═══ -->
     <div class="absen-section">
       <div class="absen-label">Ketidakhadiran</div>
       <table class="absen-table">

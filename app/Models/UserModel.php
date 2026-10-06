@@ -6,6 +6,13 @@ use CodeIgniter\Model;
 
 class UserModel extends Model
 {
+    use \App\Traits\AuditTrailTrait;
+
+    public function __construct(\CodeIgniter\Database\ConnectionInterface &$db = null, \CodeIgniter\Validation\ValidationInterface $validation = null)
+    {
+        parent::__construct($db, $validation);
+        $this->setupAuditTrail();
+    }
     protected $table      = 'users';
     protected $primaryKey = 'id';
 

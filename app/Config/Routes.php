@@ -75,6 +75,10 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('users/delete/(:num)', 'User::delete/$1', $auth12);
     $routes->get('users/reset-password/(:num)', 'User::resetPassword/$1', $auth12);
 
+    // Audit Trail
+    $routes->get('audit-logs', 'AuditLog::index', $auth12);
+    $routes->get('audit-logs/(:num)', 'AuditLog::show/$1', $auth12);
+
     // Role & Permission Management (Admin Only)
     $routes->get('role-permission', 'RolePermission::index', $auth1);
     $routes->get('role-permission/edit/(:num)', 'RolePermission::edit/$1', $auth1);
@@ -83,6 +87,38 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('role-permission/delete/(:num)', 'RolePermission::deleteRole/$1', $auth1);
 
     // 2. Identitas & Pengaturan
+    $routes->get('ekskul', 'Ekskul::index', $auth127);
+    $routes->post('ekskul/store', 'Ekskul::store', $auth127);
+    $routes->post('ekskul/update/(:num)', 'Ekskul::update/$1', $auth127);
+    $routes->post('ekskul/delete/(:num)', 'Ekskul::delete/$1', $auth127);
+    $routes->get('ekskul/pembina/(:num)', 'Ekskul::pembina/$1', $auth127);
+    $routes->post('ekskul/pembina/store/(:num)', 'Ekskul::storePembina/$1', $auth127);
+    $routes->post('ekskul/pembina/delete/(:num)', 'Ekskul::deletePembina/$1', $auth127);
+    
+    // Monitoring & Verifikasi Absensi Pembina Ekskul (Admin / Staf)
+    $routes->get('ekskul-absensi', 'EkskulAbsensi::index', $auth127);
+    $routes->post('ekskul-absensi/verify/(:num)', 'EkskulAbsensi::verify/$1', $auth127);
+    $routes->post('ekskul-absensi/batch-verify', 'EkskulAbsensi::batchVerify', $auth127);
+    $routes->get('ekskul-absensi/detail/(:num)/(:num)', 'EkskulAbsensi::detail/$1/$2', $auth127);
+    $routes->get('ekskul-absensi/print', 'EkskulAbsensi::printReport', $auth127);
+    
+    // Ekskul Pembina (Guru/Pelatih)
+    $routes->get('ekskul-pembina', 'EkskulPembina::index', ['filter' => 'auth:1,2,3,4,7,8']); // Allows Admin, Teacher, Coach
+    $routes->get('ekskul-pembina/members/(:num)', 'EkskulPembina::members/$1', ['filter' => 'auth:1,2,3,4,7,8']);
+    $routes->post('ekskul-pembina/storeMember/(:num)', 'EkskulPembina::storeMember/$1', ['filter' => 'auth:1,2,3,4,7,8']);
+    $routes->post('ekskul-pembina/removeMember/(:num)', 'EkskulPembina::removeMember/$1', ['filter' => 'auth:1,2,3,4,7,8']);
+    
+    $routes->get('ekskul-pembina/jurnal/(:num)', 'EkskulPembina::jurnal/$1', ['filter' => 'auth:1,2,3,4,7,8']);
+    $routes->get('ekskul-pembina/jurnal/create/(:num)', 'EkskulPembina::createJurnal/$1', ['filter' => 'auth:1,2,3,4,7,8']);
+    $routes->post('ekskul-pembina/jurnal/store/(:num)', 'EkskulPembina::storeJurnal/$1', ['filter' => 'auth:1,2,3,4,7,8']);
+    $routes->get('ekskul-pembina/jurnal/edit/(:num)', 'EkskulPembina::editJurnal/$1', ['filter' => 'auth:1,2,3,4,7,8']);
+    $routes->post('ekskul-pembina/jurnal/update/(:num)', 'EkskulPembina::updateJurnal/$1', ['filter' => 'auth:1,2,3,4,7,8']);
+    $routes->post('ekskul-pembina/jurnal/delete/(:num)', 'EkskulPembina::deleteJurnal/$1', ['filter' => 'auth:1,2,3,4,7,8']);
+
+    $routes->get('ekskul-pembina/nilai/(:num)', 'EkskulPembina::nilai/$1', ['filter' => 'auth:1,2,3,4,7,8']);
+    $routes->get('ekskul-pembina/nilai/(:num)/(:num)', 'EkskulPembina::nilai/$1/$2', ['filter' => 'auth:1,2,3,4,7,8']);
+    $routes->post('ekskul-pembina/nilai/store/(:num)', 'EkskulPembina::storeNilai/$1', ['filter' => 'auth:1,2,3,4,7,8']);
+    
     $routes->get('school', 'School::index', $auth127);
     $routes->post('school/update', 'School::update', $auth127);
     $routes->get('academic-year', 'AcademicYear::index', $auth127);
@@ -457,6 +493,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     // ── Modul Rapor (Admin & Wali Kelas) ──────────────────────────────
     $routes->get('rapor', 'Rapor::index', $auth13);
     $routes->get('rapor/pts/(:num)/(:num)', 'Rapor::cetakPts/$1/$2', $auth13);
+    $routes->get('rapor/akhir/(:num)/(:num)', 'Rapor::cetakAkhir/$1/$2', $auth13);
     $routes->get('assessments/edit/(:num)/(:segment)', 'Assessment::edit/$1/$2', $auth123);
     $routes->post('assessments/update/(:num)/(:segment)', 'Assessment::update/$1/$2', $auth123);
     $routes->get('assessments/deleteOne/(:num)/(:segment)', 'Assessment::deleteOne/$1/$2', $auth123);
@@ -837,6 +874,11 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
     $routes->get('agendas/date/(:segment)', 'Agendas::byDate/$1');
     $routes->get('agendas/(:num)', 'Agendas::show/$1');
     $routes->get('student-notes', 'StudentNotes::index');
+    
+    // Ekskul (Siswa)
+    $routes->get('ekskul', 'Ekskul::index');
+    $routes->post('ekskul/daftar/(:num)', 'Ekskul::daftar/$1');
+    $routes->get('ekskul/detail/(:num)', 'Ekskul::detail/$1');
 
     // Bimbingan Konseling (Siswa) - Pengajuan Janji Temu, Riwayat & Angket Karir
     $routes->get('counseling', 'Counseling::index');

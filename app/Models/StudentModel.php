@@ -6,6 +6,13 @@ use CodeIgniter\Model;
 
 class StudentModel extends Model
 {
+    use \App\Traits\AuditTrailTrait;
+
+    public function __construct(\CodeIgniter\Database\ConnectionInterface &$db = null, \CodeIgniter\Validation\ValidationInterface $validation = null)
+    {
+        parent::__construct($db, $validation);
+        $this->setupAuditTrail();
+    }
     protected $table = 'students';
     protected $primaryKey = 'id';
     protected $useTimestamps = true;

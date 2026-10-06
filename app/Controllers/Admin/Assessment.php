@@ -265,7 +265,7 @@ class Assessment extends BaseController
                     $q->where('students.religion', $religionFilter);
                 }
 
-                $students = $q->findAll();
+                $students = $q->orderBy('students.name', 'ASC')->findAll();
 
                 // Status metode
                 $rows = $this->db->table('material_scores')
@@ -292,7 +292,7 @@ class Assessment extends BaseController
                     $q->where('students.religion', $religionFilter);
                 }
 
-                $students = $q->findAll();
+                $students = $q->orderBy('students.name', 'ASC')->findAll();
             }
 
         } elseif ($type === 'sumatif') {
@@ -319,7 +319,7 @@ class Assessment extends BaseController
                     $q->where('students.religion', $religionFilter);
                 }
 
-                $students = $q->findAll();
+                $students = $q->orderBy('students.name', 'ASC')->findAll();
             } else {
                 $q = $this->studentModel
                     ->select('students.*')
@@ -332,7 +332,7 @@ class Assessment extends BaseController
                     $q->where('students.religion', $religionFilter);
                 }
 
-                $students = $q->findAll();
+                $students = $q->orderBy('students.name', 'ASC')->findAll();
             }
 
         } elseif ($type === 'final') {
@@ -357,7 +357,7 @@ class Assessment extends BaseController
                     $q->where('students.religion', $religionFilter);
                 }
 
-                $students = $q->findAll();
+                $students = $q->orderBy('students.name', 'ASC')->findAll();
             } else {
                 $q = $this->studentModel
                     ->select('students.*')
@@ -370,7 +370,7 @@ class Assessment extends BaseController
                     $q->where('students.religion', $religionFilter);
                 }
 
-                $students = $q->findAll();
+                $students = $q->orderBy('students.name', 'ASC')->findAll();
             }
 
         } elseif ($type === 'pts') {
@@ -396,7 +396,7 @@ class Assessment extends BaseController
                     $q->where('students.religion', $religionFilter);
                 }
 
-                $students = $q->findAll();
+                $students = $q->orderBy('students.name', 'ASC')->findAll();
             } else {
                 // Tanpa semester terpilih → jangan tampilkan tabel input
                 $students = [];

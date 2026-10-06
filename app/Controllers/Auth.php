@@ -83,6 +83,10 @@ class Auth extends BaseController
             $session->set('logged_in', true);
             $session->set('last_activity', time());
 
+            // 📝 Catat audit trail login
+            helper('audit');
+            audit_log('login', 'users', $user['id']);
+
             // 🔒 Check if user must change password
             if ($user['must_change_password'] == 1) {
                 return redirect()->to('/auth/change-password-required')
@@ -97,6 +101,10 @@ class Auth extends BaseController
 
     public function logout()
     {
+        helper('audit');
+        if (session()->get('user')) {
+            audit_log('logout');
+        }
         session()->destroy();
         return redirect()->to('/login');
     }

@@ -144,6 +144,14 @@
     </li>
     <?php endif; ?>
 
+    <!-- Absensi Pembina Ekskul -->
+    <li class="nav-item">
+      <a class="nav-link d-flex align-items-center <?= url_is('admin/ekskul-absensi*') ? 'active' : '' ?>"
+         href="<?= base_url('admin/ekskul-absensi') ?>">
+        ⚽ <span class="label">Absensi Pembina Ekskul</span>
+      </a>
+    </li>
+
     <!-- Obrolan Staff -->
     <li class="nav-item">
       <a class="nav-link d-flex align-items-center <?= url_is('admin/staff-chat*') ? 'active' : '' ?>"
