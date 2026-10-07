@@ -51,11 +51,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <?php if (empty($members)): ?>
-                                <tr>
-                                    <td colspan="5" class="text-center">Belum ada anggota di ekstrakurikuler ini.</td>
-                                </tr>
-                            <?php else: ?>
+                            <?php if (!empty($members)): ?>
                                 <?php foreach ($members as $i => $m) : 
                                     $s = $scores[$m['student_id']] ?? null;
                                     $pred = $s['predicate'] ?? '';

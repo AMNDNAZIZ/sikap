@@ -72,7 +72,7 @@ class Ekskul extends BaseController
         $userModel = new UserModel();
         // Ambil guru (role 3) atau staf/lainnya yang bisa jadi pembina. Kita load semua active users yg bukan siswa (asumsi role_id > 1)
         // Atau kita sediakan select all teacher & external. 
-        $potentialPembina = $userModel->whereIn('role_id', [2, 3, 4, 7, 8])->where('is_active', 1)->orderBy('fullname', 'ASC')->findAll(); 
+        $potentialPembina = $userModel->whereIn('role_id', [2, 3, 4, 6, 7, 8])->where('is_active', 1)->orderBy('fullname', 'ASC')->findAll(); 
         
         $academicYearModel = new AcademicYearModel();
         $activeYear = $academicYearModel->getActiveYear();

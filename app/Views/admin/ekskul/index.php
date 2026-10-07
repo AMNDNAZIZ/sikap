@@ -40,16 +40,16 @@
                                 <td><?= esc($e['name']) ?></td>
                                 <td>
                                     <?php if ($e['category'] == 'wajib'): ?>
-                                        <span class="badge badge-danger">Wajib</span>
+                                        <span class="badge bg-danger">Wajib</span>
                                     <?php else: ?>
-                                        <span class="badge badge-info">Pilihan</span>
+                                        <span class="badge bg-info">Pilihan</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
                                     <?php if ($e['is_active']): ?>
-                                        <span class="badge badge-success">Aktif</span>
+                                        <span class="badge bg-success">Aktif</span>
                                     <?php else: ?>
-                                        <span class="badge badge-secondary">Tidak Aktif</span>
+                                        <span class="badge bg-secondary">Tidak Aktif</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
