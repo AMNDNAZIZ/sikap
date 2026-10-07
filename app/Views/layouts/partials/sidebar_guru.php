@@ -9,6 +9,35 @@
           ->where('teacher_id', (int) $guruUser['related_id'])
           ->countAllResults();
   }
+
+  // Deteksi apakah user ini terdaftar sebagai pembina ekskul di tahun ajaran aktif
+  $guruIsPembina = false;
+  $activeYearId  = null;
+  try {
+      $activeYearRow = \Config\Database::connect()
+          ->table('academic_years')
+          ->where('is_active', 1)
+          ->get()->getRowArray();
+      $activeYearId = $activeYearRow['id'] ?? null;
+  } catch (\Throwable $e) { /* ignore */ }
+
+  if ($activeYearId && !empty($guruUser['id'])) {
+      $guruIsPembina = (bool) \Config\Database::connect()
+          ->table('ekskul_pembina')
+          ->where('user_id', (int) $guruUser['id'])
+          ->where('academic_year_id', $activeYearId)
+          ->countAllResults();
+  }
+
+  // Deteksi apakah guru adalah Koordinator Ekskul
+  $isKoordEkskul = false;
+  if (($guruUser['role_id'] ?? null) == 3 && !empty($guruUser['related_id'])) {
+      $isKoordEkskul = (bool) \Config\Database::connect()
+          ->table('teachers')
+          ->where('id', (int) $guruUser['related_id'])
+          ->where('is_koordinator_ekskul', 1)
+          ->countAllResults();
+  }
 ?>
   <ul class="nav flex-column">
 
@@ -67,13 +96,25 @@
       </div>
     </li>
 
-    <!-- Ekstrakurikuler -->
+    <!-- Ekstrakurikuler — hanya tampil jika user adalah pembina/pelatih ekskul -->
+    <?php if ($guruIsPembina || ($guruUser['role_id'] ?? 0) != 3): ?>
     <li class="nav-item">
       <a class="nav-link <?= url_is('admin/ekskul-pembina*') ? 'active' : '' ?>"
         href="<?= base_url('admin/ekskul-pembina') ?>">
         ⚽ <span class="label">Dashboard Ekskul</span>
       </a>
     </li>
+    <?php endif; ?>
+
+    <!-- Verifikasi Absensi Ekskul (Untuk Guru Koordinator) -->
+    <?php if ($isKoordEkskul || ($guruUser['role_id'] ?? 0) != 3): ?>
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('admin/ekskul-absensi*') ? 'active' : '' ?>"
+        href="<?= base_url('admin/ekskul-absensi') ?>">
+        ✅ <span class="label">Verifikasi Absensi Ekskul</span>
+      </a>
+    </li>
+    <?php endif; ?>
 
     <!-- ── Penilaian & Nilai ─────────────────────── -->
     <li class="nav-item">

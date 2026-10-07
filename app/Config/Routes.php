@@ -95,12 +95,12 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('ekskul/pembina/store/(:num)', 'Ekskul::storePembina/$1', $auth127);
     $routes->post('ekskul/pembina/delete/(:num)', 'Ekskul::deletePembina/$1', $auth127);
     
-    // Monitoring & Verifikasi Absensi Pembina Ekskul (Admin / Staf)
-    $routes->get('ekskul-absensi', 'EkskulAbsensi::index', $auth127);
-    $routes->post('ekskul-absensi/verify/(:num)', 'EkskulAbsensi::verify/$1', $auth127);
-    $routes->post('ekskul-absensi/batch-verify', 'EkskulAbsensi::batchVerify', $auth127);
-    $routes->get('ekskul-absensi/detail/(:num)/(:num)', 'EkskulAbsensi::detail/$1/$2', $auth127);
-    $routes->get('ekskul-absensi/print', 'EkskulAbsensi::printReport', $auth127);
+    // Monitoring & Verifikasi Absensi Pembina Ekskul (Admin / Staf / Koordinator Guru)
+    $routes->get('ekskul-absensi', 'EkskulAbsensi::index', $auth1237);
+    $routes->post('ekskul-absensi/verify/(:num)', 'EkskulAbsensi::verify/$1', $auth1237);
+    $routes->post('ekskul-absensi/batch-verify', 'EkskulAbsensi::batchVerify', $auth1237);
+    $routes->get('ekskul-absensi/detail/(:num)/(:num)', 'EkskulAbsensi::detail/$1/$2', $auth1237);
+    $routes->get('ekskul-absensi/print', 'EkskulAbsensi::printReport', $auth1237);
     
     // Ekskul Pembina (Guru/Pelatih)
     $routes->get('ekskul-pembina', 'EkskulPembina::index', ['filter' => 'auth:1,2,3,4,6,7,8']); // Allows Admin, Teacher, Coach, Pelatih

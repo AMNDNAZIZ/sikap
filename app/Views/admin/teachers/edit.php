@@ -214,6 +214,16 @@
                 <input type="number" name="certification_year" value="<?= $teacher['certification_year'] ?>"
                   class="form-control">
               </div>
+              <hr>
+              <h6 class="mb-0 text-primary">Tugas Tambahan</h6>
+              <div class="col-md-12">
+                <div class="form-check form-switch mt-2">
+                  <input class="form-check-input" type="checkbox" name="is_koordinator_ekskul" id="koordinatorEkskul" <?= !empty($teacher['is_koordinator_ekskul']) ? 'checked' : '' ?>>
+                  <label class="form-check-label" for="koordinatorEkskul">
+                    Sebagai Koordinator Ekskul <small class="text-muted">(Memberi hak untuk verifikasi absensi pembina ekskul)</small>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
 

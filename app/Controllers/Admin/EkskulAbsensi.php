@@ -40,11 +40,33 @@ class EkskulAbsensi extends BaseController
         return $this->yearModel->getActiveYear();
     }
 
+    private function checkAccess()
+    {
+        $user = session()->get('user');
+        // Admin (1), Kepsek (2), Staf (7) always have access.
+        if (in_array($user['role_id'] ?? 0, [1, 2, 7])) {
+            return true;
+        }
+        
+        // If teacher (3), check if they are koordinator ekskul
+        if (($user['role_id'] ?? 0) == 3 && !empty($user['related_id'])) {
+            $isKoord = \Config\Database::connect()->table('teachers')
+                ->where('id', $user['related_id'])
+                ->where('is_koordinator_ekskul', 1)
+                ->countAllResults();
+            if ($isKoord > 0) return true;
+        }
+        
+        return false;
+    }
+
     /**
      * Dashboard Rekap & Monitoring Absensi Pembina
      */
     public function index()
     {
+        if (!$this->checkAccess()) return redirect()->to('/dashboard')->with('error', 'Akses ditolak.');
+
         $activeYear = $this->getActiveYear();
         if (!$activeYear) {
             return redirect()->to('/admin/ekskul')->with('error', 'Tahun ajaran aktif belum diset.');
@@ -190,6 +212,8 @@ class EkskulAbsensi extends BaseController
      */
     public function verify($jurnalId)
     {
+        if (!$this->checkAccess()) return redirect()->back()->with('error', 'Akses ditolak.');
+
         $jurnal = $this->jurnalModel->find($jurnalId);
         if (!$jurnal) {
             return redirect()->back()->with('error', 'Data jurnal tidak ditemukan.');
@@ -225,6 +249,8 @@ class EkskulAbsensi extends BaseController
      */
     public function batchVerify()
     {
+        if (!$this->checkAccess()) return redirect()->back()->with('error', 'Akses ditolak.');
+
         $jurnalIds = $this->request->getPost('jurnal_ids');
         $action    = $this->request->getPost('action') ?: 'verified';
         $notes     = $this->request->getPost('notes') ?: null;
@@ -260,6 +286,8 @@ class EkskulAbsensi extends BaseController
      */
     public function detail($userId, $ekskulId)
     {
+        if (!$this->checkAccess()) return redirect()->to('/dashboard')->with('error', 'Akses ditolak.');
+
         $activeYear = $this->getActiveYear();
         if (!$activeYear) {
             return redirect()->to('/admin/ekskul-absensi')->with('error', 'Tahun ajaran belum diset.');
@@ -307,6 +335,8 @@ class EkskulAbsensi extends BaseController
      */
     public function printReport()
     {
+        if (!$this->checkAccess()) return redirect()->to('/dashboard')->with('error', 'Akses ditolak.');
+
         $activeYear = $this->getActiveYear();
         if (!$activeYear) {
             return redirect()->to('/admin/ekskul-absensi')->with('error', 'Tahun ajaran belum diset.');
