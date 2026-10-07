@@ -352,9 +352,10 @@ class EkskulAbsensi extends BaseController
 
         $school = $this->schoolModel->getProfile();
 
-        $pembinaQuery = $this->pembinaModel->select('ekskul_pembina.*, ekskul_master.name as ekskul_name, users.fullname as pembina_name, users.nip, users.role_id')
+        $pembinaQuery = $this->pembinaModel->select('ekskul_pembina.*, ekskul_master.name as ekskul_name, users.fullname as pembina_name, teachers.nip, users.role_id')
             ->join('ekskul_master', 'ekskul_master.id = ekskul_pembina.ekskul_id')
             ->join('users', 'users.id = ekskul_pembina.user_id')
+            ->join('teachers', 'teachers.user_id = users.id', 'left')
             ->where('ekskul_pembina.academic_year_id', $activeYear['id']);
 
         if (!empty($ekskulId)) {

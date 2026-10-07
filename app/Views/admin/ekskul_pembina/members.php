@@ -81,11 +81,11 @@
                                         <td><?= esc($m['student_name']) ?></td>
                                         <td>
                                             <?php if ($m['status'] == 'aktif'): ?>
-                                                <span class="badge badge-success">Aktif</span>
+                                                <span class="badge bg-success text-white">Aktif</span>
                                             <?php elseif ($m['status'] == 'pending'): ?>
-                                                <span class="badge badge-warning">Pending</span>
+                                                <span class="badge bg-warning text-dark">Pending</span>
                                             <?php else: ?>
-                                                <span class="badge badge-secondary"><?= esc($m['status']) ?></span>
+                                                <span class="badge bg-secondary text-white"><?= esc($m['status']) ?></span>
                                             <?php endif; ?>
                                         </td>
                                         <td>

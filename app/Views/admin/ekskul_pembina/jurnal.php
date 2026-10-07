@@ -50,15 +50,15 @@
                                 <td><?= esc($j['pembina_name']) ?></td>
                                 <td class="text-center">
                                     <?php if ($vStatus === 'verified'): ?>
-                                        <span class="badge badge-success">
+                                        <span class="badge bg-success text-white">
                                             <i class="fas fa-check-circle"></i> Terverifikasi
                                         </span>
                                     <?php elseif ($vStatus === 'rejected'): ?>
-                                        <span class="badge badge-danger" title="<?= esc($j['verification_notes'] ?? '') ?>">
+                                        <span class="badge bg-danger text-white" title="<?= esc($j['verification_notes'] ?? '') ?>">
                                             <i class="fas fa-times-circle"></i> Ditolak
                                         </span>
                                     <?php else: ?>
-                                        <span class="badge badge-warning">
+                                        <span class="badge bg-warning text-dark">
                                             <i class="fas fa-clock"></i> Menunggu Verifikasi
                                         </span>
                                     <?php endif; ?>
