@@ -19,14 +19,21 @@
     <?php endif; ?>
 
     <!-- Pilih Semester -->
-    <div class="mb-3">
-        <a href="<?= base_url('admin/ekskul-pembina/nilai/' . $ekskul['id'] . '/1') ?>"
-           class="btn <?= $semester == '1' ? 'btn-primary' : 'btn-outline-primary' ?>">
-            📋 Semester 1 (Ganjil)
-        </a>
-        <a href="<?= base_url('admin/ekskul-pembina/nilai/' . $ekskul['id'] . '/2') ?>"
-           class="btn <?= $semester == '2' ? 'btn-primary' : 'btn-outline-primary' ?> ms-2">
-            📋 Semester 2 (Genap)
+    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <a href="<?= base_url('admin/ekskul-pembina/nilai/' . $ekskul['id'] . '/1') ?>"
+               class="btn <?= $semester == '1' ? 'btn-primary' : 'btn-outline-primary' ?>">
+                📋 Semester 1 (Ganjil)
+            </a>
+            <a href="<?= base_url('admin/ekskul-pembina/nilai/' . $ekskul['id'] . '/2') ?>"
+               class="btn <?= $semester == '2' ? 'btn-primary' : 'btn-outline-primary' ?> ms-2">
+                📋 Semester 2 (Genap)
+            </a>
+        </div>
+        <a href="<?= base_url('admin/ekskul-pembina/nilai/print/' . $ekskul['id'] . '/' . $semester) ?>"
+           target="_blank"
+           class="btn btn-success">
+            <i class="fas fa-print"></i> Cetak Nilai
         </a>
     </div>
 
@@ -43,11 +50,12 @@
                     <table class="table table-bordered table-sm datatable">
                         <thead class="bg-light">
                             <tr>
-                                <th width="5%">No</th>
-                                <th width="15%">NIS</th>
-                                <th width="25%">Nama Siswa</th>
-                                <th width="20%">Predikat</th>
-                                <th width="35%">Keterangan Tambahan</th>
+                                <th width="4%">No</th>
+                                <th width="14%">NIS</th>
+                                <th width="20%">Nama Siswa</th>
+                                <th width="14%">Kelas</th>
+                                <th width="18%">Predikat</th>
+                                <th width="30%">Keterangan Tambahan</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -61,6 +69,7 @@
                                         <td class="text-center align-middle"><?= $i + 1 ?></td>
                                         <td class="align-middle"><?= esc($m['nis']) ?></td>
                                         <td class="align-middle"><?= esc($m['student_name']) ?></td>
+                                        <td class="align-middle"><?= esc($m['class_name'] ?? '-') ?></td>
                                         <td>
                                             <select name="predicate[<?= $m['student_id'] ?>]" class="form-control form-control-sm">
                                                 <option value="">-- Pilih --</option>

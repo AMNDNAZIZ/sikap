@@ -395,7 +395,55 @@ class EkskulPembina extends BaseController
     }
 
     /**
+     * Cetak Nilai Akhir Ekskul
+     */
+    public function printNilai($ekskul_id, $semester = '1')
+    {
+        $semester = in_array((string)$semester, ['1', '2']) ? (string)$semester : '1';
+        $activeYear = $this->getActiveYear();
+        $this->checkAccess($ekskul_id, $activeYear['id']);
 
+        $ekskul  = $this->ekskulModel->find($ekskul_id);
+        $members = $this->memberModel->getMembers($ekskul_id, $activeYear['id']);
+
+        $semesters  = ($semester === '2') ? ['2', 'genap'] : ['1', 'ganjil'];
+        $scoresData = $this->scoreModel->where('ekskul_id', $ekskul_id)
+            ->where('academic_year_id', $activeYear['id'])
+            ->whereIn('semester', $semesters)
+            ->findAll();
+
+        $scores = [];
+        foreach ($scoresData as $s) {
+            $scores[$s['student_id']] = $s;
+        }
+
+        // Ambil profil sekolah
+        $schoolModel = new \App\Models\SchoolModel();
+        $school = $schoolModel->getProfile();
+
+        // Ambil pembina yang bertugas di ekskul ini
+        $pembinaList = $this->pembinaModel
+            ->select('ekskul_pembina.*, users.fullname as pembina_name, users.username')
+            ->join('users', 'users.id = ekskul_pembina.user_id')
+            ->where('ekskul_id', $ekskul_id)
+            ->where('academic_year_id', $activeYear['id'])
+            ->findAll();
+
+        $data = [
+            'title'      => 'Cetak Nilai Ekskul: ' . $ekskul['name'],
+            'ekskul'     => $ekskul,
+            'members'    => $members,
+            'scores'     => $scores,
+            'semester'   => $semester,
+            'activeYear' => $activeYear,
+            'school'     => $school,
+            'pembinaList' => $pembinaList,
+        ];
+
+        return view('admin/ekskul_pembina/print_nilai', $data);
+    }
+
+    /**
      * Helper to verify if logged in user is actually a pembina for this ekskul
      */
     private function checkAccess($ekskul_id, $academic_year_id)

@@ -118,6 +118,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('ekskul-pembina/nilai/(:num)', 'EkskulPembina::nilai/$1', ['filter' => 'auth:1,2,3,4,7,8']);
     $routes->get('ekskul-pembina/nilai/(:num)/(:num)', 'EkskulPembina::nilai/$1/$2', ['filter' => 'auth:1,2,3,4,7,8']);
     $routes->post('ekskul-pembina/nilai/store/(:num)', 'EkskulPembina::storeNilai/$1', ['filter' => 'auth:1,2,3,4,7,8']);
+    $routes->get('ekskul-pembina/nilai/print/(:num)/(:num)', 'EkskulPembina::printNilai/$1/$2', ['filter' => 'auth:1,2,3,4,7,8']);
     
     $routes->get('school', 'School::index', $auth127);
     $routes->post('school/update', 'School::update', $auth127);
