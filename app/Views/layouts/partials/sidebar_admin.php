@@ -18,7 +18,7 @@
     <?php
     $inDataInduk = url_is('admin/school*') || url_is('admin/academic-year*') || url_is('admin/holidays*') ||
                    url_is('admin/subjects*') || url_is('admin/mapel-master*') ||
-                   url_is('admin/administrasi-guru/cp-master*') || url_is('admin/administrasi-guru/mapping*');
+                   url_is('admin/administrasi-guru/cp-master*') || url_is('admin/administrasi-guru/mapping*') || url_is('admin/ekskul*');
     $inGuru      = url_is('admin/teachers*') || url_is('admin/teachingassignments*') || url_is('admin/dapodik*');
     $inSiswa     = (url_is('admin/students*') && !url_is('admin/student-map*')) || url_is('admin/classes*') ||
                    url_is('admin/active-classes*') || url_is('admin/placement*') || url_is('admin/promotions*') ||

@@ -103,22 +103,22 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('ekskul-absensi/print', 'EkskulAbsensi::printReport', $auth127);
     
     // Ekskul Pembina (Guru/Pelatih)
-    $routes->get('ekskul-pembina', 'EkskulPembina::index', ['filter' => 'auth:1,2,3,4,7,8']); // Allows Admin, Teacher, Coach
-    $routes->get('ekskul-pembina/members/(:num)', 'EkskulPembina::members/$1', ['filter' => 'auth:1,2,3,4,7,8']);
-    $routes->post('ekskul-pembina/storeMember/(:num)', 'EkskulPembina::storeMember/$1', ['filter' => 'auth:1,2,3,4,7,8']);
-    $routes->post('ekskul-pembina/removeMember/(:num)', 'EkskulPembina::removeMember/$1', ['filter' => 'auth:1,2,3,4,7,8']);
+    $routes->get('ekskul-pembina', 'EkskulPembina::index', ['filter' => 'auth:1,2,3,4,6,7,8']); // Allows Admin, Teacher, Coach, Pelatih
+    $routes->get('ekskul-pembina/members/(:num)', 'EkskulPembina::members/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
+    $routes->post('ekskul-pembina/storeMember/(:num)', 'EkskulPembina::storeMember/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
+    $routes->post('ekskul-pembina/removeMember/(:num)', 'EkskulPembina::removeMember/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
     
-    $routes->get('ekskul-pembina/jurnal/(:num)', 'EkskulPembina::jurnal/$1', ['filter' => 'auth:1,2,3,4,7,8']);
-    $routes->get('ekskul-pembina/jurnal/create/(:num)', 'EkskulPembina::createJurnal/$1', ['filter' => 'auth:1,2,3,4,7,8']);
-    $routes->post('ekskul-pembina/jurnal/store/(:num)', 'EkskulPembina::storeJurnal/$1', ['filter' => 'auth:1,2,3,4,7,8']);
-    $routes->get('ekskul-pembina/jurnal/edit/(:num)', 'EkskulPembina::editJurnal/$1', ['filter' => 'auth:1,2,3,4,7,8']);
-    $routes->post('ekskul-pembina/jurnal/update/(:num)', 'EkskulPembina::updateJurnal/$1', ['filter' => 'auth:1,2,3,4,7,8']);
-    $routes->post('ekskul-pembina/jurnal/delete/(:num)', 'EkskulPembina::deleteJurnal/$1', ['filter' => 'auth:1,2,3,4,7,8']);
+    $routes->get('ekskul-pembina/jurnal/(:num)', 'EkskulPembina::jurnal/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
+    $routes->get('ekskul-pembina/jurnal/create/(:num)', 'EkskulPembina::createJurnal/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
+    $routes->post('ekskul-pembina/jurnal/store/(:num)', 'EkskulPembina::storeJurnal/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
+    $routes->get('ekskul-pembina/jurnal/edit/(:num)', 'EkskulPembina::editJurnal/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
+    $routes->post('ekskul-pembina/jurnal/update/(:num)', 'EkskulPembina::updateJurnal/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
+    $routes->post('ekskul-pembina/jurnal/delete/(:num)', 'EkskulPembina::deleteJurnal/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
 
-    $routes->get('ekskul-pembina/nilai/(:num)', 'EkskulPembina::nilai/$1', ['filter' => 'auth:1,2,3,4,7,8']);
-    $routes->get('ekskul-pembina/nilai/(:num)/(:num)', 'EkskulPembina::nilai/$1/$2', ['filter' => 'auth:1,2,3,4,7,8']);
-    $routes->post('ekskul-pembina/nilai/store/(:num)', 'EkskulPembina::storeNilai/$1', ['filter' => 'auth:1,2,3,4,7,8']);
-    $routes->get('ekskul-pembina/nilai/print/(:num)/(:num)', 'EkskulPembina::printNilai/$1/$2', ['filter' => 'auth:1,2,3,4,7,8']);
+    $routes->get('ekskul-pembina/nilai/(:num)', 'EkskulPembina::nilai/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
+    $routes->get('ekskul-pembina/nilai/(:num)/(:num)', 'EkskulPembina::nilai/$1/$2', ['filter' => 'auth:1,2,3,4,6,7,8']);
+    $routes->post('ekskul-pembina/nilai/store/(:num)', 'EkskulPembina::storeNilai/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
+    $routes->get('ekskul-pembina/nilai/print/(:num)/(:num)', 'EkskulPembina::printNilai/$1/$2', ['filter' => 'auth:1,2,3,4,6,7,8']);
     
     $routes->get('school', 'School::index', $auth127);
     $routes->post('school/update', 'School::update', $auth127);

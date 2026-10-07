@@ -513,8 +513,15 @@ class Dashboard extends BaseController
                     'statsActiveYear'      => $statsAcademicYear,
                 ]);
 
+            case 8: // Pelatih Ekskul
+                return redirect()->to('/admin/ekskul-pembina');
+
             default:
-                return redirect()->to('/login');
+                // Role tidak dikenal — tampilkan dashboard minimal agar tidak terjadi login loop
+                return view('dashboard/simple_default', [
+                    'user'       => $user,
+                    'activeYear' => $activeYear,
+                ]);
         }
     }
 
