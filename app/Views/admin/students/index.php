@@ -165,6 +165,16 @@
 
       <div class="modal-body">
         <!-- Nav Tabs Pilihan Mode Import -->
+        <style>
+          #importTab .nav-link.active {
+            color: #495057 !important;
+            background-color: #fff !important;
+            border-color: #dee2e6 #dee2e6 #fff !important;
+          }
+          #importTab .nav-link {
+            color: #6c757d;
+          }
+        </style>
         <ul class="nav nav-tabs nav-justified mb-3" id="importTab" role="tablist">
           <li class="nav-item" role="presentation">
             <button class="nav-link active fw-bold" id="dapodik-tab" data-bs-toggle="tab" data-bs-target="#dapodik-import" type="button" role="tab">

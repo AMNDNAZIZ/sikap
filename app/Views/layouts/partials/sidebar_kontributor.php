@@ -1,4 +1,25 @@
 <div class="position-sticky pt-3 sidebar-mini">
+<?php
+  $user = session()->get('user');
+  // Deteksi apakah user ini terdaftar sebagai pembina ekskul di tahun ajaran aktif
+  $isPembina = false;
+  $activeYearId  = null;
+  try {
+      $activeYearRow = \Config\Database::connect()
+          ->table('academic_years')
+          ->where('is_active', 1)
+          ->get()->getRowArray();
+      $activeYearId = $activeYearRow['id'] ?? null;
+  } catch (\Throwable $e) { /* ignore */ }
+
+  if ($activeYearId && !empty($user['id'])) {
+      $isPembina = (bool) \Config\Database::connect()
+          ->table('ekskul_pembina')
+          ->where('user_id', (int) $user['id'])
+          ->where('academic_year_id', $activeYearId)
+          ->countAllResults();
+  }
+?>
     <ul class="nav flex-column">
 
         <!-- Dashboard -->
@@ -36,6 +57,16 @@
                 </ul>
             </div>
         </li>
+
+        <!-- Ekstrakurikuler — hanya tampil jika user adalah pembina/pelatih ekskul -->
+        <?php if ($isPembina): ?>
+        <li class="nav-item">
+            <a class="nav-link <?= url_is('admin/ekskul-pembina*') ? 'active' : '' ?>"
+                href="<?= base_url('admin/ekskul-pembina') ?>">
+                ⚽ <span class="label">Dashboard Ekskul</span>
+            </a>
+        </li>
+        <?php endif; ?>
 
         <!-- Pengaturan Profil -->
         <li class="nav-item">
