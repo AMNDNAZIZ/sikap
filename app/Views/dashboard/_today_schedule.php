@@ -508,20 +508,36 @@
     .schedule-card .card-header {
         flex-direction: column;
         align-items: flex-start !important;
-        gap: 1rem;
+        gap: 0.5rem;
+        padding: 0.65rem 0.85rem !important;
     }
     
     .schedule-card .card-header > div:last-child {
         width: 100%;
         justify-content: space-between;
+        gap: 0.4rem;
+        flex-wrap: wrap;
     }
     
+    .schedule-card .agenda-item {
+        padding: 0.65rem 0.85rem !important;
+    }
+
     .schedule-card .agenda-item .row > div {
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.25rem;
     }
     
     .schedule-card .agenda-item .text-md-end {
         text-align: left !important;
+    }
+
+    .schedule-card .session-number {
+        margin-right: 0.65rem !important;
+    }
+    .schedule-card .session-number > div {
+        width: 30px !important;
+        height: 30px !important;
+        font-size: 0.82rem;
     }
 }
 </style>

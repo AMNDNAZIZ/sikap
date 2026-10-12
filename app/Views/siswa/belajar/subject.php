@@ -49,20 +49,20 @@
       $semLabel       = $parent['semester'] == 1 ? 'Ganjil' : 'Genap';
     ?>
 
-    <div class="card border-0 shadow-sm mb-4">
+    <div class="card border-0 shadow-sm mb-3 rounded-3">
 
       <!-- ── Header Materi induk ── -->
-      <div class="card-header bg-white border-bottom py-3">
+      <div class="card-header bg-white border-bottom py-2.5 px-3 px-md-4">
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div class="d-flex align-items-center gap-2">
             <span class="rounded-circle bg-primary text-white fw-bold d-flex align-items-center
                          justify-content-center flex-shrink-0"
-                  style="width:30px; height:30px; font-size:0.8rem;">
+                  style="width:28px; height:28px; font-size:0.78rem;">
               <?= $pIdx + 1 ?>
             </span>
             <div>
-              <h6 class="fw-bold mb-0"><?= esc($parent['title']) ?></h6>
-              <span class="text-muted" style="font-size:0.73rem;">
+              <h6 class="fw-bold mb-0" style="font-size: 0.92rem;"><?= esc($parent['title']) ?></h6>
+              <span class="text-muted" style="font-size:0.72rem;">
                 Semester <?= $semLabel ?>
                 &nbsp;&middot;&nbsp;<?= $totalChild ?> Sub Materi
               </span>
@@ -71,11 +71,11 @@
           <!-- Progress Materi -->
           <?php if ($totalChild > 0): ?>
             <div class="d-flex align-items-center gap-2">
-              <div class="progress" style="width:80px; height:5px;">
+              <div class="progress" style="width:70px; height:5px; border-radius:3px;">
                 <div class="progress-bar <?= $pct >= 100 ? 'bg-success' : 'bg-primary' ?>"
                      style="width:<?= $pct ?>%"></div>
               </div>
-              <span class="text-muted" style="font-size:0.73rem;"><?= $doneChild ?>/<?= $totalChild ?></span>
+              <span class="text-muted" style="font-size:0.72rem;"><?= $doneChild ?>/<?= $totalChild ?></span>
             </div>
           <?php endif; ?>
         </div>
@@ -101,7 +101,7 @@
               $estMin     = $child['estimated_minutes'] ?? null;
             ?>
             <a href="<?= base_url('siswa/belajar/sub/' . $child['id']) ?>"
-               class="list-group-item list-group-item-action px-4 py-3
+               class="list-group-item list-group-item-action px-3 px-md-4 py-2.5
                       <?= $isCompleted ? '' : ($isReading ? 'border-start border-3 border-primary' : '') ?>">
               <div class="d-flex align-items-start gap-3">
 

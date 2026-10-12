@@ -289,6 +289,10 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->post('modul-ajar/generate', 'AdministrasiGuru::generateModulAjar');
         $routes->post('modul-ajar/get-prompt', 'AdministrasiGuru::getModulPrompt');
         $routes->post('modul-ajar/save-manual', 'AdministrasiGuru::saveManualModul');
+        $routes->get('modul-ajar/create/(:num)/(:num)', 'AdministrasiGuru::createModulAjar/$1/$2');
+        $routes->post('modul-ajar/save', 'AdministrasiGuru::saveModulAjar');
+        $routes->post('modul-ajar/upload-pdf', 'AdministrasiGuru::uploadPdfModul');
+        $routes->get('modul-ajar/pdf/(:num)', 'AdministrasiGuru::viewPdfModul/$1');
         $routes->get('modul-ajar/edit/(:num)/(:num)', 'AdministrasiGuru::editModulAjar/$1/$2');
         $routes->post('modul-ajar/update', 'AdministrasiGuru::updateModulAjar');
         $routes->get('modul-ajar/print/(:num)/(:num)', 'AdministrasiGuru::printModulAjar/$1/$2');
@@ -543,6 +547,10 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('materials/sync-atp/(:num)', 'Materials::syncFromAtp/$1', $auth123);
     $routes->post('materials/slide-delete/(:num)', 'Materials::slideDelete/$1', $auth123);
     $routes->post('materials/slide-reorder',   'Materials::slideReorder',      $auth123);
+    $routes->post('materials/segment-store/(:num)', 'Materials::segmentStore/$1', $auth123);
+    $routes->post('materials/segment-update/(:num)', 'Materials::segmentUpdate/$1', $auth123);
+    $routes->post('materials/segment-delete/(:num)', 'Materials::segmentDelete/$1', $auth123);
+    $routes->post('materials/segment-reorder', 'Materials::segmentReorder', $auth123);
 
     $routes->get('student-notes', 'StudentNotes::index', $auth123);
     $routes->get('student-notes/show/(:num)', 'StudentNotes::show/$1', $auth123);
@@ -945,6 +953,8 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
     $routes->get('belajar/(:num)',                   'Belajar::subject/$1');
     $routes->get('belajar/sub/(:num)',               'Belajar::show/$1');
     $routes->post('belajar/sub/(:num)/complete',     'Belajar::markComplete/$1');
+    $routes->post('belajar/sub/(:num)/segment/(:num)/complete', 'Belajar::markSegmentComplete/$1/$2');
+    $routes->get('belajar/sub/(:num)/segment/(:num)/file',      'Belajar::serveSegmentFile/$1/$2');
     $routes->get('belajar/sub/(:num)/file',          'Belajar::serveFile/$1');
 
     // Kuis Mandiri

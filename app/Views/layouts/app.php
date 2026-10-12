@@ -27,6 +27,9 @@
   <!-- CKEditor Custom Styles -->
   <link href="<?= base_url('css/ckeditor-custom.css') ?>" rel="stylesheet" />
 
+  <!-- Core JavaScript Libraries (Loaded in HEAD to support inline scripts in views) -->
+  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
   <style>
     body {
       font-size: 0.875rem;
@@ -48,86 +51,146 @@
       }
     }
 
-    /* Sidebar desktop */
-    @media (min-width: 992px) {
-      .layout-wrapper {
-        display: flex;
-        height: calc(100vh - 56px);
-        overflow: hidden;
-      }
-
-      .sidebar {
-        width: 60px;
-        transition: width 0.2s ease-in-out;
-        overflow-x: hidden;
-        white-space: nowrap;
-        min-height: 100%;
-        background-color: #f8f9fa;
-        border-right: 1px solid #dee2e6;
-      }
-
-      .sidebar .nav-link {
-        padding: 0.75rem;
-        display: flex;
-        align-items: center;
-        gap: .5rem;
-      }
-
-      .sidebar .nav-link span.label {
-        display: none;
-      }
-
-      .sidebar.sidebar-expanded {
-        width: 220px;
-      }
-
-      .sidebar.sidebar-expanded .nav-link span.label {
-        display: inline;
-      }
-
-      #mainContent {
-        flex-grow: 1;
-        transition: all 0.2s ease-in-out;
-        overflow-y: auto;
-      }
+    /* ==========================================================================
+       SIDEBAR & LAYOUT STYLES
+       ========================================================================== */
+    .layout-wrapper {
+      display: flex;
+      min-height: calc(100vh - 56px);
     }
 
+    /* Category headers for grouping */
+    .sidebar-category-header {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #8c98a4;
+      padding: 0.75rem 0.85rem 0.25rem;
+      margin-top: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    /* Submenu styling (indented under parent dropdowns) */
+    .sidebar .sub-menu {
+      background-color: rgba(0, 0, 0, 0.02);
+      border-left: 2px solid #dee2e6;
+      margin-left: 1.35rem;
+      padding-left: 0.25rem;
+      border-radius: 0 0 0.375rem 0;
+    }
+    .sidebar .sub-menu .nav-link {
+      padding: 0.42rem 0.75rem;
+      font-size: 0.84rem;
+      margin: 1px 4px;
+    }
+
+    /* Navigation links styling */
+    .sidebar .nav-link {
+      padding: 0.55rem 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      color: #495057;
+      border-radius: 0.375rem;
+      margin: 1px 6px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: background-color 0.15s ease, color 0.15s ease;
+      text-decoration: none;
+    }
+    .sidebar .nav-link i {
+      font-size: 1.1rem;
+      min-width: 22px;
+      text-align: center;
+      color: #6c757d;
+      transition: color 0.15s ease;
+      flex-shrink: 0;
+    }
+    .sidebar .nav-link:hover {
+      background-color: #e9ecef;
+      color: #0d6efd;
+    }
+    .sidebar .nav-link:hover i {
+      color: #0d6efd;
+    }
+    .sidebar .nav-link.active {
+      background-color: #e7f1ff;
+      color: #0d6efd;
+      font-weight: 600;
+    }
+    .sidebar .nav-link.active i {
+      color: #0d6efd;
+    }
+    .sidebar .nav-link .chevron {
+      font-size: 0.7rem;
+      transition: transform 0.2s ease;
+      opacity: 0.6;
+    }
+    .sidebar .nav-link[aria-expanded="true"] .chevron {
+      transform: rotate(180deg);
+    }
+
+    /* Sidebar Desktop (>= 992px) */
     @media (min-width: 992px) {
       .layout-wrapper {
-        display: flex;
         height: calc(100vh - 56px);
         overflow: hidden;
       }
 
       .sidebar {
-        width: 60px;
-        transition: width 0.2s ease-in-out;
+        width: 62px;
+        transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
         overflow-x: hidden;
+        overflow-y: auto;
         white-space: nowrap;
         min-height: 100%;
         background-color: #f8f9fa;
         border-right: 1px solid #dee2e6;
         flex-shrink: 0;
-        /* 🟢 tambahkan ini: cegah sidebar mengecil */
+        padding-bottom: 2rem;
       }
 
+      /* Scrollbar minimalis pada desktop sidebar */
+      .sidebar::-webkit-scrollbar {
+        width: 5px;
+      }
+      .sidebar::-webkit-scrollbar-thumb {
+        background: #ced4da;
+        border-radius: 4px;
+      }
+      .sidebar::-webkit-scrollbar-thumb:hover {
+        background: #adb5bd;
+      }
+
+      /* Sembunyikan label, badge, dan chevron saat sidebar collapsed (mini mode 62px) */
+      .sidebar:not(.sidebar-expanded) .nav-link span.label,
+      .sidebar:not(.sidebar-expanded) .nav-link .badge,
+      .sidebar:not(.sidebar-expanded) .nav-link .chevron,
+      .sidebar:not(.sidebar-expanded) .sub-menu {
+        display: none !important;
+      }
+
+      /* Saat mini mode, category header berubah jadi garis pemisah tipis */
+      .sidebar:not(.sidebar-expanded) .sidebar-category-header {
+        font-size: 0;
+        height: 1px;
+        background-color: #dee2e6;
+        padding: 0;
+        margin: 0.6rem 0.5rem;
+        overflow: hidden;
+      }
+
+      /* Sidebar Expanded */
       .sidebar.sidebar-expanded {
-        width: 220px;
+        width: 245px;
       }
-
-      .sidebar .nav-link {
-        padding: 0.75rem;
-        display: flex;
-        align-items: center;
-        gap: .5rem;
-      }
-
-      .sidebar .nav-link span.label {
-        display: none;
-      }
-
       .sidebar.sidebar-expanded .nav-link span.label {
         display: inline;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       #mainContent {
@@ -135,10 +198,58 @@
         transition: all 0.2s ease-in-out;
         overflow-y: auto;
         overflow-x: hidden;
-        /* 🟢 cegah konten dorong ke samping */
         min-width: 0;
-        /* 🟢 penting agar flex item bisa menyusut sesuai viewport */
       }
+    }
+
+    /* Mobile offcanvas overrides */
+    .offcanvas-body .sidebar-category-header {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8c98a4;
+      padding: 0.85rem 1rem 0.25rem;
+    }
+    .offcanvas-body .nav-link {
+      padding: 0.65rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: #495057;
+      font-size: 0.9rem;
+    }
+    .offcanvas-body .nav-link i {
+      font-size: 1.15rem;
+      min-width: 24px;
+      text-align: center;
+      color: #6c757d;
+    }
+    .offcanvas-body .nav-link.active {
+      background-color: #e7f1ff;
+      color: #0d6efd;
+      font-weight: 600;
+    }
+    .offcanvas-body .nav-link.active i {
+      color: #0d6efd;
+    }
+    .offcanvas-body .sub-menu {
+      background-color: rgba(0, 0, 0, 0.02);
+      border-left: 2px solid #dee2e6;
+      margin-left: 1.5rem;
+      padding-left: 0.25rem;
+    }
+    .offcanvas-body .sub-menu .nav-link {
+      padding: 0.45rem 0.85rem;
+      font-size: 0.85rem;
+    }
+    .offcanvas-body .nav-link .chevron {
+      font-size: 0.7rem;
+      transition: transform 0.2s ease;
+      opacity: 0.6;
+    }
+    .offcanvas-body .nav-link[aria-expanded="true"] .chevron {
+      transform: rotate(180deg);
     }
 
     footer {
@@ -159,157 +270,255 @@
       font-size: 1.2rem;
     }
 
-    /* ========== MOBILE OPTIMIZATIONS ========== */
-
-    /* Responsive Tables */
+    /* ========== MOBILE OPTIMIZATIONS & NATIVE APP EXPERIENCE (< 992px) ========== */
     .table-responsive {
       -webkit-overflow-scrolling: touch;
     }
 
-    @media (max-width: 767.98px) {
+    /* Bottom Navigation Bar (Mobile Native App Bar) */
+    .mobile-bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      background: rgba(255, 255, 255, 0.97);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 1040;
+      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.04);
+    }
+    .mobile-bottom-nav .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 2px;
+      color: #64748b;
+      text-decoration: none;
+      font-size: 0.67rem;
+      font-weight: 500;
+      transition: color 0.15s ease, transform 0.15s ease;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-bottom-nav .nav-item i {
+      font-size: 1.22rem;
+      line-height: 1.15;
+      margin-bottom: 2px;
+      transition: transform 0.15s ease;
+    }
+    .mobile-bottom-nav .nav-item.active {
+      color: #0d6efd;
+      font-weight: 600;
+    }
+    .mobile-bottom-nav .nav-item.active i {
+      transform: scale(1.12);
+    }
+    .mobile-bottom-nav .nav-item:active {
+      transform: scale(0.92);
+    }
 
-      /* Larger touch targets */
-      .btn {
-        min-height: 44px;
-        padding: 0.5rem 1rem;
+    @media (max-width: 991.98px) {
+      /* Navbar Mobile: Sleek & Compact */
+      .navbar {
+        height: 52px !important;
+        background: rgba(255, 255, 255, 0.96) !important;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-bottom: 1px solid #e9ecef;
+      }
+      .navbar-brand img {
+        height: 26px !important;
       }
 
-      .btn-sm {
-        min-height: 38px;
+      /* Ruang bebas untuk Bottom Navigation */
+      #mainContent {
+        padding: 0.75rem 0.65rem calc(64px + env(safe-area-inset-bottom, 10px)) !important;
+        min-height: calc(100vh - 52px);
+      }
+      footer {
+        padding-bottom: calc(68px + env(safe-area-inset-bottom, 10px)) !important;
+        padding-top: 1rem;
+        font-size: 0.75rem;
       }
 
-      /* Better form inputs */
+      /* Compact Cards on Mobile */
+      .card {
+        border-radius: 12px;
+        margin-bottom: 0.75rem;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+      }
+      .card-header {
+        padding: 0.65rem 0.85rem;
+        font-size: 0.88rem;
+        background-color: #fff;
+        border-bottom: 1px solid #f1f3f5;
+      }
+      .card-body {
+        padding: 0.75rem 0.85rem;
+      }
+      .card-footer {
+        padding: 0.6rem 0.85rem;
+        font-size: 0.82rem;
+      }
+
+      /* Compact Typography on Mobile */
+      h1, .h1 { font-size: 1.25rem !important; }
+      h2, .h2 { font-size: 1.15rem !important; }
+      h3, .h3 { font-size: 1.05rem !important; }
+      h4, .h4 { font-size: 0.95rem !important; }
+      h5, .h5 { font-size: 0.9rem !important; }
+      h6, .h6 { font-size: 0.82rem !important; }
+
+      /* Form & Input Sizing */
       .form-control,
       .form-select {
-        min-height: 44px;
-        font-size: 16px;
-        /* Prevents zoom on iOS */
+        min-height: 38px;
+        padding: 0.38rem 0.65rem;
+        font-size: 14px;
+        border-radius: 8px;
+      }
+      .form-control-sm,
+      .form-select-sm {
+        min-height: 32px;
+        font-size: 13px;
+        padding: 0.25rem 0.5rem;
+      }
+      .input-group-text {
+        font-size: 14px;
+        padding: 0.38rem 0.65rem;
       }
 
-      /* Card spacing */
-      .card {
-        margin-bottom: 1rem;
-      }
-
-      .card-body {
-        padding: 1rem;
-      }
-
-      /* Table improvements */
-      table {
+      /* Compact Buttons */
+      .btn {
+        min-height: 38px;
+        padding: 0.38rem 0.85rem;
         font-size: 0.85rem;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+      }
+      .btn-sm {
+        min-height: 32px;
+        padding: 0.25rem 0.6rem;
+        font-size: 0.78rem;
+        border-radius: 6px;
       }
 
-      table th,
-      table td {
-        padding: 0.5rem 0.25rem;
-      }
-
-      /* Alert improvements */
+      /* Compact Alerts & Badges */
       .alert {
-        font-size: 0.875rem;
-        padding: 0.75rem;
-      }
-
-      /* Modal improvements */
-      .modal-dialog {
-        margin: 0.5rem;
-      }
-
-      /* Offcanvas width */
-      .offcanvas {
-        max-width: 280px;
-      }
-
-      /* Better spacing for main content */
-      #mainContent {
-        padding: 1rem !important;
-      }
-
-      /* Stack columns on mobile */
-      .row>[class*="col-"] {
-        margin-bottom: 1rem;
-      }
-
-      /* Navbar adjustments */
-      .navbar-brand {
-        font-size: 1rem;
-      }
-
-      /* DataTables mobile */
-      .dataTables_wrapper .dataTables_length,
-      .dataTables_wrapper .dataTables_filter {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.82rem;
+        border-radius: 10px;
         margin-bottom: 0.75rem;
       }
-
-      .dataTables_wrapper .dataTables_paginate {
-        margin-top: 0.75rem;
+      .badge {
+        font-weight: 500;
       }
 
-      /* Select2 mobile */
-      .select2-container {
-        font-size: 16px;
+      /* Mobile Tables */
+      .table {
+        font-size: 0.8rem;
+        margin-bottom: 0;
+      }
+      .table th,
+      .table td {
+        padding: 0.45rem 0.5rem;
+        vertical-align: middle;
       }
 
-      .select2-container .select2-selection--single {
-        min-height: 44px;
+      /* Offcanvas Navigation */
+      .offcanvas {
+        max-width: 82vw;
+        border-right: 1px solid #dee2e6;
       }
+    }
 
-      .select2-container .select2-selection--single .select2-selection__rendered {
-        line-height: 42px;
+    /* Quick Action Grid Utility */
+    .quick-action-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.65rem;
+    }
+    @media (max-width: 420px) {
+      .quick-action-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.45rem;
       }
-
-      .select2-container .select2-selection--single .select2-selection__arrow {
-        height: 42px;
-      }
+    }
+    .quick-action-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      background: #ffffff;
+      border: 1px solid #f1f3f5;
+      border-radius: 12px;
+      padding: 0.65rem 0.25rem 0.5rem;
+      color: #334155;
+      transition: all 0.15s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .quick-action-btn:active {
+      transform: scale(0.95);
+      background: #f8fafc;
+    }
+    .quick-action-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      margin-bottom: 0.35rem;
+      transition: transform 0.15s ease;
+    }
+    .quick-action-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-align: center;
+      line-height: 1.15;
+      color: #475569;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     /* Tablet optimizations */
     @media (min-width: 768px) and (max-width: 991.98px) {
       .card-body {
-        padding: 1.25rem;
+        padding: 1rem;
       }
-
       #mainContent {
-        padding: 1.5rem !important;
+        padding: 1.25rem !important;
       }
     }
 
     /* Touch-friendly improvements for all devices */
     a,
     button {
-      -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+      -webkit-tap-highlight-color: rgba(0, 0, 0, 0.05);
     }
-
-    /* Prevent text selection on double-tap */
     .btn,
     .nav-link {
       -webkit-user-select: none;
       user-select: none;
-    }
-
-    /* Sidebar Improvements */
-    .sidebar .nav-link[data-bs-toggle="collapse"] {
-      position: relative;
-      font-weight: 500;
-    }
-
-    .sidebar .nav-link .label {
-      flex-grow: 1;
-    }
-
-    .sidebar .nav-link .chevron {
-      transition: transform 0.2s ease-in-out;
-      font-size: 0.75rem;
-      opacity: 0.7;
-    }
-
-    .sidebar .nav-link[aria-expanded="true"] .chevron {
-      transform: rotate(180deg);
-    }
-
-    .sidebar .nav-link[data-bs-toggle="collapse"]:not(.active) {
-      background-color: rgba(0, 0, 0, 0.02);
     }
 
     /* ── Notifikasi Dropdown ── */
@@ -374,14 +583,16 @@
     <nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top shadow-sm" style="height: 56px;">
       <div class="container-fluid">
         <!-- Tombol toggle untuk mobile -->
-        <button class="btn btn-outline-primary d-lg-none me-2" type="button" data-bs-toggle="offcanvas"
-          data-bs-target="#sidebarMenu" aria-controls="sidebarMenu">
-          ☰
+        <button class="btn btn-outline-secondary d-lg-none me-2 d-inline-flex align-items-center justify-content-center p-0 rounded-3 shadow-none"
+          style="width: 36px; height: 36px;"
+          type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" title="Menu Samping">
+          <i class="bi bi-list fs-5"></i>
         </button>
 
         <!-- Tombol toggle untuk desktop -->
-        <button id="sidebarToggle" class="btn btn-outline-secondary d-none d-lg-inline me-2">
-          ⇔
+        <button id="sidebarToggle" class="btn btn-outline-secondary d-none d-lg-inline-flex align-items-center justify-content-center me-2 rounded-3"
+          style="width: 36px; height: 36px;" title="Ciutkan/Perluas Menu">
+          <i class="bi bi-layout-sidebar-inset"></i>
         </button>
 
         <a class="navbar-brand" href="<?= base_url('/dashboard') ?>">
@@ -539,16 +750,113 @@
       </div>
 
       <!-- Main Content -->
-      <main id="mainContent" class="px-3 px-md-4 py-3">
+      <main id="mainContent" class="px-2 px-md-4 py-2 py-md-3">
         <?= $this->renderSection('content') ?>
       </main>
     </div>
+
+    <!-- Mobile Bottom Navigation Bar (Aplikasi Native Experience) -->
+    <?php if ($user && isset($user['role_id'])): ?>
+      <?php
+        $currentUri = uri_string();
+        $roleId = (int)$user['role_id'];
+      ?>
+      <nav class="mobile-bottom-nav d-lg-none" id="mobileBottomNav">
+        <?php if ($roleId === 5): /* Siswa */ ?>
+          <a href="<?= base_url('dashboard') ?>" class="nav-item <?= $currentUri === 'dashboard' || $currentUri === '' ? 'active' : '' ?>">
+            <i class="bi <?= $currentUri === 'dashboard' || $currentUri === '' ? 'bi-house-door-fill' : 'bi-house-door' ?>"></i>
+            <span>Beranda</span>
+          </a>
+          <a href="<?= base_url('siswa/belajar') ?>" class="nav-item <?= str_contains($currentUri, 'siswa/belajar') ? 'active' : '' ?>">
+            <i class="bi <?= str_contains($currentUri, 'siswa/belajar') ? 'bi-mortarboard-fill' : 'bi-mortarboard' ?>"></i>
+            <span>Belajar</span>
+          </a>
+          <a href="<?= base_url('siswa/tugas') ?>" class="nav-item <?= str_contains($currentUri, 'siswa/tugas') ? 'active' : '' ?>">
+            <i class="bi <?= str_contains($currentUri, 'siswa/tugas') ? 'bi-clipboard-check-fill' : 'bi-clipboard-check' ?>"></i>
+            <span>Tugas</span>
+          </a>
+          <a href="<?= base_url('siswa/grades') ?>" class="nav-item <?= str_contains($currentUri, 'grades') ? 'active' : '' ?>">
+            <i class="bi <?= str_contains($currentUri, 'grades') ? 'bi-award-fill' : 'bi-award' ?>"></i>
+            <span>Nilai</span>
+          </a>
+          <div class="nav-item" role="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu">
+            <i class="bi bi-grid-fill"></i>
+            <span>Menu</span>
+          </div>
+
+        <?php elseif ($roleId === 4): /* Orang Tua */ ?>
+          <a href="<?= base_url('dashboard') ?>" class="nav-item <?= $currentUri === 'dashboard' || $currentUri === '' ? 'active' : '' ?>">
+            <i class="bi <?= $currentUri === 'dashboard' || $currentUri === '' ? 'bi-house-door-fill' : 'bi-house-door' ?>"></i>
+            <span>Beranda</span>
+          </a>
+          <a href="<?= base_url('siswa/grades') ?>" class="nav-item <?= str_contains($currentUri, 'grades') ? 'active' : '' ?>">
+            <i class="bi <?= str_contains($currentUri, 'grades') ? 'bi-award-fill' : 'bi-award' ?>"></i>
+            <span>Nilai</span>
+          </a>
+          <a href="<?= base_url('siswa/attendance') ?>" class="nav-item <?= str_contains($currentUri, 'attendance') ? 'active' : '' ?>">
+            <i class="bi <?= str_contains($currentUri, 'attendance') ? 'bi-calendar-check-fill' : 'bi-calendar-check' ?>"></i>
+            <span>Presensi</span>
+          </a>
+          <a href="<?= base_url('siswa/payment') ?>" class="nav-item <?= str_contains($currentUri, 'payment') ? 'active' : '' ?>">
+            <i class="bi <?= str_contains($currentUri, 'payment') ? 'bi-wallet2' : 'bi-wallet' ?>"></i>
+            <span>SPP</span>
+          </a>
+          <div class="nav-item" role="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu">
+            <i class="bi bi-grid-fill"></i>
+            <span>Menu</span>
+          </div>
+
+        <?php elseif ($roleId === 3): /* Guru */ ?>
+          <a href="<?= base_url('dashboard') ?>" class="nav-item <?= $currentUri === 'dashboard' || $currentUri === '' ? 'active' : '' ?>">
+            <i class="bi <?= $currentUri === 'dashboard' || $currentUri === '' ? 'bi-house-door-fill' : 'bi-house-door' ?>"></i>
+            <span>Beranda</span>
+          </a>
+          <a href="<?= base_url('admin/materials') ?>" class="nav-item <?= str_contains($currentUri, 'materials') ? 'active' : '' ?>">
+            <i class="bi <?= str_contains($currentUri, 'materials') ? 'bi-journal-bookmark-fill' : 'bi-journal-bookmark' ?>"></i>
+            <span>Materi</span>
+          </a>
+          <a href="<?= base_url('admin/student-attendance') ?>" class="nav-item <?= str_contains($currentUri, 'attendance') ? 'active' : '' ?>">
+            <i class="bi <?= str_contains($currentUri, 'attendance') ? 'bi-person-check-fill' : 'bi-person-check' ?>"></i>
+            <span>Presensi</span>
+          </a>
+          <a href="<?= base_url('admin/grades') ?>" class="nav-item <?= str_contains($currentUri, 'grades') ? 'active' : '' ?>">
+            <i class="bi <?= str_contains($currentUri, 'grades') ? 'bi-pencil-square' : 'bi-pencil' ?>"></i>
+            <span>Nilai</span>
+          </a>
+          <div class="nav-item" role="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu">
+            <i class="bi bi-grid-fill"></i>
+            <span>Menu</span>
+          </div>
+
+        <?php else: /* Admin / Kepsek / Staf */ ?>
+          <a href="<?= base_url('dashboard') ?>" class="nav-item <?= $currentUri === 'dashboard' || $currentUri === '' ? 'active' : '' ?>">
+            <i class="bi <?= $currentUri === 'dashboard' || $currentUri === '' ? 'bi-speedometer2' : 'bi-speedometer' ?>"></i>
+            <span>Beranda</span>
+          </a>
+          <a href="<?= base_url('admin/students') ?>" class="nav-item <?= str_contains($currentUri, 'students') ? 'active' : '' ?>">
+            <i class="bi <?= str_contains($currentUri, 'students') ? 'bi-people-fill' : 'bi-people' ?>"></i>
+            <span>Siswa</span>
+          </a>
+          <a href="<?= base_url('admin/materials') ?>" class="nav-item <?= str_contains($currentUri, 'materials') ? 'active' : '' ?>">
+            <i class="bi <?= str_contains($currentUri, 'materials') ? 'bi-journal-richtext' : 'bi-journal' ?>"></i>
+            <span>KBM</span>
+          </a>
+          <a href="<?= base_url('admin/student-attendance') ?>" class="nav-item <?= str_contains($currentUri, 'attendance') ? 'active' : '' ?>">
+            <i class="bi <?= str_contains($currentUri, 'attendance') ? 'bi-calendar-check-fill' : 'bi-calendar-check' ?>"></i>
+            <span>Presensi</span>
+          </a>
+          <div class="nav-item" role="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu">
+            <i class="bi bi-grid-fill"></i>
+            <span>Menu</span>
+          </div>
+        <?php endif; ?>
+      </nav>
+    <?php endif; ?>
 
     <?= $this->include('layouts/footer') ?>
   </div>
 
   <!-- JS libraries -->
-  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

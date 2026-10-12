@@ -1035,7 +1035,7 @@
   </script>
 
 <script>
-(function() {
+$(function() {
   const sessionInfoUrl  = '<?= base_url('admin/session-info') ?>';
   const sessionCleanUrl = '<?= base_url('admin/session-clean') ?>';
   const csrfName = '<?= csrf_token() ?>';
@@ -1097,8 +1097,8 @@
     });
   });
 
-  $(document).ready(function() { loadSessionStats(); });
-})();
+  loadSessionStats();
+});
 </script>
 <style>
 .spin { animation: spin 0.8s linear infinite; display: inline-block; }

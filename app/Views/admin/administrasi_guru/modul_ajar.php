@@ -139,8 +139,8 @@
                     <th width="50">No</th>
                     <th>Elemen CP</th>
                     <th>Lingkup Materi / Tujuan Pembelajaran</th>
-                    <th width="100">Status Modul</th>
-                    <th width="200">Aksi</th>
+                    <th width="120">Status Modul</th>
+                    <th width="220">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -168,7 +168,15 @@
                             </td>
                             <td class="text-center">
                                 <?php if ($atp['modul']): ?>
-                                    <span class="badge bg-success">Tersedia</span>
+                                    <?php if (($atp['modul']['tipe'] ?? 'editor') === 'pdf'): ?>
+                                        <span class="badge bg-danger-subtle text-danger border border-danger">
+                                            <i class="bi bi-file-earmark-pdf me-1"></i>Dokumen PDF
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="badge bg-success-subtle text-success border border-success">
+                                            <i class="bi bi-file-earmark-text me-1"></i>Tersedia (Teks)
+                                        </span>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <span class="badge bg-secondary">Belum Dibuat</span>
                                 <?php endif; ?>
@@ -177,60 +185,102 @@
                                 <?php if ($atp['modul']): ?>
                                     <?php $canManage = in_array(session()->get('user')['role_id'], [1, 3]) && !$readonly; ?>
                                     <?php if ($canManage): ?>
-                                        <div class="btn-group w-100 mb-1">
-                                            <a href="<?= base_url('admin/administrasi-guru/modul-ajar/edit/' . $atp['modul']['id'] . '/' . $selected_class) ?>" class="btn btn-sm btn-outline-primary">
-                                                <i class="bi bi-pencil"></i> Edit
+                                        <?php if (($atp['modul']['tipe'] ?? 'editor') === 'pdf'): ?>
+                                            <div class="d-flex flex-column gap-1">
+                                                <a href="<?= base_url('admin/administrasi-guru/modul-ajar/pdf/' . $atp['modul']['id']) ?>" target="_blank" class="btn btn-sm btn-outline-danger w-100">
+                                                    <i class="bi bi-eye"></i> Buka / Cetak PDF
+                                                </a>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary w-100 upload-pdf-btn" data-atp-id="<?= $atp['id'] ?>" data-materi="<?= esc($atp['lingkup_materi']) ?>">
+                                                    <i class="bi bi-arrow-repeat"></i> Ganti File PDF
+                                                </button>
+                                                <a href="<?= base_url('admin/administrasi-guru/modul-ajar/delete/' . $atp['modul']['id'] . '/' . $selected_subject . '/' . $selected_class) ?>" 
+                                                   class="btn btn-sm btn-light text-danger w-100 border" 
+                                                   onclick="return confirm('Hapus file PDF modul ini?')">
+                                                    <i class="bi bi-trash"></i> Hapus Modul
+                                                </a>
+                                            </div>
+                                        <?php else: ?>
+                                            <div class="d-flex flex-column gap-1">
+                                                <div class="btn-group w-100">
+                                                    <a href="<?= base_url('admin/administrasi-guru/modul-ajar/edit/' . $atp['modul']['id'] . '/' . $selected_class) ?>" class="btn btn-sm btn-outline-primary">
+                                                        <i class="bi bi-pencil"></i> Edit
+                                                    </a>
+                                                    <a href="<?= base_url('admin/administrasi-guru/modul-ajar/print/' . $atp['modul']['id'] . '/' . $selected_class) ?>" target="_blank" class="btn btn-sm btn-outline-danger">
+                                                        <i class="bi bi-printer"></i> Cetak
+                                                    </a>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary w-100 upload-pdf-btn" data-atp-id="<?= $atp['id'] ?>" data-materi="<?= esc($atp['lingkup_materi']) ?>">
+                                                    <i class="bi bi-file-earmark-pdf"></i> Ganti dgn PDF
+                                                </button>
+                                                <a href="<?= base_url('admin/administrasi-guru/modul-ajar/delete/' . $atp['modul']['id'] . '/' . $selected_subject . '/' . $selected_class) ?>" 
+                                                   class="btn btn-sm btn-light text-danger w-100 border" 
+                                                   onclick="return confirm('Hapus modul ini?')">
+                                                    <i class="bi bi-trash"></i> Hapus Modul
+                                                </a>
+                                            </div>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <!-- Read-only (mis. Kepala Sekolah) -->
+                                        <?php if (($atp['modul']['tipe'] ?? 'editor') === 'pdf'): ?>
+                                            <a href="<?= base_url('admin/administrasi-guru/modul-ajar/pdf/' . $atp['modul']['id']) ?>" target="_blank" class="btn btn-sm btn-outline-danger w-100">
+                                                <i class="bi bi-eye"></i> Lihat PDF
                                             </a>
-                                            <a href="<?= base_url('admin/administrasi-guru/modul-ajar/print/' . $atp['modul']['id'] . '/' . $selected_class) ?>" target="_blank" class="btn btn-sm btn-outline-danger">
+                                        <?php else: ?>
+                                            <a href="<?= base_url('admin/administrasi-guru/modul-ajar/print/' . $atp['modul']['id'] . '/' . $selected_class) ?>" target="_blank" class="btn btn-sm btn-outline-danger w-100">
                                                 <i class="bi bi-printer"></i> Cetak
                                             </a>
-                                        </div>
-                                        <a href="<?= base_url('admin/administrasi-guru/modul-ajar/delete/' . $atp['modul']['id'] . '/' . $selected_subject . '/' . $selected_class) ?>" 
-                                           class="btn btn-sm btn-light text-danger w-100 border" 
-                                           onclick="return confirm('Hapus modul ini untuk generate ulang dari awal?')">
-                                            <i class="bi bi-trash"></i> Hapus & Regenerasi
-                                        </a>
-                                    <?php else: ?>
-                                        <!-- Read-only (mis. Kepala Sekolah): hanya Cetak -->
-                                        <a href="<?= base_url('admin/administrasi-guru/modul-ajar/print/' . $atp['modul']['id'] . '/' . $selected_class) ?>" target="_blank" class="btn btn-sm btn-outline-danger w-100">
-                                            <i class="bi bi-printer"></i> Cetak
-                                        </a>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 <?php else: ?>
                                     <?php if (in_array(session()->get('user')['role_id'], [1, 3]) && !$readonly): ?>
-                                        <?php if (empty($gemini_api_key)): ?>
-                                            <button class="btn btn-sm btn-outline-primary w-100 mb-1 get-prompt-btn" data-atp-id="<?= $atp['id'] ?>" data-subject-id="<?= $selected_subject ?>">
-                                                <i class="bi bi-clipboard"></i> Generate Manual
-                                            </button>
-                                            <button class="btn btn-sm btn-danger w-100" data-bs-toggle="modal" data-bs-target="#apiKeyModal">
-                                                <i class="bi bi-robot"></i> Set API Key
-                                            </button>
-                                        <?php else: ?>
-                                            <form action="<?= base_url('admin/administrasi-guru/modul-ajar/generate') ?>" method="post" class="generate-form">
-                                                <?= csrf_field() ?>
-                                                <input type="hidden" name="atp_id" value="<?= $atp['id'] ?>">
-                                                <input type="hidden" name="subject_id" value="<?= $selected_subject ?>">
-                                                <button type="submit" class="btn btn-sm btn-primary w-100 generate-btn">
-                                                    <i class="bi bi-magic"></i> Generate Modul (AI)
+                                        <div class="d-flex flex-column gap-1">
+                                            <!-- Pilihan 1: Generate AI -->
+                                            <?php if (!empty($gemini_api_key)): ?>
+                                                <form action="<?= base_url('admin/administrasi-guru/modul-ajar/generate') ?>" method="post" class="generate-form">
+                                                    <?= csrf_field() ?>
+                                                    <input type="hidden" name="atp_id" value="<?= $atp['id'] ?>">
+                                                    <input type="hidden" name="subject_id" value="<?= $selected_subject ?>">
+                                                    <button type="submit" class="btn btn-sm btn-primary w-100 generate-btn">
+                                                        <i class="bi bi-magic"></i> Generate AI
+                                                    </button>
+                                                </form>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary w-100 get-prompt-btn" data-atp-id="<?= $atp['id'] ?>" data-subject-id="<?= $selected_subject ?>">
+                                                    <i class="bi bi-clipboard"></i> Salin Prompt AI
                                                 </button>
-                                            </form>
-                                            <button class="btn btn-sm btn-outline-secondary w-100 mt-1 get-prompt-btn" data-atp-id="<?= $atp['id'] ?>" data-subject-id="<?= $selected_subject ?>">
-                                                <i class="bi bi-clipboard"></i> Generate Manual
+                                            <?php else: ?>
+                                                <button type="button" class="btn btn-sm btn-outline-primary w-100 get-prompt-btn" data-atp-id="<?= $atp['id'] ?>" data-subject-id="<?= $selected_subject ?>">
+                                                    <i class="bi bi-clipboard"></i> Salin Prompt AI
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-danger w-100" data-bs-toggle="modal" data-bs-target="#apiKeyModal">
+                                                    <i class="bi bi-robot"></i> Set API Key AI
+                                                </button>
+                                            <?php endif; ?>
+
+                                            <!-- Pilihan 2: Buat Mandiri / Copas Word -->
+                                            <a href="<?= base_url('admin/administrasi-guru/modul-ajar/create/' . $atp['id'] . '/' . $selected_class) ?>" class="btn btn-sm btn-outline-success w-100">
+                                                <i class="bi bi-file-earmark-richtext"></i> Copas Word / Mandiri
+                                            </a>
+
+                                            <!-- Pilihan 3: Upload Dokumen PDF -->
+                                            <button type="button" class="btn btn-sm btn-outline-danger w-100 upload-pdf-btn" data-atp-id="<?= $atp['id'] ?>" data-materi="<?= esc($atp['lingkup_materi']) ?>">
+                                                <i class="bi bi-file-earmark-arrow-up"></i> Upload PDF
                                             </button>
+
+                                            <!-- Pilihan 4: Salin dari kelas lain se-level jika ada -->
                                             <?php if (!empty($atp['modul_source'])): ?>
-                                            <form action="<?= base_url('admin/administrasi-guru/modul-ajar/copy') ?>" method="post" class="mt-1">
+                                            <form action="<?= base_url('admin/administrasi-guru/modul-ajar/copy') ?>" method="post">
                                                 <?= csrf_field() ?>
                                                 <input type="hidden" name="source_modul_id" value="<?= $atp['modul_source']['id'] ?>">
                                                 <input type="hidden" name="target_class_id" value="<?= $selected_class ?>">
                                                 <input type="hidden" name="subject_id" value="<?= $selected_subject ?>">
                                                 <input type="hidden" name="atp_id" value="<?= $atp['id'] ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-success w-100"
+                                                <button type="submit" class="btn btn-sm btn-outline-info w-100"
                                                     onclick="return confirm('Salin modul dari <?= esc($atp['modul_source']['class_name']) ?>?')">
                                                     <i class="bi bi-copy"></i> Salin dari <?= esc($atp['modul_source']['class_name']) ?>
                                                 </button>
                                             </form>
                                             <?php endif; ?>
-                                        <?php endif; ?>
+                                        </div>
                                     <?php else: ?>
                                         <span class="text-muted small">Hubungi Guru Mapel</span>
                                     <?php endif; ?>
@@ -302,6 +352,44 @@
     </div>
 </div>
 
+<!-- Modal: Upload Dokumen PDF Modul Ajar -->
+<div class="modal fade" id="uploadPdfModal" tabindex="-1" aria-labelledby="uploadPdfModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <form action="<?= base_url('admin/administrasi-guru/modul-ajar/upload-pdf') ?>" method="post" enctype="multipart/form-data" id="uploadPdfForm">
+                <?= csrf_field() ?>
+                <input type="hidden" name="atp_id" id="uploadAtpId">
+                <input type="hidden" name="class_id" value="<?= esc($selected_class) ?>">
+                <input type="hidden" name="subject_id" value="<?= esc($selected_subject) ?>">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="uploadPdfModalLabel"><i class="bi bi-file-earmark-pdf me-2"></i>Upload File PDF Modul Ajar</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info py-2 small mb-3">
+                        <i class="bi bi-info-circle me-1"></i> Gunakan opsi ini jika Anda sudah memiliki dokumen Modul Ajar dalam bentuk PDF (hasil ekspor dari Microsoft Word, Canva, atau Kemdikbud).
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small">Lingkup Materi / ATP:</label>
+                        <div id="uploadMateriDisplay" class="fw-bold text-dark p-2 bg-light rounded border"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Pilih Dokumen PDF: <span class="text-danger">*</span></label>
+                        <input type="file" name="pdf_file" class="form-control" accept=".pdf,application/pdf" required id="pdfFileInput">
+                        <div class="form-text small">Format wajib <strong>.pdf</strong>, ukuran maksimal <strong>15 MB</strong>.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger" id="uploadPdfSubmitBtn">
+                        <i class="bi bi-upload me-1"></i> Unggah PDF
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
@@ -336,7 +424,7 @@
             subject_id: subjectId,
             '<?= csrf_token() ?>': '<?= csrf_hash() ?>'
         }, function(res) {
-            btn.prop('disabled', false).html('<i class="bi bi-clipboard"></i> Generate Manual');
+            btn.prop('disabled', false).html('<i class="bi bi-clipboard"></i> Salin Prompt AI');
             if (res.error) {
                 alert(res.error);
                 return;
@@ -348,7 +436,7 @@
             $('#pasteStep').hide();
             new bootstrap.Modal(document.getElementById('manualPromptModal')).show();
         }).fail(function() {
-            btn.prop('disabled', false).html('<i class="bi bi-clipboard"></i> Generate Manual');
+            btn.prop('disabled', false).html('<i class="bi bi-clipboard"></i> Salin Prompt AI');
             alert('Gagal mengambil prompt.');
         });
     });
@@ -371,6 +459,32 @@
     $('#backToPrompt').on('click', function() {
         $('#pasteStep').hide();
         $('#promptStep').show();
+    });
+
+    // Upload PDF modal trigger
+    $('.upload-pdf-btn').on('click', function() {
+        const atpId = $(this).data('atp-id');
+        const materi = $(this).data('materi');
+        $('#uploadAtpId').val(atpId);
+        $('#uploadMateriDisplay').text(materi || '-');
+        $('#pdfFileInput').val('');
+        new bootstrap.Modal(document.getElementById('uploadPdfModal')).show();
+    });
+
+    $('#uploadPdfForm').on('submit', function() {
+        const fileInput = document.getElementById('pdfFileInput');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert('Silakan pilih file PDF terlebih dahulu.');
+            return false;
+        }
+        const file = fileInput.files[0];
+        if (file.size > 15 * 1024 * 1024) {
+            alert('Ukuran file PDF melebihi 15 MB.');
+            return false;
+        }
+        const btn = $('#uploadPdfSubmitBtn');
+        btn.html('<span class="spinner-border spinner-border-sm me-1"></span> Mengunggah...');
+        btn.prop('disabled', true);
     });
 </script>
 <?= $this->endSection() ?>
