@@ -76,33 +76,54 @@
     .summary-bar .s-s { color: #fd7e14; }
     .summary-bar .s-a { color: #dc3545; }
 
-    /* Desktop override */
-    @media (min-width: 768px) {
-        .daily-container { max-width: 500px; margin: 0 auto; }
+    .daily-container { 
+        padding-bottom: 140px; 
     }
 
-    /* Save button fixed to bottom of viewport */
+    /* Save button floating directly above mobile-bottom-nav */
     .save-btn-wrapper {
         position: fixed;
-        bottom: 0;
+        bottom: 56px;
         left: 0;
         right: 0;
-        z-index: 1050;
-        background: #fff;
-        border-top: 1px solid #dee2e6;
-        padding: 0;
+        z-index: 1030;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-top: 1px solid rgba(14, 165, 233, 0.18);
+        padding: 8px 16px;
+        box-shadow: 0 -4px 16px rgba(14, 165, 233, 0.08);
     }
     .save-btn-wrapper .btn {
-        border-radius: 0 !important;
-        padding-top: 16px;
-        padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+        border-radius: 12px !important;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        font-size: 0.95rem;
     }
 
-    /* Hide layout footer & mobile-bottom-nav on this page to avoid overlap with sticky save bar */
-    footer { display: none !important; }
-    @media (max-width: 991.98px) {
-        .mobile-bottom-nav { display: none !important; }
+    /* Desktop mode: tidak ada bottom nav, save button merapat ke bawah tengah */
+    @media (min-width: 992px) {
+        .daily-container { 
+            max-width: 560px; 
+            margin: 0 auto; 
+            padding-bottom: 85px;
+        }
+        .save-btn-wrapper {
+            bottom: 0;
+            left: 50%;
+            right: auto;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 560px;
+            border-radius: 16px 16px 0 0;
+            border-left: 1px solid rgba(14, 165, 233, 0.18);
+            border-right: 1px solid rgba(14, 165, 233, 0.18);
+            padding: 12px 20px;
+        }
     }
+
+    /* Sembunyikan footer standar halaman agar tidak menambah scroll kosong */
+    footer { display: none !important; }
 </style>
 
 <div class="daily-container">
@@ -201,8 +222,9 @@
             <?php if (!$isReadonly): ?>
                 <!-- Sticky bottom save button -->
                 <div class="save-btn-wrapper">
-                    <button type="submit" class="btn btn-primary w-100 fw-bold py-3 rounded-0">
-                        <i class="bi bi-check-lg me-1"></i>Simpan Absensi
+                    <button type="submit" class="btn btn-primary w-100 fw-bold d-flex align-items-center justify-content-center gap-2">
+                        <i class="bi bi-check2-circle fs-5"></i>
+                        <span>Simpan Absensi</span>
                     </button>
                 </div>
             <?php endif; ?>
