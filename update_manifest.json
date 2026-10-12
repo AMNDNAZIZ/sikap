@@ -1,7 +1,7 @@
 {
     "version": "2.0.4",
-    "generated": "2026-10-12 12:36:56",
-    "last_update": "2026-10-07 00:00",
+    "generated": "2026-10-12 12:46:53",
+    "last_update": "2026-10-12 00:00",
     "total_files": 1014,
     "files": {
         "app/.htaccess": "0a949a74edc566be1e1944fbfab681a5",
@@ -463,7 +463,7 @@
         "app/Views/admin/assessments/success.php": "84a095aabb794803ecab6512e5bf2253",
         "app/Views/admin/assessments/sumatif_list.php": "cce2790d4d3cc3bd9726e5769fc4cd77",
         "app/Views/admin/assessments/view_scores.php": "0e4c699f4abc5548edffae3123a14e60",
-        "app/Views/admin/attendance/daily.php": "4727a22069a5ca11f7c7f8b369524434",
+        "app/Views/admin/attendance/daily.php": "5f79bd643101a4b31cd17cd3a2b19756",
         "app/Views/admin/attendance/holidays.php": "8275c6f3345e857b585369e406262f78",
         "app/Views/admin/attendance/month_grid.php": "53fb05b16fcd2764d21aca099d8b0abf",
         "app/Views/admin/attendance/pdf_grid.php": "a008e6e53eb9f44c4c8d41ca87c78ede",
