@@ -83,8 +83,8 @@ defined('EXIT__AUTO_MAX') || define('EXIT__AUTO_MAX', 125);    // highest automa
  | App Versioning
  |--------------------------------------------------------------------------
  */
-define('APP_VERSION', '2.0.3');
-define('LAST_UPDATE', '2026-10-07 00:00');
+define('APP_VERSION', '2.0.4');
+define('LAST_UPDATE', '2026-10-12 00:00');
 
 /*
  |--------------------------------------------------------------------------

@@ -1,14 +1,24 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="container">
-  <h3>📊 Nilai Siswa</h3>
+<div class="container-fluid p-0 pb-5">
 
-  <table class="table table-sm w-auto mb-3">
-    <tr><th>Nama Siswa</th><td><?= esc($student['name']) ?></td></tr>
-    <tr><th>Kelas</th><td><?= esc($student['class_name']) ?></td></tr>
-    <tr><th>Tahun Ajaran</th><td><?= esc($activeYear['year']) ?></td></tr>
-  </table>
+  <!-- Header -->
+  <div class="d-flex align-items-center gap-2 mb-3">
+    <i class="bi bi-clipboard-data text-primary fs-5"></i>
+    <h5 class="fw-bold mb-0">Nilai Saya</h5>
+  </div>
+
+  <!-- Info siswa -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex flex-wrap gap-3 align-items-center">
+        <div><span class="text-muted small">Siswa:</span> <span class="fw-semibold"><?= esc($student['name']) ?></span></div>
+        <div><span class="text-muted small">Kelas:</span> <span class="badge bg-primary bg-opacity-10 text-primary"><?= esc($student['class_name']) ?></span></div>
+        <div><span class="text-muted small">T.A.:</span> <span class="badge bg-secondary bg-opacity-10 text-secondary"><?= esc($activeYear['year']) ?></span></div>
+      </div>
+    </div>
+  </div>
 
   <!-- Tabs Semester -->
   <ul class="nav nav-tabs mb-3">
@@ -36,7 +46,7 @@
            class="btn btn-danger mb-3">⬇️ Download PDF Semester <?= $s ?></a>
 
         <div class="table-responsive">
-          <table class="table table-bordered align-middle">
+          <table class="table table-bordered align-middle grades-table">
 
             <!-- ===================== THEAD ======================= -->
             <thead class="table-light">
@@ -144,4 +154,26 @@
   </div>
 </div>
 
+<?= $this->endSection() ?>
+<?= $this->section('scripts') ?>
+<style>
+/* Sticky kolom pertama (No) dan kedua (Mapel) di tabel nilai */
+.grades-table th:nth-child(1),
+.grades-table td:nth-child(1),
+.grades-table th:nth-child(2),
+.grades-table td:nth-child(2) {
+  position: sticky;
+  background: #fff;
+  z-index: 2;
+}
+.grades-table th:nth-child(1),
+.grades-table td:nth-child(1) { left: 0; min-width: 32px; }
+.grades-table th:nth-child(2),
+.grades-table td:nth-child(2) { left: 32px; min-width: 100px; border-right: 2px solid #dee2e6; }
+.grades-table thead th { background: #f8f9fa; z-index: 3; }
+@media (max-width: 576px) {
+  .grades-table { font-size: 0.72rem; }
+  .grades-table th, .grades-table td { padding: 0.25rem 0.35rem; }
+}
+</style>
 <?= $this->endSection() ?>

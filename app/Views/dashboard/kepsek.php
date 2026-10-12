@@ -62,60 +62,68 @@
 </style>
 
 <div class="container-fluid p-0">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h3 class="mb-1">Dashboard Kepala Sekolah</h3>
-            <p class="text-muted mb-0">Selamat datang kembali,
-                <strong><?= esc($user['fullname'] ?? $user['username']) ?></strong>!
-            </p>
-        </div>
-        <div class="text-end">
-            <div class="h5 mb-0 fw-bold realtime-clock"><?= date('H:i:s') ?></div>
-            <small class="text-muted"><?= date('d F Y') ?></small>
+    <!-- Welcome Header Kepsek -->
+    <div class="welcome-header mb-4" style="background: linear-gradient(135deg, #0284c7 0%, #4f46e5 50%, #7c3aed 100%); border-radius: 16px; padding: 1.5rem; color: white;">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h3 class="mb-1 fw-bold text-white">Dashboard Kepala Sekolah</h3>
+                <p class="mb-0 text-white opacity-90">Selamat datang kembali,
+                    <strong><?= esc($user['fullname'] ?? $user['username']) ?></strong>! 🎓
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <div class="clock-display d-inline-block p-2 px-3 rounded-3" style="background: rgba(255,255,255,0.2); backdrop-filter: blur(8px);">
+                    <div class="h4 mb-0 fw-bold text-white realtime-clock"><?= date('H:i:s') ?></div>
+                    <div class="small text-white opacity-90"><?= date('d F Y') ?></div>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Stats Cards -->
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-sm-6 col-xl-4">
+    <div class="row g-2 g-md-3 mb-4">
+        <div class="col-6 col-md-4">
             <div class="card border-0 shadow-sm h-100 overflow-hidden">
-                <div class="card-body">
+                <div class="card-body p-3">
                     <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0 bg-primary bg-opacity-10 p-3 rounded-3 me-3">
-                            <i class="bi bi-people-fill text-primary fs-4"></i>
+                        <div class="flex-shrink-0 p-2 p-md-3 rounded-3 me-2 me-md-3 shadow-sm text-white"
+                             style="background: linear-gradient(135deg, #0ea5e9, #0284c7);">
+                            <i class="bi bi-people-fill fs-5 fs-md-4"></i>
                         </div>
-                        <div class="flex-grow-1">
-                            <h6 class="card-subtitle text-muted mb-1">Total Siswa</h6>
+                        <div class="flex-grow-1 min-w-0">
+                            <h6 class="card-subtitle text-muted mb-1 text-truncate" style="font-size: 0.8rem;">Total Siswa</h6>
                             <h4 class="card-title mb-0 fw-bold"><?= number_format($stats['total_students']) ?></h4>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-xl-4">
+        <div class="col-6 col-md-4">
             <div class="card border-0 shadow-sm h-100 overflow-hidden">
-                <div class="card-body">
+                <div class="card-body p-3">
                     <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0 bg-info bg-opacity-10 p-3 rounded-3 me-3">
-                            <i class="bi bi-person-badge-fill text-info fs-4"></i>
+                        <div class="flex-shrink-0 p-2 p-md-3 rounded-3 me-2 me-md-3 shadow-sm text-white"
+                             style="background: linear-gradient(135deg, #10b981, #059669);">
+                            <i class="bi bi-person-badge-fill fs-5 fs-md-4"></i>
                         </div>
-                        <div class="flex-grow-1">
-                            <h6 class="card-subtitle text-muted mb-1">Total Guru</h6>
+                        <div class="flex-grow-1 min-w-0">
+                            <h6 class="card-subtitle text-muted mb-1 text-truncate" style="font-size: 0.8rem;">Total Guru</h6>
                             <h4 class="card-title mb-0 fw-bold"><?= number_format($stats['total_teachers']) ?></h4>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-xl-4">
+        <div class="col-12 col-md-4">
             <div class="card border-0 shadow-sm h-100 overflow-hidden">
-                <div class="card-body">
+                <div class="card-body p-3">
                     <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0 bg-warning bg-opacity-10 p-3 rounded-3 me-3">
-                            <i class="bi bi-door-open-fill text-warning fs-4"></i>
+                        <div class="flex-shrink-0 p-2 p-md-3 rounded-3 me-2 me-md-3 shadow-sm text-white"
+                             style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                            <i class="bi bi-door-open-fill fs-5 fs-md-4"></i>
                         </div>
-                        <div class="flex-grow-1">
-                            <h6 class="card-subtitle text-muted mb-1">Total Kelas</h6>
+                        <div class="flex-grow-1 min-w-0">
+                            <h6 class="card-subtitle text-muted mb-1 text-truncate" style="font-size: 0.8rem;">Total Kelas</h6>
                             <h4 class="card-title mb-0 fw-bold"><?= number_format($stats['total_classes']) ?></h4>
                         </div>
                     </div>
@@ -129,7 +137,7 @@
         <div class="col-lg-7">
             <!-- Modified Schedule Card with Class Filter -->
             <div class="card border-0 shadow-sm mb-4 modern-card schedule-card teaching-schedule">
-                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center modern-card-header" style="border-top: 4px solid #667eea;">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2 modern-card-header" style="border-top: 4px solid #667eea;">
                     <div>
                         <div class="d-flex align-items-center gap-2 mb-2">
                             <span class="badge bg-primary">
@@ -156,7 +164,7 @@
                             </small>
                         <?php endif; ?>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex align-items-center flex-wrap gap-2">
                         <!-- Class Filter Dropdown -->
                         <div class="dropdown">
                             <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" type="button" data-bs-toggle="dropdown" title="Filter Kelas">

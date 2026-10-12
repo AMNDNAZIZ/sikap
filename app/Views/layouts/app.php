@@ -575,6 +575,9 @@
       50%      { transform: translate(-50%,-50%) scale(1.3); }
     }
   </style>
+
+  <!-- Fresh & Elegant Theme Stylesheet -->
+  <link href="<?= base_url('assets/css/theme.css') ?>" rel="stylesheet" />
 </head>
 
 <body>
@@ -707,7 +710,22 @@
       <div class="offcanvas offcanvas-start d-lg-none" tabindex="-1" id="sidebarMenu"
         aria-labelledby="sidebarMenuLabel">
         <div class="offcanvas-header">
-          <h5 class="offcanvas-title" id="sidebarMenuLabel">Menu Publik</h5>
+          <?php
+            $mobileRoleTitle = 'Menu Publik';
+            if ($user && isset($user['role_id'])) {
+                $roleTitles = [
+                    1 => 'Menu Administrator',
+                    2 => 'Menu Kepala Sekolah',
+                    3 => 'Menu Guru',
+                    4 => 'Menu Orang Tua',
+                    5 => 'Menu Siswa',
+                    6 => 'Menu Kontributor',
+                    7 => 'Menu Staf & TU'
+                ];
+                $mobileRoleTitle = $roleTitles[$user['role_id']] ?? 'Menu Aplikasi';
+            }
+          ?>
+          <h5 class="offcanvas-title" id="sidebarMenuLabel"><?= $mobileRoleTitle ?></h5>
           <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
         <div class="offcanvas-body p-0">
@@ -815,7 +833,7 @@
             <i class="bi <?= str_contains($currentUri, 'materials') ? 'bi-journal-bookmark-fill' : 'bi-journal-bookmark' ?>"></i>
             <span>Materi</span>
           </a>
-          <a href="<?= base_url('admin/student-attendance') ?>" class="nav-item <?= str_contains($currentUri, 'attendance') ? 'active' : '' ?>">
+          <a href="<?= base_url('admin/attendance') ?>" class="nav-item <?= str_contains($currentUri, 'attendance') ? 'active' : '' ?>">
             <i class="bi <?= str_contains($currentUri, 'attendance') ? 'bi-person-check-fill' : 'bi-person-check' ?>"></i>
             <span>Presensi</span>
           </a>
@@ -841,7 +859,7 @@
             <i class="bi <?= str_contains($currentUri, 'materials') ? 'bi-journal-richtext' : 'bi-journal' ?>"></i>
             <span>KBM</span>
           </a>
-          <a href="<?= base_url('admin/student-attendance') ?>" class="nav-item <?= str_contains($currentUri, 'attendance') ? 'active' : '' ?>">
+          <a href="<?= base_url('admin/attendance') ?>" class="nav-item <?= str_contains($currentUri, 'attendance') ? 'active' : '' ?>">
             <i class="bi <?= str_contains($currentUri, 'attendance') ? 'bi-calendar-check-fill' : 'bi-calendar-check' ?>"></i>
             <span>Presensi</span>
           </a>

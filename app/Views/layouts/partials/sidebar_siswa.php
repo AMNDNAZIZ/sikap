@@ -30,10 +30,10 @@
       </a>
     </li>
 
-    <!-- Tugas & Agenda -->
+    <!-- Tugas -->
     <li class="nav-item">
-      <a class="nav-link <?= url_is('siswa/tugas*') || url_is('siswa/agendas*') ? 'active' : '' ?>" href="<?= site_url('siswa/tugas') ?>" title="Tugas & Agenda">
-        <i class="bi bi-pencil-square"></i> <span class="label">Tugas &amp; Agenda</span>
+      <a class="nav-link <?= url_is('siswa/tugas*') ? 'active' : '' ?>" href="<?= site_url('siswa/tugas') ?>" title="Tugas">
+        <i class="bi bi-pencil-square"></i> <span class="label">Tugas</span>
       </a>
     </li>
 
@@ -58,9 +58,16 @@
       </a>
     </li>
 
-    <!-- ══ KEGIATAN & PRESENSI ══ -->
+    <!-- ══ AKTIVITAS & EKSKUL ══ -->
     <li class="sidebar-category-header">
       <span class="label">Aktivitas &amp; Ekskul</span>
+    </li>
+
+    <!-- Agenda Kegiatan -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('siswa/agendas*') ? 'active' : '' ?>" href="<?= site_url('siswa/agendas') ?>" title="Agenda">
+        <i class="bi bi-calendar-event"></i> <span class="label">Agenda</span>
+      </a>
     </li>
 
     <!-- Presensi Kehadiran -->

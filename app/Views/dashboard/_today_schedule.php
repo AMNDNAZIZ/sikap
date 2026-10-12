@@ -1,5 +1,5 @@
 <div class="card border-0 shadow-sm mb-4 modern-card schedule-card <?= ($scheduleType ?? 'teaching') === 'homeroom' ? 'homeroom-schedule' : 'teaching-schedule' ?>">
-    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center modern-card-header" style="border-top: 4px solid <?= ($scheduleType ?? 'teaching') === 'homeroom' ? '#11998e' : '#667eea' ?>;">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2 modern-card-header" style="border-top: 4px solid <?= ($scheduleType ?? 'teaching') === 'homeroom' ? '#11998e' : '#667eea' ?>;">
         <div>
             <div class="d-flex align-items-center gap-2 mb-2">
                 <?php if (($scheduleType ?? 'teaching') === 'homeroom'): ?>
@@ -47,7 +47,7 @@
                 <?php endif; ?>
             <?php endif; ?>
         </div>
-        <div class="d-flex align-items-center gap-2">
+        <div class="d-flex align-items-center flex-wrap gap-2">
             <form action="" method="get" class="me-2">
                 <div class="input-group input-group-sm">
                     <input type="date" name="date" class="form-control form-control-sm rounded-start-pill ps-3" 

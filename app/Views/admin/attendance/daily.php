@@ -98,8 +98,11 @@
         padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
     }
 
-    /* Hide layout footer on this page to avoid overlap */
+    /* Hide layout footer & mobile-bottom-nav on this page to avoid overlap with sticky save bar */
     footer { display: none !important; }
+    @media (max-width: 991.98px) {
+        .mobile-bottom-nav { display: none !important; }
+    }
 </style>
 
 <div class="daily-container">

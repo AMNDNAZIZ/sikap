@@ -269,20 +269,20 @@
   </div>
 
   <!-- Quick Stats Row -->
-  <div class="row g-3 g-md-4 mb-4">
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="stat-card shadow-sm" style="--gradient: var(--primary-gradient)">
-        <div class="card-body p-4">
+  <div class="row g-2 g-md-4 mb-4">
+    <div class="col-6 col-xl-3">
+      <div class="stat-card shadow-sm h-100" style="--gradient: var(--primary-gradient)">
+        <div class="card-body p-3 p-md-4">
           <div class="d-flex align-items-center">
-            <div class="stat-icon me-3">
+            <div class="stat-icon me-2 me-md-3">
               <i class="bi bi-people-fill"></i>
             </div>
-            <div class="flex-grow-1">
+            <div class="flex-grow-1 min-w-0">
               <div class="stat-label">Siswa Aktif</div>
               <div class="stat-value"><?= number_format($stats['active_students'] ?? $stats['total_students']) ?></div>
-              <div class="small text-muted mt-1">
+              <div class="small text-muted mt-1 text-truncate">
                 <i class="bi bi-info-circle text-primary me-1"></i>
-                Total Terdaftar: <?= number_format($stats['total_students']) ?>
+                Total: <?= number_format($stats['total_students']) ?>
               </div>
             </div>
           </div>
@@ -290,19 +290,19 @@
       </div>
     </div>
 
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="stat-card shadow-sm" style="--gradient: var(--info-gradient)">
-        <div class="card-body p-4">
+    <div class="col-6 col-xl-3">
+      <div class="stat-card shadow-sm h-100" style="--gradient: var(--info-gradient)">
+        <div class="card-body p-3 p-md-4">
           <div class="d-flex align-items-center">
-            <div class="stat-icon me-3">
+            <div class="stat-icon me-2 me-md-3">
               <i class="bi bi-person-badge-fill"></i>
             </div>
-            <div class="flex-grow-1">
+            <div class="flex-grow-1 min-w-0">
               <div class="stat-label">Guru Aktif</div>
               <div class="stat-value"><?= number_format($stats['active_teachers'] ?? $stats['total_teachers']) ?></div>
-              <div class="small text-muted mt-1">
+              <div class="small text-muted mt-1 text-truncate">
                 <i class="bi bi-info-circle text-primary me-1"></i>
-                Total Terdaftar: <?= number_format($stats['total_teachers']) ?>
+                Total: <?= number_format($stats['total_teachers']) ?>
               </div>
             </div>
           </div>
@@ -310,19 +310,19 @@
       </div>
     </div>
 
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="stat-card shadow-sm" style="--gradient: var(--warning-gradient)">
-        <div class="card-body p-4">
+    <div class="col-6 col-xl-3">
+      <div class="stat-card shadow-sm h-100" style="--gradient: var(--warning-gradient)">
+        <div class="card-body p-3 p-md-4">
           <div class="d-flex align-items-center">
-            <div class="stat-icon me-3">
+            <div class="stat-icon me-2 me-md-3">
               <i class="bi bi-door-open-fill"></i>
             </div>
-            <div class="flex-grow-1">
+            <div class="flex-grow-1 min-w-0">
               <div class="stat-label">Total Kelas</div>
               <div class="stat-value"><?= number_format($stats['total_classes']) ?></div>
-              <div class="small text-muted mt-1">
+              <div class="small text-muted mt-1 text-truncate">
                 <i class="bi bi-book text-primary me-1"></i>
-                <?= number_format($stats['total_subjects'] ?? 0) ?> Mata Pelajaran
+                <?= number_format($stats['total_subjects'] ?? 0) ?> Mapel
               </div>
             </div>
           </div>
@@ -330,17 +330,17 @@
       </div>
     </div>
 
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="stat-card shadow-sm" style="--gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%)">
-        <div class="card-body p-4">
+    <div class="col-6 col-xl-3">
+      <div class="stat-card shadow-sm h-100" style="--gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%)">
+        <div class="card-body p-3 p-md-4">
           <div class="d-flex align-items-center">
-            <div class="stat-icon me-3">
+            <div class="stat-icon me-2 me-md-3">
               <i class="bi bi-calendar-check-fill"></i>
             </div>
-            <div class="flex-grow-1">
+            <div class="flex-grow-1 min-w-0">
               <div class="stat-label">Sesi Hari Ini</div>
               <div class="stat-value"><?= number_format(count($todaySchedule)) ?></div>
-              <div class="small text-muted mt-1">
+              <div class="small text-muted mt-1 text-truncate">
                 <i class="bi bi-clock text-info me-1"></i>
                 <?php 
                   $totalJP = 0;
@@ -463,7 +463,7 @@
     <div class="col-lg-8">
       <!-- Modified Schedule Card with Class Filter -->
       <div class="card border-0 shadow-sm mb-4 modern-card schedule-card teaching-schedule">
-        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center modern-card-header" style="border-top: 4px solid #667eea;">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2 modern-card-header" style="border-top: 4px solid #667eea;">
           <div>
             <div class="d-flex align-items-center gap-2 mb-2">
               <span class="badge bg-primary">
@@ -490,7 +490,7 @@
               </small>
             <?php endif; ?>
           </div>
-          <div class="d-flex align-items-center gap-2">
+          <div class="d-flex align-items-center flex-wrap gap-2">
             <!-- Class Filter Dropdown -->
             <div class="dropdown">
               <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" type="button" data-bs-toggle="dropdown" title="Filter Kelas">

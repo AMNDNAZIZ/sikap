@@ -201,16 +201,16 @@
   </div>
 
   <!-- Teacher Stats Row -->
-  <div class="row g-3 g-md-4 mb-4">
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="teacher-stats-card" style="border-left-color: #667eea;">
+  <div class="row g-2 g-md-4 mb-4">
+    <div class="col-6 col-xl-3">
+      <div class="teacher-stats-card h-100" style="border-left-color: #667eea;">
         <div class="card-body p-3">
           <div class="d-flex align-items-center">
-            <div class="flex-shrink-0 bg-primary bg-opacity-10 p-2 rounded-3 me-3">
-              <i class="bi bi-calendar-check text-primary fs-4"></i>
+            <div class="flex-shrink-0 bg-primary bg-opacity-10 p-2 rounded-3 me-2 me-md-3">
+              <i class="bi bi-calendar-check text-primary fs-5 fs-md-4"></i>
             </div>
-            <div class="flex-grow-1">
-              <div class="small text-muted mb-1">Sesi Hari Ini</div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="small text-muted mb-1 text-truncate" style="font-size: 0.78rem;">Sesi Hari Ini</div>
               <div class="h4 mb-0 fw-bold"><?= $teacherStats['total_sessions_today'] ?? 0 ?></div>
             </div>
           </div>
@@ -218,15 +218,15 @@
       </div>
     </div>
     
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="teacher-stats-card" style="border-left-color: #11998e;">
+    <div class="col-6 col-xl-3">
+      <div class="teacher-stats-card h-100" style="border-left-color: #11998e;">
         <div class="card-body p-3">
           <div class="d-flex align-items-center">
-            <div class="flex-shrink-0 bg-success bg-opacity-10 p-2 rounded-3 me-3">
-              <i class="bi bi-clock-history text-success fs-4"></i>
+            <div class="flex-shrink-0 bg-success bg-opacity-10 p-2 rounded-3 me-2 me-md-3">
+              <i class="bi bi-clock-history text-success fs-5 fs-md-4"></i>
             </div>
-            <div class="flex-grow-1">
-              <div class="small text-muted mb-1">Total JP</div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="small text-muted mb-1 text-truncate" style="font-size: 0.78rem;">Total JP</div>
               <div class="h4 mb-0 fw-bold"><?= $teacherStats['total_jp_today'] ?? 0 ?></div>
             </div>
           </div>
@@ -234,15 +234,15 @@
       </div>
     </div>
     
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="teacher-stats-card" style="border-left-color: #f093fb;">
+    <div class="col-6 col-xl-3">
+      <div class="teacher-stats-card h-100" style="border-left-color: #f093fb;">
         <div class="card-body p-3">
           <div class="d-flex align-items-center">
-            <div class="flex-shrink-0 bg-warning bg-opacity-10 p-2 rounded-3 me-3">
-              <i class="bi bi-door-open text-warning fs-4"></i>
+            <div class="flex-shrink-0 bg-warning bg-opacity-10 p-2 rounded-3 me-2 me-md-3">
+              <i class="bi bi-door-open text-warning fs-5 fs-md-4"></i>
             </div>
-            <div class="flex-grow-1">
-              <div class="small text-muted mb-1">Kelas Diajar</div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="small text-muted mb-1 text-truncate" style="font-size: 0.78rem;">Kelas Diajar</div>
               <div class="h4 mb-0 fw-bold"><?= $teacherStats['unique_classes'] ?? 0 ?></div>
             </div>
           </div>
@@ -250,15 +250,15 @@
       </div>
     </div>
     
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="teacher-stats-card" style="border-left-color: #4facfe;">
+    <div class="col-6 col-xl-3">
+      <div class="teacher-stats-card h-100" style="border-left-color: #4facfe;">
         <div class="card-body p-3">
           <div class="d-flex align-items-center">
-            <div class="flex-shrink-0 bg-info bg-opacity-10 p-2 rounded-3 me-3">
-              <i class="bi bi-book text-info fs-4"></i>
+            <div class="flex-shrink-0 bg-info bg-opacity-10 p-2 rounded-3 me-2 me-md-3">
+              <i class="bi bi-book text-info fs-5 fs-md-4"></i>
             </div>
-            <div class="flex-grow-1">
-              <div class="small text-muted mb-1">Mapel Diajar</div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="small text-muted mb-1 text-truncate" style="font-size: 0.78rem;">Mapel Diajar</div>
               <div class="h4 mb-0 fw-bold"><?= $teacherStats['unique_subjects'] ?? 0 ?></div>
             </div>
           </div>

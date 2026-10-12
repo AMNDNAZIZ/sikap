@@ -28,7 +28,7 @@ $formattedDate = $dayName . ', ' . date('j', strtotime($rekapDate)) . ' ' . $mon
 ?>
 
 <div class="card shadow-sm border-0 mb-4">
-    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <h5 class="mb-0 text-primary"><i class="bi bi-person-x-fill me-2"></i>Rekap Ketidakhadiran</h5>
             <small class="text-muted">
