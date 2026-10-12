@@ -79,6 +79,15 @@ class EkskulPembina extends BaseController
         $this->checkAccess($ekskul_id, $activeYear['id']);
 
         $ekskul = $this->ekskulModel->find($ekskul_id);
+        if (!$ekskul) {
+            return redirect()->back()->with('error', 'Ekstrakurikuler tidak ditemukan.');
+        }
+
+        // Jika ekskul wajib, otomatis sinkronkan seluruh siswa aktif
+        if ($ekskul['category'] === 'wajib') {
+            $this->memberModel->syncWajibMembers($activeYear['id'], $ekskul_id);
+        }
+
         $members = $this->memberModel->getMembers($ekskul_id, $activeYear['id']);
         
         // Ambil semua siswa aktif untuk dropdown tambah (filter by active student records)
@@ -104,6 +113,28 @@ class EkskulPembina extends BaseController
         return view('admin/ekskul_pembina/members', $data);
     }
 
+    public function syncMembers($ekskul_id)
+    {
+        $activeYear = $this->getActiveYear();
+        $this->checkAccess($ekskul_id, $activeYear['id']);
+
+        $ekskul = $this->ekskulModel->find($ekskul_id);
+        if (!$ekskul) {
+            return redirect()->back()->with('error', 'Ekstrakurikuler tidak ditemukan.');
+        }
+
+        if ($ekskul['category'] !== 'wajib') {
+            return redirect()->back()->with('error', 'Fitur sinkronisasi otomatis hanya berlaku untuk ekstrakurikuler wajib.');
+        }
+
+        $count = $this->memberModel->syncWajibMembers($activeYear['id'], $ekskul_id);
+        $msg = $count > 0 
+            ? "Sinkronisasi berhasil. {$count} siswa baru telah otomatis terdaftar sebagai anggota aktif." 
+            : "Semua siswa aktif pada tahun ajaran ini sudah terdaftar sebagai anggota.";
+
+        return redirect()->back()->with('success', $msg);
+    }
+
     public function storeMember($ekskul_id)
     {
         $activeYear = $this->getActiveYear();
@@ -118,7 +149,11 @@ class EkskulPembina extends BaseController
             ->first();
 
         if ($existing) {
-            return redirect()->back()->with('error', 'Siswa tersebut sudah menjadi anggota.');
+            if ($existing['status'] === 'pending') {
+                $this->memberModel->update($existing['id'], ['status' => 'aktif']);
+                return redirect()->back()->with('success', 'Pendaftaran siswa berstatus pending berhasil disetujui & diaktifkan.');
+            }
+            return redirect()->back()->with('error', 'Siswa tersebut sudah menjadi anggota aktif.');
         }
 
         $this->memberModel->insert([
@@ -131,11 +166,28 @@ class EkskulPembina extends BaseController
         return redirect()->back()->with('success', 'Anggota berhasil ditambahkan.');
     }
 
+    public function approveMember($member_id)
+    {
+        $member = $this->memberModel->find($member_id);
+        if ($member) {
+            $this->checkAccess($member['ekskul_id'], $member['academic_year_id']);
+            $this->memberModel->update($member_id, ['status' => 'aktif']);
+            return redirect()->back()->with('success', 'Pendaftaran siswa berhasil disetujui.');
+        }
+        return redirect()->back()->with('error', 'Data anggota tidak ditemukan.');
+    }
+
     public function removeMember($member_id)
     {
         $member = $this->memberModel->find($member_id);
         if ($member) {
             $this->checkAccess($member['ekskul_id'], $member['academic_year_id']);
+
+            $ekskul = $this->ekskulModel->find($member['ekskul_id']);
+            if ($ekskul && $ekskul['category'] === 'wajib') {
+                return redirect()->back()->with('error', 'Siswa tidak dapat dikeluarkan dari ekstrakurikuler wajib (' . esc($ekskul['name']) . ').');
+            }
+
             $this->memberModel->delete($member_id);
             return redirect()->back()->with('success', 'Anggota berhasil dikeluarkan.');
         }
@@ -169,7 +221,7 @@ class EkskulPembina extends BaseController
         $this->checkAccess($ekskul_id, $activeYear['id']);
 
         $ekskul = $this->ekskulModel->find($ekskul_id);
-        $members = $this->memberModel->getMembers($ekskul_id, $activeYear['id']);
+        $members = $this->memberModel->getMembers($ekskul_id, $activeYear['id'], 'aktif');
 
         $data = [
             'title' => 'Input Jurnal Kegiatan',
@@ -245,7 +297,7 @@ class EkskulPembina extends BaseController
         $this->checkAccess($jurnal['ekskul_id'], $activeYear['id']);
 
         $ekskul = $this->ekskulModel->find($jurnal['ekskul_id']);
-        $members = $this->memberModel->getMembers($jurnal['ekskul_id'], $activeYear['id']);
+        $members = $this->memberModel->getMembers($jurnal['ekskul_id'], $activeYear['id'], 'aktif');
         
         // Ambil data absensi untuk jurnal ini
         $attendances = $this->attendanceModel->where('jurnal_id', $jurnal_id)->findAll();
@@ -321,7 +373,7 @@ class EkskulPembina extends BaseController
         $this->checkAccess($ekskul_id, $activeYear['id']);
 
         $ekskul = $this->ekskulModel->find($ekskul_id);
-        $members = $this->memberModel->getMembers($ekskul_id, $activeYear['id']);
+        $members = $this->memberModel->getMembers($ekskul_id, $activeYear['id'], 'aktif');
         
         // Ambil nilai yang sudah ada untuk semester yang dipilih (dukung '1' / 'ganjil', '2' / 'genap')
         $semesters = ($semester === '2') ? ['2', 'genap'] : ['1', 'ganjil'];
@@ -404,7 +456,7 @@ class EkskulPembina extends BaseController
         $this->checkAccess($ekskul_id, $activeYear['id']);
 
         $ekskul  = $this->ekskulModel->find($ekskul_id);
-        $members = $this->memberModel->getMembers($ekskul_id, $activeYear['id']);
+        $members = $this->memberModel->getMembers($ekskul_id, $activeYear['id'], 'aktif');
 
         $semesters  = ($semester === '2') ? ['2', 'genap'] : ['1', 'ganjil'];
         $scoresData = $this->scoreModel->where('ekskul_id', $ekskul_id)
@@ -587,7 +639,7 @@ class EkskulPembina extends BaseController
         $jurnalIds = !empty($jurnals) ? array_column($jurnals, 'id') : [];
 
         // Ambil data anggota aktif
-        $members = $this->memberModel->getMembers($ekskul_id, $activeYear['id']);
+        $members = $this->memberModel->getMembers($ekskul_id, $activeYear['id'], 'aktif');
 
         // Ambil data absensi non-hadir untuk jurnal-jurnal tersebut
         $absenceMap = [];
@@ -667,16 +719,16 @@ class EkskulPembina extends BaseController
 
             if ($percentage >= 90) {
                 $predicate = 'Sangat Baik';
-                $predClass = 'badge-success';
+                $predClass = 'bg-success text-white';
             } elseif ($percentage >= 75) {
                 $predicate = 'Baik';
-                $predClass = 'badge-info';
+                $predClass = 'bg-info text-dark';
             } elseif ($percentage >= 60) {
                 $predicate = 'Cukup';
-                $predClass = 'badge-warning';
+                $predClass = 'bg-warning text-dark';
             } else {
                 $predicate = 'Kurang';
-                $predClass = 'badge-danger';
+                $predClass = 'bg-danger text-white';
             }
 
             $totalAllH += $hCount;

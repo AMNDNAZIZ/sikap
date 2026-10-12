@@ -8,7 +8,7 @@
             <h1 class="h3 mb-1 text-gray-800">Rekapitulasi Presensi: <?= esc($ekskul['name']) ?></h1>
             <p class="text-muted mb-0">
                 <i class="fas fa-calendar-alt mr-1"></i> Tahun Ajaran <?= esc($activeYear['year']) ?> &bull; 
-                <span class="badge badge-primary px-2 py-1"><?= esc($periodLabel) ?></span>
+                <span class="badge bg-primary px-2 py-1"><?= esc($periodLabel) ?></span>
             </p>
         </div>
         <div class="col-md-5 text-md-right">
@@ -202,10 +202,10 @@
                 <i class="fas fa-table mr-1"></i> Matriks Rekapitulasi Presensi (<?= esc($periodLabel) ?>)
             </h6>
             <div class="mt-2 mt-md-0">
-                <span class="badge badge-success px-2 py-1 mr-1">H = Hadir</span>
-                <span class="badge badge-warning px-2 py-1 mr-1">S = Sakit</span>
-                <span class="badge badge-info px-2 py-1 mr-1">I = Izin</span>
-                <span class="badge badge-danger px-2 py-1">A = Alfa</span>
+                <span class="badge bg-success text-white px-2 py-1 me-1">H = Hadir</span>
+                <span class="badge bg-warning text-dark px-2 py-1 me-1">S = Sakit</span>
+                <span class="badge bg-info text-dark px-2 py-1 me-1">I = Izin</span>
+                <span class="badge bg-danger text-white px-2 py-1">A = Alfa</span>
             </div>
         </div>
         <div class="card-body">
@@ -231,8 +231,8 @@
                             <thead class="bg-primary text-white">
                                 <tr>
                                     <th rowspan="2" class="align-middle" style="width: 35px;">No</th>
-                                    <th rowspan="2" class="align-middle text-left" style="min-width: 90px;">NIS</th>
-                                    <th rowspan="2" class="align-middle text-left" style="min-width: 170px;">Nama Siswa</th>
+                                    <th rowspan="2" class="align-middle text-start text-left" style="min-width: 90px; text-align: left !important;">NIS</th>
+                                    <th rowspan="2" class="align-middle text-start text-left" style="min-width: 170px; text-align: left !important;">Nama Siswa</th>
                                     <th rowspan="2" class="align-middle" style="min-width: 70px;">Kelas</th>
                                     <!-- Tanggal Pertemuan -->
                                     <th colspan="<?= count($jurnals) ?>" class="align-middle">Tanggal Pertemuan</th>
@@ -261,9 +261,9 @@
                                 ?>
                                     <tr>
                                         <td><?= $idx + 1 ?></td>
-                                        <td class="text-left font-weight-bold"><?= esc($m['nis']) ?></td>
-                                        <td class="text-left text-nowrap"><?= esc($m['student_name']) ?></td>
-                                        <td><span class="badge badge-light border"><?= esc($m['class_name'] ?? '-') ?></span></td>
+                                        <td class="text-start text-left font-weight-bold" style="text-align: left !important;"><?= esc($m['nis']) ?></td>
+                                        <td class="text-start text-left text-nowrap" style="text-align: left !important;"><?= esc($m['student_name']) ?></td>
+                                        <td><span class="badge bg-light text-dark border"><?= esc($m['class_name'] ?? '-') ?></span></td>
                                         
                                         <!-- Kehadiran per pertemuan -->
                                         <?php foreach ($jurnals as $j): 
@@ -272,13 +272,13 @@
                                         ?>
                                             <td class="px-1" title="<?= esc(ucfirst($st)) ?><?= !empty($detail['notes']) ? ' (' . esc($detail['notes']) . ')' : '' ?>">
                                                 <?php if ($st === 'hadir'): ?>
-                                                    <span class="badge badge-success" style="font-size: 10px;">H</span>
+                                                    <span class="badge bg-success text-white" style="font-size: 10px; min-width: 20px;">H</span>
                                                 <?php elseif ($st === 'sakit'): ?>
-                                                    <span class="badge badge-warning" style="font-size: 10px;">S</span>
+                                                    <span class="badge bg-warning text-dark" style="font-size: 10px; min-width: 20px;">S</span>
                                                 <?php elseif ($st === 'izin'): ?>
-                                                    <span class="badge badge-info" style="font-size: 10px;">I</span>
+                                                    <span class="badge bg-info text-dark" style="font-size: 10px; min-width: 20px;">I</span>
                                                 <?php else: ?>
-                                                    <span class="badge badge-danger" style="font-size: 10px;">A</span>
+                                                    <span class="badge bg-danger text-white" style="font-size: 10px; min-width: 20px;">A</span>
                                                 <?php endif; ?>
                                             </td>
                                         <?php endforeach; ?>
@@ -295,7 +295,15 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="badge <?= $row['predClass'] ?>">
+                                            <?php
+                                                $predBadgeClass = !empty($row['predClass']) && str_contains($row['predClass'], 'bg-') ? $row['predClass'] : match($row['predicate'] ?? '') {
+                                                    'Sangat Baik' => 'bg-success text-white',
+                                                    'Baik'        => 'bg-info text-dark',
+                                                    'Cukup'       => 'bg-warning text-dark',
+                                                    default       => 'bg-danger text-white',
+                                                };
+                                            ?>
+                                            <span class="badge <?= $predBadgeClass ?>">
                                                 <?= esc($row['predicate']) ?>
                                             </span>
                                         </td>
@@ -304,7 +312,7 @@
                             </tbody>
                             <tfoot class="bg-light font-weight-bold">
                                 <tr>
-                                    <td colspan="4" class="text-right">Total Kehadiran Keseluruhan:</td>
+                                    <td colspan="4" class="text-end text-right">Total Kehadiran Keseluruhan:</td>
                                     <?php 
                                     // Hitung total hadir per pertemuan
                                     foreach ($jurnals as $j): 
@@ -336,8 +344,8 @@
                             <thead class="bg-primary text-white">
                                 <tr>
                                     <th rowspan="2" class="align-middle" style="width: 35px;">No</th>
-                                    <th rowspan="2" class="align-middle text-left" style="min-width: 90px;">NIS</th>
-                                    <th rowspan="2" class="align-middle text-left" style="min-width: 170px;">Nama Siswa</th>
+                                    <th rowspan="2" class="align-middle text-start text-left" style="min-width: 90px; text-align: left !important;">NIS</th>
+                                    <th rowspan="2" class="align-middle text-start text-left" style="min-width: 170px; text-align: left !important;">Nama Siswa</th>
                                     <th rowspan="2" class="align-middle" style="min-width: 70px;">Kelas</th>
                                     <!-- Kolom Per Bulan (Kehadiran H/Total) -->
                                     <?php foreach ($monthsInPeriod as $mNum => $mLabel): ?>
@@ -368,9 +376,9 @@
                                 ?>
                                     <tr>
                                         <td><?= $idx + 1 ?></td>
-                                        <td class="text-left font-weight-bold"><?= esc($m['nis']) ?></td>
-                                        <td class="text-left text-nowrap"><?= esc($m['student_name']) ?></td>
-                                        <td><span class="badge badge-light border"><?= esc($m['class_name'] ?? '-') ?></span></td>
+                                        <td class="text-start text-left font-weight-bold" style="text-align: left !important;"><?= esc($m['nis']) ?></td>
+                                        <td class="text-start text-left text-nowrap" style="text-align: left !important;"><?= esc($m['student_name']) ?></td>
+                                        <td><span class="badge bg-light text-dark border"><?= esc($m['class_name'] ?? '-') ?></span></td>
                                         
                                         <!-- Per bulan -->
                                         <?php foreach ($monthsInPeriod as $mNum => $mLabel): 
@@ -393,7 +401,15 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="badge <?= $row['predClass'] ?>">
+                                            <?php
+                                                $predBadgeClass = !empty($row['predClass']) && str_contains($row['predClass'], 'bg-') ? $row['predClass'] : match($row['predicate'] ?? '') {
+                                                    'Sangat Baik' => 'bg-success text-white',
+                                                    'Baik'        => 'bg-info text-dark',
+                                                    'Cukup'       => 'bg-warning text-dark',
+                                                    default       => 'bg-danger text-white',
+                                                };
+                                            ?>
+                                            <span class="badge <?= $predBadgeClass ?>">
                                                 <?= esc($row['predicate']) ?>
                                             </span>
                                         </td>
@@ -402,7 +418,7 @@
                             </tbody>
                             <tfoot class="bg-light font-weight-bold">
                                 <tr>
-                                    <td colspan="4" class="text-right">Total Akumulasi:</td>
+                                    <td colspan="4" class="text-end text-right">Total Akumulasi:</td>
                                     <?php foreach ($monthsInPeriod as $mNum => $mLabel): 
                                         $sumH = 0;
                                         $sumNonH = 0;
@@ -433,10 +449,10 @@
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <strong>Keterangan Predikat:</strong>
-                    <span class="badge badge-success ml-1">Sangat Baik (&ge; 90%)</span>
-                    <span class="badge badge-info ml-1">Baik (&ge; 75%)</span>
-                    <span class="badge badge-warning ml-1">Cukup (&ge; 60%)</span>
-                    <span class="badge badge-danger ml-1">Kurang (&lt; 60%)</span>
+                    <span class="badge bg-success text-white ms-1">Sangat Baik (&ge; 90%)</span>
+                    <span class="badge bg-info text-dark ms-1">Baik (&ge; 75%)</span>
+                    <span class="badge bg-warning text-dark ms-1">Cukup (&ge; 60%)</span>
+                    <span class="badge bg-danger text-white ms-1">Kurang (&lt; 60%)</span>
                 </div>
                 <div class="col-md-4 text-md-right mt-2 mt-md-0">
                     <em>Perhitungan: Persentase = (Jumlah Hadir &divide; Total Pertemuan) &times; 100%</em>

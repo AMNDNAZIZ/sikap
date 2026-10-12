@@ -39,7 +39,14 @@ class Ekskul extends BaseController
             'is_active' => $this->request->getPost('is_active') ?? 1,
         ];
 
-        $this->ekskulModel->insert($data);
+        $newId = $this->ekskulModel->insert($data);
+        if ($data['category'] === 'wajib' && !empty($data['is_active'])) {
+            $academicYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+            if ($academicYear) {
+                (new \App\Models\EkskulMemberModel())->syncWajibMembers($academicYear['id'], $newId);
+            }
+        }
+
         return redirect()->to('/admin/ekskul')->with('success', 'Data ekstrakurikuler berhasil ditambahkan.');
     }
 
@@ -54,6 +61,13 @@ class Ekskul extends BaseController
         ];
 
         $this->ekskulModel->update($id, $data);
+        if ($data['category'] === 'wajib' && !empty($data['is_active'])) {
+            $academicYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+            if ($academicYear) {
+                (new \App\Models\EkskulMemberModel())->syncWajibMembers($academicYear['id'], $id);
+            }
+        }
+
         return redirect()->to('/admin/ekskul')->with('success', 'Data ekstrakurikuler berhasil diperbarui.');
     }
 

@@ -348,6 +348,7 @@
         <?= view('dashboard/_today_schedule', [
             'schedules' => $todaySchedule, 
             'scheduleTitle' => ($rekapDate ?? date('Y-m-d')) == date('Y-m-d') ? 'Jadwal Pelajaran Hari Ini' : 'Jadwal Pelajaran', 
+            'scheduleType' => 'student',
             'rekapDate' => $rekapDate,
             'holidayInfo' => $holidayInfo ?? null
         ]) ?>

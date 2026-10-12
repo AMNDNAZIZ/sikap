@@ -34,9 +34,22 @@ class Ekskul extends BaseController
         return $this->academicYearModel->getActiveYear();
     }
 
-    private function getStudentId()
+    private function getStudentId(): ?int
     {
-        return session()->get('related_id'); // Pada ESPATA ini related_id dari user(siswa) = student_id
+        $user = session()->get('user');
+        if (!empty($user['student_id'])) {
+            return (int) $user['student_id'];
+        }
+        if (!empty($user['related_id'])) {
+            return (int) $user['related_id'];
+        }
+        if (session()->has('student_id')) {
+            return (int) session()->get('student_id');
+        }
+        if (session()->has('related_id')) {
+            return (int) session()->get('related_id');
+        }
+        return null;
     }
 
     /**
@@ -50,12 +63,18 @@ class Ekskul extends BaseController
         }
 
         $student_id = $this->getStudentId();
+        if (!$student_id) {
+            return redirect()->to('/dashboard')->with('error', 'Data siswa tidak ditemukan.');
+        }
 
-        // 1. Ambil ekskul yang saya ikuti
+        // Otomatis sinkronkan ekskul wajib untuk siswa ini
+        $this->memberModel->syncWajibMembers($activeYear['id'], null, $student_id);
+
+        // 1. Ambil ekskul yang saya ikuti (aktif maupun pending)
         $myEkskuls = $this->memberModel->select('ekskul_members.*, ekskul_master.name, ekskul_master.kode, ekskul_master.category')
             ->join('ekskul_master', 'ekskul_master.id = ekskul_members.ekskul_id')
-            ->where('student_id', $student_id)
-            ->where('academic_year_id', $activeYear['id'])
+            ->where('ekskul_members.student_id', $student_id)
+            ->where('ekskul_members.academic_year_id', $activeYear['id'])
             ->findAll();
 
         $myEkskulIds = array_column($myEkskuls, 'ekskul_id');
@@ -88,6 +107,20 @@ class Ekskul extends BaseController
         }
 
         $student_id = $this->getStudentId();
+        if (!$student_id) {
+            return redirect()->back()->with('error', 'Data siswa tidak ditemukan.');
+        }
+
+        $ekskul = $this->ekskulModel->where('id', $ekskul_id)->where('is_active', 1)->first();
+        if (!$ekskul) {
+            return redirect()->back()->with('error', 'Ekstrakurikuler tidak aktif atau tidak ditemukan.');
+        }
+
+        // Jika ekskul wajib, otomatis daftarkan dan beri notifikasi
+        if ($ekskul['category'] === 'wajib') {
+            $this->memberModel->syncWajibMembers($activeYear['id'], $ekskul_id, $student_id);
+            return redirect()->back()->with('info', 'Ekstrakurikuler ' . esc($ekskul['name']) . ' bersifat wajib dan Anda sudah otomatis terdaftar sebagai anggota aktif.');
+        }
 
         // Cek apakah sudah terdaftar
         $existing = $this->memberModel->where('ekskul_id', $ekskul_id)
@@ -96,7 +129,10 @@ class Ekskul extends BaseController
             ->first();
 
         if ($existing) {
-            return redirect()->back()->with('error', 'Anda sudah mendaftar di ekstrakurikuler ini.');
+            if ($existing['status'] === 'aktif') {
+                return redirect()->back()->with('error', 'Anda sudah aktif terdaftar di ekstrakurikuler ini.');
+            }
+            return redirect()->back()->with('error', 'Anda sudah mendaftar di ekstrakurikuler ini (menunggu persetujuan pembina).');
         }
 
         $this->memberModel->insert([
@@ -106,7 +142,7 @@ class Ekskul extends BaseController
             'status' => 'pending' // Menunggu persetujuan pembina
         ]);
 
-        return redirect()->back()->with('success', 'Berhasil mendaftar. Menunggu persetujuan pembina ekstrakurikuler.');
+        return redirect()->back()->with('success', 'Berhasil mendaftar ke ekstrakurikuler ' . esc($ekskul['name']) . '. Menunggu persetujuan pembina.');
     }
 
     /**
@@ -116,8 +152,11 @@ class Ekskul extends BaseController
     {
         $activeYear = $this->getActiveYear();
         $student_id = $this->getStudentId();
+        if (!$student_id) {
+            return redirect()->to('/dashboard')->with('error', 'Data siswa tidak ditemukan.');
+        }
 
-        // Cek apakah benar member
+        // Cek apakah benar member dan status aktif
         $membership = $this->memberModel->where('ekskul_id', $ekskul_id)
             ->where('student_id', $student_id)
             ->where('academic_year_id', $activeYear['id'])
@@ -125,6 +164,10 @@ class Ekskul extends BaseController
 
         if (!$membership) {
             return redirect()->to('/siswa/ekskul')->with('error', 'Akses ditolak.');
+        }
+
+        if ($membership['status'] !== 'aktif') {
+            return redirect()->to('/siswa/ekskul')->with('error', 'Pendaftaran Anda pada ekstrakurikuler ini belum disetujui oleh pembina.');
         }
 
         $ekskul = $this->ekskulModel->find($ekskul_id);

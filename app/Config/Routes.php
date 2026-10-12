@@ -109,6 +109,8 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('ekskul-pembina', 'EkskulPembina::index', ['filter' => 'auth:1,2,3,4,6,7,8']); // Allows Admin, Teacher, Coach, Pelatih
     $routes->get('ekskul-pembina/members/(:num)', 'EkskulPembina::members/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
     $routes->post('ekskul-pembina/storeMember/(:num)', 'EkskulPembina::storeMember/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
+    $routes->post('ekskul-pembina/approveMember/(:num)', 'EkskulPembina::approveMember/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
+    $routes->post('ekskul-pembina/syncMembers/(:num)', 'EkskulPembina::syncMembers/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
     $routes->post('ekskul-pembina/removeMember/(:num)', 'EkskulPembina::removeMember/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
     
     $routes->get('ekskul-pembina/jurnal/(:num)', 'EkskulPembina::jurnal/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
@@ -885,6 +887,7 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
     $routes->get('grades', 'Grades::index');
     $routes->get('grades/pdf/(:num)', 'Grades::pdf/$1');
     $routes->get('attendance', 'AttendanceController::index');
+    $routes->get('schedules', 'Schedules::index');
     $routes->get('agendas', 'Agendas::index');
     $routes->get('agendas/(:num)/(:num)', 'Agendas::index/$1/$2');
     $routes->get('agendas/date/(:segment)', 'Agendas::byDate/$1');

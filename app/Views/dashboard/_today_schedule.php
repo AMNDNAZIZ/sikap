@@ -6,6 +6,10 @@
                     <span class="badge bg-success">
                         <i class="bi bi-house-fill me-1"></i> Kelas Walian
                     </span>
+                <?php elseif (($scheduleType ?? 'teaching') === 'student' || in_array(session()->get('user')['role_id'] ?? 0, [4, 5])): ?>
+                    <span class="badge bg-info text-dark">
+                        <i class="bi bi-book-half me-1"></i> Jadwal Belajar
+                    </span>
                 <?php else: ?>
                     <span class="badge bg-primary">
                         <i class="bi bi-person-badge me-1"></i> Jadwal Mengajar
@@ -35,6 +39,13 @@
                         <small class="text-muted d-block">
                             <i class="bi bi-info-circle me-1"></i>
                             Ini adalah jadwal lengkap kelas yang Anda walikan. Anda mengajar pada beberapa mapel saja.
+                        </small>
+                    </div>
+                <?php elseif (($scheduleType ?? 'teaching') === 'student' || in_array(session()->get('user')['role_id'] ?? 0, [4, 5])): ?>
+                    <div class="mt-2">
+                        <small class="text-muted d-block">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Ini adalah jadwal pelajaran kelas Anda.
                         </small>
                     </div>
                 <?php else: ?>

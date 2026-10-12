@@ -28,6 +28,28 @@
         </div>
     <?php endif; ?>
 
+    <?php if ($ekskul['category'] === 'wajib'): ?>
+        <div class="alert alert-info border-left-info shadow-sm mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+            <div class="d-flex align-items-center mb-2 mb-md-0">
+                <i class="fas fa-info-circle fa-2x text-info mr-3 me-3"></i>
+                <div>
+                    <h6 class="font-weight-bold mb-1 text-dark">Ekstrakurikuler Wajib: Seluruh Siswa Aktif Otomatis Terdaftar</h6>
+                    <p class="mb-0 text-muted small">
+                        Karena <strong><?= esc($ekskul['name']) ?></strong> bersifat wajib, seluruh siswa aktif pada Tahun Ajaran <?= esc($activeYear['year']) ?> secara otomatis terdaftar sebagai anggota. Pembina tidak perlu memasukkan siswa satu per satu.
+                    </p>
+                </div>
+            </div>
+            <div>
+                <form action="<?= base_url('admin/ekskul-pembina/syncMembers/' . $ekskul['id']) ?>" method="post">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-sm btn-primary text-nowrap">
+                        <i class="fas fa-sync-alt fa-sm mr-1 me-1"></i> Sinkronkan Siswa
+                    </button>
+                </form>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <div class="row">
         <!-- Tambah Anggota Manual -->
         <div class="col-md-4">
@@ -36,6 +58,11 @@
                     <h6 class="m-0 font-weight-bold text-primary">Tambah Anggota (Manual)</h6>
                 </div>
                 <div class="card-body">
+                    <?php if ($ekskul['category'] === 'wajib'): ?>
+                        <div class="alert alert-light border small text-muted mb-3">
+                            <i class="fas fa-check-circle text-success mr-1 me-1"></i> Semua siswa aktif otomatis terdaftar. Form ini hanya digunakan jika ada siswa khusus yang belum tersinkron.
+                        </div>
+                    <?php endif; ?>
                     <form action="<?= base_url('admin/ekskul-pembina/storeMember/' . $ekskul['id']) ?>" method="post">
                         <?= csrf_field() ?>
                         <div class="form-group">
@@ -59,7 +86,7 @@
         <div class="col-md-8">
             <div class="card shadow mb-4">
                 <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Daftar Anggota Aktif</h6>
+                    <h6 class="m-0 font-weight-bold text-primary">Daftar Anggota & Pendaftar</h6>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -89,12 +116,28 @@
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <form action="<?= base_url('admin/ekskul-pembina/removeMember/' . $m['id']) ?>" method="post" onsubmit="return confirm('Keluarkan siswa ini dari ekstrakurikuler?');">
-                                                <?= csrf_field() ?>
-                                                <button type="submit" class="btn btn-sm btn-danger">
-                                                    <i class="fas fa-user-minus"></i> Keluarkan
-                                                </button>
-                                            </form>
+                                            <div class="d-flex align-items-center">
+                                                <?php if ($m['status'] == 'pending'): ?>
+                                                    <form action="<?= base_url('admin/ekskul-pembina/approveMember/' . $m['id']) ?>" method="post" class="d-inline mr-1 me-1">
+                                                        <?= csrf_field() ?>
+                                                        <button type="submit" class="btn btn-sm btn-success" title="Setujui Pendaftaran">
+                                                            <i class="fas fa-check"></i> Setujui
+                                                        </button>
+                                                    </form>
+                                                <?php endif; ?>
+                                                <?php if ($ekskul['category'] === 'wajib'): ?>
+                                                    <span class="badge bg-light text-secondary border px-2 py-1" title="Anggota wajib, tidak dapat dikeluarkan">
+                                                        <i class="fas fa-lock fa-xs me-1 mr-1"></i> Wajib
+                                                    </span>
+                                                <?php else: ?>
+                                                    <form action="<?= base_url('admin/ekskul-pembina/removeMember/' . $m['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('<?= $m['status'] == 'pending' ? 'Tolak pendaftaran siswa ini?' : 'Keluarkan siswa ini dari ekstrakurikuler?' ?>');">
+                                                        <?= csrf_field() ?>
+                                                        <button type="submit" class="btn btn-sm btn-danger" title="<?= $m['status'] == 'pending' ? 'Tolak Pendaftaran' : 'Keluarkan Anggota' ?>">
+                                                            <i class="fas fa-<?= $m['status'] == 'pending' ? 'times' : 'user-minus' ?>"></i> <?= $m['status'] == 'pending' ? 'Tolak' : 'Keluarkan' ?>
+                                                        </button>
+                                                    </form>
+                                                <?php endif; ?>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
