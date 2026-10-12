@@ -447,18 +447,49 @@
       overflow: hidden;
       border: 1px solid var(--card-border);
       box-shadow: var(--card-shadow);
-      transition: all 0.3s ease;
+      transition: all 0.35s ease;
       height: 100%;
+      display: flex;
+      flex-direction: column;
     }
     .teacher-item-card:hover {
       transform: translateY(-8px);
       box-shadow: var(--card-hover-shadow);
     }
+    .teacher-photo-wrapper {
+      position: relative;
+      width: 100%;
+      height: 360px;
+      overflow: hidden;
+      background: #f1f5f9;
+    }
+    @media (max-width: 575.98px) {
+      .teacher-photo-wrapper {
+        height: 380px;
+      }
+    }
     .teacher-item-photo {
-      height: 250px;
+      height: 360px;
       width: 100%;
       object-fit: cover;
+      object-position: top center;
       background-color: #f1f5f9;
+      transition: transform 0.4s ease;
+      display: block;
+    }
+    @media (max-width: 575.98px) {
+      .teacher-item-photo {
+        height: 380px;
+      }
+    }
+    .teacher-photo-wrapper .teacher-item-photo {
+      height: 100%;
+    }
+    .teacher-item-photo.avatar-placeholder {
+      object-position: center center;
+    }
+    .teacher-item-card:hover .teacher-item-photo:not(.avatar-placeholder) {
+      transform: scale(1.04);
     }
 
     /* FOOTER RESMI SEKOLAH */
@@ -778,7 +809,7 @@
           <div class="col-lg-4 text-center" data-aos="fade-right">
             <div class="principal-frame mx-auto" style="max-width: 310px;">
               <img src="<?= !empty($school['vision_image']) ? base_url('uploads/vision/' . $school['vision_image']) : 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80' ?>" 
-                   class="w-100 object-fit-cover" style="height: 380px;" alt="Kepala Sekolah">
+                   class="w-100 object-fit-cover" style="height: 380px; object-position: top center;" alt="Kepala Sekolah">
               <div class="principal-badge text-start">
                 <div class="fw-bold text-white fs-6"><?= esc($school['headmaster'] ?? 'Kepala Sekolah') ?></div>
                 <small class="text-warning d-block">Kepala <?= esc($school['name'] ?? 'Sekolah') ?></small>
@@ -1224,9 +1255,11 @@
         <div class="swiper-wrapper py-3">
           <?php if (empty($teachers)): ?>
             <div class="swiper-slide">
-              <div class="teacher-item-card mx-auto text-center" style="max-width: 280px;">
-                <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=500" class="teacher-item-photo">
-                <div class="p-3">
+              <div class="teacher-item-card mx-auto text-center" style="max-width: 320px;">
+                <div class="teacher-photo-wrapper">
+                  <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=500" class="teacher-item-photo" alt="Nama Pendidik">
+                </div>
+                <div class="p-3 mt-auto">
                   <h6 class="fw-bold mb-1">Nama Pendidik</h6>
                   <small class="text-primary fw-bold">Wali Kelas</small>
                 </div>
@@ -1236,13 +1269,15 @@
             foreach ($teachers as $t): ?>
               <div class="swiper-slide">
                 <div class="teacher-item-card text-center">
-                  <?php if (!empty($t['photo'])): ?>
-                    <img src="<?= base_url('uploads/teachers/' . $t['photo']) ?>" class="teacher-item-photo" alt="<?= esc($t['name']) ?>">
-                  <?php else: ?>
-                    <img src="https://ui-avatars.com/api/?name=<?= urlencode($t['name']) ?>&background=0d6efd&color=fff&size=250" class="teacher-item-photo" alt="<?= esc($t['name']) ?>">
-                  <?php endif; ?>
+                  <div class="teacher-photo-wrapper">
+                    <?php if (!empty($t['photo'])): ?>
+                      <img src="<?= base_url('uploads/teachers/' . $t['photo']) ?>" class="teacher-item-photo" alt="<?= esc($t['name']) ?>" loading="lazy">
+                    <?php else: ?>
+                      <img src="https://ui-avatars.com/api/?name=<?= urlencode($t['name']) ?>&background=0d6efd&color=fff&size=360" class="teacher-item-photo avatar-placeholder" alt="<?= esc($t['name']) ?>" loading="lazy">
+                    <?php endif; ?>
+                  </div>
 
-                  <div class="p-3">
+                  <div class="p-3 mt-auto">
                     <h6 class="fw-bold mb-1 text-dark text-truncate" title="<?= esc($t['name']) ?>">
                       <?= esc($t['name']) ?>
                     </h6>

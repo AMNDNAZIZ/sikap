@@ -31,12 +31,40 @@ class Home extends BaseController
         $studentModel      = new \App\Models\StudentModel();
         $classModel        = new \App\Models\ClassModel();
         $ekskulModel       = new \App\Models\EkskulModel();
+        $academicYearModel = new \App\Models\AcademicYearModel();
 
-        // Statistik Sekolah
-        $totalStudents = $studentModel->countAllResults();
+        $activeYear   = $academicYearModel->getActiveYear();
+        $activeYearId = $activeYear['id'] ?? null;
+        $db           = \Config\Database::connect();
+
+        // 1. Peserta Didik Aktif (siswa yang berstatus 'aktif' pada tahun ajaran aktif, bukan hanya terdaftar)
+        $totalStudents = 0;
+        if (!empty($activeYearId)) {
+            $totalStudents = $db->table('student_records')
+                ->where('academic_year_id', $activeYearId)
+                ->where('status', 'aktif')
+                ->countAllResults();
+        }
+        if ($totalStudents === 0) {
+            $totalStudents = $db->table('student_records')
+                ->where('status', 'aktif')
+                ->countAllResults();
+            if ($totalStudents === 0) {
+                $totalStudents = $studentModel->countAllResults();
+            }
+        }
+
+        // 2. Guru & Tenaga Pendidik
         $totalTeachers = $teacherModel->countAllResults();
-        $totalClasses  = $classModel->countAllResults();
-        $totalEkskuls  = $ekskulModel->where('is_active', 1)->countAllResults();
+
+        // 3. Rombongan Belajar (Kelas) Aktif (hanya rombel yang berstatus aktif / is_active = 1, bukan semua rombel yang ada di database)
+        $totalClasses = $classModel->where('is_active', 1)->countAllResults();
+        if ($totalClasses === 0) {
+            $totalClasses = $classModel->countAllResults();
+        }
+
+        // 4. Ekstrakurikuler Aktif
+        $totalEkskuls = $ekskulModel->where('is_active', 1)->countAllResults();
 
         $stats = [
             'students' => $totalStudents > 0 ? $totalStudents : 240,
