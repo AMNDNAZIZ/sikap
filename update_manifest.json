@@ -1,6 +1,6 @@
 {
     "version": "2.0.4",
-    "generated": "2026-10-12 18:45:07",
+    "generated": "2026-10-12 19:25:26",
     "last_update": "2026-10-12 00:00",
     "total_files": 1019,
     "files": {
@@ -145,7 +145,7 @@
         "app/Controllers/BukuTamu.php": "b88dfbcc386ea66aea497b0160d6c922",
         "app/Controllers/Dashboard.php": "e0855060392c17e0af081dd6b8a67587",
         "app/Controllers/Forum.php": "2c3d297efa0e1dc1246b3806bf12d3b7",
-        "app/Controllers/Home.php": "76fa2ee6a06aa20a5542eae19f799980",
+        "app/Controllers/Home.php": "2137d4680b713fb7a8a366e02839ab3e",
         "app/Controllers/LearningAnalytics.php": "48142158a1b927ec09c7b241add932ac",
         "app/Controllers/Maintenance.php": "6cc995cd9e9d0372bfcc26563bc184a8",
         "app/Controllers/News.php": "954fca8865ab7c614ce1c875be9a1228",
@@ -771,7 +771,7 @@
         "app/Views/forum/index.php": "4ded2cc629c6ba1c7ffc772693f0e9a4",
         "app/Views/forum/kelas.php": "ab53f0cbc7fd28f1bcfa25cc7c5ef31a",
         "app/Views/forum/show.php": "341180675a5decf5cffce1bfbb79d989",
-        "app/Views/index.php": "5010e9389f5212d5694c61daa6af6ed6",
+        "app/Views/index.php": "89b70e75763fe98125494b71ca9519f9",
         "app/Views/kalender/index.php": "0705d0592376ae66fd50c6dd821da658",
         "app/Views/layouts/app.php": "5703c0b76d6bb4c62bcc384acd2907c1",
         "app/Views/layouts/cbt.php": "a0df7cc25f613268f0daf252dd599fef",
