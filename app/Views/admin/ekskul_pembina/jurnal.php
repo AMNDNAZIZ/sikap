@@ -9,6 +9,9 @@
                 <a href="<?= base_url('admin/ekskul-pembina') ?>" class="btn btn-secondary mr-2">
                     <i class="fas fa-arrow-left fa-sm text-white-50"></i> Kembali
                 </a>
+                <a href="<?= base_url('admin/ekskul-pembina/rekap/' . $ekskul['id']) ?>" class="btn btn-info mr-2">
+                    <i class="fas fa-clipboard-check fa-sm text-white-50"></i> Rekap Presensi
+                </a>
                 <a href="<?= base_url('admin/ekskul-pembina/jurnal/create/' . $ekskul['id']) ?>" class="btn btn-primary">
                     <i class="fas fa-plus fa-sm text-white-50"></i> Isi Jurnal & Absensi
                 </a>

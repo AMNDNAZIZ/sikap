@@ -67,7 +67,7 @@
         <div class="content">
             <p>Halo <?= esc($name) ?>,</p>
             
-            <p>Akun SIAKAD Anda telah dibuat. Berikut adalah informasi login Anda:</p>
+            <p>Akun ESPATA Anda telah dibuat. Berikut adalah informasi login Anda:</p>
             
             <div class="credentials">
                 <p><strong>Username:</strong> <?= esc($username) ?></p>

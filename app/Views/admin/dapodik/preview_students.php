@@ -8,7 +8,7 @@
 
 <div class="alert alert-info py-2">
     <i class="fas fa-info-circle"></i> <strong>Sistem akan mendeteksi kelas secara otomatis</strong> berdasarkan nama
-    rombel di Dapodik. Pastikan <strong>Nama Kelas</strong> di Siakad sama dengan di Dapodik. Jika tidak ditemukan,
+    rombel di Dapodik. Pastikan <strong>Nama Kelas</strong> di ESPATA sama dengan di Dapodik. Jika tidak ditemukan,
     siswa akan dimasukkan ke kelas cadangan yang Anda pilih di bawah.
 </div>
 

@@ -307,7 +307,7 @@
 
     <!-- FOOTER -->
     <div class="print-footer">
-        Dicetak: <?= date('d/m/Y H:i') ?> &nbsp;|&nbsp; SIAKAD
+        Dicetak: <?= date('d/m/Y H:i') ?> &nbsp;|&nbsp; ESPATA
     </div>
 
 </div>

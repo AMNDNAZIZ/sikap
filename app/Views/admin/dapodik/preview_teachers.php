@@ -7,7 +7,7 @@
 </div>
 
 <div class="alert alert-info py-2">
-    <i class="fas fa-info-circle"></i> Silakan pilih guru yang ingin disinkronkan ke sistem Siakad.
+    <i class="fas fa-info-circle"></i> Silakan pilih guru yang ingin disinkronkan ke sistem ESPATA.
 </div>
 
 <form action="<?= base_url('admin/dapodik/syncTeachers') ?>" method="post">

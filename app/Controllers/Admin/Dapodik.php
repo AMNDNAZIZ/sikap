@@ -384,7 +384,7 @@ class Dapodik extends BaseController
     }
 
     /**
-     * Map data siswa dari Dapodik ke format SIAKAD
+     * Map data siswa dari Dapodik ke format ESPATA
      */
     private function mapStudentData($d, $name, $gender, $tmpLahir, $tglLahir, $userId = null)
     {

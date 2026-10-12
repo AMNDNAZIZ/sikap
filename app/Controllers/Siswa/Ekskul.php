@@ -36,7 +36,7 @@ class Ekskul extends BaseController
 
     private function getStudentId()
     {
-        return session()->get('related_id'); // Pada SIAKAD ini related_id dari user(siswa) = student_id
+        return session()->get('related_id'); // Pada ESPATA ini related_id dari user(siswa) = student_id
     }
 
     /**

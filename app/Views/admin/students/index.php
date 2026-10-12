@@ -262,7 +262,7 @@
               </div>
 
               <div class="mb-3">
-                <label for="file_standard" class="form-label fw-semibold">Pilih File Template SIAKAD (.xlsx / .xls)</label>
+                <label for="file_standard" class="form-label fw-semibold">Pilih File Template ESPATA (.xlsx / .xls)</label>
                 <input type="file" name="file" id="file_standard" class="form-control" accept=".xlsx,.xls" required>
               </div>
 

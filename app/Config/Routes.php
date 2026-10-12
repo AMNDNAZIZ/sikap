@@ -20,6 +20,9 @@ $routes->post('buku-tamu/dinas/store', 'BukuTamu::storeDinas');
 $routes->get('buku-tamu/sukses', 'BukuTamu::sukses');
 
 // Public QR Code Verification
+$routes->get('verify', 'Verify::index');
+$routes->get('verify/cek', 'Verify::index/cek');
+$routes->post('verify/cek', 'Verify::check');
 $routes->get('verify/(:any)', 'Verify::index/$1');
 
 $routes->get('activate', 'Activate::index');
@@ -119,6 +122,10 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('ekskul-pembina/nilai/(:num)/(:num)', 'EkskulPembina::nilai/$1/$2', ['filter' => 'auth:1,2,3,4,6,7,8']);
     $routes->post('ekskul-pembina/nilai/store/(:num)', 'EkskulPembina::storeNilai/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
     $routes->get('ekskul-pembina/nilai/print/(:num)/(:num)', 'EkskulPembina::printNilai/$1/$2', ['filter' => 'auth:1,2,3,4,6,7,8']);
+    
+    // Rekapitulasi Absensi Ekskul (Bulanan & Per Semester)
+    $routes->get('ekskul-pembina/rekap/(:num)', 'EkskulPembina::rekap/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
+    $routes->get('ekskul-pembina/rekap/print/(:num)', 'EkskulPembina::printRekap/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
     
     $routes->get('school', 'School::index', $auth127);
     $routes->post('school/update', 'School::update', $auth127);

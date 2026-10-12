@@ -444,6 +444,299 @@ class EkskulPembina extends BaseController
     }
 
     /**
+     * Rekapitulasi Presensi Anggota Ekskul (Bulanan & Per Semester)
+     */
+    public function rekap($ekskul_id)
+    {
+        $activeYear = $this->getActiveYear();
+        $this->checkAccess($ekskul_id, $activeYear['id']);
+
+        $ekskul = $this->ekskulModel->find($ekskul_id);
+        if (!$ekskul) {
+            return redirect()->back()->with('error', 'Ekstrakurikuler tidak ditemukan.');
+        }
+
+        $request  = $this->request ?? service('request');
+        $type     = $request->getGet('type') ?: 'monthly';
+        $month    = (int) ($request->getGet('month') ?: date('n'));
+        $year     = (int) ($request->getGet('year') ?: date('Y'));
+        $semester = (string) ($request->getGet('semester') ?: '1');
+
+        $rekapData = $this->getRekapData($ekskul_id, $type, $month, $year, $semester, $activeYear);
+
+        $data = array_merge([
+            'title'      => 'Rekap Presensi: ' . $ekskul['name'],
+            'ekskul'     => $ekskul,
+            'activeYear' => $activeYear
+        ], $rekapData);
+
+        return view('admin/ekskul_pembina/rekap', $data);
+    }
+
+    /**
+     * Cetak Rekapitulasi Presensi Ekskul
+     */
+    public function printRekap($ekskul_id)
+    {
+        $activeYear = $this->getActiveYear();
+        $this->checkAccess($ekskul_id, $activeYear['id']);
+
+        $ekskul = $this->ekskulModel->find($ekskul_id);
+        if (!$ekskul) {
+            return redirect()->back()->with('error', 'Ekstrakurikuler tidak ditemukan.');
+        }
+
+        $request  = $this->request ?? service('request');
+        $type     = $request->getGet('type') ?: 'monthly';
+        $month    = (int) ($request->getGet('month') ?: date('n'));
+        $year     = (int) ($request->getGet('year') ?: date('Y'));
+        $semester = (string) ($request->getGet('semester') ?: '1');
+
+        $rekapData = $this->getRekapData($ekskul_id, $type, $month, $year, $semester, $activeYear);
+
+        $schoolModel = new \App\Models\SchoolModel();
+        $school = $schoolModel->getProfile();
+
+        $pembinaList = $this->pembinaModel
+            ->select('ekskul_pembina.*, users.fullname as pembina_name, users.username')
+            ->join('users', 'users.id = ekskul_pembina.user_id')
+            ->where('ekskul_id', $ekskul_id)
+            ->where('academic_year_id', $activeYear['id'])
+            ->findAll();
+
+        $data = array_merge([
+            'title'       => 'Cetak Rekap Presensi: ' . $ekskul['name'],
+            'ekskul'      => $ekskul,
+            'activeYear'  => $activeYear,
+            'school'      => $school,
+            'pembinaList' => $pembinaList
+        ], $rekapData);
+
+        return view('admin/ekskul_pembina/print_rekap', $data);
+    }
+
+    /**
+     * Helper to compute attendance recap data for monthly or semester mode
+     */
+    private function getRekapData($ekskul_id, $type, $month, $year, $semester, $activeYear)
+    {
+        $startYear = (int) date('Y', strtotime($activeYear['start_date']));
+        $endYear   = (int) date('Y', strtotime($activeYear['end_date']));
+
+        if ($type === 'semester') {
+            $semester = in_array((string)$semester, ['1', '2']) ? (string)$semester : '1';
+            if ($semester === '1') {
+                $startDate = $startYear . '-07-01';
+                $endDate   = $startYear . '-12-31';
+                $periodLabel = 'Semester 1 (Ganjil) TP ' . $activeYear['year'];
+                $monthsInPeriod = [
+                    7  => 'Juli ' . $startYear,
+                    8  => 'Agustus ' . $startYear,
+                    9  => 'September ' . $startYear,
+                    10 => 'Oktober ' . $startYear,
+                    11 => 'November ' . $startYear,
+                    12 => 'Desember ' . $startYear
+                ];
+            } else {
+                $startDate = $endYear . '-01-01';
+                $endDate   = $endYear . '-06-30';
+                $periodLabel = 'Semester 2 (Genap) TP ' . $activeYear['year'];
+                $monthsInPeriod = [
+                    1 => 'Januari ' . $endYear,
+                    2 => 'Februari ' . $endYear,
+                    3 => 'Maret ' . $endYear,
+                    4 => 'April ' . $endYear,
+                    5 => 'Mei ' . $endYear,
+                    6 => 'Juni ' . $endYear
+                ];
+            }
+        } else {
+            $type = 'monthly';
+            $month = (int) $month;
+            if ($month < 1 || $month > 12) {
+                $month = (int) date('n');
+            }
+            $year = (int) $year;
+            if ($year < 2000 || $year > 2100) {
+                $year = ($month >= 7) ? $startYear : $endYear;
+            }
+            $startDate = sprintf('%04d-%02d-01', $year, $month);
+            $endDate   = date('Y-m-t', strtotime($startDate));
+            
+            $monthNames = [
+                1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+                5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+                9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+            ];
+            $periodLabel = 'Bulan ' . ($monthNames[$month] ?? '') . ' ' . $year;
+            $monthsInPeriod = [$month => ($monthNames[$month] ?? '') . ' ' . $year];
+        }
+
+        // Ambil jurnal pertemuan dalam rentang tanggal
+        $jurnals = $this->jurnalModel
+            ->select('ekskul_jurnal.*, users.fullname as pembina_name')
+            ->join('users', 'users.id = ekskul_jurnal.pembina_user_id', 'left')
+            ->where('ekskul_jurnal.ekskul_id', $ekskul_id)
+            ->where('ekskul_jurnal.academic_year_id', $activeYear['id'])
+            ->where('ekskul_jurnal.date >=', $startDate)
+            ->where('ekskul_jurnal.date <=', $endDate)
+            ->orderBy('ekskul_jurnal.date', 'ASC')
+            ->findAll();
+
+        $totalMeetings = count($jurnals);
+        $jurnalIds = !empty($jurnals) ? array_column($jurnals, 'id') : [];
+
+        // Ambil data anggota aktif
+        $members = $this->memberModel->getMembers($ekskul_id, $activeYear['id']);
+
+        // Ambil data absensi non-hadir untuk jurnal-jurnal tersebut
+        $absenceMap = [];
+        if (!empty($jurnalIds)) {
+            $absences = $this->attendanceModel
+                ->whereIn('jurnal_id', $jurnalIds)
+                ->where('user_type', 'siswa')
+                ->findAll();
+
+            foreach ($absences as $ab) {
+                $absenceMap[$ab['jurnal_id']][$ab['user_id']] = [
+                    'status' => $ab['status'],
+                    'notes'  => $ab['notes'] ?? ''
+                ];
+            }
+        }
+
+        // Kalkulasi per siswa
+        $rekapSiswa = [];
+        $totalAllH = 0;
+        $totalAllS = 0;
+        $totalAllI = 0;
+        $totalAllA = 0;
+
+        foreach ($members as $m) {
+            $sid = $m['student_id'];
+            $hCount = 0;
+            $sCount = 0;
+            $iCount = 0;
+            $aCount = 0;
+
+            $meetingDetails = [];
+            $monthlyDetails = [];
+            foreach ($monthsInPeriod as $mNum => $mLabel) {
+                $monthlyDetails[$mNum] = ['h' => 0, 's' => 0, 'i' => 0, 'a' => 0, 'total' => 0];
+            }
+
+            foreach ($jurnals as $j) {
+                $jid = $j['id'];
+                $jDate = $j['date'];
+                $jMonth = (int) date('n', strtotime($jDate));
+
+                if (isset($absenceMap[$jid][$sid])) {
+                    $st = strtolower($absenceMap[$jid][$sid]['status']);
+                    $nt = $absenceMap[$jid][$sid]['notes'];
+                } else {
+                    $st = 'hadir';
+                    $nt = '';
+                }
+
+                $meetingDetails[$jid] = [
+                    'status' => $st,
+                    'notes'  => $nt,
+                    'date'   => $jDate
+                ];
+
+                if ($st === 'sakit') {
+                    $sCount++;
+                    if (isset($monthlyDetails[$jMonth])) $monthlyDetails[$jMonth]['s']++;
+                } elseif ($st === 'izin') {
+                    $iCount++;
+                    if (isset($monthlyDetails[$jMonth])) $monthlyDetails[$jMonth]['i']++;
+                } elseif ($st === 'alfa') {
+                    $aCount++;
+                    if (isset($monthlyDetails[$jMonth])) $monthlyDetails[$jMonth]['a']++;
+                } else {
+                    $hCount++;
+                    if (isset($monthlyDetails[$jMonth])) $monthlyDetails[$jMonth]['h']++;
+                }
+
+                if (isset($monthlyDetails[$jMonth])) {
+                    $monthlyDetails[$jMonth]['total']++;
+                }
+            }
+
+            $percentage = ($totalMeetings > 0) ? round(($hCount / $totalMeetings) * 100, 1) : 0;
+
+            if ($percentage >= 90) {
+                $predicate = 'Sangat Baik';
+                $predClass = 'badge-success';
+            } elseif ($percentage >= 75) {
+                $predicate = 'Baik';
+                $predClass = 'badge-info';
+            } elseif ($percentage >= 60) {
+                $predicate = 'Cukup';
+                $predClass = 'badge-warning';
+            } else {
+                $predicate = 'Kurang';
+                $predClass = 'badge-danger';
+            }
+
+            $totalAllH += $hCount;
+            $totalAllS += $sCount;
+            $totalAllI += $iCount;
+            $totalAllA += $aCount;
+
+            $rekapSiswa[] = [
+                'member'         => $m,
+                'meetingDetails' => $meetingDetails,
+                'monthlyDetails' => $monthlyDetails,
+                'h'              => $hCount,
+                's'              => $sCount,
+                'i'              => $iCount,
+                'a'              => $aCount,
+                'total_meetings' => $totalMeetings,
+                'percentage'     => $percentage,
+                'predicate'      => $predicate,
+                'predClass'      => $predClass
+            ];
+        }
+
+        $totalMembers = count($members);
+        $avgPercentage = ($totalMembers > 0 && $totalMeetings > 0)
+            ? round(array_sum(array_column($rekapSiswa, 'percentage')) / $totalMembers, 1)
+            : 0;
+
+        $fullAttendanceCount = 0;
+        foreach ($rekapSiswa as $row) {
+            if ($row['percentage'] >= 100 && $totalMeetings > 0) {
+                $fullAttendanceCount++;
+            }
+        }
+
+        return [
+            'type'                => $type,
+            'month'               => $month,
+            'year'                => $year,
+            'semester'            => $semester,
+            'startDate'           => $startDate,
+            'endDate'             => $endDate,
+            'periodLabel'         => $periodLabel,
+            'monthsInPeriod'      => $monthsInPeriod,
+            'jurnals'             => $jurnals,
+            'totalMeetings'       => $totalMeetings,
+            'members'             => $members,
+            'totalMembers'        => $totalMembers,
+            'rekapSiswa'          => $rekapSiswa,
+            'totalAllH'           => $totalAllH,
+            'totalAllS'           => $totalAllS,
+            'totalAllI'           => $totalAllI,
+            'totalAllA'           => $totalAllA,
+            'avgPercentage'       => $avgPercentage,
+            'fullAttendanceCount' => $fullAttendanceCount,
+            'startYear'           => $startYear,
+            'endYear'             => $endYear
+        ];
+    }
+
+    /**
      * Helper to verify if logged in user is actually a pembina for this ekskul
      */
     private function checkAccess($ekskul_id, $academic_year_id)
@@ -455,7 +748,8 @@ class EkskulPembina extends BaseController
             ->first();
 
         // Allow admin (role 1) bypass
-        if (!$isPembina && session()->get('role_id') != 1) {
+        $roleId = session()->get('role_id') ?? (session()->get('user')['role_id'] ?? 0);
+        if (!$isPembina && $roleId != 1) {
             echo view('errors/html/error_403', ['message' => 'Anda tidak memiliki akses sebagai pembina di ekstrakurikuler ini.']);
             exit;
         }

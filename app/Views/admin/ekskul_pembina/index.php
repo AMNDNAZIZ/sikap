@@ -45,6 +45,9 @@
                                         <a href="<?= base_url('admin/ekskul-pembina/jurnal/' . $e['ekskul_id']) ?>" class="btn btn-sm btn-success mb-1">
                                             <i class="fas fa-book"></i> Jurnal & Absen
                                         </a>
+                                        <a href="<?= base_url('admin/ekskul-pembina/rekap/' . $e['ekskul_id']) ?>" class="btn btn-sm btn-primary mb-1">
+                                            <i class="fas fa-clipboard-check"></i> Rekap Presensi
+                                        </a>
                                         <a href="<?= base_url('admin/ekskul-pembina/nilai/' . $e['ekskul_id']) ?>" class="btn btn-sm btn-warning mb-1">
                                             <i class="fas fa-star"></i> Penilaian Akhir
                                         </a>
