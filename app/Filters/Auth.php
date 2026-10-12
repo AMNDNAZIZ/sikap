@@ -15,7 +15,16 @@ class Auth implements FilterInterface
 
         // ✅ cek apakah sudah login
         if (empty($user) || !$session->get('logged_in')) {
-            return redirect()->to('/login')->with('error', 'Silakan login terlebih dahulu.');
+            if ($request->isAJAX()) {
+                return service('response')
+                    ->setStatusCode(401)
+                    ->setJSON([
+                        'success'  => false,
+                        'message'  => 'Sesi Anda telah berakhir. Silakan login kembali.',
+                        'redirect' => base_url('login'),
+                    ]);
+            }
+            return redirect()->to('/login')->with('error', 'Sesi Anda telah berakhir. Silakan login kembali.');
         }
 
         // ✅ cek role jika filter diberi argumen

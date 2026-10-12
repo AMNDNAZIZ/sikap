@@ -41,12 +41,13 @@ $routes->post('api/dapodik/receive', 'Api\DapodikReceive::index');
 
 $routes->post('/auth/attemptLogin', 'Auth::attemptLogin');
 $routes->get('/logout', 'Auth::logout');
-$routes->post('/auth/ping-session', 'Auth::pingSession'); // Keep session alive
+$routes->match(['get', 'post'], '/auth/ping-session', 'Auth::pingSession'); // Keep session alive
+$routes->match(['get', 'post'], '/ping-session', 'Auth::pingSession');
 $routes->get('/auth/change-password-required', 'Auth::changePasswordRequired');
 $routes->post('/auth/update-password-required', 'Auth::updatePasswordRequired');
 $routes->get('berita', 'News::index');
 $routes->get('berita/(:any)', 'News::view/$1');
-$routes->get('/dashboard', 'Dashboard::index');
+$routes->get('/dashboard', 'Dashboard::index', ['filter' => 'auth']);
 
 // Maintenance Routes (Accessible even during license lock)
 $routes->get('maintenance/reset-hashes/(:any)', 'Maintenance::resetHashes/$1');

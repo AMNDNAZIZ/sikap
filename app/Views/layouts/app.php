@@ -16,6 +16,8 @@
   <meta name="apple-mobile-web-app-title" content="ESPATA">
   <link rel="manifest" href="<?= base_url('manifest.json') ?>">
   <link rel="apple-touch-icon" href="<?= base_url('assets/images/apple-touch-icon.png') ?>">
+  <meta name="ping-url" content="<?= base_url('auth/ping-session') ?>">
+  <meta name="login-url" content="<?= base_url('login') ?>">
 
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
@@ -777,7 +779,7 @@
                 </div>
                 <div class="d-none d-md-block text-start" style="line-height: 1.2;">
                   <div class="fw-bold text-dark small text-truncate" style="max-width: 120px;">
-                    <?= esc($user['fullname'] ?? $user['username']) ?>
+                    <?= esc($user['fullname'] ?? ($user['username'] ?? 'Pengguna')) ?>
                   </div>
                   <div class="text-muted" style="font-size: 0.68rem;">
                     <?= $roleName ?>
@@ -787,12 +789,12 @@
               </button>
               <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-2 mt-2" aria-labelledby="userMenuBtn" style="min-width: 220px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.12) !important;">
                 <li class="px-3 py-2 border-bottom mb-1 bg-light bg-opacity-50">
-                  <div class="fw-bold text-dark text-truncate" style="font-size: 0.88rem;"><?= esc($user['fullname'] ?? $user['username']) ?></div>
+                  <div class="fw-bold text-dark text-truncate" style="font-size: 0.88rem;"><?= esc($user['fullname'] ?? ($user['username'] ?? 'Pengguna')) ?></div>
                   <div class="d-flex align-items-center gap-1 mt-1">
                     <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size: 0.68rem; font-weight: 600;">
                       <?= $roleName ?>
                     </span>
-                    <span class="text-muted" style="font-size: 0.72rem;">@<?= esc($user['username']) ?></span>
+                    <span class="text-muted" style="font-size: 0.72rem;">@<?= esc($user['username'] ?? 'user') ?></span>
                   </div>
                 </li>
                 <li>
@@ -1173,6 +1175,8 @@
           prevClassCount = count;
           badge.textContent = count;
           badge.style.display = count > 0 ? 'inline-block' : 'none';
+        }).fail(function(xhr) {
+          if (xhr.status === 401) window.location.href = "<?= base_url('login') ?>";
         });
       }
       updateClassMentionBadge();
@@ -1194,6 +1198,8 @@
           prevStaffCount = count;
           badge.textContent = count;
           badge.style.display = count > 0 ? 'inline-block' : 'none';
+        }).fail(function(xhr) {
+          if (xhr.status === 401) window.location.href = "<?= base_url('login') ?>";
         });
       }
       updateStaffMentionBadge();
@@ -1275,6 +1281,8 @@
     function pollCount() {
       $.getJSON(NOTIF_COUNT_URL, function(res) {
         updateBadge(res.count || 0);
+      }).fail(function(xhr) {
+        if (xhr.status === 401) window.location.href = "<?= base_url('login') ?>";
       });
     }
     pollCount();
