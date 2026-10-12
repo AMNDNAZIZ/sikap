@@ -47,6 +47,11 @@
 }
 
 /* ── Base Body ── */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+}
 body {
   font-family: var(--font-base);
   background-color: var(--surface-bg);
@@ -57,8 +62,14 @@ body {
   min-height: 100vh;
 }
 
-/* ── Navbar ── */
+/* ── Navbar Full Width & Sticky ── */
 .navbar {
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  box-sizing: border-box !important;
   background: rgba(255,255,255,0.92) !important;
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
@@ -66,16 +77,32 @@ body {
   box-shadow: 0 1px 20px rgba(14,165,233,.08) !important;
 }
 
+.navbar > .container-fluid,
+.navbar > .container {
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
 /* Gradient strip bawah navbar */
 .navbar::after {
   content: '';
   position: absolute;
   bottom: 0; left: 0; right: 0;
+  width: 100% !important;
   height: 2px;
   background: linear-gradient(90deg, var(--clr-primary), var(--clr-secondary), var(--clr-accent));
   opacity: 0.7;
 }
-.navbar { position: relative; }
+.navbar.sticky-top {
+  position: sticky !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 1020 !important;
+}
 
 /* ── Sidebar Desktop ── */
 .sidebar {
@@ -356,17 +383,27 @@ body {
 .page-header-icon.violet   { background: var(--clr-secondary-light); color: var(--clr-secondary); }
 .page-header-icon.danger   { background: var(--clr-danger-light);    color: var(--clr-danger); }
 
-/* ── Stat Mini Cards (di dashboard, presensi, dll) ── */
-.stat-card {
-  border-radius: var(--radius-lg) !important;
-  border: none !important;
-  color: white;
+/* ── Stat Mini Cards (gradient colored variants) ── */
+.stat-card.blue,
+.stat-card.green,
+.stat-card.violet,
+.stat-card.amber,
+.stat-card.rose,
+.stat-card.teal {
+  border-radius: var(--radius-lg);
+  border: none;
+  color: white !important;
   padding: 1rem 1.25rem;
   position: relative;
   overflow: hidden;
-  box-shadow: var(--shadow-md) !important;
+  box-shadow: var(--shadow-md);
 }
-.stat-card::before {
+.stat-card.blue::before,
+.stat-card.green::before,
+.stat-card.violet::before,
+.stat-card.amber::before,
+.stat-card.rose::before,
+.stat-card.teal::before {
   content: '';
   position: absolute;
   top: -20px; right: -20px;
@@ -380,22 +417,40 @@ body {
 .stat-card.amber   { background: linear-gradient(135deg, #f59e0b, #d97706); }
 .stat-card.rose    { background: linear-gradient(135deg, #f43f5e, #e11d48); }
 .stat-card.teal    { background: linear-gradient(135deg, #14b8a6, #0d9488); }
-.stat-card .stat-value {
+.stat-card.blue .stat-value,
+.stat-card.green .stat-value,
+.stat-card.violet .stat-value,
+.stat-card.amber .stat-value,
+.stat-card.rose .stat-value,
+.stat-card.teal .stat-value {
   font-size: 1.8rem;
   font-weight: 800;
   line-height: 1;
   margin-bottom: 0.2rem;
+  color: white !important;
 }
-.stat-card .stat-label {
+.stat-card.blue .stat-label,
+.stat-card.green .stat-label,
+.stat-card.violet .stat-label,
+.stat-card.amber .stat-label,
+.stat-card.rose .stat-label,
+.stat-card.teal .stat-label {
   font-size: 0.78rem;
-  opacity: 0.88;
+  opacity: 0.92;
   font-weight: 500;
+  color: rgba(255,255,255,0.95) !important;
 }
-.stat-card .stat-icon {
+.stat-card.blue .stat-icon,
+.stat-card.green .stat-icon,
+.stat-card.violet .stat-icon,
+.stat-card.amber .stat-icon,
+.stat-card.rose .stat-icon,
+.stat-card.teal .stat-icon {
   font-size: 2rem;
   opacity: 0.25;
   position: absolute;
   bottom: 0.5rem; right: 0.75rem;
+  color: white !important;
 }
 
 /* ── Progress Bar ── */
@@ -415,18 +470,18 @@ body {
   border-color: rgba(14,165,233,.1) !important;
 }
 
-/* ── Quick Actions (override) ── */
-.quick-action-btn {
-  border: 1px solid rgba(14,165,233,.12) !important;
-  border-radius: var(--radius-md) !important;
-  background: white !important;
-  box-shadow: var(--shadow-sm) !important;
-  transition: all 0.18s ease !important;
+/* ── Quick Actions Grid (override) ── */
+.quick-action-grid .quick-action-btn {
+  border: 1px solid rgba(14,165,233,.12);
+  border-radius: var(--radius-md);
+  background: white;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.18s ease;
 }
-.quick-action-btn:hover,
-.quick-action-btn:active {
-  box-shadow: var(--shadow-md) !important;
-  transform: translateY(-2px) !important;
+.quick-action-grid .quick-action-btn:hover,
+.quick-action-grid .quick-action-btn:active {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 /* ── Utility: Gradient Text ── */

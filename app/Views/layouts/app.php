@@ -54,9 +54,24 @@
     /* ==========================================================================
        SIDEBAR & LAYOUT STYLES
        ========================================================================== */
+    html, body {
+      overflow-x: hidden !important;
+      max-width: 100vw !important;
+      width: 100% !important;
+    }
     .layout-wrapper {
       display: flex;
       min-height: calc(100vh - 56px);
+      width: 100% !important;
+      max-width: 100vw !important;
+      overflow-x: hidden;
+    }
+    #mainContent {
+      flex: 1 1 0%;
+      min-width: 0 !important;
+      max-width: 100% !important;
+      width: 100% !important;
+      overflow-x: hidden;
     }
 
     /* Category headers for grouping */
@@ -326,9 +341,82 @@
       transform: scale(0.92);
     }
 
+    /* ── Unified Modern Navbar Styles ── */
+    .navbar {
+      width: 100% !important;
+      min-width: 100% !important;
+      max-width: 100% !important;
+      left: 0 !important;
+      right: 0 !important;
+      box-sizing: border-box !important;
+      height: 56px;
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 1020 !important;
+      margin: 0 !important;
+    }
+    .navbar > .container-fluid,
+    .navbar > .container {
+      width: 100% !important;
+      min-width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    .navbar-btn-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid rgba(226, 232, 240, 0.85);
+      background: #f8fafc;
+      color: #334155;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .navbar-btn-icon:hover {
+      background: #f1f5f9;
+      color: #0284c7;
+      border-color: rgba(14, 165, 233, 0.35);
+      transform: translateY(-1px);
+    }
+    .navbar-btn-icon:active {
+      transform: scale(0.95);
+    }
+    .user-avatar-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 2px solid #ffffff;
+      flex-shrink: 0;
+    }
+    .user-avatar-circle:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+    }
+
     @media (max-width: 991.98px) {
-      /* Navbar Mobile: Sleek & Compact */
+      /* Navbar Mobile: Sleek & Proportional */
       .navbar {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        left: 0 !important;
+        right: 0 !important;
+        box-sizing: border-box !important;
         height: 52px !important;
         background: rgba(255, 255, 255, 0.96) !important;
         backdrop-filter: blur(10px);
@@ -337,6 +425,17 @@
       }
       .navbar-brand img {
         height: 26px !important;
+      }
+      .navbar-btn-icon {
+        width: 34px !important;
+        height: 34px !important;
+        border-radius: 9px !important;
+      }
+      .user-avatar-circle {
+        width: 34px !important;
+        height: 34px !important;
+        border-radius: 9px !important;
+        font-size: 0.85rem !important;
       }
 
       /* Ruang bebas untuk Bottom Navigation */
@@ -581,33 +680,45 @@
 </head>
 
 <body>
+  <?php 
+    $user = session()->get('user'); 
+    $roleMap = [
+      1 => 'Administrator',
+      2 => 'Kepala Sekolah',
+      3 => 'Guru',
+      4 => 'Orang Tua',
+      5 => 'Siswa',
+      6 => 'Kontributor',
+      7 => 'Staf TU',
+    ];
+    $roleName = $roleMap[$user['role_id'] ?? 0] ?? 'Pengguna';
+    $userInitial = strtoupper(substr($user['fullname'] ?? $user['username'] ?? 'U', 0, 1));
+  ?>
   <div class="container-fluid p-0">
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top shadow-sm" style="height: 56px;">
-      <div class="container-fluid">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top shadow-sm">
+      <div class="container-fluid px-2 px-md-3">
         <!-- Tombol toggle untuk mobile -->
-        <button class="btn btn-outline-secondary d-lg-none me-2 d-inline-flex align-items-center justify-content-center p-0 rounded-3 shadow-none"
-          style="width: 36px; height: 36px;"
+        <button class="navbar-btn-icon d-lg-none me-2"
           type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" title="Menu Samping">
           <i class="bi bi-list fs-5"></i>
         </button>
 
         <!-- Tombol toggle untuk desktop -->
-        <button id="sidebarToggle" class="btn btn-outline-secondary d-none d-lg-inline-flex align-items-center justify-content-center me-2 rounded-3"
-          style="width: 36px; height: 36px;" title="Ciutkan/Perluas Menu">
+        <button id="sidebarToggle" class="navbar-btn-icon d-none d-lg-inline-flex me-2" title="Ciutkan/Perluas Menu">
           <i class="bi bi-layout-sidebar-inset"></i>
         </button>
 
-        <a class="navbar-brand" href="<?= base_url('/dashboard') ?>">
+        <a class="navbar-brand d-flex align-items-center py-0" href="<?= base_url('/dashboard') ?>">
           <img src="<?= base_url('uploads/logo/espata.png') ?>"
-               alt="ESPATA" style="height:32px; width:auto;">
+               alt="ESPATA" style="height:28px; width:auto;">
         </a>
         <div class="ms-auto d-flex align-items-center gap-2">
-          <?php if (session()->has('user')): ?>
+          <?php if ($user): ?>
 
             <!-- ── Dropdown Notifikasi ───────────────────────── -->
             <div class="dropdown" id="notifDropdownWrapper">
-              <button class="btn btn-sm btn-outline-secondary position-relative"
+              <button class="navbar-btn-icon position-relative"
                       id="notifDropdownBtn"
                       data-bs-toggle="dropdown"
                       data-bs-auto-close="outside"
@@ -656,9 +767,59 @@
             </div>
             <!-- ─────────────────────────────────────────────── -->
 
-            <a href="<?= base_url('logout') ?>" class="btn btn-sm btn-outline-danger">Logout</a>
+            <!-- ── User Profile Dropdown ──────────────────────── -->
+            <div class="dropdown" id="userProfileDropdown">
+              <button class="btn p-0 border-0 bg-transparent d-flex align-items-center gap-2"
+                      type="button" id="userMenuBtn"
+                      data-bs-toggle="dropdown" aria-expanded="false" title="Profil Akun">
+                <div class="user-avatar-circle">
+                  <?= $userInitial ?>
+                </div>
+                <div class="d-none d-md-block text-start" style="line-height: 1.2;">
+                  <div class="fw-bold text-dark small text-truncate" style="max-width: 120px;">
+                    <?= esc($user['fullname'] ?? $user['username']) ?>
+                  </div>
+                  <div class="text-muted" style="font-size: 0.68rem;">
+                    <?= $roleName ?>
+                  </div>
+                </div>
+                <i class="bi bi-chevron-down text-muted small d-none d-md-inline" style="font-size: 0.7rem;"></i>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-2 mt-2" aria-labelledby="userMenuBtn" style="min-width: 220px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.12) !important;">
+                <li class="px-3 py-2 border-bottom mb-1 bg-light bg-opacity-50">
+                  <div class="fw-bold text-dark text-truncate" style="font-size: 0.88rem;"><?= esc($user['fullname'] ?? $user['username']) ?></div>
+                  <div class="d-flex align-items-center gap-1 mt-1">
+                    <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size: 0.68rem; font-weight: 600;">
+                      <?= $roleName ?>
+                    </span>
+                    <span class="text-muted" style="font-size: 0.72rem;">@<?= esc($user['username']) ?></span>
+                  </div>
+                </li>
+                <li>
+                  <a class="dropdown-item py-2 px-3 d-flex align-items-center gap-2" href="<?= base_url('profile') ?>">
+                    <i class="bi bi-person text-primary"></i>
+                    <span>Profil Saya</span>
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item py-2 px-3 d-flex align-items-center gap-2" href="<?= base_url('profile/change-password') ?>">
+                    <i class="bi bi-shield-lock text-warning"></i>
+                    <span>Ubah Password</span>
+                  </a>
+                </li>
+                <li><hr class="dropdown-divider my-1"></li>
+                <li>
+                  <a class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 text-danger fw-semibold" href="<?= base_url('logout') ?>">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>Keluar (Logout)</span>
+                  </a>
+                </li>
+              </ul>
+            </div>
+            <!-- ─────────────────────────────────────────────── -->
+
           <?php else: ?>
-            <a href="<?= base_url('login') ?>" class="btn btn-sm btn-primary">Login ESPATA</a>
+            <a href="<?= base_url('login') ?>" class="btn btn-sm btn-primary rounded-pill px-3">Login ESPATA</a>
           <?php endif; ?>
         </div>
       </div>

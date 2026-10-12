@@ -4,61 +4,283 @@
 <style>
   /* Modern Dashboard Styles */
   .dashboard-modern {
-    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --primary-gradient: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --warning-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    --info-gradient: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+    overflow-x: hidden;
+    max-width: 100%;
+    width: 100%;
   }
 
-  .stat-card {
-    border-radius: 16px;
-    border: none;
-    overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* ── Welcome Section: Proportional & Sleek with Navbar ── */
+  .welcome-section {
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #0284c7 100%);
+    border-radius: 18px;
+    padding: 1.25rem 1.75rem;
+    color: white;
+    margin-bottom: 1.25rem;
     position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(37, 99, 235, 0.16);
   }
 
-  .stat-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15) !important;
+  .welcome-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 280px;
+    height: 280px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 70%);
+    border-radius: 50%;
+    pointer-events: none;
   }
 
-  .stat-card::before {
+  .welcome-section::after {
+    content: '';
+    position: absolute;
+    bottom: -40%;
+    left: -5%;
+    width: 220px;
+    height: 220px;
+    background: radial-gradient(circle, rgba(6, 182, 212, 0.22) 0%, rgba(6, 182, 212, 0) 70%);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .welcome-content {
+    position: relative;
+    z-index: 2;
+  }
+
+  .welcome-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #ffffff !important;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.2rem;
+  }
+
+  .welcome-subtitle {
+    font-size: 0.88rem;
+    color: rgba(255, 255, 255, 0.92) !important;
+    margin-bottom: 0;
+  }
+
+  .clock-display {
+    background: rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 14px;
+    padding: 0.6rem 1.1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .clock-display .realtime-clock {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+    line-height: 1.1;
+  }
+
+  .clock-display .clock-date {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.88);
+    font-weight: 500;
+  }
+
+  /* ── Admin Quick Stat Cards: Crystal Clear, High Contrast & Resilient ── */
+  .admin-stat-card {
+    background: #ffffff !important;
+    border-radius: 16px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .admin-stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.09);
+    border-color: rgba(14, 165, 233, 0.35);
+  }
+
+  .admin-stat-card::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: 4px;
-    background: var(--gradient);
+    height: 3.5px;
+    background: var(--stat-gradient);
   }
 
-  .stat-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
+  .admin-stat-body {
+    padding: 1.15rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    justify-content: space-between;
+  }
+
+  .admin-stat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+
+  .admin-stat-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
-    background: var(--gradient);
-    color: white;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-size: 1.35rem;
+    color: #ffffff !important;
+    background: var(--stat-gradient);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+    flex-shrink: 0;
   }
 
-  .stat-value {
-    font-size: 2rem;
+  .admin-stat-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
+    background: var(--badge-bg);
+    color: var(--badge-color) !important;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .admin-stat-value {
+    font-size: 1.85rem;
+    font-weight: 800;
+    color: #0f172a !important;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.25rem;
+  }
+
+  .admin-stat-label {
+    font-size: 0.78rem;
     font-weight: 700;
-    line-height: 1;
-    margin: 8px 0;
-  }
-
-  .stat-label {
-    font-size: 0.875rem;
-    color: #6c757d;
-    font-weight: 500;
+    color: #64748b !important;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    line-height: 1.2;
+    margin-bottom: 0.4rem;
+  }
+
+  .admin-stat-footer {
+    display: flex;
+    align-items: center;
+    font-size: 0.74rem;
+    color: #64748b !important;
+    font-weight: 500;
+    gap: 0.35rem;
+  }
+
+  /* Specific Color Themes */
+  .admin-stat-card.siswa {
+    --stat-gradient: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    --badge-bg: rgba(2, 132, 199, 0.1);
+    --badge-color: #0284c7;
+  }
+  .admin-stat-card.guru {
+    --stat-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --badge-bg: rgba(16, 185, 129, 0.1);
+    --badge-color: #059669;
+  }
+  .admin-stat-card.kelas {
+    --stat-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    --badge-bg: rgba(245, 158, 11, 0.1);
+    --badge-color: #d97706;
+  }
+  .admin-stat-card.sesi {
+    --stat-gradient: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+    --badge-bg: rgba(139, 92, 246, 0.1);
+    --badge-color: #7c3aed;
+  }
+
+  /* ── Akses Cepat Admin ── */
+  .admin-action-tile {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 0.9rem;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 1px solid rgba(14, 165, 233, 0.12);
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.03);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none !important;
+  }
+  .admin-action-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(14, 165, 233, 0.12);
+    border-color: rgba(14, 165, 233, 0.35);
+  }
+  .admin-action-tile:active {
+    transform: scale(0.98);
+  }
+  .admin-action-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    color: white;
+    margin-right: 0.75rem;
+    flex-shrink: 0;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+  }
+  .admin-action-icon.jadwal   { background: linear-gradient(135deg, #0284c7, #0369a1); }
+  .admin-action-icon.presensi { background: linear-gradient(135deg, #06b6d4, #0d9488); }
+  .admin-action-icon.notif    { background: linear-gradient(135deg, #f59e0b, #d97706); }
+  .admin-action-icon.laporan  { background: linear-gradient(135deg, #10b981, #059669); }
+
+  .admin-action-text {
+    flex-grow: 1;
+    min-width: 0;
+  }
+  .admin-action-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+    margin-bottom: 2px;
+  }
+  .admin-action-desc {
+    font-size: 0.72rem;
+    color: #64748b;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .admin-action-arrow {
+    color: #94a3b8;
+    font-size: 1rem;
+    margin-left: 0.4rem;
+    transition: transform 0.2s ease, color 0.2s ease;
+  }
+  .admin-action-tile:hover .admin-action-arrow {
+    transform: translateX(3px);
+    color: #0ea5e9;
   }
 
   .modern-card {
@@ -111,83 +333,101 @@
     font-weight: 500;
   }
 
-  .welcome-section {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 20px;
-    padding: 2rem;
-    color: white;
-    margin-bottom: 2rem;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .welcome-section::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -10%;
-    width: 300px;
-    height: 300px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
-  }
-
-  .welcome-section::after {
-    content: '';
-    position: absolute;
-    bottom: -30%;
-    left: -5%;
-    width: 200px;
-    height: 200px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 50%;
-  }
-
-  .welcome-content {
-    position: relative;
-    z-index: 1;
-  }
-
-  .clock-display {
-    background: rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(10px);
-    border-radius: 12px;
-    padding: 1rem 1.5rem;
-  }
-
-  /* Mobile Responsive */
+  /* ── Mobile Responsive (HP) - Compact & Harmonious with 52px Navbar ── */
   @media (max-width: 767.98px) {
-    .stat-value {
-      font-size: 1.5rem;
-    }
-
-    .stat-icon {
-      width: 48px;
-      height: 48px;
-      font-size: 20px;
+    .dashboard-modern {
+      overflow-x: hidden !important;
+      max-width: 100vw !important;
     }
 
     .welcome-section {
-      padding: 1.5rem;
-      border-radius: 16px;
+      padding: 0.7rem 0.85rem !important;
+      border-radius: 14px !important;
+      margin-bottom: 0.75rem !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+
+    .welcome-title {
+      font-size: 1.05rem !important;
+      margin-bottom: 0.1rem !important;
+    }
+
+    .welcome-subtitle {
+      font-size: 0.74rem !important;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 180px;
     }
 
     .clock-display {
-      padding: 0.75rem 1rem;
+      padding: 0.28rem 0.55rem !important;
+      border-radius: 10px !important;
+      white-space: nowrap;
+    }
+
+    .clock-display .realtime-clock {
+      font-size: 0.9rem !important;
+      line-height: 1.1 !important;
+    }
+
+    .clock-display .clock-date {
+      font-size: 0.62rem !important;
+    }
+
+    /* Admin Stat Card Mobile Proportions */
+    .admin-stat-card {
+      border-radius: 13px !important;
+    }
+
+    .admin-stat-body {
+      padding: 0.7rem 0.75rem !important;
+    }
+
+    .admin-stat-header {
+      margin-bottom: 0.35rem !important;
+    }
+
+    .admin-stat-icon {
+      width: 34px !important;
+      height: 34px !important;
+      font-size: 1.05rem !important;
+      border-radius: 9px !important;
+    }
+
+    .admin-stat-badge {
+      font-size: 0.62rem !important;
+      padding: 0.18rem 0.45rem !important;
+    }
+
+    .admin-stat-value {
+      font-size: 1.35rem !important;
+      margin-top: 0.25rem !important;
+      margin-bottom: 0.1rem !important;
+    }
+
+    .admin-stat-label {
+      font-size: 0.68rem !important;
+      margin-bottom: 0.2rem !important;
+    }
+
+    .admin-stat-footer {
+      font-size: 0.65rem !important;
     }
 
     .modern-card-header {
-      padding: 1rem;
+      padding: 0.85rem 1rem !important;
     }
 
     .agenda-item {
-      padding: 0.875rem 1rem;
+      padding: 0.75rem 0.9rem !important;
     }
   }
 
   @media (max-width: 575.98px) {
-    .stat-card {
-      margin-bottom: 1rem;
+    .admin-stat-card {
+      margin-bottom: 0;
     }
   }
 
@@ -254,102 +494,125 @@
 <div class="container-fluid p-0 dashboard-modern">
   <!-- Welcome Section -->
   <div class="welcome-section">
-    <div class="row align-items-center welcome-content">
-      <div class="col-md-8">
-        <h2 class="mb-2 fw-bold">Dashboard Admin</h2>
-        <p class="mb-0 opacity-90">Selamat datang kembali, <strong><?= esc($user['fullname'] ?? $user['username']) ?></strong>! 👋</p>
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 welcome-content">
+      <div class="min-w-0">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="badge bg-white bg-opacity-20 text-white rounded-pill px-2 py-0.5" style="font-size: 0.65rem; font-weight: 700; letter-spacing: 0.6px;">ADMINISTRATOR</span>
+        </div>
+        <h2 class="welcome-title mb-0">Dashboard Admin</h2>
+        <p class="welcome-subtitle text-truncate">Selamat datang kembali, <strong><?= esc($user['fullname'] ?? $user['username']) ?></strong>! 👋</p>
       </div>
-      <div class="col-md-4 text-md-end mt-3 mt-md-0">
-        <div class="clock-display d-inline-block">
-          <div class="h4 mb-1 fw-bold realtime-clock"><?= date('H:i:s') ?></div>
-          <div class="small opacity-90"><?= date('d F Y') ?></div>
+      <div class="ms-auto">
+        <div class="clock-display text-end">
+          <div class="realtime-clock"><?= date('H:i:s') ?></div>
+          <div class="clock-date"><?= date('d F Y') ?></div>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Quick Stats Row -->
-  <div class="row g-2 g-md-4 mb-4">
+  <div class="row g-2 g-md-3 mb-3 mb-md-4">
+    <!-- 1. Siswa Aktif -->
     <div class="col-6 col-xl-3">
-      <div class="stat-card shadow-sm h-100" style="--gradient: var(--primary-gradient)">
-        <div class="card-body p-3 p-md-4">
-          <div class="d-flex align-items-center">
-            <div class="stat-icon me-2 me-md-3">
+      <div class="admin-stat-card siswa">
+        <div class="admin-stat-body">
+          <div class="admin-stat-header">
+            <div class="admin-stat-icon">
               <i class="bi bi-people-fill"></i>
             </div>
-            <div class="flex-grow-1 min-w-0">
-              <div class="stat-label">Siswa Aktif</div>
-              <div class="stat-value"><?= number_format($stats['active_students'] ?? $stats['total_students']) ?></div>
-              <div class="small text-muted mt-1 text-truncate">
-                <i class="bi bi-info-circle text-primary me-1"></i>
-                Total: <?= number_format($stats['total_students']) ?>
-              </div>
+            <span class="admin-stat-badge">
+              <i class="bi bi-person-check me-1"></i>Siswa
+            </span>
+          </div>
+          <div>
+            <div class="admin-stat-value"><?= number_format($stats['active_students'] ?? $stats['total_students']) ?></div>
+            <div class="admin-stat-label">Siswa Aktif</div>
+            <div class="admin-stat-footer text-truncate">
+              <i class="bi bi-info-circle text-primary"></i>
+              <span>Total: <strong><?= number_format($stats['total_students']) ?></strong></span>
             </div>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- 2. Guru Aktif -->
     <div class="col-6 col-xl-3">
-      <div class="stat-card shadow-sm h-100" style="--gradient: var(--info-gradient)">
-        <div class="card-body p-3 p-md-4">
-          <div class="d-flex align-items-center">
-            <div class="stat-icon me-2 me-md-3">
+      <div class="admin-stat-card guru">
+        <div class="admin-stat-body">
+          <div class="admin-stat-header">
+            <div class="admin-stat-icon">
               <i class="bi bi-person-badge-fill"></i>
             </div>
-            <div class="flex-grow-1 min-w-0">
-              <div class="stat-label">Guru Aktif</div>
-              <div class="stat-value"><?= number_format($stats['active_teachers'] ?? $stats['total_teachers']) ?></div>
-              <div class="small text-muted mt-1 text-truncate">
-                <i class="bi bi-info-circle text-primary me-1"></i>
-                Total: <?= number_format($stats['total_teachers']) ?>
-              </div>
+            <span class="admin-stat-badge">
+              <i class="bi bi-mortarboard me-1"></i>Pendidik
+            </span>
+          </div>
+          <div>
+            <div class="admin-stat-value"><?= number_format($stats['active_teachers'] ?? $stats['total_teachers']) ?></div>
+            <div class="admin-stat-label">Guru Aktif</div>
+            <div class="admin-stat-footer text-truncate">
+              <i class="bi bi-info-circle text-success"></i>
+              <span>Total: <strong><?= number_format($stats['total_teachers']) ?></strong></span>
             </div>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- 3. Total Kelas -->
     <div class="col-6 col-xl-3">
-      <div class="stat-card shadow-sm h-100" style="--gradient: var(--warning-gradient)">
-        <div class="card-body p-3 p-md-4">
-          <div class="d-flex align-items-center">
-            <div class="stat-icon me-2 me-md-3">
+      <div class="admin-stat-card kelas">
+        <div class="admin-stat-body">
+          <div class="admin-stat-header">
+            <div class="admin-stat-icon">
               <i class="bi bi-door-open-fill"></i>
             </div>
-            <div class="flex-grow-1 min-w-0">
-              <div class="stat-label">Total Kelas</div>
-              <div class="stat-value"><?= number_format($stats['total_classes']) ?></div>
-              <div class="small text-muted mt-1 text-truncate">
-                <i class="bi bi-book text-primary me-1"></i>
-                <?= number_format($stats['total_subjects'] ?? 0) ?> Mapel
-              </div>
+            <span class="admin-stat-badge">
+              <i class="bi bi-grid me-1"></i>Rombel
+            </span>
+          </div>
+          <div>
+            <div class="admin-stat-value"><?= number_format($stats['total_classes']) ?></div>
+            <div class="admin-stat-label">Total Kelas</div>
+            <div class="admin-stat-footer text-truncate">
+              <i class="bi bi-book text-warning"></i>
+              <span><strong><?= number_format($stats['total_subjects'] ?? 0) ?></strong> Mapel Aktif</span>
             </div>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- 4. Sesi Hari Ini -->
+    <?php 
+      $totalJP = 0;
+      if (!empty($todaySchedule)) {
+        foreach ($todaySchedule as $item) {
+          if (function_exists('hitung_jp_dari_waktu')) {
+            $totalJP += hitung_jp_dari_waktu($item['start_time'], $item['end_time']);
+          }
+        }
+      }
+    ?>
     <div class="col-6 col-xl-3">
-      <div class="stat-card shadow-sm h-100" style="--gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%)">
-        <div class="card-body p-3 p-md-4">
-          <div class="d-flex align-items-center">
-            <div class="stat-icon me-2 me-md-3">
+      <div class="admin-stat-card sesi">
+        <div class="admin-stat-body">
+          <div class="admin-stat-header">
+            <div class="admin-stat-icon">
               <i class="bi bi-calendar-check-fill"></i>
             </div>
-            <div class="flex-grow-1 min-w-0">
-              <div class="stat-label">Sesi Hari Ini</div>
-              <div class="stat-value"><?= number_format(count($todaySchedule)) ?></div>
-              <div class="small text-muted mt-1 text-truncate">
-                <i class="bi bi-clock text-info me-1"></i>
-                <?php 
-                  $totalJP = 0;
-                  foreach ($todaySchedule as $item) {
-                    $totalJP += hitung_jp_dari_waktu($item['start_time'], $item['end_time']);
-                  }
-                  echo $totalJP . ' JP';
-                ?>
-              </div>
+            <span class="admin-stat-badge">
+              <i class="bi bi-clock me-1"></i>KBM
+            </span>
+          </div>
+          <div>
+            <div class="admin-stat-value"><?= number_format(count($todaySchedule ?? [])) ?></div>
+            <div class="admin-stat-label">Sesi Hari Ini</div>
+            <div class="admin-stat-footer text-truncate">
+              <i class="bi bi-hourglass-split text-info"></i>
+              <span><strong><?= $totalJP ?></strong> JP Terjadwal</span>
             </div>
           </div>
         </div>
@@ -440,17 +703,48 @@
         </div>
         <div class="card-body p-3">
           <div class="d-grid gap-2">
-            <a href="<?= site_url('admin/schedules') ?>" class="btn btn-primary btn-sm text-start py-2 rounded-3">
-              <i class="bi bi-calendar-plus me-2"></i> Kelola Jadwal
+            <a href="<?= site_url('admin/schedules') ?>" class="admin-action-tile">
+              <div class="admin-action-icon jadwal">
+                <i class="bi bi-calendar-plus"></i>
+              </div>
+              <div class="admin-action-text">
+                <div class="admin-action-title">Kelola Jadwal</div>
+                <div class="admin-action-desc">Atur jadwal KBM & jam pelajaran</div>
+              </div>
+              <i class="bi bi-chevron-right admin-action-arrow"></i>
             </a>
-            <a href="<?= site_url('admin/attendance') ?>" class="btn btn-info btn-sm text-start py-2 rounded-3 text-white">
-              <i class="bi bi-calendar-check me-2"></i> Presensi Harian
+
+            <a href="<?= site_url('admin/attendance') ?>" class="admin-action-tile">
+              <div class="admin-action-icon presensi">
+                <i class="bi bi-calendar-check"></i>
+              </div>
+              <div class="admin-action-text">
+                <div class="admin-action-title">Presensi Harian</div>
+                <div class="admin-action-desc">Monitoring kehadiran siswa & guru</div>
+              </div>
+              <i class="bi bi-chevron-right admin-action-arrow"></i>
             </a>
-            <a href="<?= site_url('admin/announcements') ?>" class="btn btn-warning btn-sm text-start py-2 rounded-3 text-white">
-              <i class="bi bi-megaphone me-2"></i> Buat Pengumuman
+
+            <a href="<?= site_url('admin/announcements') ?>" class="admin-action-tile">
+              <div class="admin-action-icon notif">
+                <i class="bi bi-megaphone"></i>
+              </div>
+              <div class="admin-action-text">
+                <div class="admin-action-title">Buat Pengumuman</div>
+                <div class="admin-action-desc">Publikasikan info ke guru & siswa</div>
+              </div>
+              <i class="bi bi-chevron-right admin-action-arrow"></i>
             </a>
-            <a href="<?= site_url('admin/reports') ?>" class="btn btn-success btn-sm text-start py-2 rounded-3 text-white">
-              <i class="bi bi-graph-up me-2"></i> Laporan & Analisis
+
+            <a href="<?= site_url('admin/reports') ?>" class="admin-action-tile">
+              <div class="admin-action-icon laporan">
+                <i class="bi bi-graph-up"></i>
+              </div>
+              <div class="admin-action-text">
+                <div class="admin-action-title">Laporan & Analisis</div>
+                <div class="admin-action-desc">Statistik akademik & rekap data</div>
+              </div>
+              <i class="bi bi-chevron-right admin-action-arrow"></i>
             </a>
           </div>
         </div>
