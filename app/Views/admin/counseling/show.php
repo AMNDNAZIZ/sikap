@@ -21,9 +21,9 @@
 
     <section class="section">
         <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h4 class="card-title">Detail Sesi Konseling</h4>
-                <div>
+            <div class="card-header d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
+                <h4 class="card-title mb-0">Detail Sesi Konseling</h4>
+                <div class="d-flex flex-wrap gap-1">
                     <a href="<?= base_url('admin/counseling/edit/' . $journal['id']) ?>" class="btn btn-warning btn-sm">
                         <i class="bi bi-pencil"></i> Ubah
                     </a>

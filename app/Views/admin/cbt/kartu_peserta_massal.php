@@ -28,6 +28,12 @@
     background: #fff;
   }
 
+  @media (max-width: 768px) {
+    .card {
+      width: 100% !important;
+    }
+  }
+
   .header {
     text-align: center;
     border-bottom: 1px solid #000;
@@ -145,13 +151,15 @@ function hariTanggalIndo($dateStr)
 }
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
   <h4 class="fw-bold mb-0">📘 Pratinjau Kartu Peserta Ujian</h4>
-  <a href="<?= base_url('admin/kartu-peserta') ?>" class="btn btn-secondary">⬅ Kembali</a>
-  <a href="<?= site_url('admin/cbt/kartu-peserta/pdf/' . urlencode($examName) . '/' . $students[0]['class_id']) ?>"
-    class="btn btn-danger btn-sm" target="_blank">
-    <i class="bi bi-file-pdf"></i> Cetak ke PDF
-  </a>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="<?= base_url('admin/kartu-peserta') ?>" class="btn btn-secondary btn-sm">⬅ Kembali</a>
+    <a href="<?= site_url('admin/cbt/kartu-peserta/pdf/' . urlencode($examName) . '/' . $students[0]['class_id']) ?>"
+      class="btn btn-danger btn-sm" target="_blank">
+      <i class="bi bi-file-pdf"></i> Cetak ke PDF
+    </a>
+  </div>
 </div>
 
 <div class="page">

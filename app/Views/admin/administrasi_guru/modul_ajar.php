@@ -1,7 +1,7 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-4">
     <h1 class="h3 mb-0 text-gray-800">📂 Modul Ajar (AI Generated)</h1>
     <a href="<?= base_url('admin/administrasi-guru') ?>" class="btn btn-sm btn-secondary">Kembali</a>
 </div>
@@ -90,8 +90,8 @@
                 </select>
             </div>
             <?php if (in_array(session()->get('user')['role_id'], [1, 3])): ?>
-            <div class="col-md-2 text-end">
-                <button type="button" class="btn <?= empty($gemini_api_key) ? 'btn-danger' : 'btn-outline-primary' ?>" data-bs-toggle="modal" data-bs-target="#apiKeyModal">
+            <div class="col-md-2 text-md-end text-start">
+                <button type="button" class="btn <?= empty($gemini_api_key) ? 'btn-danger' : 'btn-outline-primary' ?> w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#apiKeyModal">
                     <i class="bi bi-key"></i> API Key
                 </button>
             </div>
@@ -120,7 +120,7 @@
         </div>
     <?php else: ?>
 <div class="card shadow mb-4">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+    <div class="card-header py-3 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
         <h6 class="m-0 font-weight-bold text-primary">Daftar Modul Ajar (Level Kelas)</h6>
         <span class="badge bg-success-subtle text-success border border-success">
             <i class="bi bi-arrow-repeat me-1"></i> Modul tidak terikat tahun ajaran — bisa digunakan kembali
@@ -133,6 +133,7 @@
             <strong>Mode Guru Tunggal:</strong> Modul berlaku untuk semua kelas se-level yang Anda ampu. Tidak perlu membuat modul terpisah per kelas.
         </div>
         <?php endif; ?>
+        <div class="table-responsive">
         <table class="table table-bordered table-hover align-middle">
             <thead class="table-info text-center">
                 <tr>
@@ -291,6 +292,7 @@
                 <?php endif; ?>
             </tbody>
         </table>
+        </div>
     </div>
 </div>
     <?php endif; ?>

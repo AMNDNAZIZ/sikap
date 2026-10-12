@@ -776,7 +776,8 @@
         }
 
         $('#detailContent').html(`
-      <table class="table table-bordered table-sm">
+          <div class="table-responsive">
+          <table class="table table-bordered table-sm">
 
             <tr><th width="30%">Bank Soal</th><td>${t.bank_code || '-'}</td></tr>
             <tr><th>Mapel</th><td>${t.subject_name || '-'}</td></tr>
@@ -810,6 +811,7 @@
             <tr><th>Atur Tombol Selesai</th><td>${lock_label}</td></tr>
 
           </table>
+          </div>
         `);
 
       }, 'json');

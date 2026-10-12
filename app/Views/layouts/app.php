@@ -528,7 +528,11 @@
         font-weight: 500;
       }
 
-      /* Mobile Tables */
+      /* Mobile Tables & Scrolling */
+      .table-responsive {
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 0.75rem;
+      }
       .table {
         font-size: 0.8rem;
         margin-bottom: 0;
@@ -537,6 +541,13 @@
       .table td {
         padding: 0.45rem 0.5rem;
         vertical-align: middle;
+      }
+      .table th {
+        white-space: nowrap;
+      }
+      .table td .btn-group,
+      .table td .btn-group-sm {
+        flex-wrap: wrap;
       }
 
       /* Offcanvas Navigation */
@@ -1063,6 +1074,14 @@
     updateClock();
 
     $(function () {
+      // Auto-wrap any unwrapped tables for mobile responsiveness safety net
+      $('table.table').each(function () {
+        var $tbl = $(this);
+        if (!$tbl.closest('.table-responsive').length && !$tbl.hasClass('no-responsive')) {
+          $tbl.wrap('<div class="table-responsive"></div>');
+        }
+      });
+
       // Select2 with mobile optimization
       $(".select2").select2({
         placeholder: "Pilih opsi",

@@ -1,7 +1,7 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-4">
     <div>
         <h1 class="h3 mb-0 text-gray-800">📊 Monitoring Administrasi Guru</h1>
         <p class="text-muted mb-0">Pantau status kelengkapan administrasi pembelajaran guru (ATP, KKTP, Promes, Modul Ajar).</p>

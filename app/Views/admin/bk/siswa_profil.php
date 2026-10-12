@@ -134,7 +134,8 @@
                     <div class="row g-4">
                         <div class="col-md-6">
                             <h6 class="fw-bold text-primary mb-3"><i class="bi bi-card-text me-2"></i> Identitas Diri Siswa</h6>
-                            <table class="table table-sm table-striped border rounded-3">
+                            <div class="table-responsive">
+                            <table class="table table-sm table-striped border rounded-3 mb-0">
                                 <tbody>
                                     <tr><th width="180">Nama Lengkap</th><td><?= esc($student['name']) ?></td></tr>
                                     <tr><th>NISN / NIS</th><td><?= esc($student['nisn'] ?: '-') ?> / <?= esc($student['nis'] ?: '-') ?></td></tr>
@@ -146,10 +147,12 @@
                                     <tr><th>Alamat Tempat Tinggal</th><td><?= esc($student['address'] ?: '-') ?></td></tr>
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <h6 class="fw-bold text-info mb-3"><i class="bi bi-people-fill me-2"></i> Data Orang Tua / Wali</h6>
-                            <table class="table table-sm table-striped border rounded-3">
+                            <div class="table-responsive">
+                            <table class="table table-sm table-striped border rounded-3 mb-0">
                                 <tbody>
                                     <tr><th width="180">Nama Ayah</th><td><?= esc($student['father_name'] ?: '-') ?></td></tr>
                                     <tr><th>Pekerjaan Ayah</th><td><?= esc($student['father_job'] ?: '-') ?></td></tr>
@@ -159,6 +162,7 @@
                                     <tr><th>Kontak Wali Kelas</th><td><?= esc($student['wali_kelas_name'] ?: '-') ?> (<?= esc($student['wali_kelas_phone'] ?: '-') ?>)</td></tr>
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     </div>
                 </div>

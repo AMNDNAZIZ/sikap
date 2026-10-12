@@ -68,12 +68,13 @@
                     <i class="fas fa-plus"></i> Tambah Skala
                 </button>
             </div>
-            <table class="table table-bordered">
+            <div class="table-responsive">
+            <table class="table table-bordered align-middle">
                 <thead class="table-light">
                     <tr>
                         <th>Label Jawaban (Misal: Selalu)</th>
                         <th>Nilai/Bobot (Misal: 4)</th>
-                        <th>Aksi</th>
+                        <th width="100">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -95,6 +96,7 @@
                     <?php endif; ?>
                 </tbody>
             </table>
+            </div>
         </div>
 
         <!-- 3. QUESTION -->
@@ -154,13 +156,14 @@
                     <i class="fas fa-plus"></i> Tambah Interpretasi
                 </button>
             </div>
-            <table class="table table-bordered">
+            <div class="table-responsive">
+            <table class="table table-bordered align-middle">
                 <thead class="table-light">
                     <tr>
                         <th>Rentang (%)</th>
                         <th>Label (Misal: Sangat Sesuai)</th>
                         <th>Aspek Spesifik</th>
-                        <th>Aksi</th>
+                        <th width="100">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -183,6 +186,7 @@
                     <?php endif; ?>
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 </div>

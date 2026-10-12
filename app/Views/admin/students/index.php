@@ -242,6 +242,7 @@
               <!-- Info kolom -->
               <div class="mb-3">
                 <p class="small fw-bold mb-1">Format kolom Excel (wajib sesuai urutan):</p>
+                <div class="table-responsive">
                 <table class="table table-sm table-bordered small mb-0">
                   <thead class="table-light">
                     <tr>
@@ -258,6 +259,7 @@
                     <tr class="table-success"><td>G</td><td>Agama</td><td></td><td>Islam / Kristen / Katholik / Hindu / Budha / Khonghucu</td></tr>
                   </tbody>
                 </table>
+                </div>
                 <small class="text-muted">* Minimal salah satu dari NISN atau NIS harus diisi. Akun siswa &amp; orang tua dibuat otomatis.</small>
               </div>
 

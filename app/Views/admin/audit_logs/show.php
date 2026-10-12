@@ -2,9 +2,9 @@
 
 <?= $this->section('content') ?>
 <div class="container-fluid">
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2 mb-4">
         <h1 class="h3 mb-0 text-gray-800">Detail Log Aktivitas</h1>
-        <a href="<?= base_url('admin/audit-logs') ?>" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
+        <a href="<?= base_url('admin/audit-logs') ?>" class="btn btn-sm btn-secondary shadow-sm">
             <i class="fas fa-arrow-left fa-sm text-white-50"></i> Kembali
         </a>
     </div>

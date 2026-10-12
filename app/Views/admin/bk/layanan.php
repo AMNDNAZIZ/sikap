@@ -635,11 +635,11 @@
 
                     let partHtml = '';
                     if (parts.length > 0) {
-                        partHtml = `<table class="table table-sm table-bordered mt-2"><thead class="table-light"><tr><th>No</th><th>Nama Siswa</th><th>NISN</th><th>Kelas</th><th>Status Presensi</th></tr></thead><tbody>`;
+                        partHtml = `<div class="table-responsive"><table class="table table-sm table-bordered mt-2"><thead class="table-light"><tr><th>No</th><th>Nama Siswa</th><th>NISN</th><th>Kelas</th><th>Status Presensi</th></tr></thead><tbody>`;
                         parts.forEach((p, idx) => {
                             partHtml += `<tr><td>${idx+1}</td><td><strong>${p.student_name}</strong></td><td>${p.nisn||'-'}</td><td>${p.class_name||'-'}</td><td><span class="badge bg-success">${p.attendance_status}</span></td></tr>`;
                         });
-                        partHtml += `</tbody></table>`;
+                        partHtml += `</tbody></table></div>`;
                     } else {
                         partHtml = `<p class="text-muted italic">Tidak ada daftar siswa khusus.</p>`;
                     }

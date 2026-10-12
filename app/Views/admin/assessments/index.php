@@ -18,13 +18,14 @@
   </form>
 <?php endif; ?>
 
-<table class="table table-bordered">
-  <thead>
+<div class="table-responsive">
+<table class="table table-bordered align-middle">
+  <thead class="table-light">
     <tr>
       <th>Kelas</th>
       <th>Mata Pelajaran</th>
       <?php if ($isAdmin): ?><th>Guru</th><?php endif; ?>
-      <th>Aksi</th>
+      <th style="min-width: 260px;">Aksi</th>
     </tr>
   </thead>
   <tbody>
@@ -35,11 +36,11 @@
         <?php if ($isAdmin): ?><td><?= esc($a['teacher_name']) ?></td><?php endif; ?>
         <td>
           <a href="<?= base_url("admin/assessments/formatifList/{$a['class_id']}/{$a['subject_id']}") ?>" 
-             class="btn btn-sm btn-primary">Formatif</a>
+             class="btn btn-sm btn-primary mb-1">Formatif</a>
           <a href="<?= site_url("admin/assessments/ptsList/{$a['class_id']}/{$a['subject_id']}") ?>" 
-             class="btn btn-sm btn-secondary">🗓️ PTS</a>
+             class="btn btn-sm btn-secondary mb-1">🗓️ PTS</a>
           <a href="<?= site_url("admin/assessments/sumatifList/{$a['class_id']}/{$a['subject_id']}") ?>" 
-             class="btn btn-sm btn-warning">📝 Sumatif</a>
+             class="btn btn-sm btn-warning mb-1">📝 Sumatif</a>
           <?php
           $maxLevel = db_connect()->table('classes')->selectMax('level')->get()->getRowArray();
           $finalLevel = $maxLevel['level'] ?? null;
@@ -47,7 +48,7 @@
 
           <?php if (!empty($a['class_level']) && $a['class_level'] == $finalLevel): ?>
             <a href="<?= site_url("admin/assessments/finalList/{$a['class_id']}/{$a['subject_id']}") ?>"
-               class="btn btn-sm btn-success">📊 Ujian Akhir</a>
+               class="btn btn-sm btn-success mb-1">📊 Ujian Akhir</a>
           <?php endif; ?>
 
         </td>
@@ -55,5 +56,6 @@
     <?php endforeach ?>
   </tbody>
 </table>
+</div>
 
 <?= $this->endSection() ?>

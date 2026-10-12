@@ -1,7 +1,7 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-4">
     <h1 class="h3 mb-0 text-gray-800">🎯 Tujuan Pembelajaran (TP)</h1>
     <a href="<?= base_url('admin/administrasi-guru') ?>" class="btn btn-sm btn-secondary">Kembali</a>
 </div>
@@ -121,7 +121,7 @@
         <!-- Pustaka TP (Read-only) -->
         <div class="col-12">
             <div class="card shadow mb-4 border-left-info">
-                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <div class="card-header py-3 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
                     <h6 class="m-0 font-weight-bold text-info"><i class="bi bi-journal-bookmark-fill me-2"></i> Pustaka Tujuan Pembelajaran (Reference Only)</h6>
                     <?php if (!$readonly): ?>
                     <a href="<?= base_url('admin/administrasi-guru/atp?subject_id='.$selected_subject.'&class_id='.$selected_class) ?>" class="btn btn-primary btn-sm">

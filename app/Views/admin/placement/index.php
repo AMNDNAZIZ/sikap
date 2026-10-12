@@ -25,10 +25,11 @@
     </select>
   </div>
 
-  <table class="table table-bordered table-striped">
-    <thead>
+  <div class="table-responsive">
+  <table class="table table-bordered table-striped align-middle">
+    <thead class="table-light">
       <tr>
-        <th><input type="checkbox" id="checkAll"></th>
+        <th width="40"><input type="checkbox" id="checkAll"></th>
         <th>NISN</th>
         <th>Nama</th>
       </tr>
@@ -49,6 +50,7 @@
       <?php endif ?>
     </tbody>
   </table>
+  </div>
 
   <button class="btn btn-primary mt-2">🚀 Tempatkan</button>
 </form>
