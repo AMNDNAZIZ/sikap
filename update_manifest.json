@@ -1,6 +1,6 @@
 {
     "version": "2.0.4",
-    "generated": "2026-10-13 10:07:24",
+    "generated": "2026-10-13 10:26:57",
     "last_update": "2026-10-12 00:00",
     "total_files": 1025,
     "files": {
@@ -776,7 +776,7 @@
         "app/Views/forum/index.php": "4ded2cc629c6ba1c7ffc772693f0e9a4",
         "app/Views/forum/kelas.php": "ab53f0cbc7fd28f1bcfa25cc7c5ef31a",
         "app/Views/forum/show.php": "341180675a5decf5cffce1bfbb79d989",
-        "app/Views/index.php": "446bd04664804bae28ce10be8a6599ea",
+        "app/Views/index.php": "6eb30f6411e1a702d7b3a028e7af6ee1",
         "app/Views/kalender/index.php": "0705d0592376ae66fd50c6dd821da658",
         "app/Views/layouts/app.php": "b469a760bb5948ca30b53db9f8ce90fe",
         "app/Views/layouts/cbt.php": "a0df7cc25f613268f0daf252dd599fef",
