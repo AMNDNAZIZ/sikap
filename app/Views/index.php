@@ -447,18 +447,34 @@
       overflow: hidden;
       border: 1px solid var(--card-border);
       box-shadow: var(--card-shadow);
-      transition: all 0.3s ease;
+      transition: all 0.35s cubic-bezier(0.165, 0.84, 0.44, 1);
       height: 100%;
+      max-width: 320px;
+      margin-left: auto;
+      margin-right: auto;
+      display: flex;
+      flex-direction: column;
     }
     .teacher-item-card:hover {
       transform: translateY(-8px);
       box-shadow: var(--card-hover-shadow);
     }
     .teacher-item-photo {
-      height: 250px;
       width: 100%;
+      aspect-ratio: 3 / 4;
       object-fit: cover;
+      object-position: top center;
       background-color: #f1f5f9;
+      display: block;
+      transition: transform 0.5s ease;
+    }
+    .teacher-item-card:hover .teacher-item-photo {
+      transform: scale(1.05);
+    }
+    @supports not (aspect-ratio: 3 / 4) {
+      .teacher-item-photo {
+        height: 360px;
+      }
     }
 
     /* EKSTRAKURIKULER CARD UPGRADE */
@@ -1444,7 +1460,7 @@
           <?php if (empty($teachers)): ?>
             <div class="swiper-slide">
               <div class="teacher-item-card mx-auto text-center" style="max-width: 280px;">
-                <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=500" class="teacher-item-photo">
+                <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600" class="teacher-item-photo" alt="Nama Pendidik" loading="lazy">
                 <div class="p-3">
                   <h6 class="fw-bold mb-1">Nama Pendidik</h6>
                   <small class="text-primary fw-bold">Wali Kelas</small>
@@ -1456,9 +1472,9 @@
               <div class="swiper-slide">
                 <div class="teacher-item-card text-center">
                   <?php if (!empty($t['photo'])): ?>
-                    <img src="<?= base_url('uploads/teachers/' . $t['photo']) ?>" class="teacher-item-photo" alt="<?= esc($t['name']) ?>">
+                    <img src="<?= base_url('uploads/teachers/' . $t['photo']) ?>" class="teacher-item-photo" alt="<?= esc($t['name']) ?>" loading="lazy">
                   <?php else: ?>
-                    <img src="https://ui-avatars.com/api/?name=<?= urlencode($t['name']) ?>&background=0d6efd&color=fff&size=250" class="teacher-item-photo" alt="<?= esc($t['name']) ?>">
+                    <img src="https://ui-avatars.com/api/?name=<?= urlencode($t['name']) ?>&background=0d6efd&color=fff&size=400" class="teacher-item-photo" alt="<?= esc($t['name']) ?>" loading="lazy">
                   <?php endif; ?>
 
                   <div class="p-3">
