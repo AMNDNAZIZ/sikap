@@ -35,8 +35,24 @@ class Auth implements FilterInterface
             }));
 
             if (!empty($allowedRoles) && !in_array((int) ($user['role_id'] ?? 0), $allowedRoles)) {
-                log_message('debug', 'Auth Filter REDIRECT: Role ' . ($user['role_id'] ?? 'NONE') . ' NOT IN ' . json_encode($allowedRoles));
-                return redirect()->to('/dashboard')->with('error', 'Anda tidak memiliki akses ke halaman ini.');
+                // 🔐 Dynamic RBAC Check: Jika role user tidak terdaftar di nomor ID statis rute,
+                // cek apakah role user memiliki permission yang sesuai untuk path rute ini
+                helper('authorization');
+                $path = trim($request->getUri()->getPath(), '/');
+                $matchedPerms = \App\Libraries\MenuRegistry::getPermissionsForPath($path);
+
+                $hasDynamicPerm = false;
+                foreach ($matchedPerms as $perm) {
+                    if (has_permission($perm)) {
+                        $hasDynamicPerm = true;
+                        break;
+                    }
+                }
+
+                if (!$hasDynamicPerm) {
+                    log_message('debug', 'Auth Filter REDIRECT: Role ' . ($user['role_id'] ?? 'NONE') . ' NOT IN ' . json_encode($allowedRoles) . ' and NO permission for ' . $path);
+                    return redirect()->to('/dashboard')->with('error', 'Anda tidak memiliki akses ke halaman ini.');
+                }
             }
         }
     }

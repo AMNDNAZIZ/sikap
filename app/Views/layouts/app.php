@@ -858,6 +858,8 @@
             <?= $this->include('layouts/partials/sidebar_kontributor') ?>
           <?php elseif ($user['role_id'] == 7): ?>
             <?= $this->include('layouts/partials/sidebar_staf') ?>
+          <?php else: ?>
+            <?= $this->include('layouts/partials/sidebar_dynamic') ?>
           <?php endif; ?>
         <?php else: ?>
           <ul class="nav flex-column">
@@ -918,6 +920,8 @@
               <?= $this->include('layouts/partials/sidebar_kontributor') ?>
             <?php elseif ($user['role_id'] == 7): ?>
               <?= $this->include('layouts/partials/sidebar_staf') ?>
+            <?php else: ?>
+              <?= $this->include('layouts/partials/sidebar_dynamic') ?>
             <?php endif; ?>
           <?php else: ?>
             <ul class="nav flex-column p-3">

@@ -64,6 +64,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $auth126 = ['filter' => 'auth:1,2,6'];
     $auth17   = ['filter' => 'auth:1,7'];
     $auth127  = ['filter' => 'auth:1,2,7'];
+    $auth1267 = ['filter' => 'auth:1,2,6,7'];
     $auth1237 = ['filter' => 'auth:1,2,3,7'];
 
     // 1. User Management (Admin & Principal)
@@ -130,8 +131,8 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('ekskul-pembina/rekap/(:num)', 'EkskulPembina::rekap/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
     $routes->get('ekskul-pembina/rekap/print/(:num)', 'EkskulPembina::printRekap/$1', ['filter' => 'auth:1,2,3,4,6,7,8']);
     
-    $routes->get('school', 'School::index', $auth127);
-    $routes->post('school/update', 'School::update', $auth127);
+    $routes->get('school', 'School::index', $auth1267);
+    $routes->post('school/update', 'School::update', $auth1267);
     $routes->get('academic-year', 'AcademicYear::index', $auth127);
     $routes->get('academic-year/create', 'AcademicYear::create', $auth127);
     $routes->post('academic-year/store', 'AcademicYear::store', $auth127);

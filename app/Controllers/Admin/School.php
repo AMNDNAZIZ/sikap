@@ -9,6 +9,8 @@ class School extends BaseController
 {
     public function index()
     {
+        require_permission('school.manage');
+
         $model = new SchoolModel();
         $data['school'] = $model->first() ?: []; // hanya 1 baris
         return view('admin/school/index', $data);
@@ -16,6 +18,8 @@ class School extends BaseController
 
     public function update()
     {
+        require_permission('school.manage');
+
         $model = new SchoolModel();
         $id = $this->request->getPost('id');
 
