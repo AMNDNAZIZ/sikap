@@ -844,6 +844,10 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->post('activities/update/(:num)', 'Cms\Activities::update/$1');
         $routes->get('activities/delete/(:num)', 'Cms\Activities::delete/$1');
 
+        // Sambutan Kepala Sekolah
+        $routes->get('sambutan', 'Cms\Sambutan::index');
+        $routes->post('sambutan/update', 'Cms\Sambutan::update');
+        $routes->post('sambutan/reset', 'Cms\Sambutan::reset');
     });
 
     $routes->get('changelogs', 'Changelogs::index');

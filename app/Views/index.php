@@ -447,49 +447,103 @@
       overflow: hidden;
       border: 1px solid var(--card-border);
       box-shadow: var(--card-shadow);
-      transition: all 0.35s ease;
+      transition: all 0.3s ease;
       height: 100%;
-      display: flex;
-      flex-direction: column;
     }
     .teacher-item-card:hover {
       transform: translateY(-8px);
       box-shadow: var(--card-hover-shadow);
     }
-    .teacher-photo-wrapper {
-      position: relative;
-      width: 100%;
-      height: 360px;
-      overflow: hidden;
-      background: #f1f5f9;
-    }
-    @media (max-width: 575.98px) {
-      .teacher-photo-wrapper {
-        height: 380px;
-      }
-    }
     .teacher-item-photo {
-      height: 360px;
+      height: 250px;
       width: 100%;
       object-fit: cover;
-      object-position: top center;
       background-color: #f1f5f9;
-      transition: transform 0.4s ease;
-      display: block;
     }
-    @media (max-width: 575.98px) {
-      .teacher-item-photo {
-        height: 380px;
-      }
+
+    /* EKSTRAKURIKULER CARD UPGRADE */
+    .ekskul-card-dynamic {
+      position: relative;
+      overflow: hidden;
+      border-radius: 1.25rem;
+      background: #ffffff;
+      border: 1px solid rgba(226, 232, 240, 0.85);
+      box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.05);
+      transition: transform 0.35s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.35s ease;
+      min-height: 200px;
+      isolation: isolate;
     }
-    .teacher-photo-wrapper .teacher-item-photo {
+    .ekskul-card-dynamic:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 20px 35px -5px rgba(29, 78, 216, 0.12), 0 8px 16px -6px rgba(15, 23, 42, 0.04);
+      border-color: rgba(191, 219, 254, 0.9);
+    }
+    .ekskul-bg-img {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      width: 100%;
       height: 100%;
+      background-size: cover;
+      background-position: center right;
+      border-radius: inherit;
+      transition: transform 0.5s ease;
+      z-index: 1;
     }
-    .teacher-item-photo.avatar-placeholder {
-      object-position: center center;
+    .ekskul-card-dynamic:hover .ekskul-bg-img {
+      transform: scale(1.06);
     }
-    .teacher-item-card:hover .teacher-item-photo:not(.avatar-placeholder) {
-      transform: scale(1.04);
+    .ekskul-gradient-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      border-radius: inherit;
+      /* Gradasi kekanan semakin jelas: kiri solid putih melindungi kejelasan teks, kanan transparan penuh agar foto tampak jelas */
+      background: linear-gradient(90deg, #ffffff 0%, rgba(255, 255, 255, 0.98) 35%, rgba(255, 255, 255, 0.82) 55%, rgba(255, 255, 255, 0.28) 82%, rgba(255, 255, 255, 0) 100%);
+      pointer-events: none;
+    }
+    .ekskul-card-content {
+      position: relative;
+      z-index: 3;
+      padding: 1.5rem;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .ekskul-text-body {
+      max-width: 78%;
+    }
+    .ekskul-icon-bubble {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      font-size: 1.2rem;
+      transition: transform 0.3s ease, background 0.3s ease;
+      flex-shrink: 0;
+    }
+    .ekskul-card-dynamic:hover .ekskul-icon-bubble {
+      transform: scale(1.1) rotate(6deg);
+      background: #ffffff;
+      color: var(--primary-hover);
+    }
+    @media (max-width: 576px) {
+      .ekskul-gradient-overlay {
+        background: linear-gradient(90deg, #ffffff 0%, rgba(255, 255, 255, 0.98) 45%, rgba(255, 255, 255, 0.75) 75%, rgba(255, 255, 255, 0.2) 100%);
+      }
+      .ekskul-text-body {
+        max-width: 88%;
+      }
     }
 
     /* FOOTER RESMI SEKOLAH */
@@ -802,14 +856,26 @@
   </div>
 
   <!-- 5. SAMBUTAN KEPALA SEKOLAH -->
+  <?php
+    $sambutanTitle = !empty($school['sambutan_title']) ? $school['sambutan_title'] : 'Sambutan Kepala Sekolah';
+    $sambutanSubtitle = !empty($school['sambutan_subtitle']) ? $school['sambutan_subtitle'] : 'Prakata Pimpinan';
+    $sambutanQuote = !empty($school['sambutan_quote']) ? $school['sambutan_quote'] : 'Assalamu’alaikum Warahmatullahi Wabarakatuh, Salam Sejahtera untuk Kita Semua.';
+
+    // Foto pimpinan: prioritas sambutan_image -> vision_image -> unsplash default
+    $sambutanPhoto = !empty($school['sambutan_image']) && file_exists(UPLOAD_PATH . 'sambutan/' . $school['sambutan_image'])
+      ? base_url('uploads/sambutan/' . $school['sambutan_image'])
+      : (!empty($school['vision_image']) && file_exists(UPLOAD_PATH . 'vision/' . $school['vision_image'])
+          ? base_url('uploads/vision/' . $school['vision_image'])
+          : 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80');
+  ?>
   <section id="sambutan" class="section-padding bg-white pt-5">
     <div class="container mt-4">
       <div class="principal-card-box">
         <div class="row align-items-center g-5">
           <div class="col-lg-4 text-center" data-aos="fade-right">
             <div class="principal-frame mx-auto" style="max-width: 310px;">
-              <img src="<?= !empty($school['vision_image']) ? base_url('uploads/vision/' . $school['vision_image']) : 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80' ?>" 
-                   class="w-100 object-fit-cover" style="height: 380px; object-position: top center;" alt="Kepala Sekolah">
+              <img src="<?= $sambutanPhoto ?>" 
+                   class="w-100 object-fit-cover" style="height: 380px;" alt="Kepala Sekolah">
               <div class="principal-badge text-start">
                 <div class="fw-bold text-white fs-6"><?= esc($school['headmaster'] ?? 'Kepala Sekolah') ?></div>
                 <small class="text-warning d-block">Kepala <?= esc($school['name'] ?? 'Sekolah') ?></small>
@@ -821,19 +887,34 @@
           </div>
 
           <div class="col-lg-8" data-aos="fade-left">
-            <span class="section-tag"><i class="bi bi-quote me-1"></i> Prakata Pimpinan</span>
-            <h2 class="section-heading">Sambutan Kepala Sekolah</h2>
+            <span class="section-tag"><i class="bi bi-quote me-1"></i> <?= esc($sambutanSubtitle) ?></span>
+            <h2 class="section-heading"><?= esc($sambutanTitle) ?></h2>
             <div class="text-muted fs-6 mb-4">
               <p class="lead text-dark fw-semibold mb-3">
-                "Assalamu’alaikum Warahmatullahi Wabarakatuh, Salam Sejahtera untuk Kita Semua."
+                "<?= esc(trim($sambutanQuote, '"\'')) ?>"
               </p>
-              <p>
-                Selamat datang di portal resmi <strong><?= esc($school['name'] ?? 'sekolah kami') ?></strong>. 
-                Pendidikan adalah investasi masa depan peradaban. Di era transformasi digital saat ini, kami berkomitmen untuk menghadirkan ekosistem pembelajaran yang tidak hanya unggul secara akademis, namun juga kokoh dalam penanaman budi pekerti, akhlak mulia, dan keterampilan abad 21.
-              </p>
-              <p>
-                Melalui website dan sistem informasi terintegrasi ini, kami membuka pintu kolaborasi yang seluas-luasnya bagi seluruh peserta didik, tenaga pendidik, orang tua murid, serta masyarakat luas. Mari bersama bergandengan tangan mewujudkan generasi pembelajar yang berprestasi dan berkarakter.
-              </p>
+              <?php if (!empty($school['sambutan_isi'])): ?>
+                <?php if (strip_tags($school['sambutan_isi']) === $school['sambutan_isi']): ?>
+                  <?php 
+                    $paragraphs = array_filter(explode("\n", str_replace("\r", "", $school['sambutan_isi'])));
+                    foreach ($paragraphs as $p):
+                      if (trim($p) === '') continue;
+                  ?>
+                    <p><?= esc(trim($p)) ?></p>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <?= $school['sambutan_isi'] ?>
+                <?php endif; ?>
+              <?php else: ?>
+                <!-- Fallback Template Bawaan -->
+                <p>
+                  Selamat datang di portal resmi <strong><?= esc($school['name'] ?? 'sekolah kami') ?></strong>. 
+                  Pendidikan adalah investasi masa depan peradaban. Di era transformasi digital saat ini, kami berkomitmen untuk menghadirkan ekosistem pembelajaran yang tidak hanya unggul secara akademis, namun juga kokoh dalam penanaman budi pekerti, akhlak mulia, dan keterampilan abad 21.
+                </p>
+                <p>
+                  Melalui website dan sistem informasi terintegrasi ini, kami membuka pintu kolaborasi yang seluas-luasnya bagi seluruh peserta didik, tenaga pendidik, orang tua murid, serta masyarakat luas. Mari bersama bergandengan tangan mewujudkan generasi pembelajar yang berprestasi dan berkarakter.
+                </p>
+              <?php endif; ?>
             </div>
 
             <div class="d-flex align-items-center justify-content-between pt-3 border-top flex-wrap gap-2">
@@ -1095,7 +1176,99 @@
   </section>
 
   <!-- 9. EKSTRAKURIKULER & PENGEMBANGAN DIRI -->
-  <?php if (!empty($ekskuls)): ?>
+  <?php 
+    if (!function_exists('getEkskulBgImage')) {
+      function getEkskulBgImage($ek) {
+        if (!empty($ek['image'])) {
+          return base_url('uploads/ekskul/' . esc($ek['image']));
+        }
+        $name = strtolower($ek['name'] ?? '');
+        $desc = strtolower($ek['description'] ?? '');
+        $text = $name . ' ' . $desc;
+
+        if (strpos($text, 'pramuka') !== false || strpos($text, 'scout') !== false) {
+          return 'https://images.unsplash.com/photo-1526772662000-3f88f10405ff?auto=format&fit=crop&w=800&q=80'; // Pramuka & petualangan alam terbuka
+        }
+        if (strpos($text, 'arab') !== false) {
+          return 'https://images.unsplash.com/photo-1585779034823-7e9ac8faec70?auto=format&fit=crop&w=800&q=80'; // Kaligrafi & sastra Arab
+        }
+        if (strpos($text, 'inggris') !== false || strpos($text, 'english') !== false) {
+          return 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?auto=format&fit=crop&w=800&q=80'; // Bahasa Inggris & literasi
+        }
+        if (strpos($text, 'bahasa') !== false || strpos($text, 'literasi') !== false) {
+          return 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=800&q=80'; // Buku & kajian bahasa
+        }
+        if (strpos($text, 'futsal') !== false || strpos($text, 'sepak bola') !== false || strpos($text, 'bola') !== false) {
+          return 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=800&q=80'; // Olahraga sepak bola / futsal
+        }
+        if (strpos($text, 'basket') !== false) {
+          return 'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80'; // Lapangan basket
+        }
+        if (strpos($text, 'voli') !== false || strpos($text, 'volley') !== false) {
+          return 'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?auto=format&fit=crop&w=800&q=80'; // Voli
+        }
+        if (strpos($text, 'badminton') !== false || strpos($text, 'bulu tangkis') !== false || strpos($text, 'tangkis') !== false) {
+          return 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=800&q=80'; // Bulutangkis
+        }
+        if (strpos($text, 'silat') !== false || strpos($text, 'karate') !== false || strpos($text, 'taekwondo') !== false || strpos($text, 'bela diri') !== false) {
+          return 'https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=800&q=80'; // Seni bela diri
+        }
+        if (strpos($text, 'tari') !== false) {
+          return 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=800&q=80'; // Seni tari
+        }
+        if (strpos($text, 'musik') !== false || strpos($text, 'band') !== false || strpos($text, 'paduan suara') !== false || strpos($text, 'vokal') !== false) {
+          return 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'; // Musik & vokal
+        }
+        if (strpos($text, 'paskibra') !== false) {
+          return 'https://images.unsplash.com/photo-1532375810709-75b1da00537c?auto=format&fit=crop&w=800&q=80'; // Baris-berbaris & bendera
+        }
+        if (strpos($text, 'pmr') !== false || strpos($text, 'uks') !== false || strpos($text, 'palang merah') !== false || strpos($text, 'kesehatan') !== false) {
+          return 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=800&q=80'; // PMR & kesehatan
+        }
+        if (strpos($text, 'robot') !== false || strpos($text, 'coding') !== false || strpos($text, 'komputer') !== false || strpos($text, 'it') !== false) {
+          return 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=800&q=80'; // Teknologi & robotik
+        }
+        if (strpos($text, 'sains') !== false || strpos($text, 'kir') !== false || strpos($text, 'olimpiade') !== false || strpos($text, 'ipa') !== false) {
+          return 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=800&q=80'; // Laboratorium sains
+        }
+        if (strpos($text, 'rohis') !== false || strpos($text, 'tahfidz') !== false || strpos($text, 'quran') !== false || strpos($text, 'agama') !== false) {
+          return 'https://images.unsplash.com/photo-1609599006353-e629aaabfeae?auto=format&fit=crop&w=800&q=80'; // Tilawah & kajian rohis
+        }
+        if (strpos($text, 'jurnalistik') !== false || strpos($text, 'fotografi') !== false) {
+          return 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=800&q=80'; // Jurnalistik & foto
+        }
+        if (strpos($text, 'lukis') !== false || strpos($text, 'rupa') !== false || strpos($text, 'seni') !== false) {
+          return 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=800&q=80'; // Seni lukis
+        }
+        // Default fallback siswa berprestasi & kreatif
+        return 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=800&q=80';
+      }
+    }
+
+    if (!function_exists('getEkskulIcon')) {
+      function getEkskulIcon($name) {
+        $text = strtolower($name ?? '');
+        if (strpos($text, 'pramuka') !== false || strpos($text, 'scout') !== false) return 'bi-compass';
+        if (strpos($text, 'futsal') !== false || strpos($text, 'sepak bola') !== false || strpos($text, 'bola') !== false) return 'bi-dribbble';
+        if (strpos($text, 'basket') !== false) return 'bi-circle';
+        if (strpos($text, 'badminton') !== false || strpos($text, 'voli') !== false) return 'bi-activity';
+        if (strpos($text, 'silat') !== false || strpos($text, 'karate') !== false || strpos($text, 'bela diri') !== false) return 'bi-shield-check';
+        if (strpos($text, 'arab') !== false || strpos($text, 'inggris') !== false || strpos($text, 'bahasa') !== false) return 'bi-translate';
+        if (strpos($text, 'tari') !== false || strpos($text, 'lukis') !== false || strpos($text, 'seni') !== false) return 'bi-palette';
+        if (strpos($text, 'musik') !== false || strpos($text, 'band') !== false || strpos($text, 'suara') !== false) return 'bi-music-note-beamed';
+        if (strpos($text, 'robot') !== false || strpos($text, 'coding') !== false || strpos($text, 'komputer') !== false) return 'bi-cpu';
+        if (strpos($text, 'pmr') !== false || strpos($text, 'uks') !== false) return 'bi-heart-pulse';
+        if (strpos($text, 'paskibra') !== false) return 'bi-flag';
+        if (strpos($text, 'sains') !== false || strpos($text, 'kir') !== false) return 'bi-lightbulb';
+        if (strpos($text, 'rohis') !== false || strpos($text, 'tahfidz') !== false) return 'bi-book';
+        if (strpos($text, 'jurnalistik') !== false || strpos($text, 'fotografi') !== false) return 'bi-camera';
+        return 'bi-stars';
+      }
+    }
+
+    $displayEkskuls = !empty($ekskuls) ? $ekskuls : [];
+  ?>
+  <?php if (!empty($displayEkskuls)): ?>
     <section id="ekskul" class="section-padding bg-light">
       <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
@@ -1105,21 +1278,36 @@
         </div>
 
         <div class="row g-4 justify-content-center">
-          <?php foreach ($ekskuls as $ek): ?>
+          <?php foreach ($displayEkskuls as $ek): 
+            $bgPhoto = getEkskulBgImage($ek);
+            $icon = getEkskulIcon($ek['name']);
+            $isWajib = strtolower($ek['category'] ?? '') === 'wajib';
+          ?>
             <div class="col-md-6 col-lg-4" data-aos="zoom-in">
-              <div class="card h-100 border-0 rounded-4 shadow-sm p-4 bg-white transition-hover">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                  <span class="badge <?= strtolower($ek['category'] ?? '') === 'wajib' ? 'bg-primary' : 'bg-warning text-dark' ?> rounded-pill px-3 py-1.5 fw-bold text-uppercase small">
-                    <?= esc($ek['category'] ?? 'Pilihan') ?>
-                  </span>
-                  <div class="text-primary fs-3">
-                    <i class="bi <?= stripos($ek['name'], 'pramuka') !== false ? 'bi-compass' : (stripos($ek['name'], 'olahraga') !== false || stripos($ek['name'], 'futsal') !== false ? 'bi-dribbble' : (stripos($ek['name'], 'seni') !== false || stripos($ek['name'], 'tari') !== false ? 'bi-palette' : 'bi-stars')) ?>"></i>
+              <div class="ekskul-card-dynamic h-100">
+                <!-- Foto Background Menyesuaikan Lengkungan Card -->
+                <div class="ekskul-bg-img" style="background-image: url('<?= esc($bgPhoto) ?>');"></div>
+                <!-- Lapisan Gradasi ke Kanan Semakin Terang & Jelas -->
+                <div class="ekskul-gradient-overlay"></div>
+                
+                <!-- Konten Card dengan Teks Kontras dan Terjaga Kejelasannya -->
+                <div class="ekskul-card-content">
+                  <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="badge <?= $isWajib ? 'bg-primary' : 'bg-warning text-dark' ?> rounded-pill px-3 py-1.5 fw-bold text-uppercase small shadow-sm">
+                      <?= esc($ek['category'] ?? 'Pilihan') ?>
+                    </span>
+                    <div class="ekskul-icon-bubble">
+                      <i class="bi <?= $icon ?>"></i>
+                    </div>
+                  </div>
+                  
+                  <div class="ekskul-text-body mt-auto">
+                    <h5 class="fw-bold text-dark mb-2" style="letter-spacing: -0.3px;"><?= esc($ek['name']) ?></h5>
+                    <p class="text-secondary small mb-0 line-clamp-3" style="line-height: 1.55;">
+                      <?= esc($ek['description'] ?: 'Program pelatihan bakat dan pengembangan karakter siswa di bawah bimbingan pembina ahli.') ?>
+                    </p>
                   </div>
                 </div>
-                <h5 class="fw-bold text-dark mb-2"><?= esc($ek['name']) ?></h5>
-                <p class="text-muted small mb-0">
-                  <?= esc($ek['description'] ?: 'Program pelatihan bakat dan pengembangan karakter siswa di bawah bimbingan pembina ahli.') ?>
-                </p>
               </div>
             </div>
           <?php endforeach; ?>
@@ -1255,11 +1443,9 @@
         <div class="swiper-wrapper py-3">
           <?php if (empty($teachers)): ?>
             <div class="swiper-slide">
-              <div class="teacher-item-card mx-auto text-center" style="max-width: 320px;">
-                <div class="teacher-photo-wrapper">
-                  <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=500" class="teacher-item-photo" alt="Nama Pendidik">
-                </div>
-                <div class="p-3 mt-auto">
+              <div class="teacher-item-card mx-auto text-center" style="max-width: 280px;">
+                <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=500" class="teacher-item-photo">
+                <div class="p-3">
                   <h6 class="fw-bold mb-1">Nama Pendidik</h6>
                   <small class="text-primary fw-bold">Wali Kelas</small>
                 </div>
@@ -1269,15 +1455,13 @@
             foreach ($teachers as $t): ?>
               <div class="swiper-slide">
                 <div class="teacher-item-card text-center">
-                  <div class="teacher-photo-wrapper">
-                    <?php if (!empty($t['photo'])): ?>
-                      <img src="<?= base_url('uploads/teachers/' . $t['photo']) ?>" class="teacher-item-photo" alt="<?= esc($t['name']) ?>" loading="lazy">
-                    <?php else: ?>
-                      <img src="https://ui-avatars.com/api/?name=<?= urlencode($t['name']) ?>&background=0d6efd&color=fff&size=360" class="teacher-item-photo avatar-placeholder" alt="<?= esc($t['name']) ?>" loading="lazy">
-                    <?php endif; ?>
-                  </div>
+                  <?php if (!empty($t['photo'])): ?>
+                    <img src="<?= base_url('uploads/teachers/' . $t['photo']) ?>" class="teacher-item-photo" alt="<?= esc($t['name']) ?>">
+                  <?php else: ?>
+                    <img src="https://ui-avatars.com/api/?name=<?= urlencode($t['name']) ?>&background=0d6efd&color=fff&size=250" class="teacher-item-photo" alt="<?= esc($t['name']) ?>">
+                  <?php endif; ?>
 
-                  <div class="p-3 mt-auto">
+                  <div class="p-3">
                     <h6 class="fw-bold mb-1 text-dark text-truncate" title="<?= esc($t['name']) ?>">
                       <?= esc($t['name']) ?>
                     </h6>
@@ -1475,7 +1659,7 @@
 
             <div class="pt-3 border-top border-white border-opacity-10 d-flex justify-content-between align-items-center flex-wrap gap-2">
               <span class="small text-light opacity-75">
-                <i class="bi bi-clock me-1"></i> Jam Pelayanan: 07.00 - 15.00 WIB
+                <i class="bi bi-clock me-1"></i> Jam Pelayanan: <?= esc($operationalHours['service_text'] ?? '07.00 - 15.00 WIB') ?>
               </span>
               <?php if (!empty($school['latitude']) && !empty($school['longitude'])): ?>
                 <a href="https://maps.google.com/?q=<?= $school['latitude'] ?>,<?= $school['longitude'] ?>" target="_blank" class="btn btn-sm btn-outline-warning rounded-pill px-3">
@@ -1570,8 +1754,8 @@
 
           <div class="p-3 rounded-3 mt-3" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);">
             <small class="d-block text-white fw-bold mb-1"><i class="bi bi-clock-history me-1 text-warning"></i> Jam Operasional:</small>
-            <small class="d-block text-light opacity-75">Senin - Jumat: 07.00 - 15.00 WIB</small>
-            <small class="d-block text-light opacity-75">Sabtu - Minggu: Libur</small>
+            <small class="d-block text-light opacity-75"><?= esc($operationalHours['schedule_text'] ?? 'Senin - Jumat: 07.00 - 15.00 WIB') ?></small>
+            <small class="d-block text-light opacity-75"><?= esc($operationalHours['off_days'] ?? 'Sabtu - Minggu: Libur') ?></small>
           </div>
         </div>
       </div>

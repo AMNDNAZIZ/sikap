@@ -49,20 +49,38 @@
                         </div>
                     </div>
 
+                    <?php
+                        $profilPhoto = !empty($school['sambutan_image']) && file_exists(UPLOAD_PATH . 'sambutan/' . $school['sambutan_image'])
+                            ? base_url('uploads/sambutan/' . $school['sambutan_image'])
+                            : (!empty($school['vision_image']) && file_exists(UPLOAD_PATH . 'vision/' . $school['vision_image'])
+                                ? base_url('uploads/vision/' . $school['vision_image'])
+                                : null);
+                        $profilQuote = !empty($school['sambutan_quote']) ? $school['sambutan_quote'] : 'Assalamu’alaikum Warahmatullahi Wabarakatuh,';
+                    ?>
                     <div class="row g-4 align-items-center mb-3">
-                        <?php if (!empty($school['vision_image'])): ?>
+                        <?php if (!empty($profilPhoto)): ?>
                             <div class="col-md-4 text-center">
-                                <img src="<?= base_url('uploads/vision/' . $school['vision_image']) ?>" 
+                                <img src="<?= $profilPhoto ?>" 
                                      class="img-fluid rounded-4 shadow-sm object-fit-cover w-100" style="max-height: 250px;" alt="Kepala Sekolah">
                             </div>
                         <?php endif; ?>
-                        <div class="<?= !empty($school['vision_image']) ? 'col-md-8' : 'col-12' ?>">
+                        <div class="<?= !empty($profilPhoto) ? 'col-md-8' : 'col-12' ?>">
                             <p class="lead text-dark fw-semibold mb-2">
-                                "Assalamu’alaikum Warahmatullahi Wabarakatuh,"
+                                "<?= esc(trim($profilQuote, '"\'')) ?>"
                             </p>
-                            <p class="text-secondary small">
-                                Selamat datang di <?= esc($school['name'] ?? 'sekolah kami') ?>. Kami meyakini bahwa setiap anak memiliki potensi unik yang dapat berkembang optimal bila didukung oleh lingkungan pembelajaran yang aman, bermutu, dan mengedepankan nilai-nilai budi pekerti luhur.
-                            </p>
+                            <?php if (!empty($school['sambutan_isi'])): ?>
+                                <div class="text-secondary small mb-3">
+                                    <?php if (strip_tags($school['sambutan_isi']) === $school['sambutan_isi']): ?>
+                                        <?= nl2br(esc(mb_substr($school['sambutan_isi'], 0, 300))) ?><?= mb_strlen($school['sambutan_isi']) > 300 ? '...' : '' ?>
+                                    <?php else: ?>
+                                        <?= mb_substr(strip_tags($school['sambutan_isi']), 0, 300) ?>...
+                                    <?php endif; ?>
+                                </div>
+                            <?php else: ?>
+                                <p class="text-secondary small">
+                                    Selamat datang di <?= esc($school['name'] ?? 'sekolah kami') ?>. Kami meyakini bahwa setiap anak memiliki potensi unik yang dapat berkembang optimal bila didukung oleh lingkungan pembelajaran yang aman, bermutu, dan mengedepankan nilai-nilai budi pekerti luhur.
+                                </p>
+                            <?php endif; ?>
                             <div class="border-top pt-2">
                                 <div class="fw-bold text-dark"><?= esc($school['headmaster'] ?? 'Kepala Sekolah') ?></div>
                                 <small class="text-muted">Kepala Sekolah <?= !empty($school['principal_nip']) ? '• NIP: ' . esc($school['principal_nip']) : '' ?></small>

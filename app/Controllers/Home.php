@@ -66,6 +66,56 @@ class Home extends BaseController
         // 4. Ekstrakurikuler Aktif
         $totalEkskuls = $ekskulModel->where('is_active', 1)->countAllResults();
 
+        // 5. Jam Operasional (Dinamis dari jadwal pelajaran dengan fallback standar)
+        $scheduleRow = $db->table('schedules')
+            ->select('MIN(start_time) as min_start, MAX(end_time) as max_end, MIN(day_of_week) as min_day, MAX(day_of_week) as max_day');
+        if (!empty($activeYearId)) {
+            $scheduleRow->where('academic_year_id', $activeYearId);
+        }
+        $scheduleStats = $scheduleRow->get()->getRowArray();
+
+        // Fallback jika tahun ajaran aktif belum memiliki jadwal, periksa seluruh jadwal yang ada
+        if (empty($scheduleStats['min_start']) && !empty($activeYearId)) {
+            $scheduleStats = $db->table('schedules')
+                ->select('MIN(start_time) as min_start, MAX(end_time) as max_end, MIN(day_of_week) as min_day, MAX(day_of_week) as max_day')
+                ->get()->getRowArray();
+        }
+
+        if (!empty($scheduleStats['min_start']) && !empty($scheduleStats['max_end'])) {
+            $formattedStart = date('H.i', strtotime($scheduleStats['min_start']));
+            $formattedEnd   = date('H.i', strtotime($scheduleStats['max_end']));
+            $timeString     = "{$formattedStart} - {$formattedEnd} WIB";
+
+            // Deteksi hari aktif sekolah (berdasarkan pengaturan school_days tahun ajaran atau data jadwal)
+            $schoolDaysCount = $activeYear['school_days'] ?? null;
+            if ($schoolDaysCount == 6 || ($scheduleStats['max_day'] ?? 0) >= 6) {
+                $daysString    = "Senin - Sabtu";
+                $offDaysString = "Minggu: Libur";
+            } else {
+                $daysString    = "Senin - Jumat";
+                $offDaysString = "Sabtu - Minggu: Libur";
+            }
+
+            $operationalHours = [
+                'has_schedule'  => true,
+                'time_range'    => $timeString,
+                'days_range'    => $daysString,
+                'off_days'      => $offDaysString,
+                'service_text'  => $timeString,
+                'schedule_text' => "{$daysString}: {$timeString}",
+            ];
+        } else {
+            // Template Standar Fallback
+            $operationalHours = [
+                'has_schedule'  => false,
+                'time_range'    => '07.00 - 15.00 WIB',
+                'days_range'    => 'Senin - Jumat',
+                'off_days'      => 'Sabtu - Minggu: Libur',
+                'service_text'  => '07.00 - 15.00 WIB',
+                'schedule_text' => 'Senin - Jumat: 07.00 - 15.00 WIB',
+            ];
+        }
+
         $stats = [
             'students' => $totalStudents > 0 ? $totalStudents : 240,
             'teachers' => $totalTeachers > 0 ? $totalTeachers : 18,
@@ -74,18 +124,19 @@ class Home extends BaseController
         ];
 
         $data = [
-            'sliders'       => $sliderModel->where('is_active', 1)->orderBy('order', 'ASC')->findAll(),
-            'school'        => $schoolModel->first() ?: [],
-            'articles'      => $articleModel->where('is_published', 1)->orderBy('created_at', 'DESC')->findAll(3),
-            'agendas'       => $agendaModel->where('is_public', 1)->where('date >=', date('Y-m-d'))->orderBy('date', 'ASC')->findAll(5),
-            'announcements' => $announcementModel->where('is_public', 1)->orderBy('created_at', 'DESC')->findAll(3),
-            'teachers'      => $teacherModel->getPublicTeachers(),
-            'facilities'    => $facilityModel->findAll(),
-            'activities'    => $activityModel->getPublicActivities(),
-            'links'         => $linkModel->where('is_active', 1)->orderBy('order_no', 'ASC')->findAll(),
-            'ekskuls'       => $ekskulModel->where('is_active', 1)->findAll(),
-            'stats'         => $stats,
-            'title'         => 'Beranda'
+            'sliders'          => $sliderModel->where('is_active', 1)->orderBy('order', 'ASC')->findAll(),
+            'school'           => $schoolModel->first() ?: [],
+            'articles'         => $articleModel->where('is_published', 1)->orderBy('created_at', 'DESC')->findAll(3),
+            'agendas'          => $agendaModel->where('is_public', 1)->where('date >=', date('Y-m-d'))->orderBy('date', 'ASC')->findAll(5),
+            'announcements'    => $announcementModel->where('is_public', 1)->orderBy('created_at', 'DESC')->findAll(3),
+            'teachers'         => $teacherModel->getPublicTeachers(),
+            'facilities'       => $facilityModel->findAll(),
+            'activities'       => $activityModel->getPublicActivities(),
+            'links'            => $linkModel->where('is_active', 1)->orderBy('order_no', 'ASC')->findAll(),
+            'ekskuls'          => $ekskulModel->where('is_active', 1)->findAll(),
+            'stats'            => $stats,
+            'operationalHours' => $operationalHours,
+            'title'            => 'Beranda'
         ];
 
         return view('index', $data);

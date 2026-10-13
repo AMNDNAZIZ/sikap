@@ -228,6 +228,17 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="col-12">
+                                <div class="alert alert-primary border-0 rounded-3 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2 p-3 mb-0">
+                                    <div>
+                                        <i class="bi bi-person-badge-fill me-2 fs-5"></i>
+                                        <strong>Sambutan Kepala Sekolah:</strong> Atur naskah sambutan, kutipan pimpinan, dan foto sambutan halaman depan di menu CMS.
+                                    </div>
+                                    <a href="<?= base_url('admin/cms/sambutan') ?>" class="btn btn-sm btn-primary text-nowrap">
+                                        Buka Pengaturan Sambutan <i class="bi bi-arrow-right ms-1"></i>
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

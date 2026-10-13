@@ -328,6 +328,7 @@
       <div class="collapse <?= $inCms ? 'show' : '' ?>" id="menuCms">
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/cms/articles*') ? 'active' : '' ?>" href="<?= base_url('admin/cms/articles') ?>"><i class="bi bi-newspaper me-1"></i> <span class="label">Berita &amp; Artikel</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/cms/sambutan*') ? 'active' : '' ?>" href="<?= base_url('admin/cms/sambutan') ?>"><i class="bi bi-person-badge me-1"></i> <span class="label">Sambutan Kepsek</span></a></li>
           <li><a class="nav-link <?= url_is('admin/cms/sliders*') ? 'active' : '' ?>" href="<?= base_url('admin/cms/sliders') ?>"><i class="bi bi-images me-1"></i> <span class="label">Slider Hero</span></a></li>
           <li><a class="nav-link <?= url_is('admin/cms/facilities*') ? 'active' : '' ?>" href="<?= base_url('admin/cms/facilities') ?>"><i class="bi bi-buildings me-1"></i> <span class="label">Sarana Prasarana</span></a></li>
           <li><a class="nav-link <?= url_is('admin/cms/activities*') ? 'active' : '' ?>" href="<?= base_url('admin/cms/activities') ?>"><i class="bi bi-camera me-1"></i> <span class="label">Dokumentasi</span></a></li>
