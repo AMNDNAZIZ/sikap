@@ -30,8 +30,6 @@ if (!function_exists('romanClass')) {
 }
 
 $kelasRaw = $ld['kelas'] ?? $rd['kelas'] ?? '-';
-$kelasRoman = romanClass($kelasRaw);
-$kelasSpelled = spellClass($kelasRaw);
 ?>
 <?= view('admin/surat/pdf_templates/_header') ?>
 
@@ -60,7 +58,7 @@ $kelasSpelled = spellClass($kelasRaw);
     <div class="isi">
         adalah benar-benar tercatat sebagai siswa aktif di
         <strong><?= esc($school['name'] ?? 'SD Negeri Mangga Besar 11 Pagi') ?></strong>
-        yang saat ini duduk di kelas <strong><?= esc($kelasRoman) ?> (<?= esc($kelasSpelled) ?>)</strong> pada Tahun Pelajaran <strong><?= esc($active_year) ?></strong> dan masih aktif terdaftar sebagai siswa hingga saat ini.
+        yang saat ini duduk di kelas <strong><?= esc($kelasRaw) ?></strong> pada Tahun Pelajaran <strong><?= esc($active_year) ?></strong> dan masih aktif terdaftar sebagai siswa hingga saat ini.
         <?php if (!empty($ld['keperluan_tambahan'])): ?>
             <br>Surat keterangan ini diberikan untuk keperluan <strong><?= esc($ld['keperluan_tambahan']) ?></strong>.
         <?php endif; ?>

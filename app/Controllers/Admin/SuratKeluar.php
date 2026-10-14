@@ -122,7 +122,8 @@ class SuratKeluar extends BaseController
     public function store()
     {
         $session    = session();
-        $userId     = $session->get('user')['id'] ?? null;
+        $userSession = $session->get('user');
+        $userId     = is_array($userSession) ? ($userSession['id'] ?? '1') : ($session->get('user_id') ?? '1');
         $letterType = $this->request->getPost('letter_type');
 
         // Validasi dasar
@@ -343,15 +344,26 @@ class SuratKeluar extends BaseController
      */
     public function searchSiswa()
     {
-        $q        = $this->request->getGet('q') ?? '';
-        $students = (new StudentModel())
-            ->select('students.*, classes.name AS class_name')
-            ->join('student_records', 'student_records.student_id = students.id AND student_records.status = "aktif"', 'left')
+        $q          = $this->request->getGet('q') ?? '';
+        $activeYear = $this->model->db->table('academic_years')->where('is_active', 1)->get()->getRowArray();
+        $yearId     = $activeYear['id'] ?? null;
+
+        $builder = (new StudentModel())
+            ->select('students.*, classes.name AS class_name');
+
+        if ($yearId) {
+            $builder->join('student_records', 'student_records.student_id = students.id AND student_records.status = "aktif" AND student_records.academic_year_id = ' . (int) $yearId, 'left');
+        } else {
+            $builder->join('student_records', 'student_records.student_id = students.id AND student_records.status = "aktif"', 'left');
+        }
+
+        $students = $builder
             ->join('classes', 'classes.id = student_records.class_id', 'left')
             ->groupStart()
                 ->like('students.name', $q)
                 ->orLike('students.nisn', $q)
             ->groupEnd()
+            ->groupBy('students.id')
             ->limit(10)
             ->findAll();
 
