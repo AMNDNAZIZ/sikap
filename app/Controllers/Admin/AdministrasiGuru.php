@@ -1922,40 +1922,48 @@ class AdministrasiGuru extends BaseController
 
     public function generateModulAjar()
     {
-        $atpId = $this->request->getPost('atp_id');
-        $subjectId = $this->request->getPost('subject_id');
-        
-        $user = session()->get('user');
-        if (!in_array($user['role_id'], [1, 3])) {
-            return redirect()->back()->with('error', 'Hanya guru atau admin yang dapat meng-generate Modul.');
-        }
-        
-        if ($user['role_id'] == 3) {
-            $teacher = $this->teacherModel->find($user['related_id']);
-            $apiKey = $teacher['gemini_api_key'];
-            $aiProvider = $teacher['ai_provider'] ?? 'gemini';
-            $targetTeacherId = $user['related_id'];
-        } else {
-            // Admin
-            $userData = $this->db->table('users')->where('id', $user['id'])->get()->getRowArray();
-            $apiKey = $userData['gemini_api_key'];
-            $aiProvider = $userData['ai_provider'] ?? 'gemini';
-            
-            // Resolve Teacher based on subject & class
-            $assignment = $this->db->table('teaching_assignments')
-                ->where('subject_id', $subjectId)
-                ->where('class_id', $this->atpModel->find($atpId)['class_id'])
-                ->get()->getRowArray();
-            
-            if (!$assignment) {
-                return redirect()->back()->with('error', 'Tidak ada guru yang diplot untuk Kelas dan Mapel ini. Modul tidak dapat digenerate karena membutuhkan identitas Guru Pengampu.');
-            }
-            $targetTeacherId = $assignment['teacher_id'];
-        }
+        try {
+            @set_time_limit(180);
 
-        if (empty($apiKey)) {
-            return redirect()->back()->with('error', 'Anda belum mengatur Gemini API Key.');
-        }
+            $atpId = $this->request->getPost('atp_id');
+            $subjectId = $this->request->getPost('subject_id');
+            $postClassId = $this->request->getPost('class_id');
+            
+            $user = session()->get('user');
+            if (!in_array($user['role_id'], [1, 3])) {
+                return redirect()->back()->with('error', 'Hanya guru atau admin yang dapat meng-generate Modul.');
+            }
+            
+            if ($user['role_id'] == 3) {
+                $teacher = $this->teacherModel->find($user['related_id']);
+                $apiKey = $teacher['gemini_api_key'] ?? '';
+                $aiProvider = $teacher['ai_provider'] ?? 'gemini';
+                $targetTeacherId = $user['related_id'];
+            } else {
+                // Admin
+                $userData = $this->db->table('users')->where('id', $user['id'])->get()->getRowArray();
+                $apiKey = $userData['gemini_api_key'] ?? '';
+                $aiProvider = $userData['ai_provider'] ?? 'gemini';
+                
+                // Resolve Teacher based on subject & class
+                $atpRawCheck = $this->atpModel->find($atpId);
+                $resolveClassId = $postClassId ?: ($atpRawCheck['class_id'] ?? null);
+                $assignmentQuery = $this->db->table('teaching_assignments')
+                    ->where('subject_id', $subjectId);
+                if (!empty($resolveClassId)) {
+                    $assignmentQuery->where('class_id', $resolveClassId);
+                }
+                $assignment = $assignmentQuery->get()->getRowArray();
+                
+                if (!$assignment) {
+                    return redirect()->back()->with('error', 'Tidak ada guru yang diplot untuk Kelas dan Mapel ini. Modul tidak dapat digenerate karena membutuhkan identitas Guru Pengampu.');
+                }
+                $targetTeacherId = $assignment['teacher_id'];
+            }
+
+            if (empty($apiKey)) {
+                return redirect()->back()->with('error', 'Anda belum mengatur Gemini API Key.');
+            }
 
         // Load ATP beserta elemen CP dan TP (struktur baru)
         $atpRaw = $this->atpModel->find($atpId);
@@ -2156,8 +2164,14 @@ class AdministrasiGuru extends BaseController
         }
         $content = preg_replace('/```(?:html)?(.*?)```/s', '$1', $content);
 
+        if (empty(trim($content))) {
+            $blockedReason = $resData['candidates'][0]['finishReason'] ?? ($resData['promptFeedback']['blockReason'] ?? 'Unknown');
+            return redirect()->back()->with('error', "AI tidak mengembalikan teks modul ajar (Status: {$blockedReason}). Silakan coba generate ulang atau gunakan provider Groq.");
+        }
+
+        $finalClassId = $postClassId ?: ($atp['class_id'] ?? 0);
         $modulModel = new \App\Models\ModulAjarModel();
-        $existing = $modulModel->where('atp_id', $atpId)->where('class_id', $atp['class_id'])->first();
+        $existing = $modulModel->where('atp_id', $atpId)->where('class_id', $finalClassId)->first();
         if ($existing) {
             if (!empty($existing['file_pdf'])) {
                 $oldPath = FCPATH . 'uploads/modul_ajar/' . $existing['file_pdf'];
@@ -2166,24 +2180,31 @@ class AdministrasiGuru extends BaseController
                 }
             }
             $modulModel->update($existing['id'], [
-                'content'  => trim($content),
-                'tipe'     => 'editor',
-                'file_pdf' => null,
+                'content'    => trim($content),
+                'tipe'       => 'editor',
+                'file_pdf'   => null,
+                'updated_at' => date('Y-m-d H:i:s'),
             ]);
         } else {
             $modulModel->insert([
                 'atp_id'     => $atpId,
                 'subject_id' => $subjectId,
-                'class_id'   => $atp['class_id'],
+                'class_id'   => $finalClassId,
                 'teacher_id' => $targetTeacherId,
                 'content'    => trim($content),
                 'tipe'       => 'editor',
                 'file_pdf'   => null,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
             ]);
         }
 
         return redirect()->back()->with('success', 'Modul Ajar berhasil digenerate.');
+    } catch (\Throwable $e) {
+        log_message('error', 'generateModulAjar error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+        return redirect()->back()->with('error', 'Terjadi kesalahan sistem (500): ' . $e->getMessage());
     }
+}
 
     public function editModulAjar($id, $classId)
     {
@@ -2848,10 +2869,13 @@ class AdministrasiGuru extends BaseController
      */
     public function generateSoalAi()
     {
-        $user = session()->get('user');
-        if (!in_array($user['role_id'], [1, 3])) {
-            return $this->response->setJSON(['success' => false, 'error' => 'Akses ditolak.']);
-        }
+        try {
+            @set_time_limit(180);
+
+            $user = session()->get('user');
+            if (!in_array($user['role_id'], [1, 3])) {
+                return $this->response->setJSON(['success' => false, 'error' => 'Akses ditolak.']);
+            }
 
         // Get AI config
         if ($user['role_id'] == 3) {
@@ -3070,6 +3094,11 @@ class AdministrasiGuru extends BaseController
             $content = $resData['candidates'][0]['content']['parts'][0]['text'] ?? '';
         }
 
+        if (empty(trim($content))) {
+            $finishReason = $resData['candidates'][0]['finishReason'] ?? ($resData['promptFeedback']['blockReason'] ?? 'Empty');
+            return $this->response->setJSON(['success' => false, 'error' => "AI tidak menghasilkan konten soal ({$finishReason}). Coba generate ulang."]);
+        }
+
         $content = preg_replace('/```(?:json)?(.*?)```/s', '$1', $content);
         $content = trim($content);
 
@@ -3083,7 +3112,11 @@ class AdministrasiGuru extends BaseController
             'soal' => $soalList,
             'jumlah' => count($soalList),
         ]);
+    } catch (\Throwable $e) {
+        log_message('error', 'generateSoalAi error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+        return $this->response->setJSON(['success' => false, 'error' => 'Terjadi kesalahan server (500): ' . $e->getMessage()]);
     }
+}
 
     /**
      * Generate prompt soal saja (tanpa panggil API) — user copy ke AI langsung
