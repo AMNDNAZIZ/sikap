@@ -2078,7 +2078,6 @@ class AdministrasiGuru extends BaseController
 
         if ($aiProvider === 'groq') {
             $url = 'https://api.groq.com/openai/v1/chat/completions';
-            $ch = curl_init($url);
             $payload = json_encode([
                 "model" => "openai/gpt-oss-120b",
                 "messages" => [
@@ -2086,30 +2085,49 @@ class AdministrasiGuru extends BaseController
                 ],
                 "temperature" => 0.7
             ]);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            $headers = [
                 'Authorization: Bearer ' . $apiKey,
                 'Content-Type: application/json'
-            ]);
+            ];
         } else {
             $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' . $apiKey;
-            $ch = curl_init($url);
             $payload = json_encode([
                 "contents" => [
                     ["parts" => [["text" => $prompt]]]
                 ]
             ]);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            $headers = ['Content-Type: application/json'];
         }
 
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 120);
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        curl_close($ch);
+        $maxRetries = 3;
+        $attempt = 0;
+        $response = null;
+        $httpCode = 0;
+        $curlError = '';
+
+        while ($attempt < $maxRetries) {
+            $attempt++;
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            // Jika sukses atau bukan transient error (503 overload / 429 rate limit), jangan retry
+            if ($httpCode === 200 || !in_array($httpCode, [503, 429])) {
+                break;
+            }
+
+            if ($attempt < $maxRetries) {
+                sleep(2); // Jeda 2 detik sebelum mencoba lagi
+            }
+        }
 
         if ($httpCode != 200) {
             log_message('error', "Modul Ajar AI ($aiProvider) Failed. HTTP: $httpCode. Curl Error: $curlError. Response: $response");
@@ -2123,6 +2141,9 @@ class AdministrasiGuru extends BaseController
                 }
             } elseif ($curlError) {
                 $errorMsg .= "cURL: $curlError";
+            }
+            if ($httpCode == 503) {
+                $errorMsg .= " (Server $aiProvider sedang padat/antre. Anda juga dapat beralih ke provider Groq di menu API Key yang lebih cepat & stabil).";
             }
             return redirect()->back()->with('error', $errorMsg);
         }
@@ -3006,20 +3027,39 @@ class AdministrasiGuru extends BaseController
             $headers = ['Content-Type: application/json'];
         }
 
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 90);
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        $maxRetries = 3;
+        $attempt = 0;
+        $response = null;
+        $httpCode = 0;
+
+        while ($attempt < $maxRetries) {
+            $attempt++;
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 90);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode === 200 || !in_array($httpCode, [503, 429])) {
+                break;
+            }
+
+            if ($attempt < $maxRetries) {
+                sleep(2);
+            }
+        }
 
         if ($httpCode != 200) {
             $errRes = json_decode($response, true);
             $errMsg = $errRes['error']['message'] ?? 'HTTP ' . $httpCode;
+            if ($httpCode == 503) {
+                $errMsg .= " (Server sedang padat. Coba lagi atau gunakan provider Groq).";
+            }
             return $this->response->setJSON(['success' => false, 'error' => "AI error: {$errMsg}"]);
         }
 

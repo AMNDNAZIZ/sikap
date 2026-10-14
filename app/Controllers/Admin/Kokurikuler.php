@@ -582,7 +582,6 @@ class Kokurikuler extends BaseController
         // Call AI API
         if ($aiProvider === 'groq') {
             $url = 'https://api.groq.com/openai/v1/chat/completions';
-            $ch = curl_init($url);
             $payload = json_encode([
                 "model" => "openai/gpt-oss-120b",
                 "messages" => [
@@ -590,30 +589,49 @@ class Kokurikuler extends BaseController
                 ],
                 "temperature" => 0.7
             ]);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            $headers = [
                 'Authorization: Bearer ' . $apiKey,
                 'Content-Type: application/json'
-            ]);
+            ];
         } else {
             // Gemini
             $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' . $apiKey;
-            $ch = curl_init($url);
             $payload = json_encode([
                 "contents" => [
                     ["parts" => [["text" => $prompt]]]
                 ]
             ]);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            $headers = ['Content-Type: application/json'];
         }
-        
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        curl_close($ch);
+
+        $maxRetries = 3;
+        $attempt = 0;
+        $response = null;
+        $httpCode = 0;
+        $curlError = '';
+
+        while ($attempt < $maxRetries) {
+            $attempt++;
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            if ($httpCode === 200 || !in_array($httpCode, [503, 429])) {
+                break;
+            }
+
+            if ($attempt < $maxRetries) {
+                sleep(2);
+            }
+        }
 
         if ($httpCode != 200) {
             log_message('error', "Kokurikuler AI ($aiProvider) Failed. HTTP: $httpCode. Curl Error: $curlError. Response: $response");
@@ -629,6 +647,9 @@ class Kokurikuler extends BaseController
                 }
             } elseif ($curlError) {
                 $errorMsg .= "cURL: $curlError";
+            }
+            if ($httpCode == 503) {
+                $errorMsg .= " (Server $aiProvider sedang padat/antre. Coba lagi beberapa saat lagi atau gunakan provider Groq).";
             }
             return [
                 'success' => false,
