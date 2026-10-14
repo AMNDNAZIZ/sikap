@@ -35,7 +35,7 @@
                         <label class="form-label font-weight-bold">Pilih Provider AI:</label>
                         <select name="ai_provider" class="form-select mb-2" id="providerSelect">
                             <option value="gemini" <?= $ai_provider == 'gemini' ? 'selected' : '' ?>>Google Gemini (Flash)</option>
-                            <option value="groq" <?= $ai_provider == 'groq' ? 'selected' : '' ?>>Groq (Llama 3.3 - Ultra Fast & Free)</option>
+                            <option value="groq" <?= $ai_provider == 'groq' ? 'selected' : '' ?>>Groq (Llama 3.1 8B - Ultra Fast & High Limit)</option>
                         </select>
                         <div id="geminiInstructions" class="small text-muted p-2 bg-light rounded <?= $ai_provider != 'gemini' ? 'd-none' : '' ?>">
                             <p class="mb-1"><strong>Google Gemini:</strong> Gratis, namun sering terkena limit kuota di wilayah tertentu.</p>
