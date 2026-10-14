@@ -2087,7 +2087,7 @@ class AdministrasiGuru extends BaseController
         if ($aiProvider === 'groq') {
             $url = 'https://api.groq.com/openai/v1/chat/completions';
             $payload = json_encode([
-                "model" => "openai/gpt-oss-120b",
+                "model" => "llama-3.1-8b-instant",
                 "messages" => [
                     ["role" => "user", "content" => $prompt]
                 ],
@@ -3040,7 +3040,7 @@ class AdministrasiGuru extends BaseController
         if ($aiProvider === 'groq') {
             $url = 'https://api.groq.com/openai/v1/chat/completions';
             $payload = json_encode([
-                "model" => "openai/gpt-oss-120b",
+                "model" => "llama-3.1-8b-instant",
                 "messages" => [["role" => "user", "content" => $prompt]],
                 "temperature" => 0.7
             ]);

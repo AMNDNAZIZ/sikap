@@ -2,8 +2,14 @@
 Options -Indexes
 
 # LiteSpeed / Apache Timeout Prevention for long running scripts
+<IfModule Litespeed>
+    RewriteEngine On
+    RewriteRule .* - [E=noabort:1]
+    RewriteRule .* - [E=noconntimeout:1]
+</IfModule>
 <IfModule mod_env.c>
-    SetEnv nogoabrt 1
+    SetEnv noabort 1
+    SetEnv noconntimeout 1
 </IfModule>
 
 # ----------------------------------------------------------------------
