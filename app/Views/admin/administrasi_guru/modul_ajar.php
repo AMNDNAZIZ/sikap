@@ -241,6 +241,7 @@
                                                     <?= csrf_field() ?>
                                                     <input type="hidden" name="atp_id" value="<?= $atp['id'] ?>">
                                                     <input type="hidden" name="subject_id" value="<?= $selected_subject ?>">
+                                                    <input type="hidden" name="class_id" value="<?= $selected_class ?>">
                                                     <button type="submit" class="btn btn-sm btn-primary w-100 generate-btn">
                                                         <i class="bi bi-magic"></i> Generate AI
                                                     </button>
