@@ -1019,6 +1019,13 @@ $('input[name="letter_type"]').on('change', function() {
     $('input[name="jabatan"]').val('');
   }
 
+  // Set default subject if empty or unchanged
+  const currentSubj = $('#subject').val().trim();
+  if (!currentSubj || Object.values(LETTER_TYPES).includes(currentSubj) || currentSubj.startsWith('Surat Keterangan')) {
+    const defaultSubject = LETTER_TYPES[selectedType] || 'Surat Keterangan';
+    $('#subject').val(defaultSubject);
+  }
+
   // Tampilkan field penerima yang sesuai
   updateRecipientSection();
 

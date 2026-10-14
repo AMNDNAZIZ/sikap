@@ -83,7 +83,7 @@ class OutgoingLetterModel extends Model
     }
 
     /**
-     * Get next sequence number (atomic via DB transaction)
+     * Get next sequence number (atomic via DB transaction & collision-free)
      */
     public function getNextSequenceNumber(int $year): int
     {
@@ -98,7 +98,39 @@ class OutgoingLetterModel extends Model
                   ->where('year', $year)
                   ->get()->getRowArray();
 
-        return (int) $row['last_sequence'];
+        $seq = (int) ($row['last_sequence'] ?? 1);
+
+        // Ensure seq is at least MAX(sequence_number) + 1 from outgoing_letters for this year
+        $maxRow = $db->table('outgoing_letters')
+                     ->selectMax('sequence_number')
+                     ->where('YEAR(issued_at)', $year)
+                     ->get()->getRowArray();
+
+        $maxSeq = (int) ($maxRow['sequence_number'] ?? 0);
+        if ($maxSeq >= $seq) {
+            $seq = $maxSeq + 1;
+            $db->table('letter_number_sequences')
+               ->where('year', $year)
+               ->update(['last_sequence' => $seq, 'updated_at' => date('Y-m-d H:i:s')]);
+        }
+
+        // Double check letter_number uniqueness in outgoing_letters
+        $settings = new \App\Models\SettingsModel();
+        $padding  = (int) ($settings->getValue('letter_number_padding') ?? 3);
+
+        while (true) {
+            $letterNo = self::buildLetterNumber($seq, $year, $padding);
+            $exists   = $db->table('outgoing_letters')->where('letter_number', $letterNo)->countAllResults();
+            if ($exists == 0) {
+                break;
+            }
+            $seq++;
+            $db->table('letter_number_sequences')
+               ->where('year', $year)
+               ->update(['last_sequence' => $seq, 'updated_at' => date('Y-m-d H:i:s')]);
+        }
+
+        return $seq;
     }
 
     /**
