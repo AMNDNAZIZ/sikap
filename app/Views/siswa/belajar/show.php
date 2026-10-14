@@ -12,173 +12,462 @@
 
 <!-- Breadcrumb -->
 <nav aria-label="breadcrumb" class="mb-2">
-  <ol class="breadcrumb mb-0" style="font-size:0.8rem;">
-    <li class="breadcrumb-item"><a href="<?= base_url('siswa/belajar') ?>">Proses Belajar</a></li>
-    <li class="breadcrumb-item">
-      <a href="<?= base_url('siswa/belajar/' . $subMat['subject_id']) ?>">
+  <ol class="breadcrumb mb-0 flex-nowrap overflow-hidden text-nowrap" style="font-size:0.75rem;">
+    <li class="breadcrumb-item"><a href="<?= base_url('siswa/belajar') ?>" class="text-decoration-none">Belajar</a></li>
+    <li class="breadcrumb-item text-truncate" style="max-width: 130px;">
+      <a href="<?= base_url('siswa/belajar/' . $subMat['subject_id']) ?>" class="text-decoration-none">
         <?= esc($subject['name'] ?? '') ?>
       </a>
     </li>
-    <li class="breadcrumb-item text-muted"><?= esc($parent['title'] ?? '') ?></li>
-    <li class="breadcrumb-item active text-truncate" style="max-width:180px;">
+    <li class="breadcrumb-item text-muted text-truncate d-none d-sm-inline" style="max-width: 140px;"><?= esc($parent['title'] ?? '') ?></li>
+    <li class="breadcrumb-item active text-truncate" style="max-width:150px;">
       <?= esc($subMat['title']) ?>
     </li>
   </ol>
 </nav>
 
 <!-- Header Sub Materi -->
-<div class="d-flex align-items-center gap-2 mb-3">
-  <a href="<?= base_url('siswa/belajar/' . $subMat['subject_id']) ?>"
-     class="btn btn-sm btn-outline-secondary flex-shrink-0">
-    <i class="bi bi-arrow-left"></i>
-  </a>
-  <div class="flex-grow-1 overflow-hidden">
-    <h5 class="fw-bold mb-0 text-truncate">
-      Pertemuan <?= $currentIdx + 1 ?>: <?= esc($subMat['title']) ?>
-    </h5>
-    <div class="text-muted" style="font-size:0.75rem;">
-      <?= esc($subject['name'] ?? '') ?>
-      &nbsp;&middot;&nbsp;<?= esc($parent['title'] ?? '') ?>
+<div class="card border-0 shadow-sm mb-3 bg-white rounded-3">
+  <div class="card-body p-2.5 p-md-3 d-flex align-items-center gap-2">
+    <a href="<?= base_url('siswa/belajar/' . $subMat['subject_id']) ?>"
+       class="btn btn-sm btn-light border flex-shrink-0 d-flex align-items-center justify-content-center"
+       style="width:36px;height:36px;border-radius:10px;" title="Kembali ke Daftar Materi">
+      <i class="bi bi-arrow-left fs-6"></i>
+    </a>
+    <div class="flex-grow-1 overflow-hidden">
+      <div class="d-flex align-items-center gap-1 mb-0 flex-wrap">
+        <span class="badge bg-primary bg-opacity-10 text-primary py-0 px-1.5 fw-semibold" style="font-size:0.68rem;">
+          Pertemuan <?= $currentIdx + 1 ?>
+        </span>
+        <span class="text-muted text-truncate" style="font-size:0.72rem;">
+          <?= esc($subject['name'] ?? '') ?>
+        </span>
+      </div>
+      <h6 class="fw-bold mb-0 text-truncate text-dark" style="font-size: 0.95rem;">
+        <?= esc($subMat['title']) ?>
+      </h6>
       <?php if ($estMin): ?>
-        &nbsp;&middot;&nbsp;<i class="bi bi-clock"></i> <?= $estMin ?> menit
+        <div class="text-muted" style="font-size:0.7rem;">
+          <i class="bi bi-clock me-1"></i><?= $estMin ?> menit
+        </div>
       <?php endif; ?>
     </div>
+    <?php if ($isCompleted): ?>
+      <span class="badge bg-success flex-shrink-0 py-1.5 px-2" style="font-size:0.72rem;">
+        <i class="bi bi-check2-circle me-1"></i>Selesai
+      </span>
+    <?php endif; ?>
   </div>
-  <?php if ($isCompleted): ?>
-    <span class="badge bg-success flex-shrink-0">
-      <i class="bi bi-check2-circle me-1"></i>Selesai
-    </span>
-  <?php endif; ?>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════════════
-     KONTEN SUB MATERI
-════════════════════════════════════════════════════════════════════════ -->
-<div class="card border-0 shadow-sm mb-4">
-  <div class="card-body p-3 p-md-4">
+<?php
+  $hasSegments        = $hasSegments ?? false;
+  $segments           = $segments ?? [];
+  $segProgressMap     = $segProgressMap ?? [];
+  $activeSegment      = $activeSegment ?? null;
+  $activeIdx          = $activeIdx ?? 0;
+  $completedCount     = $completedCount ?? 0;
+  $segmentProgressPct = $segmentProgressPct ?? 0;
+  $quizUnlocked       = $hasSegments ? ($completedCount >= count($segments) || $isCompleted) : $isCompleted;
+?>
 
-    <?php if ($contentType === 'text'): ?>
-      <div class="material-content">
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SEGMEN PEMBELAJARAN (STEPPER & TRACKING)
+════════════════════════════════════════════════════════════════════════ -->
+<?php if ($hasSegments && !empty($segments)): ?>
+
+  <!-- Progress Bar & Stepper Card -->
+  <div class="card border-0 shadow-sm mb-4 bg-white rounded-3 overflow-hidden">
+    <div class="card-body p-3 p-md-4">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+        <div>
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 mb-1">
+            <i class="bi bi-diagram-3 me-1"></i>Alur Pembelajaran Berurutan
+          </span>
+          <h6 class="fw-bold mb-0">
+            Langkah <?= $activeIdx + 1 ?> dari <?= count($segments) ?>: <?= esc($activeSegment['title'] ?? '') ?>
+          </h6>
+        </div>
+        <div class="text-end">
+          <span class="fw-bold text-success" style="font-size:1.1rem;"><?= $segmentProgressPct ?>%</span>
+          <div class="text-muted" style="font-size:0.75rem;">
+            <?= $completedCount ?> / <?= count($segments) ?> langkah selesai
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress Track -->
+      <div class="progress mb-3" style="height: 8px;">
+        <div class="progress-bar bg-success progress-bar-striped progress-bar-animated"
+             role="progressbar" style="width: <?= $segmentProgressPct ?>%;"
+             aria-valuenow="<?= $segmentProgressPct ?>" aria-valuemin="0" aria-valuemax="100">
+        </div>
+      </div>
+
+      <!-- Stepper Nav (Horizontal scrollable) -->
+      <div class="segment-stepper-wrap">
+        <div class="segment-stepper d-flex align-items-center gap-2 py-1">
+          <?php foreach ($segments as $sIdx => $seg): ?>
+            <?php
+              $sId        = (int)$seg['id'];
+              $isSegDone  = !empty($segProgressMap[$sId]) && ($segProgressMap[$sId]['status'] ?? '') === 'completed';
+              $isSegActive= ($sIdx === $activeIdx);
+              // Unlocked: step 0 or previous step is done
+              $isSegUnlocked = ($sIdx === 0) || (!empty($segments[$sIdx - 1]) && !empty($segProgressMap[$segments[$sIdx - 1]['id']]) && ($segProgressMap[$segments[$sIdx - 1]['id']]['status'] ?? '') === 'completed');
+
+              $typeIcon = match($seg['content_type']) {
+                'video' => 'bi-play-circle-fill',
+                'html'  => 'bi-code-slash',
+                'slide' => 'bi-images',
+                'pdf'   => 'bi-file-earmark-pdf',
+                'link'  => 'bi-link-45deg',
+                default => 'bi-file-earmark-text',
+              };
+            ?>
+
+            <?php if ($isSegUnlocked): ?>
+              <a href="?seg=<?= $sId ?>"
+                 class="segment-pill text-decoration-none d-flex align-items-center gap-2 px-3 py-2 rounded-pill flex-shrink-0 <?= $isSegActive ? 'active' : ($isSegDone ? 'done' : 'unlocked') ?>">
+                <span class="pill-number rounded-circle d-flex align-items-center justify-content-center">
+                  <?php if ($isSegDone): ?>
+                    <i class="bi bi-check-lg text-white"></i>
+                  <?php else: ?>
+                    <?= $sIdx + 1 ?>
+                  <?php endif; ?>
+                </span>
+                <span class="pill-label text-truncate" style="max-width: 140px;">
+                  <i class="bi <?= $typeIcon ?> me-1 opacity-75"></i><?= esc($seg['title']) ?>
+                </span>
+              </a>
+            <?php else: ?>
+              <div class="segment-pill locked d-flex align-items-center gap-2 px-3 py-2 rounded-pill flex-shrink-0"
+                   title="Selesaikan langkah sebelumnya untuk membuka">
+                <span class="pill-number rounded-circle d-flex align-items-center justify-content-center">
+                  <i class="bi bi-lock-fill"></i>
+                </span>
+                <span class="pill-label text-truncate" style="max-width: 140px;">
+                  <?= esc($seg['title']) ?>
+                </span>
+              </div>
+            <?php endif; ?>
+
+            <?php if ($sIdx < count($segments) - 1): ?>
+              <i class="bi bi-chevron-right text-muted flex-shrink-0 opacity-50" style="font-size:0.75rem;"></i>
+            <?php endif; ?>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Konten Segmen Aktif -->
+  <div class="card border-0 shadow-sm mb-4">
+    <!-- Header Segmen Aktif -->
+    <div class="card-header bg-white border-bottom py-3 px-3 px-md-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge rounded-pill <?php
+          echo match($activeSegment['content_type'] ?? 'text') {
+            'video' => 'bg-danger-subtle text-danger border border-danger-subtle',
+            'html'  => 'bg-info-subtle text-info border border-info-subtle',
+            'slide' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle',
+            'pdf'   => 'bg-danger-subtle text-danger border border-danger-subtle',
+            'link'  => 'bg-primary-subtle text-primary border border-primary-subtle',
+            default => 'bg-primary-subtle text-primary border border-primary-subtle',
+          };
+        ?> px-3 py-1">
+          <i class="bi <?php
+            echo match($activeSegment['content_type'] ?? 'text') {
+              'video' => 'bi-camera-video me-1',
+              'html'  => 'bi-code-slash me-1',
+              'slide' => 'bi-images me-1',
+              'pdf'   => 'bi-file-earmark-pdf me-1',
+              'link'  => 'bi-link-45deg me-1',
+              default => 'bi-file-text me-1',
+            };
+          ?>"></i>
+          <?php
+            echo match($activeSegment['content_type'] ?? 'text') {
+              'video' => 'Video Pembelajaran',
+              'html'  => 'HTML Interaktif / Praktik',
+              'slide' => 'Slide Gambar',
+              'pdf'   => 'Dokumen PDF',
+              'link'  => 'Tautan Eksternal',
+              default => 'Teks & Penjelasan',
+            };
+          ?>
+        </span>
+        <h5 class="fw-bold mb-0 text-dark"><?= esc($activeSegment['title'] ?? '') ?></h5>
+      </div>
+      <?php if (!empty($activeSegment['estimated_minutes'])): ?>
+        <span class="text-muted small">
+          <i class="bi bi-clock me-1"></i>Estimasi: <?= $activeSegment['estimated_minutes'] ?> menit
+        </span>
+      <?php endif; ?>
+    </div>
+
+    <!-- Body Konten Segmen Aktif -->
+    <div class="card-body p-3 p-md-4">
+      <?php $segType = $activeSegment['content_type'] ?? 'text'; ?>
+
+      <?php if ($segType === 'text'): ?>
+        <div class="material-content">
+          <?php if (!empty($activeSegment['content'])): ?>
+            <?= $activeSegment['content'] ?>
+          <?php else: ?>
+            <p class="text-muted fst-italic">Konten teks belum tersedia.</p>
+          <?php endif; ?>
+        </div>
+
+      <?php elseif ($segType === 'video'): ?>
+        <?php
+          $embedUrl = $activeSegment['embed_url'] ?? '';
+          $canEmbed = $embedUrl && (strpos($embedUrl, '/embed/') !== false || strpos($embedUrl, 'player.vimeo.com') !== false);
+        ?>
+        <?php if ($canEmbed): ?>
+          <div class="ratio ratio-16x9 mb-3">
+            <iframe src="<?= esc($embedUrl) ?>"
+                    title="<?= esc($activeSegment['title']) ?>" allowfullscreen class="rounded border"
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share">
+            </iframe>
+          </div>
+          <?php if (!empty($activeSegment['video_url'])): ?>
+            <div class="text-center small text-muted mb-2">
+              Video tidak dapat diputar?
+              <a href="<?= esc($activeSegment['video_url']) ?>" target="_blank" rel="noopener noreferrer" class="fw-semibold">
+                Tonton langsung di YouTube &rarr;
+              </a>
+            </div>
+          <?php endif; ?>
+        <?php elseif (!empty($activeSegment['video_url'])): ?>
+          <div class="alert alert-warning border-0 small">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Video tidak dapat diputar langsung di halaman ini.
+            <a href="<?= esc($activeSegment['video_url']) ?>" target="_blank" rel="noopener noreferrer" class="fw-semibold">
+              Buka video di tab baru &rarr;
+            </a>
+          </div>
+        <?php else: ?>
+          <p class="text-muted fst-italic">URL video belum diisi.</p>
+        <?php endif; ?>
+
+      <?php elseif ($segType === 'html'): ?>
+        <?php if (!empty($activeSegment['content_html'])): ?>
+          <?= view('admin/materials/_html_frame', ['html' => $activeSegment['content_html']]) ?>
+        <?php else: ?>
+          <p class="text-muted fst-italic">Konten interaktif belum tersedia.</p>
+        <?php endif; ?>
+
+      <?php elseif ($segType === 'slide'): ?>
+        <?php if (!empty($activeSegment['slides'])): ?>
+          <?= view('admin/materials/_slide_show', ['slides' => $activeSegment['slides'], 'canComplete' => false]) ?>
+        <?php else: ?>
+          <p class="text-muted fst-italic">Belum ada slide gambar yang diunggah.</p>
+        <?php endif; ?>
+
+      <?php elseif ($segType === 'pdf'): ?>
+        <?php if (!empty($activeSegment['file_path'])): ?>
+          <div class="ratio mb-3" style="--bs-aspect-ratio: 75%; min-height: 480px;">
+            <iframe src="<?= base_url('siswa/belajar/sub/' . $subMat['id'] . '/segment/' . $activeSegment['id'] . '/file') ?>"
+                    class="rounded border" title="<?= esc($activeSegment['title']) ?>"></iframe>
+          </div>
+          <div class="text-center">
+            <a href="<?= base_url('siswa/belajar/sub/' . $subMat['id'] . '/segment/' . $activeSegment['id'] . '/file') ?>"
+               target="_blank" class="btn btn-sm btn-outline-danger">
+              <i class="bi bi-file-earmark-pdf me-1"></i>Buka PDF di Tab Baru
+            </a>
+          </div>
+        <?php else: ?>
+          <p class="text-muted fst-italic">File PDF belum tersedia.</p>
+        <?php endif; ?>
+
+      <?php elseif ($segType === 'link'): ?>
+        <div class="text-center py-4">
+          <i class="bi bi-link-45deg text-primary" style="font-size:3.5rem;"></i>
+          <h6 class="mt-2 mb-1 fw-bold"><?= esc($activeSegment['title']) ?></h6>
+          <p class="text-muted small mb-3">Klik tombol di bawah untuk membuka referensi belajar eksternal.</p>
+          <a href="<?= esc($activeSegment['external_link']) ?>" target="_blank" rel="noopener noreferrer"
+             class="btn btn-primary px-4" id="btnOpenSegmentLink">
+            <i class="bi bi-box-arrow-up-right me-2"></i>Buka Materi Tautan
+          </a>
+        </div>
+      <?php endif; ?>
+    </div>
+
+    <!-- Footer Tindakan Segmen: Selesai / Navigasi -->
+    <div class="card-footer bg-light-subtle border-top p-2.5 p-md-3">
+      <?php
+        $isCurrentSegDone = !empty($segProgressMap[$activeSegment['id']]) && ($segProgressMap[$activeSegment['id']]['status'] ?? '') === 'completed';
+        $hasNextSeg       = isset($segments[$activeIdx + 1]);
+        $hasPrevSeg       = isset($segments[$activeIdx - 1]);
+      ?>
+
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+          <?php if ($hasPrevSeg): ?>
+            <a href="?seg=<?= $segments[$activeIdx - 1]['id'] ?>" class="btn btn-outline-secondary btn-sm py-1.5 px-2.5">
+              <i class="bi bi-chevron-left me-1"></i>Langkah <?= $activeIdx ?>
+            </a>
+          <?php endif; ?>
+        </div>
+
+        <div class="d-flex align-items-center gap-2 flex-grow-1 flex-sm-grow-0 justify-content-end">
+          <?php if ($isCurrentSegDone): ?>
+            <span class="badge bg-success-subtle text-success border border-success-subtle py-1.5 px-2.5 d-none d-sm-inline" style="font-size:0.75rem;">
+              <i class="bi bi-check2-circle me-1"></i>Langkah Selesai
+            </span>
+            <?php if ($hasNextSeg): ?>
+              <a href="?seg=<?= $segments[$activeIdx + 1]['id'] ?>" class="btn btn-primary btn-sm py-1.5 px-3 flex-grow-1 flex-sm-grow-0">
+                Lanjut ke Langkah <?= $activeIdx + 2 ?> <i class="bi bi-chevron-right ms-1"></i>
+              </a>
+            <?php else: ?>
+              <a href="#kuis" class="btn btn-success btn-sm py-1.5 px-3 flex-grow-1 flex-sm-grow-0">
+                <i class="bi bi-award me-1"></i>Kuis Pertemuan
+              </a>
+            <?php endif; ?>
+          <?php else: ?>
+            <button type="button" class="btn btn-success btn-sm fw-semibold py-2 px-3 flex-grow-1 flex-sm-grow-0 w-100 w-sm-auto shadow-sm" id="btnMarkSegmentComplete"
+                    data-segment-id="<?= $activeSegment['id'] ?>">
+              <i class="bi bi-check2-circle me-1"></i>Selesaikan Langkah Ini <?= $hasNextSeg ? '& Lanjut' : '' ?>
+            </button>
+          <?php endif; ?>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<?php else: ?>
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       KONTEN SUB MATERI TUNGGAL (BACKWARD COMPATIBILITY)
+  ════════════════════════════════════════════════════════════════════════ -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-3 p-md-4">
+
+      <?php if ($contentType === 'text'): ?>
+        <div class="material-content">
+          <?php if (!empty($subMat['content'])): ?>
+            <?= $subMat['content'] ?>
+          <?php elseif (!empty($subMat['description'])): ?>
+            <p class="text-muted"><?= nl2br(esc($subMat['description'])) ?></p>
+          <?php else: ?>
+            <p class="text-muted fst-italic">Konten belum tersedia.</p>
+          <?php endif; ?>
+        </div>
+
+      <?php elseif ($contentType === 'html'): ?>
+        <!-- ── Halaman HTML Interaktif (iframe sandbox, terisolasi) ── -->
         <?php if (!empty($subMat['content'])): ?>
-          <?= $subMat['content'] ?>
-        <?php elseif (!empty($subMat['description'])): ?>
-          <p class="text-muted"><?= nl2br(esc($subMat['description'])) ?></p>
+          <?= view('admin/materials/_html_frame', ['html' => $subMat['content']]) ?>
         <?php else: ?>
           <p class="text-muted fst-italic">Konten belum tersedia.</p>
         <?php endif; ?>
-      </div>
 
-    <?php elseif ($contentType === 'html'): ?>
-      <!-- ── Halaman HTML Interaktif (iframe sandbox, terisolasi) ── -->
-      <?php if (!empty($subMat['content'])): ?>
-        <?= view('admin/materials/_html_frame', ['html' => $subMat['content']]) ?>
-      <?php else: ?>
-        <p class="text-muted fst-italic">Konten belum tersedia.</p>
-      <?php endif; ?>
-
-    <?php elseif ($contentType === 'slide'): ?>
-      <!-- ── Slide Gambar (slideshow) ── -->
-      <?= view('admin/materials/_slide_show', ['slides' => $slides ?? [], 'canComplete' => true, 'subMat' => $subMat]) ?>
-      <div id="ssCompleteInfo" class="alert alert-success py-2 small mt-2 mb-0 <?= (($progress['status'] ?? '') === 'completed') ? '' : 'd-none' ?>">
-        <i class="bi bi-check2-circle me-1"></i>Materi ditandai selesai setelah Anda melihat seluruh slide.
-      </div>
-
-    <?php elseif ($contentType === 'pdf'): ?>
-      <?php if (!empty($subMat['file_path'])): ?>
-        <div class="ratio mb-3" style="--bs-aspect-ratio: 75%; min-height: 420px;">
-          <iframe src="<?= base_url('siswa/belajar/sub/' . $subMat['id'] . '/file') ?>"
-                  class="rounded border" title="<?= esc($subMat['title']) ?>"></iframe>
+      <?php elseif ($contentType === 'slide'): ?>
+        <!-- ── Slide Gambar (slideshow) ── -->
+        <?= view('admin/materials/_slide_show', ['slides' => $slides ?? [], 'canComplete' => true, 'subMat' => $subMat]) ?>
+        <div id="ssCompleteInfo" class="alert alert-success py-2 small mt-2 mb-0 <?= (($progress['status'] ?? '') === 'completed') ? '' : 'd-none' ?>">
+          <i class="bi bi-check2-circle me-1"></i>Materi ditandai selesai setelah Anda melihat seluruh slide.
         </div>
-        <div class="text-center">
-          <a href="<?= base_url('siswa/belajar/sub/' . $subMat['id'] . '/file') ?>"
-             target="_blank" class="btn btn-sm btn-outline-danger">
-            <i class="bi bi-file-earmark-pdf me-1"></i>Buka di Tab Baru
-          </a>
-        </div>
-      <?php else: ?>
-        <p class="text-muted fst-italic">File PDF belum tersedia.</p>
-      <?php endif; ?>
 
-    <?php elseif ($contentType === 'video'): ?>
-      <?php
-        $embedUrl = $subMat['embed_url'] ?? '';
-        $canEmbed = $embedUrl && (strpos($embedUrl, '/embed/') !== false
-                    || strpos($embedUrl, 'player.vimeo.com') !== false);
-      ?>
-      <?php if ($canEmbed): ?>
-        <div class="ratio ratio-16x9 mb-3">
-          <iframe src="<?= esc($embedUrl) ?>"
-                  title="<?= esc($subMat['title']) ?>" allowfullscreen class="rounded border"
-                  referrerpolicy="strict-origin-when-cross-origin"
-                  loading="lazy"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share">
-          </iframe>
-        </div>
-        <?php if (!empty($subMat['video_url'])): ?>
-          <div class="text-center small text-muted mb-2">
-            Video tidak tampil?
-            <a href="<?= esc($subMat['video_url']) ?>" target="_blank" rel="noopener noreferrer" class="fw-semibold">
-              Tonton langsung di YouTube &rarr;
+      <?php elseif ($contentType === 'pdf'): ?>
+        <?php if (!empty($subMat['file_path'])): ?>
+          <div class="ratio mb-3" style="--bs-aspect-ratio: 75%; min-height: 420px;">
+            <iframe src="<?= base_url('siswa/belajar/sub/' . $subMat['id'] . '/file') ?>"
+                    class="rounded border" title="<?= esc($subMat['title']) ?>"></iframe>
+          </div>
+          <div class="text-center">
+            <a href="<?= base_url('siswa/belajar/sub/' . $subMat['id'] . '/file') ?>"
+               target="_blank" class="btn btn-sm btn-outline-danger">
+              <i class="bi bi-file-earmark-pdf me-1"></i>Buka di Tab Baru
             </a>
           </div>
+        <?php else: ?>
+          <p class="text-muted fst-italic">File PDF belum tersedia.</p>
         <?php endif; ?>
-      <?php elseif (!empty($subMat['video_url'])): ?>
-        <div class="alert alert-warning border-0 small">
-          <i class="bi bi-exclamation-triangle me-1"></i>
-          Video tidak dapat diputar langsung.
-          <a href="<?= esc($subMat['video_url']) ?>" target="_blank" rel="noopener noreferrer" class="fw-semibold">
-            Buka video di tab baru &rarr;
+
+      <?php elseif ($contentType === 'video'): ?>
+        <?php
+          $embedUrl = $subMat['embed_url'] ?? '';
+          $canEmbed = $embedUrl && (strpos($embedUrl, '/embed/') !== false
+                      || strpos($embedUrl, 'player.vimeo.com') !== false);
+        ?>
+        <?php if ($canEmbed): ?>
+          <div class="ratio ratio-16x9 mb-3">
+            <iframe src="<?= esc($embedUrl) ?>"
+                    title="<?= esc($subMat['title']) ?>" allowfullscreen class="rounded border"
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share">
+            </iframe>
+          </div>
+          <?php if (!empty($subMat['video_url'])): ?>
+            <div class="text-center small text-muted mb-2">
+              Video tidak tampil?
+              <a href="<?= esc($subMat['video_url']) ?>" target="_blank" rel="noopener noreferrer" class="fw-semibold">
+                Tonton langsung di YouTube &rarr;
+              </a>
+            </div>
+          <?php endif; ?>
+        <?php elseif (!empty($subMat['video_url'])): ?>
+          <div class="alert alert-warning border-0 small">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Video tidak dapat diputar langsung.
+            <a href="<?= esc($subMat['video_url']) ?>" target="_blank" rel="noopener noreferrer" class="fw-semibold">
+              Buka video di tab baru &rarr;
+            </a>
+          </div>
+        <?php else: ?>
+          <p class="text-muted fst-italic">URL video belum diisi.</p>
+        <?php endif; ?>
+        <?php if (!empty($subMat['description'])): ?>
+          <div class="text-muted small mt-2"><?= nl2br(esc($subMat['description'])) ?></div>
+        <?php endif; ?>
+
+      <?php elseif ($contentType === 'link'): ?>
+        <div class="text-center py-4">
+          <i class="bi bi-link-45deg text-primary" style="font-size:3rem;"></i>
+          <p class="mt-2 mb-1 fw-semibold"><?= esc($subMat['title']) ?></p>
+          <?php if (!empty($subMat['description'])): ?>
+            <p class="text-muted small mb-3"><?= nl2br(esc($subMat['description'])) ?></p>
+          <?php endif; ?>
+          <a href="<?= esc($subMat['external_link']) ?>" target="_blank" rel="noopener noreferrer"
+             class="btn btn-primary" id="btnOpenLink">
+            <i class="bi bi-box-arrow-up-right me-2"></i>Buka Materi
           </a>
         </div>
-      <?php else: ?>
-        <p class="text-muted fst-italic">URL video belum diisi.</p>
-      <?php endif; ?>
-      <?php if (!empty($subMat['description'])): ?>
-        <div class="text-muted small mt-2"><?= nl2br(esc($subMat['description'])) ?></div>
       <?php endif; ?>
 
-    <?php elseif ($contentType === 'link'): ?>
-      <div class="text-center py-4">
-        <i class="bi bi-link-45deg text-primary" style="font-size:3rem;"></i>
-        <p class="mt-2 mb-1 fw-semibold"><?= esc($subMat['title']) ?></p>
-        <?php if (!empty($subMat['description'])): ?>
-          <p class="text-muted small mb-3"><?= nl2br(esc($subMat['description'])) ?></p>
-        <?php endif; ?>
-        <a href="<?= esc($subMat['external_link']) ?>" target="_blank" rel="noopener noreferrer"
-           class="btn btn-primary" id="btnOpenLink">
-          <i class="bi bi-box-arrow-up-right me-2"></i>Buka Materi
-        </a>
-      </div>
-    <?php endif; ?>
-
-  </div>
-</div>
-
-<!-- ── Tombol Tandai Selesai ─────────────────────────────────────────── -->
-<?php if (!$isCompleted): ?>
-<div class="card border-0 shadow-sm mb-4 bg-light-subtle">
-  <div class="card-body py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-    <div>
-      <div class="fw-semibold small">Sudah selesai membaca?</div>
-      <div class="text-muted" style="font-size:0.78rem;">
-        Tandai selesai sebelum lanjut ke sub materi berikutnya.
-      </div>
     </div>
-    <button class="btn btn-success" id="btnMarkComplete">
-      <i class="bi bi-check2-circle me-1"></i>Tandai Selesai
-    </button>
   </div>
-</div>
-<?php else: ?>
-<div class="alert alert-success border-0 d-flex align-items-center gap-2 mb-4 py-2">
-  <i class="bi bi-check-circle-fill fs-5"></i>
-  <div>
-    <strong>Selesai!</strong>
-    <?php if (!empty($progress['completed_at'])): ?>
-      Ditandai selesai pada <?= date('d M Y H:i', strtotime($progress['completed_at'])) ?>.
-    <?php endif; ?>
+
+  <!-- ── Tombol Tandai Selesai (Sub Materi Tunggal) ─────────────────────── -->
+  <?php if (!$isCompleted): ?>
+  <div class="card border-0 shadow-sm mb-4 bg-light-subtle">
+    <div class="card-body py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div>
+        <div class="fw-semibold small">Sudah selesai membaca?</div>
+        <div class="text-muted" style="font-size:0.78rem;">
+          Tandai selesai sebelum lanjut ke sub materi berikutnya.
+        </div>
+      </div>
+      <button class="btn btn-success" id="btnMarkComplete">
+        <i class="bi bi-check2-circle me-1"></i>Tandai Selesai
+      </button>
+    </div>
   </div>
-</div>
+  <?php else: ?>
+  <div class="alert alert-success border-0 d-flex align-items-center gap-2 mb-4 py-2">
+    <i class="bi bi-check-circle-fill fs-5"></i>
+    <div>
+      <strong>Selesai!</strong>
+      <?php if (!empty($progress['completed_at'])): ?>
+        Ditandai selesai pada <?= date('d M Y H:i', strtotime($progress['completed_at'])) ?>.
+      <?php endif; ?>
+    </div>
+  </div>
+  <?php endif; ?>
+
 <?php endif; ?>
 
 <!-- ═══════════════════════════════════════════════════════════════════════
@@ -191,8 +480,8 @@
     <span class="badge bg-success" style="font-size:0.65rem;"><?= count($quizzes) ?></span>
   </h6>
 
-  <?php if (!$isCompleted): ?>
-  <!-- Kuis terkunci sampai sub materi diselesaikan -->
+  <?php if (!$quizUnlocked): ?>
+  <!-- Kuis terkunci sampai sub materi / semua segmen diselesaikan -->
   <div class="card border-0 border-start border-4 border-warning shadow-sm">
     <div class="card-body d-flex align-items-center gap-3 py-3">
       <div class="rounded-circle bg-warning bg-opacity-15 d-flex align-items-center justify-content-center flex-shrink-0"
@@ -205,15 +494,15 @@
           untuk pertemuan ini
         </div>
         <div class="text-muted" style="font-size:0.78rem;">
-          Selesaikan membaca materi ini terlebih dahulu, lalu tandai selesai untuk membuka kuis.
+          <?= $hasSegments ? 'Selesaikan seluruh segmen pembelajaran di atas untuk membuka kuis ini.' : 'Selesaikan membaca materi ini terlebih dahulu, lalu tandai selesai untuk membuka kuis.' ?>
         </div>
       </div>
     </div>
   </div>
 
   <?php else: ?>
-  <!-- Sub materi sudah selesai — tampilkan kuis -->
-  <div class="d-flex flex-column gap-3">
+  <!-- Sub materi / semua segmen sudah selesai — tampilkan kuis -->
+  <div class="d-flex flex-column gap-2 mb-3">
     <?php foreach ($quizzes as $q): ?>
       <?php
         $done      = $q['attempts_done'];
@@ -225,55 +514,57 @@
         $totalSoal = ((int)$q['show_pg_count']) + ((int)$q['show_pgk_count'])
                    + ((int)$q['show_bs_count']) + ((int)$q['show_esai_count']);
       ?>
-      <div class="card border-0 shadow-sm">
-        <div class="card-body d-flex align-items-start gap-3 flex-wrap">
-          <div class="rounded-circle bg-success bg-opacity-10 d-flex align-items-center
-                       justify-content-center flex-shrink-0"
-               style="width:44px; height:44px;">
-            <i class="bi bi-pencil-square text-success fs-5"></i>
-          </div>
-          <div class="flex-grow-1 overflow-hidden">
-            <div class="fw-semibold"><?= esc($q['title']) ?></div>
-            <?php if (!empty($q['description'])): ?>
-              <div class="text-muted small"><?= esc($q['description']) ?></div>
-            <?php endif; ?>
-            <div class="d-flex flex-wrap gap-3 mt-1" style="font-size:0.73rem; color:#6c757d;">
-              <span><i class="bi bi-question-circle me-1"></i><?= $totalSoal ?> soal</span>
-              <?php if ($q['duration'] > 0): ?>
-                <span><i class="bi bi-clock me-1"></i><?= $q['duration'] ?> menit</span>
-              <?php endif; ?>
-              <?php if ($done > 0): ?>
-                <span><i class="bi bi-arrow-repeat me-1"></i>Dikerjakan <?= $done ?>x</span>
-              <?php endif; ?>
+      <div class="card border-0 shadow-sm rounded-3">
+        <div class="card-body p-2.5 p-md-3">
+          <div class="d-flex align-items-start gap-2.5">
+            <div class="rounded-circle bg-success bg-opacity-10 d-flex align-items-center justify-content-center flex-shrink-0"
+                 style="width:38px; height:38px;">
+              <i class="bi bi-pencil-square text-success fs-6"></i>
             </div>
-          </div>
-          <div class="d-flex align-items-center gap-3 flex-shrink-0">
+            <div class="flex-grow-1 overflow-hidden">
+              <div class="fw-bold text-dark text-truncate" style="font-size:0.9rem;"><?= esc($q['title']) ?></div>
+              <?php if (!empty($q['description'])): ?>
+                <div class="text-muted small mb-1 text-truncate" style="font-size:0.75rem;"><?= esc($q['description']) ?></div>
+              <?php endif; ?>
+              <div class="d-flex flex-wrap gap-2 text-muted" style="font-size:0.72rem;">
+                <span><i class="bi bi-question-circle me-1"></i><?= $totalSoal ?> soal</span>
+                <?php if ($q['duration'] > 0): ?>
+                  <span><i class="bi bi-clock me-1"></i><?= $q['duration'] ?> mnt</span>
+                <?php endif; ?>
+                <?php if ($done > 0): ?>
+                  <span><i class="bi bi-arrow-repeat me-1"></i><?= $done ?>x coba</span>
+                <?php endif; ?>
+              </div>
+            </div>
             <?php if ($best !== null): ?>
-              <div class="text-center">
-                <div class="fw-bold text-<?= $scoreColor ?>" style="font-size:1.3rem; line-height:1.1;">
+              <div class="text-end flex-shrink-0 ps-2">
+                <div class="fw-bold text-<?= $scoreColor ?>" style="font-size:1.15rem; line-height:1.1;">
                   <?= number_format($best, 1) ?>
                 </div>
-                <div class="text-muted" style="font-size:0.68rem;">nilai terbaik</div>
+                <div class="text-muted" style="font-size:0.65rem;">skor</div>
               </div>
             <?php endif; ?>
+          </div>
+
+          <div class="mt-2 pt-2 border-top d-flex justify-content-end">
             <?php if ($hasActive): ?>
-              <form method="post" action="<?= base_url('siswa/quiz/' . $q['id'] . '/mulai') ?>">
+              <form method="post" action="<?= base_url('siswa/quiz/' . $q['id'] . '/mulai') ?>" class="w-100 w-sm-auto text-end">
                 <?= csrf_field() ?>
-                <button type="submit" class="btn btn-primary btn-sm">
-                  <i class="bi bi-play-circle me-1"></i>Lanjutkan
+                <button type="submit" class="btn btn-primary btn-sm w-100 w-sm-auto">
+                  <i class="bi bi-play-circle me-1"></i>Lanjutkan Kuis
                 </button>
               </form>
             <?php elseif ($canRetry): ?>
-              <form method="post" action="<?= base_url('siswa/quiz/' . $q['id'] . '/mulai') ?>">
+              <form method="post" action="<?= base_url('siswa/quiz/' . $q['id'] . '/mulai') ?>" class="w-100 w-sm-auto text-end">
                 <?= csrf_field() ?>
                 <button type="submit"
-                        class="btn <?= $done > 0 ? 'btn-outline-primary' : 'btn-primary' ?> btn-sm">
+                        class="btn <?= $done > 0 ? 'btn-outline-primary' : 'btn-primary' ?> btn-sm w-100 w-sm-auto">
                   <i class="bi bi-<?= $done > 0 ? 'arrow-repeat' : 'play-circle' ?> me-1"></i>
-                  <?= $done > 0 ? 'Kerjakan Ulang' : 'Kerjakan Kuis' ?>
+                  <?= $done > 0 ? 'Kerjakan Ulang' : 'Mulai Kerjakan' ?>
                 </button>
               </form>
             <?php else: ?>
-              <span class="badge bg-secondary">Batas Habis</span>
+              <span class="badge bg-secondary py-1 px-2.5">Batas Habis</span>
             <?php endif; ?>
           </div>
         </div>
@@ -360,33 +651,41 @@
 <?php endif; ?>
 
 <!-- ── Navigasi Sub Materi ───────────────────────────────────────────── -->
-<div class="d-flex justify-content-between gap-3 mb-5">
-  <?php if ($prevSub): ?>
-    <a href="<?= base_url('siswa/belajar/sub/' . $prevSub['id']) ?>"
-       class="btn btn-outline-secondary btn-sm flex-grow-1 text-start">
-      <i class="bi bi-chevron-left me-1"></i>
-      <span class="fw-semibold text-truncate d-inline-block" style="max-width:180px; vertical-align:middle;">
-        Pertemuan <?= $currentIdx ?>: <?= esc($prevSub['title']) ?>
-      </span>
-    </a>
-  <?php else: ?>
-    <div class="flex-grow-1"></div>
-  <?php endif; ?>
-
-  <?php if ($nextSub): ?>
-    <a href="<?= base_url('siswa/belajar/sub/' . $nextSub['id']) ?>"
-       class="btn btn-outline-primary btn-sm flex-grow-1 text-end">
-      <span class="fw-semibold text-truncate d-inline-block" style="max-width:180px; vertical-align:middle;">
-        Pertemuan <?= $currentIdx + 2 ?>: <?= esc($nextSub['title']) ?>
-      </span>
-      <i class="bi bi-chevron-right ms-1"></i>
-    </a>
-  <?php else: ?>
-    <a href="<?= base_url('siswa/belajar/' . $subMat['subject_id']) ?>"
-       class="btn btn-success btn-sm flex-grow-1 text-center">
-      <i class="bi bi-check2-all me-1"></i>Kembali ke Daftar Materi
-    </a>
-  <?php endif; ?>
+<div class="row g-2 mb-4">
+  <div class="col-6">
+    <?php if ($prevSub): ?>
+      <a href="<?= base_url('siswa/belajar/sub/' . $prevSub['id']) ?>"
+         class="btn btn-outline-secondary btn-sm w-100 text-start py-2 px-2.5 d-flex align-items-center gap-1.5 h-100 rounded-3">
+        <i class="bi bi-chevron-left flex-shrink-0"></i>
+        <div class="overflow-hidden">
+          <div class="text-muted" style="font-size:0.65rem;">Sebelumnya</div>
+          <div class="fw-semibold text-truncate" style="font-size:0.78rem;">
+            P-<?= $currentIdx ?>: <?= esc($prevSub['title']) ?>
+          </div>
+        </div>
+      </a>
+    <?php endif; ?>
+  </div>
+  <div class="col-6">
+    <?php if ($nextSub): ?>
+      <a href="<?= base_url('siswa/belajar/sub/' . $nextSub['id']) ?>"
+         class="btn btn-outline-primary btn-sm w-100 text-end py-2 px-2.5 d-flex align-items-center justify-content-end gap-1.5 h-100 rounded-3">
+        <div class="overflow-hidden text-end">
+          <div class="text-primary-emphasis opacity-75" style="font-size:0.65rem;">Berikutnya</div>
+          <div class="fw-semibold text-truncate" style="font-size:0.78rem;">
+            P-<?= $currentIdx + 2 ?>: <?= esc($nextSub['title']) ?>
+          </div>
+        </div>
+        <i class="bi bi-chevron-right flex-shrink-0"></i>
+      </a>
+    <?php else: ?>
+      <a href="<?= base_url('siswa/belajar/' . $subMat['subject_id']) ?>"
+         class="btn btn-success btn-sm w-100 text-center py-2 px-2 d-flex align-items-center justify-content-center gap-1 h-100 rounded-3" style="font-size:0.78rem;">
+        <i class="bi bi-check2-all"></i>
+        <span>Daftar Materi</span>
+      </a>
+    <?php endif; ?>
+  </div>
 </div>
 
 <?= $this->endSection() ?>
@@ -457,12 +756,12 @@ function renderReplyItem(array $r, int $userId, int $threadId, string $csrfName,
 }
 ?>
 <style>
-.material-content { font-size:0.9rem; line-height:1.7; }
+.material-content { font-size:0.92rem; line-height:1.7; color: #1e293b; }
 .material-content h1,.material-content h2,.material-content h3 { margin-top:1.25rem; font-weight:600; }
 .material-content p { margin-bottom:.75rem; }
-.material-content ul,.material-content ol { padding-left:1.5rem; margin-bottom:.75rem; }
-.material-content blockquote { border-left:4px solid #0d6efd; padding:.5rem 1rem; background:#f8f9ff; }
-.material-content img { max-width:100%; height:auto; border-radius:4px; display:block; }
+.material-content ul,.material-content ol { padding-left:1.35rem; margin-bottom:.75rem; }
+.material-content blockquote { border-left:4px solid #0d6efd; padding:.5rem 1rem; background:#f8f9ff; border-radius: 0 8px 8px 0; }
+.material-content img { max-width:100%; height:auto; border-radius:8px; display:block; }
 .material-content figure.image { margin:1rem auto; text-align:center; }
 .material-content figure.image img { margin:0 auto; max-width:100%; height:auto; }
 .material-content figure.image.image_resized { display:block; }
@@ -476,6 +775,135 @@ function renderReplyItem(array $r, int $userId, int $threadId, string $csrfName,
 .material-content table th { background:#f8f9fa; font-weight:600; }
 #mainReplyBox { transition: background-color 0.2s; }
 #mainReplyBox.replying { background-color: #f0f7ff; }
+
+/* Segment Stepper Styles */
+.segment-stepper-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.segment-stepper-wrap::-webkit-scrollbar {
+  display: none;
+}
+.segment-stepper {
+  display: flex;
+  white-space: nowrap;
+}
+.segment-pill {
+  border: 1px solid #dee2e6;
+  background: #f8f9fa;
+  color: #495057;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+  padding: 0.35rem 0.65rem;
+}
+.segment-pill:hover {
+  background: #e9ecef;
+  color: #212529;
+}
+.segment-pill .pill-number {
+  width: 22px;
+  height: 22px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #dee2e6;
+  color: #495057;
+}
+.segment-pill.active {
+  border-color: #0d6efd;
+  background: #e7f1ff;
+  color: #0d6efd;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.2);
+}
+.segment-pill.active .pill-number {
+  background: #0d6efd;
+  color: #fff;
+}
+.segment-pill.done {
+  border-color: #198754;
+  background: #e8f5e9;
+  color: #198754;
+}
+.segment-pill.done .pill-number {
+  background: #198754;
+  color: #fff;
+}
+.segment-pill.locked {
+  background: #f1f3f5;
+  color: #adb5bd;
+  border-color: #e9ecef;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.segment-pill.locked .pill-number {
+  background: #e9ecef;
+  color: #adb5bd;
+}
+
+/* ==========================================================================
+   MOBILE SCREEN ADJUSTMENTS (< 768px)
+   ========================================================================== */
+@media (max-width: 767.98px) {
+  /* Hilangkan float gambar pada HP agar teks tidak terjepit */
+  .material-content figure.image,
+  .material-content figure.image.image-style-side,
+  .material-content figure.image.image-style-align-left,
+  .material-content figure.image.image-style-align-right {
+    float: none !important;
+    margin: 0.75rem auto !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    display: block !important;
+    text-align: center;
+  }
+  .material-content figure.image img {
+    width: 100% !important;
+    height: auto !important;
+    border-radius: 8px;
+  }
+  .material-content figure.image.image-style-side {
+    max-width: 100% !important;
+  }
+  .material-content table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 0.78rem;
+  }
+  .material-content h1 { font-size: 1.18rem; }
+  .material-content h2 { font-size: 1.08rem; }
+  .material-content h3 { font-size: 1rem; }
+  .material-content p, .material-content li { font-size: 0.88rem; line-height: 1.6; }
+
+  /* Stepper Pill di HP */
+  .segment-pill {
+    padding: 0.28rem 0.55rem;
+    font-size: 0.75rem;
+  }
+  .segment-pill .pill-number {
+    width: 20px;
+    height: 20px;
+    font-size: 0.68rem;
+  }
+  .segment-pill .pill-label {
+    max-width: 110px !important;
+  }
+
+  /* PDF Iframe di HP */
+  .ratio[style*="--bs-aspect-ratio: 75%"] {
+    min-height: 320px !important;
+    height: 50vh !important;
+  }
+
+  /* Diskusi indentation */
+  .ms-4 {
+    margin-left: 0.65rem !important;
+  }
+}
 </style>
 <script>
 (function(){
@@ -485,6 +913,47 @@ var CSRF_HASH  = "<?= csrf_hash() ?>";
 var COMPLETE_URL = "<?= base_url('siswa/belajar/sub/' . $subMat['id'] . '/complete') ?>";
 var LINK_URL   = <?= !empty($subMat['external_link']) ? json_encode($subMat['external_link']) : 'null' ?>;
 var UPVOTE_URL = "<?= base_url('forum/reply') ?>/";
+
+// ── Tandai Selesai Segmen ─────────────────────────────────────────────
+var btnSegComplete = document.getElementById('btnMarkSegmentComplete');
+if (btnSegComplete) {
+  btnSegComplete.addEventListener('click', function() {
+    var btn = this;
+    var segId = btn.getAttribute('data-segment-id');
+    var segCompleteUrl = "<?= base_url('siswa/belajar/sub/' . $subMat['id'] . '/segment') ?>/" + segId + "/complete";
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Menyimpan...';
+
+    var body = new URLSearchParams();
+    body.append(CSRF_NAME, CSRF_HASH);
+
+    fetch(segCompleteUrl, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+      body: body.toString()
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      if (d.success) {
+        if (d.all_completed) {
+          window.location.href = window.location.pathname + '#kuis';
+          window.location.reload();
+        } else if (d.next_segment_id) {
+          window.location.href = window.location.pathname + '?seg=' + d.next_segment_id;
+        } else {
+          window.location.reload();
+        }
+      } else {
+        alert(d.message || 'Gagal menyimpan progres.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Selesaikan Langkah Ini';
+      }
+    }).catch(function() {
+      alert('Terjadi kesalahan koneksi.');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Selesaikan Langkah Ini';
+    });
+  });
+}
 
 // ── Tandai Selesai ────────────────────────────────────────────────────
 var btnComplete = document.getElementById('btnMarkComplete');

@@ -1,10 +1,14 @@
 <div class="card border-0 shadow-sm mb-4 modern-card schedule-card <?= ($scheduleType ?? 'teaching') === 'homeroom' ? 'homeroom-schedule' : 'teaching-schedule' ?>">
-    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center modern-card-header" style="border-top: 4px solid <?= ($scheduleType ?? 'teaching') === 'homeroom' ? '#11998e' : '#667eea' ?>;">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2 modern-card-header" style="border-top: 4px solid <?= ($scheduleType ?? 'teaching') === 'homeroom' ? '#11998e' : '#667eea' ?>;">
         <div>
             <div class="d-flex align-items-center gap-2 mb-2">
                 <?php if (($scheduleType ?? 'teaching') === 'homeroom'): ?>
                     <span class="badge bg-success">
                         <i class="bi bi-house-fill me-1"></i> Kelas Walian
+                    </span>
+                <?php elseif (($scheduleType ?? 'teaching') === 'student' || in_array(session()->get('user')['role_id'] ?? 0, [4, 5])): ?>
+                    <span class="badge bg-info text-dark">
+                        <i class="bi bi-book-half me-1"></i> Jadwal Belajar
                     </span>
                 <?php else: ?>
                     <span class="badge bg-primary">
@@ -37,6 +41,13 @@
                             Ini adalah jadwal lengkap kelas yang Anda walikan. Anda mengajar pada beberapa mapel saja.
                         </small>
                     </div>
+                <?php elseif (($scheduleType ?? 'teaching') === 'student' || in_array(session()->get('user')['role_id'] ?? 0, [4, 5])): ?>
+                    <div class="mt-2">
+                        <small class="text-muted d-block">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Ini adalah jadwal pelajaran kelas Anda.
+                        </small>
+                    </div>
                 <?php else: ?>
                     <div class="mt-2">
                         <small class="text-muted d-block">
@@ -47,7 +58,7 @@
                 <?php endif; ?>
             <?php endif; ?>
         </div>
-        <div class="d-flex align-items-center gap-2">
+        <div class="d-flex align-items-center flex-wrap gap-2">
             <form action="" method="get" class="me-2">
                 <div class="input-group input-group-sm">
                     <input type="date" name="date" class="form-control form-control-sm rounded-start-pill ps-3" 
@@ -508,20 +519,36 @@
     .schedule-card .card-header {
         flex-direction: column;
         align-items: flex-start !important;
-        gap: 1rem;
+        gap: 0.5rem;
+        padding: 0.65rem 0.85rem !important;
     }
     
     .schedule-card .card-header > div:last-child {
         width: 100%;
         justify-content: space-between;
+        gap: 0.4rem;
+        flex-wrap: wrap;
     }
     
+    .schedule-card .agenda-item {
+        padding: 0.65rem 0.85rem !important;
+    }
+
     .schedule-card .agenda-item .row > div {
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.25rem;
     }
     
     .schedule-card .agenda-item .text-md-end {
         text-align: left !important;
+    }
+
+    .schedule-card .session-number {
+        margin-right: 0.65rem !important;
+    }
+    .schedule-card .session-number > div {
+        width: 30px !important;
+        height: 30px !important;
+        font-size: 0.82rem;
     }
 }
 </style>

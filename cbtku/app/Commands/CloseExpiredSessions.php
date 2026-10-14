@@ -2,7 +2,7 @@
 namespace App\Commands;
 
 use CodeIgniter\CLI\CLI;
-use CodeIgniter\Command\BaseCommand;
+use CodeIgniter\CLI\BaseCommand;
 use App\Models\CbtSessionModel;
 use App\Models\CbtTestStatusModel;
 

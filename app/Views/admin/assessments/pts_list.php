@@ -24,12 +24,13 @@
 
   <div class="card">
     <div class="card-body">
+      <div class="table-responsive">
       <table class="table table-bordered align-middle">
         <thead class="table-light">
           <tr>
             <th style="width:160px;">Semester</th>
             <th>Status</th>
-            <th style="width:320px;">Aksi</th>
+            <th style="min-width:300px;">Aksi</th>
           </tr>
         </thead>
         <tbody>
@@ -47,17 +48,18 @@
               <td>
                 <?php if (!empty($info['jumlah']) && $info['jumlah'] > 0): ?>
                   <a href="<?= site_url("admin/assessments/viewScores/pts/{$subjectId}/{$sem}?class_id={$classId}") ?>"
-                     class="btn btn-sm btn-info">📋 Lihat Nilai</a>
+                     class="btn btn-sm btn-info mb-1">📋 Lihat Nilai</a>
                 <?php endif; ?>
                 <a href="<?= site_url("admin/assessments/input/{$classId}/{$subjectId}/pts") ?>?semester=<?= $sem ?>"
-                   class="btn btn-sm btn-success">➕ Input Manual</a>
+                   class="btn btn-sm btn-success mb-1">➕ Input Manual</a>
                 <a href="<?= site_url("admin/cbt/pts-import?class_id={$classId}&subject_id={$subjectId}&semester={$sem}") ?>"
-                   class="btn btn-sm btn-outline-primary">📥 Impor dari CBT</a>
+                   class="btn btn-sm btn-outline-primary mb-1">📥 Impor dari CBT</a>
               </td>
             </tr>
           <?php endforeach; ?>
         </tbody>
       </table>
+      </div>
     </div>
   </div>
 

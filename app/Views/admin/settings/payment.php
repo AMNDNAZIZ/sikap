@@ -5,7 +5,7 @@
     <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
             <h1 class="mt-4 fw-bold">Integrasi Pembayaran</h1>
-            <p class="text-muted">Hubungkan SIAKAD dengan aplikasi web pembayaran sekolah untuk menampilkan info tagihan di portal siswa.</p>
+            <p class="text-muted">Hubungkan ESPATA dengan aplikasi web pembayaran sekolah untuk menampilkan info tagihan di portal siswa.</p>
         </div>
     </div>
 

@@ -84,6 +84,8 @@ class Filters extends BaseFilters
             // csrf HARUS jalan pertama agar session diinisialisasi oleh CI4 secara benar
             // sebelum filter lain (maintenance, license, dll) memanggil session()
             'csrf' => ['except' => [
+                'auth/ping-session',     // Keep-alive heartbeat ping
+                'ping-session',          // Keep-alive heartbeat alias
                 'siswa/cbt/refreshCsrf', // Exclude refreshCsrf from CSRF check (needed to get new token)
                 'siswa/cbt/ping',         // Heartbeat — token di-embed saat render view, tidak bisa diperbarui mid-session
                 'siswa/cbt/saveAnswer',   // AJAX save jawaban — token di-embed saat render view

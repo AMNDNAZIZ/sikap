@@ -420,21 +420,80 @@ class Belajar extends BaseController
         }
         unset($q);
 
+        // ── SEGMEN PEMBELAJARAN ──────────────────────────────────────────
+        $segModel = new \App\Models\MaterialSegmentModel();
+        $segments = $segModel->getSegmentsByMaterial($subMatId);
+        $hasSegments = !empty($segments);
+
+        $segProgressMap     = [];
+        $activeSegment      = null;
+        $activeIdx          = 0;
+        $completedCount     = 0;
+        $segmentProgressPct = 0;
+
+        if ($hasSegments) {
+            $segProgModel       = new \App\Models\MaterialSegmentProgressModel();
+            $segProgressMap     = $segProgModel->getProgressMap($studentId, $subMatId);
+            $completedCount     = count(array_filter($segProgressMap, fn($p) => ($p['status'] ?? '') === 'completed'));
+            $segmentProgressPct = count($segments) > 0 ? round(($completedCount / count($segments)) * 100) : 0;
+
+            // Cek requested segment via ?seg={id}
+            $reqSegId  = (int)$this->request->getGet('seg');
+            $targetIdx = null;
+
+            if ($reqSegId > 0) {
+                foreach ($segments as $idx => $s) {
+                    if ($s['id'] == $reqSegId) {
+                        // Unlocked: idx 0 always unlocked, idx > 0 unlocked if idx - 1 is completed
+                        $isUnlocked = ($idx === 0) || !empty($segProgressMap[$segments[$idx - 1]['id']]);
+                        if ($isUnlocked) {
+                            $targetIdx = $idx;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Jika tidak ada targetIdx (atau requested terkunci), cari langkah pertama yang belum selesai
+            if ($targetIdx === null) {
+                foreach ($segments as $idx => $s) {
+                    if (empty($segProgressMap[$s['id']]) || ($segProgressMap[$s['id']]['status'] ?? '') !== 'completed') {
+                        $targetIdx = $idx;
+                        break;
+                    }
+                }
+                // Jika semua sudah selesai, tampilkan langkah 0
+                if ($targetIdx === null) {
+                    $targetIdx = 0;
+                }
+            }
+
+            $activeIdx     = $targetIdx;
+            $activeSegment = $segments[$targetIdx] ?? $segments[0];
+        }
+
         return view('siswa/belajar/show', [
-            'title'      => esc($subMat['title']),
-            'subMat'     => $subMat,
-            'parent'     => $parent,
-            'subject'    => $subject,
-            'progress'   => $progress,
-            'prevSub'    => $prevSub,
-            'nextSub'    => $nextSub,
-            'siblings'   => $siblings,
-            'currentIdx' => (int)($currentIdx !== false ? $currentIdx : 0),
-            'thread'     => $thread,
-            'threadId'   => $threadId,
-            'replyTree'  => $replyTree,
-            'quizzes'    => $quizzes,
-            'slides'     => $slides,
+            'title'              => esc($subMat['title']),
+            'subMat'             => $subMat,
+            'parent'             => $parent,
+            'subject'            => $subject,
+            'progress'           => $progress,
+            'prevSub'            => $prevSub,
+            'nextSub'            => $nextSub,
+            'siblings'           => $siblings,
+            'currentIdx'         => (int)($currentIdx !== false ? $currentIdx : 0),
+            'thread'             => $thread,
+            'threadId'           => $threadId,
+            'replyTree'          => $replyTree,
+            'quizzes'            => $quizzes,
+            'slides'             => $slides,
+            'hasSegments'        => $hasSegments,
+            'segments'           => $segments,
+            'segProgressMap'     => $segProgressMap,
+            'activeSegment'      => $activeSegment,
+            'activeIdx'          => $activeIdx,
+            'completedCount'     => $completedCount,
+            'segmentProgressPct' => $segmentProgressPct,
         ]);
     }
 
@@ -485,6 +544,83 @@ class Belajar extends BaseController
         return $this->response
             ->setHeader('Content-Type', 'application/pdf')
             ->setHeader('Content-Disposition', 'inline; filename="' . basename($filePath) . '"')
+            ->setBody(file_get_contents($filePath));
+    }
+
+    // =========================================================
+    // MARK SEGMENT COMPLETE
+    // =========================================================
+    public function markSegmentComplete(int $subMatId, int $segmentId): \CodeIgniter\HTTP\Response
+    {
+        $studentId = $this->studentId();
+        $subMat    = $this->mat->find($subMatId);
+
+        if (!$subMat || !$subMat['is_published'] || empty($subMat['parent_id'])) {
+            return $this->response->setStatusCode(404)->setJSON(['success' => false, 'message' => 'Sub materi tidak ditemukan.']);
+        }
+
+        if (!$this->canAccessSubMat($studentId, $subMatId)) {
+            return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Akses ditolak.']);
+        }
+
+        $segModel = new \App\Models\MaterialSegmentModel();
+        $segment  = $segModel->where('material_id', $subMatId)->find($segmentId);
+        if (!$segment) {
+            return $this->response->setStatusCode(404)->setJSON(['success' => false, 'message' => 'Segmen tidak ditemukan.']);
+        }
+
+        $segProgModel = new \App\Models\MaterialSegmentProgressModel();
+        $res = $segProgModel->markCompleted($studentId, $subMatId, $segmentId);
+
+        // Cari langkah selanjutnya
+        $allSegments   = $segModel->getSegmentsByMaterial($subMatId);
+        $nextSegmentId = null;
+        $foundCurrent  = false;
+        foreach ($allSegments as $s) {
+            if ($foundCurrent) {
+                $nextSegmentId = $s['id'];
+                break;
+            }
+            if ($s['id'] == $segmentId) {
+                $foundCurrent = true;
+            }
+        }
+
+        return $this->response->setJSON([
+            'success'         => true,
+            'message'         => 'Langkah belajar berhasil diselesaikan!',
+            'is_all_done'     => $res['is_all_done'],
+            'done_count'      => $res['done_count'],
+            'total_segments'  => $res['total_segments'],
+            'next_segment_id' => $nextSegmentId,
+        ]);
+    }
+
+    // =========================================================
+    // SERVE SEGMENT PDF FILE
+    // =========================================================
+    public function serveSegmentFile(int $subMatId, int $segmentId): \CodeIgniter\HTTP\Response|\CodeIgniter\HTTP\RedirectResponse
+    {
+        $studentId = $this->studentId();
+        if (!$this->canAccessSubMat($studentId, $subMatId)) {
+            return redirect()->to('siswa/belajar')->with('error', 'Akses ditolak.');
+        }
+
+        $segModel = new \App\Models\MaterialSegmentModel();
+        $segment  = $segModel->where('material_id', $subMatId)->find($segmentId);
+
+        if (!$segment || $segment['content_type'] !== 'pdf' || empty($segment['file_path'])) {
+            return redirect()->to('siswa/belajar/sub/' . $subMatId)->with('error', 'File tidak ditemukan.');
+        }
+
+        $filePath = FCPATH . 'uploads/materials/' . $segment['file_path'];
+        if (!file_exists($filePath)) {
+            return redirect()->to('siswa/belajar/sub/' . $subMatId)->with('error', 'File fisik tidak ditemukan di server.');
+        }
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', 'inline; filename="' . basename($segment['file_path']) . '"')
             ->setBody(file_get_contents($filePath));
     }
 

@@ -53,6 +53,18 @@
       <option value="0" <?= !$subject['is_active'] ? 'selected' : '' ?>>Nonaktif</option>
     </select>
   </div>
+  <div class="mb-3">
+    <div class="form-check form-switch">
+      <input class="form-check-input" type="checkbox" name="is_bk" id="is_bk" value="1"
+             <?= !empty($subject['is_bk']) ? 'checked' : '' ?>>
+      <label class="form-check-label" for="is_bk">
+        🧠 Mapel BP/BK (Bimbingan Penyuluhan/Konseling)
+      </label>
+    </div>
+    <div class="form-text text-info">
+      Jika dicentang, mapel ini <strong>dikecualikan</strong> dari modul Materi, Penilaian, Administrasi Guru, dan Tugas — tetapi tetap dapat digunakan di <strong>Penjadwalan</strong>.
+    </div>
+  </div>
   <button type="submit" class="btn btn-primary">💾 Update</button>
   <a href="<?= base_url('admin/subjects') ?>" class="btn btn-secondary">⬅️ Kembali</a>
 </form>

@@ -630,7 +630,7 @@
                     // Audit Log HTML
                     let logHtml = '';
                     if (logs.length > 0) {
-                        logHtml = `<table class="table table-sm table-bordered mt-2 fs-7"><thead class="table-light"><tr><th>Waktu</th><th>Status Lama</th><th>Status Baru</th><th>Petugas</th><th>Catatan Audit Log</th></tr></thead><tbody>`;
+                        logHtml = `<div class="table-responsive"><table class="table table-sm table-bordered mt-2 fs-7"><thead class="table-light"><tr><th>Waktu</th><th>Status Lama</th><th>Status Baru</th><th>Petugas</th><th>Catatan Audit Log</th></tr></thead><tbody>`;
                         logs.forEach(l => {
                             logHtml += `<tr>
                                 <td>${l.created_at}</td>
@@ -640,7 +640,7 @@
                                 <td>${l.notes || '-'}</td>
                             </tr>`;
                         });
-                        logHtml += `</tbody></table>`;
+                        logHtml += `</tbody></table></div>`;
                     } else {
                         logHtml = `<p class="text-muted italic">Belum ada log perubahan status.</p>`;
                     }

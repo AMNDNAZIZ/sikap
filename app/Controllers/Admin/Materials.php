@@ -119,11 +119,12 @@ class Materials extends BaseController
         $yearId = (int)($year['id'] ?? 0);
 
         if ($this->isAdmin()) {
-            // Daftar mapel yang diampu (dengan jumlah kelas)
+            // Daftar mapel yang diampu (dengan jumlah kelas), KECUALI mapel BP/BK
             $subjects = $this->db->table('teaching_assignments ta')
                 ->select('s.id, s.name, COUNT(DISTINCT ta.class_id) as total_classes')
                 ->join('subjects s', 's.id = ta.subject_id')
                 ->where('ta.academic_year_id', $yearId)
+                ->where('s.is_bk', 0)          // Kecualikan BP/BK
                 ->groupBy('s.id')
                 ->orderBy('s.name', 'ASC')
                 ->get()->getResultArray();
@@ -137,12 +138,13 @@ class Materials extends BaseController
             $tid = $this->teacherId();
             if (!$tid) return redirect()->to('dashboard')->with('error', 'Data guru tidak ditemukan.');
 
-            // Daftar mapel yang diampu guru + jumlah kelas
+            // Daftar mapel yang diampu guru + jumlah kelas, KECUALI mapel BP/BK
             $subjects = $this->db->table('teaching_assignments ta')
                 ->select('s.id, s.name, COUNT(DISTINCT ta.class_id) as total_classes')
                 ->join('subjects s', 's.id = ta.subject_id')
                 ->where('ta.teacher_id', $tid)
                 ->where('ta.academic_year_id', $yearId)
+                ->where('s.is_bk', 0)          // Kecualikan BP/BK
                 ->groupBy('s.id')
                 ->orderBy('s.name', 'ASC')
                 ->get()->getResultArray();
@@ -436,10 +438,15 @@ class Materials extends BaseController
             ->orderBy('qc.id', 'DESC')
             ->get()->getResultArray();
 
+        // Segmen pembelajaran
+        $segmentModel = new \App\Models\MaterialSegmentModel();
+        $segments     = $segmentModel->getSegmentsByMaterial($subMatId);
+
         return view('admin/materials/show', [
             'title'      => esc($subMat['title']),
             'subMat'     => $subMat,
             'parent'     => $parent,
+            'segments'   => $segments,
             'subject'    => $subject,
             'activeYear' => $year,
             'thread'     => $thread,
@@ -574,9 +581,96 @@ class Materials extends BaseController
         $this->mat->insert($insertData);
         $newId = (int)$this->mat->getInsertID();
 
-        // Slide Gambar: simpan gambar-gambar yang diupload
+        // Slide Gambar: simpan gambar-gambar yang diupload (legacy)
         if ($contentType === 'slide' && $newId) {
             $this->_handleSlideUploads($newId);
+        }
+
+        // Simpan segmen-segmen pembelajaran jika ada
+        $segmentsData = $this->request->getPost('segments');
+        $segmentModel = new \App\Models\MaterialSegmentModel();
+
+        if (!empty($segmentsData) && is_array($segmentsData)) {
+            $segIndex = 1;
+            foreach ($segmentsData as $sIdx => $sData) {
+                $segTitle = !empty($sData['title']) ? trim((string)$sData['title']) : ('Langkah ' . $segIndex);
+                $segType  = $sData['content_type'] ?? 'text';
+                $segEst   = !empty($sData['estimated_minutes']) ? (int)$sData['estimated_minutes'] : 10;
+                
+                $segContent = null;
+                if ($segType === 'text') {
+                    $segContent = $sData['content'] ?? null;
+                }
+                $segHtml = null;
+                if ($segType === 'html') {
+                    $segHtml = $sData['content_html'] ?? ($sData['content'] ?? null);
+                }
+
+                $segVideo = ($segType === 'video') ? ($sData['video_url'] ?? null) : null;
+                $segLink  = ($segType === 'link') ? ($sData['external_link'] ?? null) : null;
+                
+                // PDF upload per segment
+                $segPdf = null;
+                if ($segType === 'pdf') {
+                    $segPdfFile = $this->request->getFile("segment_pdf_{$sIdx}");
+                    if ($segPdfFile && $segPdfFile->isValid() && !$segPdfFile->hasMoved()) {
+                        $newName = $segPdfFile->getRandomName();
+                        $segPdfFile->move(FCPATH . 'uploads/materials/', $newName);
+                        $segPdf = $newName;
+                    }
+                }
+
+                $segId = $segmentModel->insert([
+                    'material_id'       => $newId,
+                    'title'             => $segTitle,
+                    'content_type'      => $segType,
+                    'content'           => $segContent,
+                    'content_html'      => $segHtml,
+                    'video_url'         => $segVideo,
+                    'external_link'     => $segLink,
+                    'file_path'         => $segPdf,
+                    'estimated_minutes' => $segEst,
+                    'sort_order'        => $segIndex,
+                ]);
+
+                // Slide uploads per segment
+                if ($segType === 'slide' && $segId) {
+                    $slideFiles = $this->request->getFileMultiple("segment_slides_{$sIdx}");
+                    if (!empty($slideFiles)) {
+                        $uploadDir = FCPATH . 'uploads/materials/slides/';
+                        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                        $slIdx = 1;
+                        foreach ($slideFiles as $sf) {
+                            if ($sf && $sf->isValid() && !$sf->hasMoved()) {
+                                $newName = $sf->getRandomName();
+                                $sf->move($uploadDir, $newName);
+                                $this->db->table('material_segment_slides')->insert([
+                                    'segment_id' => $segId,
+                                    'image_path' => $newName,
+                                    'sort_order' => $slIdx++,
+                                    'created_at' => date('Y-m-d H:i:s'),
+                                ]);
+                            }
+                        }
+                    }
+                }
+
+                $segIndex++;
+            }
+        } else {
+            // Fallback: simpan 1 segmen awal dari data single form agar konsisten
+            $segmentModel->insert([
+                'material_id'       => $newId,
+                'title'             => $data['title'],
+                'content_type'      => $contentType,
+                'content'           => $contentValue,
+                'content_html'      => ($contentType === 'html') ? $contentValue : null,
+                'file_path'         => $filePath,
+                'video_url'         => $contentType === 'video' ? ($data['video_url'] ?? null) : null,
+                'external_link'     => $contentType === 'link' ? ($data['external_link'] ?? null) : null,
+                'estimated_minutes' => !empty($data['estimated_minutes']) ? (int)$data['estimated_minutes'] : 15,
+                'sort_order'        => 1,
+            ]);
         }
 
         $msg = $parentId ? 'Sub Materi berhasil ditambahkan.' : 'Materi berhasil ditambahkan.';
@@ -797,6 +891,228 @@ class Materials extends BaseController
             $pos++;
         }
         return $this->response->setJSON(['success' => true]);
+    }
+
+    // =========================================================
+    // SEGMEN BELAJAR — tambah segmen baru (AJAX POST)
+    // POST /admin/materials/segment-store/{materialId}
+    // =========================================================
+    public function segmentStore(int $materialId)
+    {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
+
+        $subMat = $this->mat->find($materialId);
+        if (!$subMat) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Sub materi tidak ditemukan.']);
+        }
+
+        $title       = trim((string)$this->request->getPost('title'));
+        $contentType = $this->request->getPost('content_type') ?? 'text';
+        $estMin      = (int)($this->request->getPost('estimated_minutes') ?? 10);
+
+        if ($title === '') {
+            return $this->response->setJSON(['success' => false, 'message' => 'Judul segmen wajib diisi.']);
+        }
+
+        $content     = null;
+        $contentHtml = null;
+        $videoUrl    = null;
+        $externalLink= null;
+        $filePath    = null;
+
+        if ($contentType === 'text') {
+            $content = $this->request->getPost('content');
+        } elseif ($contentType === 'html') {
+            $contentHtml = $this->request->getPost('content_html') ?? ($this->request->getPost('content') ?? null);
+        } elseif ($contentType === 'video') {
+            $videoUrl = $this->request->getPost('video_url');
+        } elseif ($contentType === 'link') {
+            $externalLink = $this->request->getPost('external_link');
+        } elseif ($contentType === 'pdf') {
+            $file = $this->request->getFile('pdf_file');
+            if ($file && $file->isValid() && !$file->hasMoved()) {
+                if ($file->getClientExtension() !== 'pdf') {
+                    return $this->response->setJSON(['success' => false, 'message' => 'File harus berekstensi PDF.']);
+                }
+                $newName = $file->getRandomName();
+                $file->move(FCPATH . 'uploads/materials/', $newName);
+                $filePath = $newName;
+            }
+        }
+
+        $segModel = new \App\Models\MaterialSegmentModel();
+        $count = $segModel->where('material_id', $materialId)->countAllResults();
+
+        $segId = $segModel->insert([
+            'material_id'       => $materialId,
+            'title'             => $title,
+            'content_type'      => $contentType,
+            'content'           => $content,
+            'content_html'      => $contentHtml,
+            'video_url'         => $videoUrl,
+            'external_link'     => $externalLink,
+            'file_path'         => $filePath,
+            'estimated_minutes' => $estMin,
+            'sort_order'        => $count + 1,
+        ]);
+
+        if ($contentType === 'slide' && $segId) {
+            $slideFiles = $this->request->getFileMultiple('slide_images');
+            if (!empty($slideFiles)) {
+                $uploadDir = FCPATH . 'uploads/materials/slides/';
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                $slIdx = 1;
+                foreach ($slideFiles as $sf) {
+                    if ($sf && $sf->isValid() && !$sf->hasMoved()) {
+                        $newName = $sf->getRandomName();
+                        $sf->move($uploadDir, $newName);
+                        $this->db->table('material_segment_slides')->insert([
+                            'segment_id' => $segId,
+                            'image_path' => $newName,
+                            'sort_order' => $slIdx++,
+                            'created_at' => date('Y-m-d H:i:s'),
+                        ]);
+                    }
+                }
+            }
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Segmen belajar berhasil ditambahkan.',
+            'segment_id' => $segId,
+        ]);
+    }
+
+    // =========================================================
+    // SEGMEN BELAJAR — update segmen (AJAX POST)
+    // POST /admin/materials/segment-update/{segmentId}
+    // =========================================================
+    public function segmentUpdate(int $segmentId)
+    {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
+
+        $segModel = new \App\Models\MaterialSegmentModel();
+        $seg = $segModel->find($segmentId);
+        if (!$seg) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Segmen tidak ditemukan.']);
+        }
+
+        $title       = trim((string)$this->request->getPost('title'));
+        $contentType = $this->request->getPost('content_type') ?? $seg['content_type'];
+        $estMin      = (int)($this->request->getPost('estimated_minutes') ?? $seg['estimated_minutes']);
+
+        if ($title === '') {
+            return $this->response->setJSON(['success' => false, 'message' => 'Judul segmen wajib diisi.']);
+        }
+
+        $updateData = [
+            'title'             => $title,
+            'content_type'      => $contentType,
+            'estimated_minutes' => $estMin,
+        ];
+
+        if ($contentType === 'text') {
+            $updateData['content'] = $this->request->getPost('content');
+        } elseif ($contentType === 'html') {
+            $updateData['content_html'] = $this->request->getPost('content_html') ?? ($this->request->getPost('content') ?? null);
+        } elseif ($contentType === 'video') {
+            $updateData['video_url'] = $this->request->getPost('video_url');
+        } elseif ($contentType === 'link') {
+            $updateData['external_link'] = $this->request->getPost('external_link');
+        } elseif ($contentType === 'pdf') {
+            $file = $this->request->getFile('pdf_file');
+            if ($file && $file->isValid() && !$file->hasMoved()) {
+                if ($file->getClientExtension() === 'pdf') {
+                    if (!empty($seg['file_path'])) {
+                        @unlink(FCPATH . 'uploads/materials/' . $seg['file_path']);
+                    }
+                    $newName = $file->getRandomName();
+                    $file->move(FCPATH . 'uploads/materials/', $newName);
+                    $updateData['file_path'] = $newName;
+                }
+            }
+        }
+
+        if ($contentType === 'slide') {
+            $slideFiles = $this->request->getFileMultiple('slide_images');
+            if (!empty($slideFiles)) {
+                $uploadDir = FCPATH . 'uploads/materials/slides/';
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                $slCount = $this->db->table('material_segment_slides')->where('segment_id', $segmentId)->countAllResults();
+                $slIdx = $slCount + 1;
+                foreach ($slideFiles as $sf) {
+                    if ($sf && $sf->isValid() && !$sf->hasMoved()) {
+                        $newName = $sf->getRandomName();
+                        $sf->move($uploadDir, $newName);
+                        $this->db->table('material_segment_slides')->insert([
+                            'segment_id' => $segmentId,
+                            'image_path' => $newName,
+                            'sort_order' => $slIdx++,
+                            'created_at' => date('Y-m-d H:i:s'),
+                        ]);
+                    }
+                }
+            }
+        }
+
+        $segModel->update($segmentId, $updateData);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Segmen belajar berhasil diperbarui.',
+        ]);
+    }
+
+    // =========================================================
+    // SEGMEN BELAJAR — hapus segmen (AJAX POST)
+    // POST /admin/materials/segment-delete/{segmentId}
+    // =========================================================
+    public function segmentDelete(int $segmentId)
+    {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
+
+        $segModel = new \App\Models\MaterialSegmentModel();
+        $ok = $segModel->deleteWithFiles($segmentId);
+
+        if (!$ok) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Segmen tidak ditemukan.']);
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Segmen belajar berhasil dihapus.',
+        ]);
+    }
+
+    // =========================================================
+    // SEGMEN BELAJAR — simpan urutan segmen (AJAX POST)
+    // POST /admin/materials/segment-reorder body: order[]=segId,...
+    // =========================================================
+    public function segmentReorder()
+    {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
+
+        $order = (array) ($this->request->getPost('order') ?? []);
+        $pos = 1;
+        foreach ($order as $segId) {
+            $segId = (int) $segId;
+            if ($segId <= 0) continue;
+            $this->db->table('material_segments')
+                ->where('id', $segId)
+                ->update(['sort_order' => $pos]);
+            $pos++;
+        }
+
+        return $this->response->setJSON(['success' => true, 'message' => 'Urutan segmen diperbarui.']);
     }
 
     // =========================================================
@@ -1167,6 +1483,14 @@ class Materials extends BaseController
             }
         }
         $this->db->table('subject_material_slides')->where('material_id', $id)->delete();
+
+        // Hapus segmen-segmen pembelajaran beserta filenya
+        $segModel = new \App\Models\MaterialSegmentModel();
+        $segments = $segModel->where('material_id', $id)->findAll();
+        foreach ($segments as $s) {
+            $segModel->deleteWithFiles($s['id']);
+        }
+        $this->db->table('material_segment_progress')->where('material_id', $id)->delete();
 
         $this->db->table('material_progress')->where('material_id', $id)->delete();
         $this->db->table('subject_material_publishes')->where('material_id', $id)->delete();

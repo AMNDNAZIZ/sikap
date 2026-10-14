@@ -1,6 +1,9 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
+<!-- Referrer Policy for OpenStreetMap tiles -->
+<meta name="referrer" content="no-referrer-when-downgrade">
+
 <div class="container-fluid px-4 pb-5">
     <!-- Header -->
     <div class="d-flex align-items-center justify-content-between mb-4">
@@ -223,6 +226,17 @@
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="alert alert-primary border-0 rounded-3 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2 p-3 mb-0">
+                                    <div>
+                                        <i class="bi bi-person-badge-fill me-2 fs-5"></i>
+                                        <strong>Sambutan Kepala Sekolah:</strong> Atur naskah sambutan, kutipan pimpinan, dan foto sambutan halaman depan di menu CMS.
+                                    </div>
+                                    <a href="<?= base_url('admin/cms/sambutan') ?>" class="btn btn-sm btn-primary text-nowrap">
+                                        Buka Pengaturan Sambutan <i class="bi bi-arrow-right ms-1"></i>
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -455,12 +469,28 @@ function initMap() {
     // Create map
     map = L.map('schoolMap').setView([defaultLat, defaultLng], 15);
 
-    // Add CartoDB tiles (no referer restrictions)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+    // Add OpenStreetMap tiles (gratis, tanpa API key - sama dengan student-map)
+    const osmTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
-        subdomains: 'abcd'
-    }).addTo(map);
+        crossOrigin: true
+    });
+
+    // Fallback ke Esri World Street Map jika OSM diblokir (403)
+    const esriTile = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles © <a href="https://www.esri.com/">Esri</a>',
+        maxZoom: 19
+    });
+
+    // Coba OSM dulu, auto-fallback ke Esri jika ada error
+    osmTile.addTo(map);
+    osmTile.on('tileerror', function() {
+        if (map.hasLayer(osmTile)) {
+            map.removeLayer(osmTile);
+            esriTile.addTo(map);
+        }
+    });
 
     // Add geocoder (search)
     const geocoder = L.Control.geocoder({

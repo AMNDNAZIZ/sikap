@@ -23,7 +23,16 @@ class Session extends BaseConfig
                     $this->driver = \CodeIgniter\Session\Handlers\FileHandler::class;
                     $this->savePath = WRITEPATH . 'session';
                 } elseif ($config['driver'] === 'database') {
-                    $this->driver = \CodeIgniter\Session\Handlers\DatabaseHandler::class;
+                    // 🔹 OPTIMASI KONKURENSI: pakai handler kustom dengan GET_LOCK
+                    // timeout pendek (default CI4 = 300 detik) agar koneksi tidak
+                    // tertahan lama saat 100+ peserta ujian bersamaan.
+                    // Hanya berlaku untuk MySQL/MariaDB (DBDriver MySQLi).
+                    $dbDriver = (new \Config\Database())->default['DBDriver'] ?? 'MySQLi';
+                    if (stripos($dbDriver, 'mysql') !== false) {
+                        $this->driver = \App\Libraries\Session\FastMySQLiHandler::class;
+                    } else {
+                        $this->driver = \CodeIgniter\Session\Handlers\DatabaseHandler::class;
+                    }
                     $this->savePath = 'ci_sessions';
                 } elseif ($config['driver'] === 'redis') {
                     $this->driver = \CodeIgniter\Session\Handlers\RedisHandler::class;

@@ -214,6 +214,16 @@
                 <input type="number" name="certification_year" value="<?= $teacher['certification_year'] ?>"
                   class="form-control">
               </div>
+              <hr>
+              <h6 class="mb-0 text-primary">Tugas Tambahan</h6>
+              <div class="col-md-12">
+                <div class="form-check form-switch mt-2">
+                  <input class="form-check-input" type="checkbox" name="is_koordinator_ekskul" id="koordinatorEkskul" <?= !empty($teacher['is_koordinator_ekskul']) ? 'checked' : '' ?>>
+                  <label class="form-check-label" for="koordinatorEkskul">
+                    Sebagai Koordinator Ekskul <small class="text-muted">(Memberi hak untuk verifikasi absensi pembina ekskul)</small>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -224,14 +234,15 @@
               <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal"
                 data-bs-target="#modalEducation">+ Tambah</button>
             </div>
-            <table class="table table-bordered table-sm">
+            <div class="table-responsive">
+            <table class="table table-bordered table-sm align-middle">
               <thead class="bg-light">
                 <tr>
                   <th>Jenjang</th>
                   <th>Jurusan</th>
                   <th>Institusi</th>
                   <th>Lulus</th>
-                  <th>Aksi</th>
+                  <th width="70">Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -255,6 +266,7 @@
                 <?php endif; ?>
               </tbody>
             </table>
+            </div>
           </div>
 
           <!-- Tab 5: Pelatihan & Karier -->
@@ -265,13 +277,14 @@
                 <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal"
                   data-bs-target="#modalTraining">+ Tambah</button>
               </div>
-              <table class="table table-bordered table-sm">
+              <div class="table-responsive">
+              <table class="table table-bordered table-sm align-middle">
                 <thead class="bg-light">
                   <tr>
                     <th>Nama Pelatihan</th>
                     <th>Tahun</th>
                     <th>Penyelenggara</th>
-                    <th>Aksi</th>
+                    <th width="70">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -294,6 +307,7 @@
                   <?php endif; ?>
                 </tbody>
               </table>
+              </div>
             </div>
 
             <hr>
@@ -304,13 +318,14 @@
                 <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal"
                   data-bs-target="#modalCareer">+ Tambah</button>
               </div>
-              <table class="table table-bordered table-sm">
+              <div class="table-responsive">
+              <table class="table table-bordered table-sm align-middle">
                 <thead class="bg-light">
                   <tr>
                     <th>Tahun Ajaran</th>
                     <th>No. SK</th>
                     <th>Keterangan Tugas</th>
-                    <th>Aksi</th>
+                    <th width="70">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -333,6 +348,7 @@
                   <?php endif; ?>
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
 

@@ -14,6 +14,8 @@ class ModulAjarModel extends Model
         'class_id',
         'teacher_id',
         'content',
+        'tipe',
+        'file_pdf',
     ];
     protected $useTimestamps = true;
     protected $createdField  = 'created_at';

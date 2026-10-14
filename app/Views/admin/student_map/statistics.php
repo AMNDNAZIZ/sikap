@@ -55,8 +55,8 @@
                 <div class="card-body">
                     <canvas id="distanceChart"></canvas>
                     
-                    <div class="mt-3">
-                        <table class="table table-sm">
+                    <div class="mt-3 table-responsive">
+                        <table class="table table-sm align-middle mb-0">
                             <thead>
                                 <tr>
                                     <th>Jarak</th>
@@ -102,8 +102,8 @@
                 <div class="card-body">
                     <canvas id="levelChart"></canvas>
                     
-                    <div class="mt-3">
-                        <table class="table table-sm">
+                    <div class="mt-3 table-responsive">
+                        <table class="table table-sm align-middle mb-0">
                             <thead>
                                 <tr>
                                     <th>Tingkat</th>

@@ -104,12 +104,14 @@ class AdministrasiGuru extends BaseController
         }
 
         // 5. Query ALL assignments (plotting pengajaran) for active academic year
+        // Kecualikan mapel BP/BK (is_bk=1) dari monitoring administrasi
         $query = $this->teachingAssignmentModel
             ->select('teaching_assignments.id, teaching_assignments.teacher_id, teaching_assignments.class_id, teaching_assignments.subject_id, teachers.name as teacher_name, classes.name as class_name, classes.level as class_level, subjects.name as subject_name')
             ->join('teachers', 'teachers.id = teaching_assignments.teacher_id')
             ->join('classes', 'classes.id = teaching_assignments.class_id')
             ->join('subjects', 'subjects.id = teaching_assignments.subject_id')
-            ->where('teaching_assignments.academic_year_id', $activeYearId);
+            ->where('teaching_assignments.academic_year_id', $activeYearId)
+            ->where('subjects.is_bk', 0);  // Kecualikan mapel BP/BK
 
         if ($filterTeacher) {
             $query->where('teaching_assignments.teacher_id', $filterTeacher);
@@ -1590,7 +1592,11 @@ class AdministrasiGuru extends BaseController
             . "2. B. Kompetensi Awal: Tulis HANYA CP.\n"
             . "3. C. Tujuan Pembelajaran: Masukkan TP persis seperti input.\n"
             . "4. Bagian F (Langkah Pembelajaran): Buat TEPAT {$jumlahPertemuan} tabel pertemuan. Kolom: (Tahap | Sintaks | Deskripsi | Waktu). TOTAL waktu setiap pertemuan = {$menitPerPertemuan} menit.\n"
-            . "5. Setiap pertemuan WAJIB mengandung MJM: Mindful (~10 menit), Meaningful (~" . max(10, $menitPerPertemuan - 25) . " menit), Joyful (~15 menit).\n"
+            . "5. Setiap pertemuan WAJIB memiliki TEPAT 3 baris terpisah:\n"
+            . "   Baris 1 → Tahap: Mindful    | Waktu: 10 menit\n"
+            . "   Baris 2 → Tahap: Meaningful | Waktu: " . max(10, $menitPerPertemuan - 25) . " menit\n"
+            . "   Baris 3 → Tahap: Joyful     | Waktu: 15 menit\n"
+            . "   JANGAN menggabungkan Joyful ke deskripsi Meaningful. Joyful HARUS baris tersendiri.\n"
             . "6. Bagian K (Penilaian): Buat spesifik (Penilaian Proses + Penilaian Hasil).\n"
             . "7. JANGAN buat bagian Tanda Tangan.\n\n"
             . "DATA INPUT:\n"
@@ -1661,7 +1667,17 @@ class AdministrasiGuru extends BaseController
         // Cek duplikat
         $existing = $modulModel->where('atp_id', $atpId)->where('class_id', $classId)->first();
         if ($existing) {
-            $modulModel->update($existing['id'], ['content' => $content]);
+            if (!empty($existing['file_pdf'])) {
+                $oldPath = FCPATH . 'uploads/modul_ajar/' . $existing['file_pdf'];
+                if (file_exists($oldPath)) {
+                    @unlink($oldPath);
+                }
+            }
+            $modulModel->update($existing['id'], [
+                'content'  => $content,
+                'tipe'     => 'editor',
+                'file_pdf' => null,
+            ]);
             $msg = 'Modul berhasil diperbarui dari input manual.';
         } else {
             $modulModel->insert([
@@ -1670,12 +1686,238 @@ class AdministrasiGuru extends BaseController
                 'class_id'   => $classId,
                 'teacher_id' => $targetTeacherId,
                 'content'    => $content,
+                'tipe'       => 'editor',
+                'file_pdf'   => null,
             ]);
             $msg = 'Modul berhasil disimpan dari input manual.';
         }
 
         return redirect()->to(base_url("admin/administrasi-guru/modul-ajar?class_id={$classId}&subject_id={$subjectId}"))
             ->with('success', $msg);
+    }
+
+    /**
+     * Halaman form untuk guru menyusun modul ajar mandiri / copas dari Word
+     */
+    public function createModulAjar($atpId, $classId)
+    {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'] ?? 0, [1, 3])) {
+            return redirect()->back()->with('error', 'Anda tidak diizinkan membuat Modul Ajar.');
+        }
+
+        $atpRaw = $this->atpModel->find($atpId);
+        if (!$atpRaw) {
+            return redirect()->back()->with('error', 'ATP tidak ditemukan.');
+        }
+
+        $subject = $this->subjectModel->find($atpRaw['subject_id']);
+        $class = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+
+        $atpResult = $this->loadAtpWithElemen((int)$atpRaw['subject_id']);
+        $atpFull = null;
+        foreach ($atpResult['list'] as $a) {
+            if ($a['id'] == $atpId) { $atpFull = $a; break; }
+        }
+        $atp = $atpFull ?? $atpRaw;
+
+        // Cek jika modul teks sudah ada, langsung arahkan ke edit
+        $modulModel = new \App\Models\ModulAjarModel();
+        $existing = $modulModel->where('atp_id', $atpId)->where('class_id', $classId)->first();
+        if ($existing && ($existing['tipe'] ?? 'editor') === 'editor') {
+            return redirect()->to(base_url("admin/administrasi-guru/modul-ajar/edit/{$existing['id']}/{$classId}"));
+        }
+
+        $data['title'] = 'Buat Modul Ajar Mandiri / Copas Word';
+        $data['atp'] = $atp;
+        $data['class_id'] = $classId;
+        $data['class'] = $class;
+        $data['subject'] = $subject;
+        $data['existing'] = $existing;
+
+        return view('admin/administrasi_guru/modul_ajar_create', $data);
+    }
+
+    /**
+     * Simpan modul ajar hasil ketik mandiri / copas dari Word
+     */
+    public function saveModulAjar()
+    {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'] ?? 0, [1, 3])) {
+            return redirect()->back()->with('error', 'Anda tidak diizinkan membuat Modul Ajar.');
+        }
+
+        $atpId     = $this->request->getPost('atp_id');
+        $classId   = $this->request->getPost('class_id');
+        $subjectId = $this->request->getPost('subject_id');
+        $content   = $this->request->getPost('content');
+
+        if (empty(trim(strip_tags($content)))) {
+            return redirect()->back()->withInput()->with('error', 'Konten modul tidak boleh kosong.');
+        }
+
+        $atpRaw = $this->atpModel->find($atpId);
+        if (!$atpRaw) {
+            return redirect()->back()->with('error', 'ATP tidak ditemukan.');
+        }
+
+        if ($user['role_id'] == 3) {
+            $targetTeacherId = $user['related_id'];
+        } else {
+            $assignment = $this->db->table('teaching_assignments')
+                ->where('subject_id', $subjectId)
+                ->where('class_id', $classId)
+                ->get()->getRowArray();
+            $targetTeacherId = $assignment['teacher_id'] ?? null;
+        }
+
+        if (!$targetTeacherId) {
+            return redirect()->back()->with('error', 'Tidak dapat menentukan guru pengampu.');
+        }
+
+        $modulModel = new \App\Models\ModulAjarModel();
+        $existing = $modulModel->where('atp_id', $atpId)->where('class_id', $classId)->first();
+
+        if ($existing) {
+            if (!empty($existing['file_pdf'])) {
+                $oldPath = FCPATH . 'uploads/modul_ajar/' . $existing['file_pdf'];
+                if (file_exists($oldPath)) {
+                    @unlink($oldPath);
+                }
+            }
+            $modulModel->update($existing['id'], [
+                'content'  => $content,
+                'tipe'     => 'editor',
+                'file_pdf' => null,
+            ]);
+            $msg = 'Modul Ajar mandiri berhasil diperbarui.';
+        } else {
+            $modulModel->insert([
+                'atp_id'     => $atpId,
+                'subject_id' => $subjectId,
+                'class_id'   => $classId,
+                'teacher_id' => $targetTeacherId,
+                'content'    => $content,
+                'tipe'       => 'editor',
+                'file_pdf'   => null,
+            ]);
+            $msg = 'Modul Ajar mandiri berhasil disimpan.';
+        }
+
+        return redirect()->to(base_url("admin/administrasi-guru/modul-ajar?class_id={$classId}&subject_id={$subjectId}"))
+            ->with('success', $msg);
+    }
+
+    /**
+     * Upload dokumen PDF Modul Ajar
+     */
+    public function uploadPdfModul()
+    {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'] ?? 0, [1, 3])) {
+            return redirect()->back()->with('error', 'Anda tidak diizinkan mengunggah file Modul Ajar.');
+        }
+
+        $atpId     = $this->request->getPost('atp_id');
+        $classId   = $this->request->getPost('class_id');
+        $subjectId = $this->request->getPost('subject_id');
+
+        $file = $this->request->getFile('pdf_file');
+
+        if (!$file || !$file->isValid()) {
+            return redirect()->back()->with('error', 'Silakan pilih file PDF yang valid.');
+        }
+
+        $ext = strtolower($file->getClientExtension());
+        if ($ext !== 'pdf') {
+            return redirect()->back()->with('error', 'Format file harus berupa dokumen PDF (.pdf).');
+        }
+
+        if ($file->getSizeByUnit('mb') > 15) {
+            return redirect()->back()->with('error', 'Ukuran file PDF maksimal 15 MB.');
+        }
+
+        $atpRaw = $this->atpModel->find($atpId);
+        if (!$atpRaw) {
+            return redirect()->back()->with('error', 'ATP tidak ditemukan.');
+        }
+
+        if ($user['role_id'] == 3) {
+            $targetTeacherId = $user['related_id'];
+        } else {
+            $assignment = $this->db->table('teaching_assignments')
+                ->where('subject_id', $subjectId)
+                ->where('class_id', $classId)
+                ->get()->getRowArray();
+            $targetTeacherId = $assignment['teacher_id'] ?? null;
+        }
+
+        if (!$targetTeacherId) {
+            return redirect()->back()->with('error', 'Tidak dapat menentukan guru pengampu.');
+        }
+
+        $uploadDir = FCPATH . 'uploads/modul_ajar/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $newName = 'modul_atp_' . $atpId . '_class_' . $classId . '_' . time() . '.' . $ext;
+        $file->move($uploadDir, $newName);
+
+        $modulModel = new \App\Models\ModulAjarModel();
+        $existing = $modulModel->where('atp_id', $atpId)->where('class_id', $classId)->first();
+
+        if ($existing) {
+            if (!empty($existing['file_pdf'])) {
+                $oldPath = $uploadDir . $existing['file_pdf'];
+                if (file_exists($oldPath)) {
+                    @unlink($oldPath);
+                }
+            }
+            $modulModel->update($existing['id'], [
+                'tipe'     => 'pdf',
+                'file_pdf' => $newName,
+            ]);
+            $msg = 'File PDF Modul Ajar berhasil diunggah dan menggantikan modul sebelumnya.';
+        } else {
+            $modulModel->insert([
+                'atp_id'     => $atpId,
+                'subject_id' => $subjectId,
+                'class_id'   => $classId,
+                'teacher_id' => $targetTeacherId,
+                'content'    => '',
+                'tipe'       => 'pdf',
+                'file_pdf'   => $newName,
+            ]);
+            $msg = 'File PDF Modul Ajar berhasil diunggah.';
+        }
+
+        return redirect()->to(base_url("admin/administrasi-guru/modul-ajar?class_id={$classId}&subject_id={$subjectId}"))
+            ->with('success', $msg);
+    }
+
+    /**
+     * Tampilkan atau streaming file PDF Modul Ajar
+     */
+    public function viewPdfModul($id)
+    {
+        $modulModel = new \App\Models\ModulAjarModel();
+        $modul = $modulModel->find($id);
+
+        if (!$modul || empty($modul['file_pdf'])) {
+            return redirect()->back()->with('error', 'File PDF Modul tidak ditemukan.');
+        }
+
+        $filePath = FCPATH . 'uploads/modul_ajar/' . $modul['file_pdf'];
+        if (!file_exists($filePath)) {
+            return redirect()->back()->with('error', 'File PDF fisik tidak ditemukan di server.');
+        }
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', 'inline; filename="' . basename($modul['file_pdf']) . '"')
+            ->setBody(file_get_contents($filePath));
     }
 
     public function generateModulAjar()
@@ -1806,6 +2048,11 @@ class AdministrasiGuru extends BaseController
                 . "4. Bagian C (Tujuan Pembelajaran): Masukkan Tujuan Pembelajaran persis seperti input HTML, JANGAN buatkan penomoran list otomatis (1, 2) lagi karena sudah dimuat di teks.\n"
                 . "5. Bagian F (Langkah Pembelajaran): Pindahkan dan buat TEPAT {$jumlahPertemuan} tabel pertemuan di sini, masing-masing berlabel 'Pertemuan ke-1', 'Pertemuan ke-2', dst.\n"
                 . "   Setiap tabel pertemuan memiliki 4 kolom: (Tahap | Sintaks | Deskripsi | Waktu) dengan Header Cream (#fff9c4).\n"
+                . "   SETIAP tabel pertemuan WAJIB memiliki TEPAT 3 baris data (bukan lebih, bukan kurang):\n"
+                . "     Baris 1 → Tahap: Mindful    | Waktu: 10 menit\n"
+                . "     Baris 2 → Tahap: Meaningful | Waktu: " . max(10, $menitPerPertemuan - 25) . " menit\n"
+                . "     Baris 3 → Tahap: Joyful     | Waktu: 15 menit\n"
+                . "   JANGAN PERNAH menggabungkan Joyful ke dalam deskripsi Meaningful. Joyful HARUS menjadi baris terpisah.\n"
                 . "   TOTAL waktu setiap pertemuan WAJIB {$menitPerPertemuan} menit ({$jpPerPertemuan} JP × 45 menit).\n"
                 . "6. Bagian K (Penilaian / Asesmen): Buat SPESIFIK. Jelaskan 'Penilaian Proses' (bentuknya) dan 'Penilaian Hasil' (instrumennya) yang benar-benar dapat mengukur Tujuan Pembelajaran tersebut.\n"
                 . "7. JANGAN MENGHASILKAN bagian Tanda Tangan (L, M, dst) sama sekali karena sistem pencetak otomatis telah menyediakan kolom tanda tangan di bawah modul.\n\n"
@@ -1816,7 +2063,8 @@ class AdministrasiGuru extends BaseController
                 . "  b. MEANINGFUL (~" . max(10, $menitPerPertemuan - 25) . " menit): Eksplorasi → Diskusi Kolaboratif → Koneksi ke dunia nyata yang SPESIFIK untuk materi " . $atp['lingkup_materi'] . ".\n"
                 . "     Gunakan model: Motivasi → Eksplorasi Konsep → Diskusi Kelompok → Presentasi/Sintesis.\n"
                 . "     JANGAN gunakan kalimat normatif 'Guru menjelaskan'. Gunakan deskripsi aksi nyata.\n"
-                . "  c. JOYFUL (~15 menit): Rincikan AKTIVITAS/GAME/PROYEK MINI yang memancing emosi positif terkait materi.\n\n"
+                . "  c. JOYFUL (~15 menit): Rincikan AKTIVITAS/GAME/PROYEK MINI yang memancing emosi positif terkait materi.\n"
+                . "     WAJIB: Joyful ditulis sebagai BARIS TERPISAH (baris ke-3) dalam tabel, TIDAK boleh digabung ke dalam baris Meaningful.\n\n"
                 . "DATA INPUT:\n"
                 . "Sekolah: " . ($school['name'] ?? '-') . "\n"
                 . "Penyusun: " . ($teacher['name'] ?? '-') . "\n"
@@ -1888,14 +2136,30 @@ class AdministrasiGuru extends BaseController
         $content = preg_replace('/```(?:html)?(.*?)```/s', '$1', $content);
 
         $modulModel = new \App\Models\ModulAjarModel();
-        
-        $modulModel->insert([
-            'atp_id' => $atpId,
-            'subject_id' => $subjectId,
-            'class_id' => $atp['class_id'],
-            'teacher_id' => $targetTeacherId,
-            'content' => trim($content)
-        ]);
+        $existing = $modulModel->where('atp_id', $atpId)->where('class_id', $atp['class_id'])->first();
+        if ($existing) {
+            if (!empty($existing['file_pdf'])) {
+                $oldPath = FCPATH . 'uploads/modul_ajar/' . $existing['file_pdf'];
+                if (file_exists($oldPath)) {
+                    @unlink($oldPath);
+                }
+            }
+            $modulModel->update($existing['id'], [
+                'content'  => trim($content),
+                'tipe'     => 'editor',
+                'file_pdf' => null,
+            ]);
+        } else {
+            $modulModel->insert([
+                'atp_id'     => $atpId,
+                'subject_id' => $subjectId,
+                'class_id'   => $atp['class_id'],
+                'teacher_id' => $targetTeacherId,
+                'content'    => trim($content),
+                'tipe'       => 'editor',
+                'file_pdf'   => null,
+            ]);
+        }
 
         return redirect()->back()->with('success', 'Modul Ajar berhasil digenerate.');
     }
@@ -1932,7 +2196,10 @@ class AdministrasiGuru extends BaseController
         $subjectId = $this->request->getPost('subject_id');
         
         $modulModel = new \App\Models\ModulAjarModel();
-        $modulModel->update($id, ['content' => $content]);
+        $modulModel->update($id, [
+            'content'  => $content,
+            'tipe'     => 'editor',
+        ]);
         
         return redirect()->to(base_url('admin/administrasi-guru/modul-ajar?class_id=' . $classId . '&subject_id=' . $subjectId))->with('success', 'Modul Ajar berhasil diperbarui.');
     }
@@ -1942,6 +2209,10 @@ class AdministrasiGuru extends BaseController
         $modulModel = new \App\Models\ModulAjarModel();
         $modul = $modulModel->find($id);
         if (!$modul) return redirect()->back();
+
+        if (($modul['tipe'] ?? 'editor') === 'pdf') {
+            return redirect()->to(base_url('admin/administrasi-guru/modul-ajar/pdf/' . $id));
+        }
 
         $data['modul'] = $modul;
         $data['class_id'] = $classId;
@@ -3137,9 +3408,18 @@ class AdministrasiGuru extends BaseController
         }
 
         $modulModel = new \App\Models\ModulAjarModel();
-        $modulModel->delete($id);
+        $modul = $modulModel->find($id);
+        if ($modul) {
+            if (!empty($modul['file_pdf'])) {
+                $filePath = FCPATH . 'uploads/modul_ajar/' . $modul['file_pdf'];
+                if (file_exists($filePath)) {
+                    @unlink($filePath);
+                }
+            }
+            $modulModel->delete($id);
+        }
 
-        return redirect()->to(base_url("admin/administrasi-guru/modul-ajar?class_id=$classId&subject_id=$subjectId"))->with('success', 'Modul Ajar berhasil dihapus. Silakan generate ulang jika diperlukan.');
+        return redirect()->to(base_url("admin/administrasi-guru/modul-ajar?class_id=$classId&subject_id=$subjectId"))->with('success', 'Modul Ajar berhasil dihapus.');
     }
 
     /**
@@ -3190,12 +3470,24 @@ class AdministrasiGuru extends BaseController
             return redirect()->back()->with('error', 'Modul untuk kelas ini sudah ada. Hapus dulu jika ingin menyalin ulang.');
         }
 
+        $newPdfName = null;
+        if (($sourceModul['tipe'] ?? 'editor') === 'pdf' && !empty($sourceModul['file_pdf'])) {
+            $srcPath = FCPATH . 'uploads/modul_ajar/' . $sourceModul['file_pdf'];
+            if (file_exists($srcPath)) {
+                $ext = pathinfo($sourceModul['file_pdf'], PATHINFO_EXTENSION) ?: 'pdf';
+                $newPdfName = 'modul_atp_' . $atpId . '_class_' . $targetClassId . '_' . time() . '.' . $ext;
+                @copy($srcPath, FCPATH . 'uploads/modul_ajar/' . $newPdfName);
+            }
+        }
+
         $modulModel->insert([
             'atp_id'     => $atpId,
             'subject_id' => $subjectId,
             'class_id'   => $targetClassId,
             'teacher_id' => $targetTeacherId,
-            'content'    => $sourceModul['content'],
+            'content'    => $sourceModul['content'] ?? '',
+            'tipe'       => $sourceModul['tipe'] ?? 'editor',
+            'file_pdf'   => $newPdfName ?? ($sourceModul['file_pdf'] ?? null),
         ]);
 
         return redirect()->to(base_url("admin/administrasi-guru/modul-ajar?class_id=$targetClassId&subject_id=$subjectId"))

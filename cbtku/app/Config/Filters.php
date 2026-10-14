@@ -81,6 +81,7 @@ class Filters extends BaseFilters
                     'admin/license/checkRenewal',
                     'admin/data-cleanup/*',
                     'admin/cbt/banksoal/uploadImage',
+                    'admin/updater/check-online',
                     'admin/updater/apply-online',
                 ]
             ],

@@ -19,8 +19,11 @@ class User extends BaseController
 
     public function index()
     {
-        $keyword = $this->request->getGet('keyword');
-        $page    = (int) ($this->request->getGet('page') ?? 1);
+        $keyword    = $this->request->getGet('keyword');
+        $activeRole = $this->request->getGet('role') ?? 'all';
+
+        // Ambil semua role untuk tab
+        $roles = $this->roleModel->orderBy('id', 'ASC')->findAll();
 
         $builder = $this->userModel
             ->select('users.*, roles.name as role_name')
@@ -35,12 +38,23 @@ class User extends BaseController
             ->groupEnd();
         }
 
-        $data['users'] = $builder
-            ->orderBy('users.id', 'DESC')
-            ->paginate(20, 'users'); // 10 per halaman
+        // Filter per role jika tab tertentu dipilih
+        if ($activeRole !== 'all' && is_numeric($activeRole)) {
+            $builder->where('users.role_id', (int) $activeRole);
+        }
 
-        $data['pager']   = $this->userModel->pager;
-        $data['keyword'] = $keyword;
+        $data['users']      = $builder->orderBy('roles.id', 'ASC')->orderBy('users.fullname', 'ASC')->findAll();
+        $data['roles']      = $roles;
+        $data['activeRole'] = $activeRole;
+        $data['keyword']    = $keyword;
+
+        // Hitung jumlah user per role untuk badge di tab
+        $rows = db_connect()->table('users')
+            ->select('role_id, COUNT(*) as total')
+            ->groupBy('role_id')
+            ->get()->getResultArray();
+        $countPerRole = array_column($rows, 'total', 'role_id');
+        $data['countPerRole'] = $countPerRole;
 
         return view('admin/users/index', $data);
     }

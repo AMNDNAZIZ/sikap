@@ -5,7 +5,8 @@
 
 <a href="<?= base_url('admin/behaviors/create') ?>" class="btn btn-primary mb-3">+ Tambah Perilaku</a>
 
-<table class="table table-bordered">
+<div class="table-responsive">
+<table class="table table-bordered align-middle">
   <thead class="table-success">
     <tr>
       <th>No</th>
@@ -32,5 +33,6 @@
     <?php endforeach ?>
   </tbody>
 </table>
+</div>
 
 <?= $this->endSection() ?>

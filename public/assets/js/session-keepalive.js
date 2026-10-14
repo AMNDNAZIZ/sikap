@@ -11,7 +11,17 @@
     // Configuration
     const PING_INTERVAL = 5 * 60 * 1000; // 5 minutes
     const IDLE_TIMEOUT = 10 * 60 * 1000; // 10 minutes of inactivity before stopping pings
-    const PING_URL = window.location.origin + window.location.pathname.split('/').slice(0, -1).join('/') + '/ping-session';
+
+    // Resolve ping & login URLs dynamically from meta tags or path
+    const metaPing = document.querySelector('meta[name="ping-url"]');
+    const metaLogin = document.querySelector('meta[name="login-url"]');
+    
+    // Guess base path from current pathname if meta tag absent
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const basePath = pathParts.length > 0 && pathParts[0] === 'siakad' ? '/siakad' : '';
+    
+    const PING_URL = metaPing ? metaPing.getAttribute('content') : (window.location.origin + basePath + '/auth/ping-session');
+    const LOGIN_URL = metaLogin ? metaLogin.getAttribute('content') : (window.location.origin + basePath + '/login');
     
     let lastActivity = Date.now();
     let pingTimer = null;
@@ -53,7 +63,22 @@
                 'Content-Type': 'application/json'
             },
             credentials: 'same-origin'
-        }).catch(err => {
+        })
+        .then(response => {
+            if (response.status === 401 || response.status === 403) {
+                // Session expired on server, redirect to login
+                window.location.href = LOGIN_URL;
+                return null;
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data && data.success === false) {
+                // Not authenticated
+                window.location.href = LOGIN_URL;
+            }
+        })
+        .catch(err => {
             console.warn('Session ping failed:', err);
         });
     }

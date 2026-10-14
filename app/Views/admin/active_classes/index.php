@@ -30,8 +30,9 @@
   </div>
 </div>
 
-<table class="table table-bordered table-striped">
-  <thead>
+<div class="table-responsive">
+<table class="table table-bordered table-striped align-middle">
+  <thead class="table-light">
     <tr>
       <th>No</th>
       <th>NIS</th>
@@ -39,7 +40,7 @@
       <th>Kelas</th>
       <th>Status</th>
       <?php if (session()->get('user')['role_id'] != 2): ?>
-        <th>Aksi</th>
+        <th style="min-width: 320px;">Aksi</th>
       <?php endif; ?>
     </tr>
   </thead>
@@ -69,7 +70,7 @@
                   <option value="<?= $st ?>" <?= $r['status'] == $st ? 'selected' : '' ?>><?= ucfirst($st) ?></option>
                 <?php endforeach ?>
               </select>
-              <button class="btn btn-sm btn-primary">💾 Simpan</button>
+              <button class="btn btn-sm btn-primary text-nowrap">💾 Simpan</button>
             </form>
           </td>
         <?php endif; ?>
@@ -77,5 +78,6 @@
     <?php endforeach ?>
   </tbody>
 </table>
+</div>
 
 <?= $this->endSection() ?>

@@ -325,14 +325,225 @@ class Rapor extends BaseController
                     ->countAllResults(),
             ];
 
+            // Ambil Nilai Ekstrakurikuler!
+            $semValues = ((string)$semester === '2' || $semester === 'genap') ? ['2', 'genap'] : ['1', 'ganjil'];
+            $ekskul = $this->db->table('ekskul_scores es')
+                ->select('em.name as ekskul_name, es.predicate, es.description')
+                ->join('ekskul_master em', 'em.id = es.ekskul_id')
+                ->where('es.student_id', $sid)
+                ->where('es.academic_year_id', $activeYearId)
+                ->whereIn('es.semester', $semValues)
+                ->get()->getResultArray();
+
             $reportData[] = [
                 'student'    => $stu,
                 'rows'       => $rows,
+                'ekskul'     => $ekskul,
                 'attendance' => $att,
             ];
         }
 
         return view('admin/rapor/pts_print', [
+            'class'      => $class,
+            'school'     => $school,
+            'semester'   => $semester,
+            'activeYear' => $activeYear,
+            'reportData' => $reportData,
+            'subjects'   => $subjects,
+            'kopBase64'  => $kopBase64,
+            'fase'       => $fase,
+        ]);
+    }
+
+    /**
+     * Cetak Rapor Akhir Semester.
+     * Termasuk nilai akademik (ERapor) dan nilai ekstrakurikuler.
+     */
+    public function cetakAkhir($classId, $semester)
+    {
+        $classId  = (int) $classId;
+        $semester = (string) $semester;
+
+        if (!in_array($semester, ['1', '2'], true)) {
+            return redirect()->to('admin/rapor')->with('error', 'Semester tidak valid.');
+        }
+
+        if (!$this->canAccessClass($classId)) {
+            return redirect()->to('admin/rapor')->with('error', 'Anda tidak memiliki akses ke kelas ini.');
+        }
+
+        $activeYear   = $this->yearModel->getActiveYear();
+        $activeYearId = $activeYear['id'] ?? null;
+        if (!$activeYearId) {
+            return redirect()->to('admin/academic-years')->with('error', 'Belum ada tahun ajaran aktif.');
+        }
+
+        $class = $this->db->table('classes c')
+            ->select('c.*, t.name as wali_name, t.nip as wali_nip')
+            ->join('teachers t', 't.id = c.teacher_id', 'left')
+            ->where('c.id', $classId)
+            ->get()->getRowArray();
+        if (!$class) {
+            return redirect()->to('admin/rapor')->with('error', 'Kelas tidak ditemukan.');
+        }
+
+        $school = $this->schoolModel->getProfile();
+        $classLevel = (int) ($class['level'] ?? 0);
+        $fase       = $this->levelToFase($classLevel);
+        $kopBase64 = $this->getKopBase64();
+
+        // Kumpulkan mapel...
+        $bkKeywords = ['%Bimbingan%', '%Konseling%'];
+
+        $subjectsRegular = $this->db->table('subjects s')
+            ->select('s.id, s.name, s.subject_group, s.sort_order, s.religion')
+            ->distinct()
+            ->join('teaching_assignments ta', 'ta.subject_id = s.id AND ta.class_id = ' . $classId . ' AND ta.academic_year_id = ' . (int) $activeYearId, 'inner')
+            ->where('s.is_active', 1)
+            ->where("(s.religion IS NULL OR s.religion = '')")
+            ->groupStart()
+                ->where('s.name NOT LIKE', $bkKeywords[0])
+                ->where('s.name NOT LIKE', $bkKeywords[1])
+            ->groupEnd()
+            ->orderBy('s.sort_order', 'ASC')
+            ->orderBy('s.name', 'ASC')
+            ->get()->getResultArray();
+
+        $subjectsAgama = $this->db->table('subjects s')
+            ->select('s.id, s.name, s.subject_group, s.sort_order, s.religion')
+            ->where('s.is_active', 1)
+            ->where("s.religion IS NOT NULL")
+            ->where("s.religion !=", '')
+            ->groupStart()
+                ->where('s.name NOT LIKE', $bkKeywords[0])
+                ->where('s.name NOT LIKE', $bkKeywords[1])
+            ->groupEnd()
+            ->orderBy('s.sort_order', 'ASC')
+            ->orderBy('s.name', 'ASC')
+            ->get()->getResultArray();
+
+        $subjectMap = [];
+        foreach (array_merge($subjectsAgama, $subjectsRegular) as $s) {
+            $subjectMap[$s['id']] = $s; 
+        }
+        
+        if (empty($subjectMap)) {
+            $all = $this->db->table('subjects')
+                ->select('id, name, subject_group, sort_order, religion')
+                ->where('is_active', 1)
+                ->groupStart()
+                    ->where('name NOT LIKE', $bkKeywords[0])
+                    ->where('name NOT LIKE', $bkKeywords[1])
+                ->groupEnd()
+                ->orderBy('sort_order', 'ASC')
+                ->orderBy('name', 'ASC')
+                ->get()->getResultArray();
+            foreach ($all as $s) $subjectMap[$s['id']] = $s;
+        }
+        uasort($subjectMap, function ($a, $b) {
+            $diff = (int)$a['sort_order'] - (int)$b['sort_order'];
+            return $diff !== 0 ? $diff : strcmp($a['name'], $b['name']);
+        });
+        $subjects = array_values($subjectMap);
+
+        $students = $this->db->table('student_records sr')
+            ->select('s.id, s.name, s.nisn, s.nis, s.religion')
+            ->join('students s', 's.id = sr.student_id', 'inner')
+            ->where('sr.class_id', $classId)
+            ->where('sr.academic_year_id', $activeYearId)
+            ->where('sr.status', 'aktif')
+            ->orderBy('s.name', 'ASC')
+            ->get()->getResultArray();
+
+        $reportData = [];
+        foreach ($students as $stu) {
+            $sid = (int) $stu['id'];
+            $rows = [];
+            foreach ($subjects as $subj) {
+                $subjectId = (int) $subj['id'];
+                $subjReligion = $subj['religion'] ?? '';
+                if ($subjReligion !== '' && $subjReligion !== null) {
+                    $stuReligion = $stu['religion'] ?? '';
+                    if (strcasecmp(trim($subjReligion), trim($stuReligion)) !== 0) {
+                        continue; 
+                    }
+                }
+                
+                // Ambil rata2 formatif dan sumatif sbg nilai akhir
+                $materiAvg = $this->db->table('material_scores ms')
+                    ->select('AVG(ms.score) as avg_score')
+                    ->join('alur_tujuan_pembelajaran atp', 'atp.id = ms.material_id', 'inner')
+                    ->where('ms.student_id', $sid)
+                    ->where('atp.subject_id', $subjectId)
+                    ->where('ms.score IS NOT NULL')
+                    ->get()->getRowArray();
+                $nilaiMateri = isset($materiAvg['avg_score']) ? round((float) $materiAvg['avg_score'], 1) : null;
+                
+                $ptsRow = $this->db->table('pts_scores')
+                    ->select('score')
+                    ->where('student_id', $sid)
+                    ->where('subject_id', $subjectId)
+                    ->where('year_id', $activeYearId)
+                    ->where('semester', $semester)
+                    ->get()->getRowArray();
+                
+                $nilaiPts = $ptsRow && $ptsRow['score'] !== null ? round((float) $ptsRow['score'], 1) : null;
+                
+                // Asumsi bobot rapor: 60% Formatif, 40% Sumatif/PTS
+                $nilai = null;
+                if ($nilaiMateri !== null && $nilaiPts !== null) {
+                    $nilai = round(($nilaiMateri * 0.6) + ($nilaiPts * 0.4), 0);
+                } elseif ($nilaiMateri !== null) {
+                    $nilai = round($nilaiMateri, 0);
+                } elseif ($nilaiPts !== null) {
+                    $nilai = round($nilaiPts, 0);
+                }
+                
+                $rows[] = [
+                    'subject_name' => $subj['name'],
+                    'nilai' => $nilai,
+                    'predikat' => $nilai ? ($nilai >= 90 ? 'A' : ($nilai >= 80 ? 'B' : ($nilai >= 70 ? 'C' : 'D'))) : '-',
+                    'deskripsi' => 'Telah mencapai kompetensi dasar dengan ' . ($nilai ? ($nilai >= 80 ? 'baik' : 'cukup') : '-') . '.'
+                ];
+            }
+
+            // Ambil Nilai Ekstrakurikuler!
+            $semValues = ((string)$semester === '2' || $semester === 'genap') ? ['2', 'genap'] : ['1', 'ganjil'];
+            $ekskul = $this->db->table('ekskul_scores es')
+                ->select('em.name as ekskul_name, es.predicate, es.description')
+                ->join('ekskul_master em', 'em.id = es.ekskul_id')
+                ->where('es.student_id', $sid)
+                ->where('es.academic_year_id', $activeYearId)
+                ->whereIn('es.semester', $semValues)
+                ->get()->getResultArray();
+
+            $yearRecord = $this->db->table('student_records sr')
+                ->select('ay.start_date, ay.end_date')
+                ->join('academic_years ay', 'ay.id = sr.academic_year_id', 'inner')
+                ->where('sr.student_id', $sid)
+                ->where('sr.class_id', $classId)
+                ->where('sr.status', 'aktif')
+                ->orderBy('ay.start_date', 'DESC')
+                ->get()->getRowArray();
+
+            $attStart = $yearRecord['start_date'] ?? '1970-01-01';
+            $attEnd   = min(date('Y-m-d'), $yearRecord['end_date'] ?? date('Y-m-d'));
+
+            $att = [
+                'sakit' => $this->db->table('attendances')->where('student_id', $sid)->where('class_id', $classId)->where('status', 'S')->where('date >=', $attStart)->where('date <=', $attEnd)->countAllResults(),
+                'izin'  => $this->db->table('attendances')->where('student_id', $sid)->where('class_id', $classId)->where('status', 'I')->where('date >=', $attStart)->where('date <=', $attEnd)->countAllResults(),
+                'alpa'  => $this->db->table('attendances')->where('student_id', $sid)->where('class_id', $classId)->where('status', 'A')->where('date >=', $attStart)->where('date <=', $attEnd)->countAllResults(),
+            ];
+
+            $reportData[] = [
+                'student'    => $stu,
+                'rows'       => $rows,
+                'ekskul'     => $ekskul,
+                'attendance' => $att,
+            ];
+        }
+
+        return view('admin/rapor/akhir_print', [
             'class'      => $class,
             'school'     => $school,
             'semester'   => $semester,

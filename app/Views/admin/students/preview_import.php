@@ -4,7 +4,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
     <h4 class="mb-0">📋 Pratinjau &amp; Konfirmasi Impor Data Siswa</h4>
-    <small class="text-muted">Tipe Impor: <strong><?= $import_type === 'dapodik' ? '🏫 Tarikan Dapodik (.xlsx)' : '📄 Template SIAKAD (Manual)' ?></strong></small>
+    <small class="text-muted">Tipe Impor: <strong><?= $import_type === 'dapodik' ? '🏫 Tarikan Dapodik (.xlsx)' : '📄 Template ESPATA (Manual)' ?></strong></small>
   </div>
   <a href="<?= base_url('admin/students') ?>" class="btn btn-secondary btn-sm">❌ Batal / Kembali</a>
 </div>
@@ -54,7 +54,7 @@
     <div class="card-body">
       <div class="row g-3 align-items-center">
         <div class="col-md-6">
-          <label class="form-label fw-bold">Jika Data Siswa Sudah Ada di SIAKAD:</label>
+          <label class="form-label fw-bold">Jika Data Siswa Sudah Ada di ESPATA:</label>
           <select name="sync_mode" class="form-select" required>
             <option value="update" selected>✏️ Update - Timpa &amp; lengkapi data siswa yang sudah ada</option>
             <option value="merge">🔀 Merge - Hanya isi field yang masih kosong</option>
@@ -72,7 +72,7 @@
               </option>
             <?php endforeach; ?>
           </select>
-          <small class="text-muted">Digunakan jika kolom Rombel di Excel kosong atau tidak cocok dengan nama kelas di SIAKAD</small>
+          <small class="text-muted">Digunakan jika kolom Rombel di Excel kosong atau tidak cocok dengan nama kelas di ESPATA</small>
         </div>
       </div>
     </div>

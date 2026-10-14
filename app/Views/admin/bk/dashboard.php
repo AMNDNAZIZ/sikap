@@ -5,28 +5,29 @@
     <!-- Header Banner -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card bg-gradient text-white shadow-sm border-0 rounded-4" style="background: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%);">
-                <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-                    <div>
-                        <h2 class="h3 fw-bold mb-1 text-white"><i class="bi bi-heart-pulse-fill me-2"></i> Dashboard Bimbingan Konseling (BP/BK)</h2>
-                        <p class="mb-0 text-white opacity-75">
-                            Sistem Informasi BK ESPATA &mdash; Berorientasi Tindakan, Pemantauan Sinyal & Presisi Data
-                            <?php if (!empty($activeYear)) : ?>
-                                &bull; <strong>Tahun Ajaran <?= esc($activeYear['year']) ?></strong>
-                            <?php endif; ?>
-                        </p>
-                    </div>
-                    <div class="d-flex gap-2 flex-wrap">
-                        <button class="btn btn-light btn-sm rounded-pill fw-bold text-danger shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#modalQuickKasus">
-                            <i class="bi bi-plus-circle-fill me-1"></i> Catat Kasus
-                        </button>
-                        <button class="btn btn-light btn-sm rounded-pill fw-bold text-primary shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#modalQuickLayanan">
-                            <i class="bi bi-journal-plus me-1"></i> Input Layanan
-                        </button>
-                        <a href="<?= base_url('admin/bk/siswa') ?>" class="btn btn-dark btn-sm rounded-pill fw-bold shadow-sm px-3">
-                            <i class="bi bi-person-lines-fill me-1"></i> Profil Siswa BK
-                        </a>
-                    </div>
+            <div class="rounded-4 shadow-sm border-0 p-4 d-flex justify-content-between align-items-center flex-wrap gap-3"
+                 style="background: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%) !important; min-height: 90px;">
+                <div>
+                    <h2 class="h3 fw-bold mb-1" style="color:#fff !important;">
+                        <i class="bi bi-heart-pulse-fill me-2"></i> Dashboard Bimbingan Konseling (BP/BK)
+                    </h2>
+                    <p class="mb-0" style="color:rgba(255,255,255,0.80) !important;">
+                        Sistem Informasi BK ESPATA &mdash; Berorientasi Tindakan, Pemantauan Sinyal &amp; Presisi Data
+                        <?php if (!empty($activeYear)) : ?>
+                            &bull; <strong style="color:#fff !important;">Tahun Ajaran <?= esc($activeYear['year']) ?></strong>
+                        <?php endif; ?>
+                    </p>
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-light btn-sm rounded-pill fw-bold text-danger shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#modalQuickKasus">
+                        <i class="bi bi-plus-circle-fill me-1"></i> Catat Kasus
+                    </button>
+                    <button class="btn btn-light btn-sm rounded-pill fw-bold text-primary shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#modalQuickLayanan">
+                        <i class="bi bi-journal-plus me-1"></i> Input Layanan
+                    </button>
+                    <a href="<?= base_url('admin/bk/siswa') ?>" class="btn btn-dark btn-sm rounded-pill fw-bold shadow-sm px-3">
+                        <i class="bi bi-person-lines-fill me-1"></i> Profil Siswa BK
+                    </a>
                 </div>
             </div>
         </div>

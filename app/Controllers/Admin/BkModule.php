@@ -208,34 +208,69 @@ class BkModule extends BaseController
         $teacherId = (int)$teacher['id'];
         $classIds  = [];
 
-        // a) Kelas sebagai wali kelas
-        $homeroom = $this->db->table('classes')
-            ->select('id')
-            ->where('teacher_id', $teacherId)
-            ->get()->getResultArray();
-        foreach ($homeroom as $row) {
-            $classIds[] = (int)$row['id'];
-        }
+        // Deteksi level sekolah untuk menentukan strategi scope
+        $schoolLevel = (int) ($this->db->table('school_profile')
+            ->select('level')->get()->getRowArray()['level'] ?? 1);
 
-        // b) Kelas tempat guru mengajar (teaching_assignments) di tahun ajaran aktif
-        $assignments = [];
-        if (!empty($academicYearId)) {
-            $assignments = $this->db->table('teaching_assignments')
-                ->distinct()->select('class_id')
+        // ── STRATEGI A: SD (level 1) atau tidak ada bk_counselor_assignments
+        //    Scope = wali kelas + teaching_assignments (pola lama, terbukti benar)
+        // ── STRATEGI B: SMP/SMA (level > 1)
+        //    Scope = bk_counselor_assignments (ploting guru BK per kelas)
+        //    Fallback ke wali kelas jika belum ada ploting BK
+
+        if ($schoolLevel > 1) {
+            // SMP/SMA: cari ploting bk_counselor_assignments
+            $bkAssignBuilder = $this->db->table('bk_counselor_assignments')
+                ->select('class_id')
+                ->where('teacher_id', $teacherId);
+            if (!empty($academicYearId)) {
+                $bkAssignBuilder->where('year_id', $academicYearId);
+            }
+            $bkRows = $bkAssignBuilder->get()->getResultArray();
+
+            if (!empty($bkRows)) {
+                // Ada ploting BK eksplisit → pakai itu
+                foreach ($bkRows as $row) {
+                    $classIds[] = (int)$row['class_id'];
+                }
+            }
+            // Selalu tambahkan juga kelas sebagai wali kelas
+            // (guru BK yang juga wali kelas bisa akses kelasnya sendiri)
+            $homeroom = $this->db->table('classes')
+                ->select('id')
                 ->where('teacher_id', $teacherId)
-                ->where('academic_year_id', $academicYearId)
                 ->get()->getResultArray();
-        }
-        // Fallback: bila belum ada penugasan di tahun aktif (mis. data belum dimigrasi),
-        // pakai penugasan tahun manapun agar akses guru tidak terkunci keliru.
-        if (empty($assignments)) {
-            $assignments = $this->db->table('teaching_assignments')
-                ->distinct()->select('class_id')
+            foreach ($homeroom as $row) {
+                $classIds[] = (int)$row['id'];
+            }
+        } else {
+            // SD: wali kelas + teaching_assignments (pola existing)
+            $homeroom = $this->db->table('classes')
+                ->select('id')
                 ->where('teacher_id', $teacherId)
                 ->get()->getResultArray();
-        }
-        foreach ($assignments as $row) {
-            $classIds[] = (int)$row['class_id'];
+            foreach ($homeroom as $row) {
+                $classIds[] = (int)$row['id'];
+            }
+
+            // teaching_assignments di tahun aktif, dengan fallback
+            $assignments = [];
+            if (!empty($academicYearId)) {
+                $assignments = $this->db->table('teaching_assignments')
+                    ->distinct()->select('class_id')
+                    ->where('teacher_id', $teacherId)
+                    ->where('academic_year_id', $academicYearId)
+                    ->get()->getResultArray();
+            }
+            if (empty($assignments)) {
+                $assignments = $this->db->table('teaching_assignments')
+                    ->distinct()->select('class_id')
+                    ->where('teacher_id', $teacherId)
+                    ->get()->getResultArray();
+            }
+            foreach ($assignments as $row) {
+                $classIds[] = (int)$row['class_id'];
+            }
         }
 
         return array_values(array_unique($classIds));
@@ -395,7 +430,7 @@ class BkModule extends BaseController
             ->join('students s', 's.id = a.student_id', 'inner')
             ->join('student_records sr', 'sr.student_id = s.id AND sr.status = \'aktif\' AND sr.academic_year_id = ' . (int)$activeYearId, 'inner')
             ->join('classes cl', 'cl.id = sr.class_id', 'left')
-            ->where('a.status', 'Alpa');
+            ->where('a.status', 'A');  // enum: A=Alpa
         if ($scopedClassIds !== null) {
             $lowAttendanceBuilder->whereIn('sr.class_id', $scopedClassIds ?: [0]);
         }
@@ -1493,15 +1528,26 @@ class BkModule extends BaseController
 
         $students = $builder->get()->getResultArray();
 
+        // Ambil rentang tanggal tahun ajaran filter untuk batasi hitung absensi
+        $filterYear = $this->academicYearModel->find($filterYearId);
+        $attStart   = $filterYear['start_date'] ?? '1970-01-01';
+        $attEnd     = min(date('Y-m-d'), $filterYear['end_date'] ?? date('Y-m-d'));
+
         // Tambahkan indikator ringkas untuk setiap siswa
         foreach ($students as &$student) {
-            $sid = $student['id'];
+            $sid     = $student['id'];
+            $clsId   = $student['class_id'] ?? null;
 
-            // Jumlah alpa (cepat)
-            $student['total_alpa'] = $this->db->table('attendances')
+            // Jumlah alpa — status enum 'A', filter class_id + rentang tahun ajaran
+            $alpBuilder = $this->db->table('attendances')
                 ->where('student_id', $sid)
-                ->where('status', 'Alpa')
-                ->countAllResults();
+                ->where('status', 'A')
+                ->where('date >=', $attStart)
+                ->where('date <=', $attEnd);
+            if ($clsId) {
+                $alpBuilder->where('class_id', $clsId);
+            }
+            $student['total_alpa'] = $alpBuilder->countAllResults();
 
             // Kasus aktif
             $student['active_cases'] = $this->db->table('bk_cases')
@@ -1569,14 +1615,102 @@ class BkModule extends BaseController
         }
 
         // 2. Kehadiran / Absensi (READ-ONLY)
+        // Ambil class_id aktif siswa ini dan rentang tanggal tahun ajaran terkait
+        // untuk menghitung absensi yang relevan (bukan semua sepanjang masa).
+        $activeRecord = $this->db->table('student_records sr')
+            ->select('sr.class_id, ay.start_date, ay.end_date')
+            ->join('academic_years ay', 'ay.id = sr.academic_year_id', 'inner')
+            ->where('sr.student_id', $id)
+            ->where('sr.status', 'aktif')
+            ->orderBy('ay.start_date', 'DESC')
+            ->get()->getRowArray();
+
+        $attClassId = $activeRecord['class_id']   ?? null;
+        $attStart   = $activeRecord['start_date'] ?? '1970-01-01';
+        $attEnd     = min(date('Y-m-d'), $activeRecord['end_date'] ?? date('Y-m-d'));
+
+        // Status enum di tabel attendances: H=Hadir, S=Sakit, I=Izin, A=Alpa
+        // PENTING: Sistem absensi ESPATA hanya menyimpan ketidakhadiran (S/I/A).
+        // Hadir TIDAK disimpan sebagai baris tersendiri — hadir dihitung sebagai
+        // total hari sekolah aktif dalam rentang DIKURANGI (S + I + A).
+        // Pola ini konsisten dengan modul Attendance.php.
+
+        $clsWhere = $attClassId ? ['class_id' => $attClassId] : [];
+
+        $sakit = $this->db->table('attendances')
+            ->where('student_id', $id)->where('status', 'S')
+            ->where('date >=', $attStart)->where('date <=', $attEnd)
+            ->where($clsWhere ?: '1=1')
+            ->countAllResults();
+
+        $izin = $this->db->table('attendances')
+            ->where('student_id', $id)->where('status', 'I')
+            ->where('date >=', $attStart)->where('date <=', $attEnd)
+            ->where($clsWhere ?: '1=1')
+            ->countAllResults();
+
+        $alpa = $this->db->table('attendances')
+            ->where('student_id', $id)->where('status', 'A')
+            ->where('date >=', $attStart)->where('date <=', $attEnd)
+            ->where($clsWhere ?: '1=1')
+            ->countAllResults();
+
+        // Hitung hari sekolah aktif dalam rentang (Senin–Jumat, non-holiday)
+        $schoolDaysCount = 0;
+        try {
+            $schoolDaysSetting = (int)(
+                $this->db->table('academic_years')
+                    ->select('school_days')
+                    ->where('start_date <=', $attEnd)
+                    ->where('end_date >=', $attStart)
+                    ->orderBy('is_active', 'DESC')
+                    ->limit(1)
+                    ->get()->getRowArray()['school_days'] ?? 5
+            ) ?: 5;
+
+            // Ambil hari libur dalam rentang
+            $holidayDates = [];
+            if ($this->db->tableExists('holidays')) {
+                $hRows = $this->db->table('holidays')
+                    ->select('date')
+                    ->where('date >=', $attStart)
+                    ->where('date <=', $attEnd)
+                    ->get()->getResultArray();
+                foreach ($hRows as $h) {
+                    $holidayDates[$h['date']] = true;
+                }
+            }
+
+            $d = new \DateTime($attStart);
+            $end = new \DateTime($attEnd);
+            while ($d <= $end) {
+                $dayOfWeek = (int) $d->format('N'); // 1=Mon … 7=Sun
+                $dateStr   = $d->format('Y-m-d');
+                $isWeekend = ($schoolDaysSetting == 5 && $dayOfWeek >= 6)
+                          || ($schoolDaysSetting == 6 && $dayOfWeek == 7);
+                if (!$isWeekend && !isset($holidayDates[$dateStr])) {
+                    $schoolDaysCount++;
+                }
+                $d->modify('+1 day');
+            }
+        } catch (\Throwable $e) {
+            // Fallback: estimasi kasaran
+            $schoolDaysCount = $sakit + $izin + $alpa + 1;
+        }
+
+        $tidakHadir = $sakit + $izin + $alpa;
+        $hadir      = max(0, $schoolDaysCount - $tidakHadir);
+
         $attendanceSummary = [
-            'hadir' => $this->db->table('attendances')->where('student_id', $id)->where('status', 'Hadir')->countAllResults(),
-            'sakit' => $this->db->table('attendances')->where('student_id', $id)->where('status', 'Sakit')->countAllResults(),
-            'izin'  => $this->db->table('attendances')->where('student_id', $id)->where('status', 'Izin')->countAllResults(),
-            'alpa'  => $this->db->table('attendances')->where('student_id', $id)->where('status', 'Alpa')->countAllResults(),
+            'hadir' => $hadir,
+            'sakit' => $sakit,
+            'izin'  => $izin,
+            'alpa'  => $alpa,
         ];
-        $totalAtt             = array_sum($attendanceSummary);
-        $attendancePercentage = $totalAtt > 0 ? round(($attendanceSummary['hadir'] / $totalAtt) * 100, 1) : 100;
+        $totalAtt             = max($schoolDaysCount, $tidakHadir); // denominator = hari sekolah
+        $attendancePercentage = $totalAtt > 0
+            ? round(($hadir / $totalAtt) * 100, 1)
+            : 100;
 
         // 3. Ringkasan Akademik (READ-ONLY)
         $academicScores = $this->db->table('subject_scores ss')
@@ -1682,4 +1816,148 @@ class BkModule extends BaseController
             'isGuruBk'             => $isGuruBk,
         ]);
     }
+
+    // =========================================================
+    // PENGATURAN GURU BK — Ploting Guru BK per Kelas (Admin only)
+    // =========================================================
+
+    /**
+     * Halaman pengaturan: siapa guru BK untuk kelas mana di tahun aktif.
+     * Hanya Admin (role 1) yang bisa akses.
+     */
+    public function settings()
+    {
+        $user = session()->get('user');
+        if ((int)($user['role_id'] ?? 0) !== 1) {
+            return redirect()->to('admin/bk')->with('error', 'Hanya Admin yang dapat mengakses pengaturan ini.');
+        }
+
+        $activeYear   = $this->getActiveYear();
+        $activeYearId = $activeYear['id'] ?? null;
+
+        // Semua guru yang punya permission bk.manage
+        $bkPermId = $this->db->table('permissions')
+            ->select('id')
+            ->where('module', 'bk')
+            ->where('action', 'manage')
+            ->get()->getRowArray()['id'] ?? null;
+
+        // Ambil semua guru (role 3) yang role-nya punya permission bk.manage
+        // Cara yang benar: cari role_ids yang punya permission bk.manage,
+        // lalu ambil semua teachers yang user-nya punya salah satu role itu.
+        $counselors = [];
+        if ($bkPermId) {
+            // Role mana saja yang punya bk.manage
+            $bkRoleIds = array_column(
+                $this->db->table('role_permissions')
+                    ->select('role_id')
+                    ->where('permission_id', $bkPermId)
+                    ->get()->getResultArray(),
+                'role_id'
+            );
+
+            if (!empty($bkRoleIds)) {
+                $counselors = $this->db->table('teachers t')
+                    ->select('t.id as teacher_id, t.name as teacher_name, t.nip, t.jenis_ptk')
+                    ->join('users u', 'u.id = t.user_id', 'inner')
+                    ->where('u.is_active', 1)
+                    ->whereIn('u.role_id', $bkRoleIds)
+                    ->where('u.role_id', 3) // hanya role Guru biasa
+                    ->orderBy('t.name', 'ASC')
+                    ->get()->getResultArray();
+            }
+        }
+
+        // Semua kelas aktif
+        $classes = $this->classModel->where('is_active', 1)
+            ->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll();
+
+        // Assignment yang sudah ada untuk tahun aktif
+        $existing = $this->db->table('bk_counselor_assignments')
+            ->select('teacher_id, class_id')
+            ->where('year_id', $activeYearId)
+            ->get()->getResultArray();
+
+        // Buat map teacher_id → [class_id, ...]
+        $assignmentMap = [];
+        foreach ($existing as $row) {
+            $assignmentMap[$row['teacher_id']][] = (int)$row['class_id'];
+        }
+
+        $academicYears = $this->academicYearModel->orderBy('start_date', 'DESC')->findAll();
+
+        return view('admin/bk/settings', [
+            'title'         => 'Pengaturan Guru BK',
+            'counselors'    => $counselors,
+            'classes'       => $classes,
+            'assignmentMap' => $assignmentMap,
+            'activeYear'    => $activeYear,
+            'academicYears' => $academicYears,
+        ]);
+    }
+
+    /**
+     * Simpan ploting guru BK ke kelas (POST, AJAX-friendly).
+     * Menerima: teacher_id, class_ids[] (array), year_id
+     * Strategi: replace semua assignment guru tsb di tahun tsb, lalu insert baru.
+     */
+    public function saveCounselorAssignment()
+    {
+        $user = session()->get('user');
+        if ((int)($user['role_id'] ?? 0) !== 1) {
+            return $this->response->setStatusCode(403)
+                ->setJSON(['status' => 'error', 'message' => 'Akses ditolak.']);
+        }
+
+        $teacherId = (int) $this->request->getPost('teacher_id');
+        $yearId    = (int) $this->request->getPost('year_id');
+        $classIds  = $this->request->getPost('class_ids') ?? [];
+
+        if (!$teacherId || !$yearId) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Data tidak lengkap.']);
+        }
+
+        if (!is_array($classIds)) {
+            $classIds = [];
+        }
+        $classIds = array_map('intval', array_filter($classIds));
+
+        $this->db->transStart();
+
+        // Hapus semua assignment lama guru ini di tahun ini
+        $this->db->table('bk_counselor_assignments')
+            ->where('teacher_id', $teacherId)
+            ->where('year_id', $yearId)
+            ->delete();
+
+        // Insert assignment baru
+        $now = date('Y-m-d H:i:s');
+        foreach ($classIds as $classId) {
+            if ($classId <= 0) continue;
+            $this->db->table('bk_counselor_assignments')->insert([
+                'teacher_id' => $teacherId,
+                'class_id'   => $classId,
+                'year_id'    => $yearId,
+                'created_by' => $user['id'] ?? null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        $this->db->transComplete();
+
+        if ($this->db->transStatus() === false) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Gagal menyimpan.']);
+        }
+
+        $count = count($classIds);
+        return $this->response->setJSON([
+            'status'  => 'success',
+            'message' => $count > 0
+                ? "Ploting disimpan: {$count} kelas ditangani guru ini."
+                : 'Semua ploting kelas untuk guru ini dihapus.',
+            'count'   => $count,
+        ]);
+    }
 }
+

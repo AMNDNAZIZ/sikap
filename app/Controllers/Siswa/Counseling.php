@@ -21,7 +21,7 @@ class Counseling extends BaseController
     }
 
     /**
-     * Ambil student_id dari session — ikuti pola controller siswa lainnya di SIAKAD.
+     * Ambil student_id dari session — ikuti pola controller siswa lainnya di ESPATA.
      */
     private function getStudentId(): ?int
     {

@@ -1,0 +1,21 @@
+DEBUG - 2026-10-02 20:39:31 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-10-02 20:39:31 --> License marker mismatch: C:\xampp\htdocs\cbtku\app\Config/.lic_marker
+DEBUG - 2026-10-02 20:39:31 --> License marker mismatch: C:\xampp\htdocs\cbtku\writable\.lic_marker
+DEBUG - 2026-10-02 20:39:31 --> License marker mismatch: C:\xampp\htdocs\cbtku\.lic_marker
+ERROR - 2026-10-02 20:39:31 --> Hash mismatch for file: Controllers/Activate.php - Integrity Check Failed
+INFO - 2026-10-02 20:39:31 --> Hash mismatch ignored on localhost for development/maintenance.
+ERROR - 2026-10-02 20:39:31 --> Hash mismatch for file: Libraries/LicenseGuard.php - Integrity Check Failed
+INFO - 2026-10-02 20:39:31 --> Hash mismatch ignored on localhost for development/maintenance.
+ERROR - 2026-10-02 20:39:31 --> Hash mismatch for file: Config/Filters.php - Integrity Check Failed
+INFO - 2026-10-02 20:39:31 --> Hash mismatch ignored on localhost for development/maintenance.
+INFO - 2026-10-02 20:39:42 --> CSRF token verified.
+DEBUG - 2026-10-02 20:39:42 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-10-02 20:39:44 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+INFO - 2026-10-02 20:39:52 --> CSRF token verified.
+DEBUG - 2026-10-02 20:39:52 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-10-02 20:39:53 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-10-02 20:40:27 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-10-02 20:40:58 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-10-02 20:41:30 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-10-02 20:42:01 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-10-02 20:42:32 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.

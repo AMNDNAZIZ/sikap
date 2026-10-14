@@ -1880,6 +1880,9 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       out = out.replace(/\n\s*</g, '<');
 
       // 11. Terakhir, ganti newline kembali ke <br> agar tampilan tetap terjaga
+      out = out.replace(/\\r\\n/g, '<br>');
+      out = out.replace(/\\n/g, '<br>');
+      out = out.replace(/\\r/g, '');
       out = out.replace(/\n/g, '<br>');
 
       return out.trim();

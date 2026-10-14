@@ -39,6 +39,7 @@
                             <li class="mb-2"><i class="fas fa-check text-success me-2"></i> <strong>Portal & Komunikasi Interaktif:</strong> 
                                 Dilengkapi dengan CMS Website sekolah, sistem pengumuman, serta ruang obrolan (Chat) internal antar warga sekolah.</li>
                         </ul>
+                        <p>Beberapa fitur dalam aplikasi ini terkait erat dengan aplikasi lain yang dibuat SakaSalika seperti Bayaran dan CBTku</p>
                     </div>
                 </div>
             </div>

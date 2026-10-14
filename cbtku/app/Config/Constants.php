@@ -77,8 +77,8 @@ defined('EXIT_USER_INPUT')     || define('EXIT_USER_INPUT', 7);     // invalid u
 defined('EXIT_DATABASE')       || define('EXIT_DATABASE', 8);       // database error
 defined('EXIT__AUTO_MIN')      || define('EXIT__AUTO_MIN', 9);      // lowest automatically-assigned error code
 defined('EXIT__AUTO_MAX')      || define('EXIT__AUTO_MAX', 125);    // highest automatically-assigned error code
-defined('APP_VERSION') || define('APP_VERSION', '2.1.2');
-defined('LAST_UPDATE') || define('LAST_UPDATE', '2026-08-30 14:00');
+defined('APP_VERSION') || define('APP_VERSION', '2.1.5');
+defined('LAST_UPDATE') || define('LAST_UPDATE', '2026-09-24 07:17');
 
 /*
  |--------------------------------------------------------------------------

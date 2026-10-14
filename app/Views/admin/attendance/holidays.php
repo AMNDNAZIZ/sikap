@@ -1,20 +1,21 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<form class="d-flex gap-2 mb-3" method="get">
-  <input type="month" name="month" value="<?= esc($month) ?>" class="form-control">
+<form class="d-flex flex-column flex-sm-row gap-2 mb-3" method="get">
+  <input type="month" name="month" value="<?= esc($month) ?>" class="form-control" style="max-width: 260px;">
   <button class="btn btn-secondary">Tampilkan</button>
 </form>
 
 <form class="row g-2 mb-3" method="post" action="<?= base_url('admin/holidays/store') ?>">
   <?= csrf_field() ?>
-  <div class="col-auto"><input type="date" name="date" class="form-control" required></div>
-  <div class="col"><input type="text" name="title" class="form-control" placeholder="Nama libur" required></div>
-  <div class="col-auto"><button class="btn btn-primary">Tambah</button></div>
+  <div class="col-12 col-sm-auto"><input type="date" name="date" class="form-control" required></div>
+  <div class="col-12 col-sm"><input type="text" name="title" class="form-control" placeholder="Nama libur" required></div>
+  <div class="col-12 col-sm-auto"><button class="btn btn-primary w-100">Tambah</button></div>
 </form>
 
-<table class="table table-bordered">
-  <thead><tr><th>Tanggal</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+<div class="table-responsive">
+<table class="table table-bordered align-middle">
+  <thead class="table-light"><tr><th>Tanggal</th><th>Keterangan</th><th width="100">Aksi</th></tr></thead>
   <tbody>
   <?php foreach ($holidays as $h): ?>
     <tr>
@@ -25,5 +26,6 @@
   <?php endforeach ?>
   </tbody>
 </table>
+</div>
 
 <?= $this->endSection() ?>

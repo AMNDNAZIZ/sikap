@@ -13,6 +13,10 @@ class Dashboard extends BaseController
         helper(['holiday', 'jp']); // Load holiday and JP helpers
         
         $user = session()->get('user');
+        if (empty($user) || !session()->get('logged_in')) {
+            return redirect()->to('/login')->with('error', 'Sesi Anda telah berakhir. Silakan login kembali.');
+        }
+
         $roleId = $user['role_id'] ?? null;
         $db = \Config\Database::connect();
         $today = date('Y-m-d');
@@ -513,8 +517,18 @@ class Dashboard extends BaseController
                     'statsActiveYear'      => $statsAcademicYear,
                 ]);
 
+            case 8: // Pelatih Ekskul
+                return redirect()->to('/admin/ekskul-pembina');
+
             default:
-                return redirect()->to('/login');
+                if (empty($user)) {
+                    return redirect()->to('/login')->with('error', 'Sesi Anda telah berakhir. Silakan login kembali.');
+                }
+                // Role tidak dikenal — tampilkan dashboard minimal agar tidak terjadi login loop
+                return view('dashboard/simple_default', [
+                    'user'       => $user,
+                    'activeYear' => $activeYear,
+                ]);
         }
     }
 

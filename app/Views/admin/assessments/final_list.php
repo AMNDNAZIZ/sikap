@@ -6,11 +6,12 @@
 
   <div class="card">
     <div class="card-body">
+      <div class="table-responsive">
       <table class="table table-bordered align-middle">
         <thead class="table-light">
           <tr>
             <th>Status</th>
-            <th style="width:250px;">Aksi</th>
+            <th style="min-width:220px;">Aksi</th>
           </tr>
         </thead>
         <tbody>
@@ -24,13 +25,14 @@
             </td>
             <td>
               <?php if (!empty($status) && $status['jumlah'] > 0): ?>
-                <a href="<?= site_url("admin/assessments/viewScores/final/{$subjectId}?class_id={$classId}") ?>" class="btn btn-sm btn-info">📋 Lihat Nilai</a>
+                <a href="<?= site_url("admin/assessments/viewScores/final/{$subjectId}?class_id={$classId}") ?>" class="btn btn-sm btn-info mb-1">📋 Lihat Nilai</a>
               <?php endif; ?>
-              <a href="<?= site_url("admin/assessments/input/{$classId}/{$subjectId}/final") ?>" class="btn btn-sm btn-success">➕ Input Nilai</a>
+              <a href="<?= site_url("admin/assessments/input/{$classId}/{$subjectId}/final") ?>" class="btn btn-sm btn-success mb-1">➕ Input Nilai</a>
             </td>
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
   </div>
 

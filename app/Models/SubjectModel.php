@@ -8,7 +8,7 @@ class SubjectModel extends Model
 {
     protected $table = 'subjects';
     protected $primaryKey = 'id';
-    protected $allowedFields = ['mapel_master_id', 'code', 'name', 'subject_group', 'is_active', 'sort_order', 'religion'];
+    protected $allowedFields = ['mapel_master_id', 'code', 'name', 'subject_group', 'is_active', 'sort_order', 'religion', 'is_bk'];
     protected $useTimestamps = true;
     protected $createdField = 'created_at';
     protected $updatedField = 'updated_at';

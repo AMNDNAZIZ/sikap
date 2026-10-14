@@ -37,8 +37,12 @@
             <tr>
               <td><?= $i + 1 ?></td>
               <td>
-                <?= strip_tags(substr($q['question_text'], 0, 100)) ?>
-                <?= strlen($q['question_text']) > 100 ? '...' : '' ?>
+                <?php
+                  $previewText = strip_tags($q['question_text']);
+                  // Hapus literal \n dan newline asli agar tampil satu baris rapi di tabel
+                  $previewText = str_replace(['\r\n', '\n', '\r', "\r\n", "\n", "\r"], ' ', $previewText);
+                  echo substr($previewText, 0, 100) . (strlen($previewText) > 100 ? '...' : '');
+                ?>
               </td>
               <td>
                 <?php
@@ -371,6 +375,9 @@
         out = out.replace(/\n\s*</g, '<');
 
         // 11. Terakhir, ganti newline kembali ke <br> agar tampilan tetap terjaga
+        out = out.replace(/\\r\\n/g, '<br>');
+        out = out.replace(/\\n/g, '<br>');
+        out = out.replace(/\\r/g, '');
         out = out.replace(/\n/g, '<br>');
 
         return out.trim();

@@ -29,6 +29,22 @@ class Auth implements FilterInterface
             strpos($path, '/siswa/cbt/submit/') !== false
         );
 
+        // 🔹 Request AJAX ringan & sering saat ujian (ping/save/heartbeat).
+        // Untuk request ini kita HINDARI menulis session sama sekali dan
+        // lepaskan lock session secepatnya (session()->close()) agar tidak
+        // terjadi lock/write contention pada tabel ci_sessions di driver DB
+        // ketika 100+ peserta menembak endpoint ini bersamaan.
+        $isHighFreqExamPath = (
+            strpos($path, '/siswa/cbt/saveAnswer') !== false ||
+            strpos($path, '/siswa/cbt/saveAnswersBulk') !== false ||
+            strpos($path, '/siswa/cbt/ping') !== false ||
+            strpos($path, '/siswa/cbt/heartbeat') !== false
+        );
+
+        // Path ujian "berat" yang jarang dipanggil (buka halaman/refresh).
+        // Hanya di sinilah kita perlu menandai proteksi sesi ujian.
+        $isHeavyExamPath = $isExamPath && !$isHighFreqExamPath;
+
         // 🔹 FIX: Also protect post-exam pages (selesai, hasil) but with shorter timeout
         $isPostExamPath = (
             strpos($path, '/siswa/cbt/selesai/') !== false ||
@@ -36,16 +52,18 @@ class Auth implements FilterInterface
         );
 
         if (!empty($user) && $session->get('logged_in')) {
-            if ($isExamPath) {
-                // Extend session lifetime to 4 hours for exam
-                $session->setTempdata('exam_active', true, 14400); // 4 hours
-
-                // Mark session to prevent timeout
-                $session->markAsFlashdata('exam_protection');
+            // 🔹 OPTIMASI: tulis tempdata proteksi ujian HANYA pada path berat
+            // (mulai/ujian/peraturan/submit), dan HANYA bila belum ada / hampir
+            // kedaluwarsa. Ini mencegah UPDATE ci_sessions di setiap request.
+            if ($isHeavyExamPath) {
+                if (!$session->getTempdata('exam_active')) {
+                    // Set sekali; berlaku 4 jam. Tidak ditulis ulang tiap request.
+                    $session->setTempdata('exam_active', true, 14400);
+                }
             }
 
             // 🔹 FIX: Protect post-exam pages with shorter timeout (30 minutes)
-            if ($isPostExamPath) {
+            if ($isPostExamPath && !$session->getTempdata('post_exam_active')) {
                 $session->setTempdata('post_exam_active', true, 1800); // 30 minutes
             }
         }
@@ -90,10 +108,22 @@ class Auth implements FilterInterface
             }
         }
 
-        // 💓 HEARTBEAT: Update last_activity with throttling to prevent excessive DB updates
-        if ($user && !empty($user['id'])) {
+        // 💓 HEARTBEAT: Update last_activity with throttling to prevent excessive DB updates.
+        // 🔹 OPTIMASI: untuk endpoint high-frequency saat ujian (ping/save/heartbeat)
+        // JANGAN update last_activity di sini — endpoint tersebut sudah punya
+        // mekanisme throttle sendiri (mis. update cbt_sessions.last_activity tiap 5 menit),
+        // dan menghindari tulis tambahan mengurangi beban DB saat konkurensi tinggi.
+        if ($user && !empty($user['id']) && !$isHighFreqExamPath) {
             helper('auth');
-            update_user_last_activity_throttled($user['id'], 30); // 30 seconds throttle
+            update_user_last_activity_throttled($user['id'], 60); // throttle dilonggarkan 30 -> 60 detik
+        }
+
+        // 🔹 KUNCI OPTIMASI: lepaskan lock session (GET_LOCK) secepatnya untuk
+        // request AJAX ringan & sering. Setelah otentikasi tervalidasi, session
+        // tidak lagi diperlukan pada request ini, sehingga menutupnya lebih awal
+        // membebaskan baris ci_sessions agar peserta lain tidak mengantre lock.
+        if ($isHighFreqExamPath) {
+            $session->close();
         }
     }
 

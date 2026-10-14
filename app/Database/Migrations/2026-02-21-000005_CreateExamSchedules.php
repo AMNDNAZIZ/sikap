@@ -70,7 +70,7 @@ class CreateExamSchedules extends Migration
             $this->forge->addForeignKey('class_id', 'classes', 'id', 'CASCADE', 'CASCADE');
         }
         
-        $this->forge->createTable('exam_schedules');
+        $this->forge->createTable('exam_schedules', true);
     }
 
     public function down()

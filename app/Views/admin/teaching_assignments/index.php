@@ -50,11 +50,12 @@
         </div>
     <?php endif; ?>
 
-    <table class="table table-bordered table-striped">
-        <thead>
+    <div class="table-responsive">
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-light">
             <tr>
                 <?php if (session()->get('user')['role_id'] != 2): ?>
-                    <th><input type="checkbox" id="selectAll"></th>
+                    <th width="40"><input type="checkbox" id="selectAll"></th>
                 <?php endif; ?>
                 <th>Guru</th>
                 <th>Kelas</th>
@@ -62,7 +63,7 @@
                 <th>Tahun Ajaran</th>
                 <th>Role</th>
                 <?php if (session()->get('user')['role_id'] != 2): ?>
-                    <th>Aksi</th>
+                    <th width="120">Aksi</th>
                 <?php endif; ?>
             </tr>
         </thead>
@@ -95,6 +96,7 @@
             <?php endif; ?>
         </tbody>
     </table>
+    </div>
 </form>
 
 <!-- Pagination -->

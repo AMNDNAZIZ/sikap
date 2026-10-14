@@ -46,57 +46,59 @@ $agendaMap = $agendaMap ?? [];      // [ 'YYYY-MM-DD' => count ]
 $holidays  = $holidays ?? [];       // array of holiday rows with ['date'=>...]
 ?>
 
-<div class="container">
-  <h3>Agenda Kelas</h3>
+<div class="container-fluid p-0 pb-5">
+  <div class="d-flex align-items-center gap-2 mb-3">
+    <i class="bi bi-calendar-event text-primary fs-5"></i>
+    <h5 class="fw-bold mb-0">Agenda Kelas</h5>
+  </div>
 
   <!-- 🔹 Navigasi bulan & tahun -->
-  <div class="row g-2 mb-3 align-items-center">
-    <div class="col-auto">
-      <a href="<?= site_url("siswa/agendas/$prevYear/".str_pad($prevMonth,2,'0',STR_PAD_LEFT)) ?>" class="btn btn-outline-secondary btn-sm">◀</a>
-    </div>
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <a href="<?= site_url("siswa/agendas/$prevYear/".str_pad($prevMonth,2,'0',STR_PAD_LEFT)) ?>" class="btn btn-outline-secondary btn-sm">◀</a>
 
-    <div class="col-auto">
-      <select id="monthSelect" class="form-select form-select-sm">
-        <?php for ($m=1; $m<=12; $m++): ?>
-          <option value="<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>" <?= (str_pad($m, 2, '0', STR_PAD_LEFT) == $month) ? 'selected' : '' ?>>
-            <?= date('F', mktime(0,0,0,$m,1)) ?>
-          </option>
-        <?php endfor; ?>
-      </select>
-    </div>
+        <select id="monthSelect" class="form-select form-select-sm" style="max-width:130px;">
+          <?php for ($m=1; $m<=12; $m++): ?>
+            <option value="<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>" <?= (str_pad($m, 2, '0', STR_PAD_LEFT) == $month) ? 'selected' : '' ?>>
+              <?= date('F', mktime(0,0,0,$m,1)) ?>
+            </option>
+          <?php endfor; ?>
+        </select>
 
-    <div class="col-auto">
-      <select id="yearSelect" class="form-select form-select-sm">
-        <?php for ($y=date('Y')-2; $y<=date('Y')+2; $y++): ?>
-          <option value="<?= $y ?>" <?= ($y == $year) ? 'selected' : '' ?>><?= $y ?></option>
-        <?php endfor; ?>
-      </select>
-    </div>
+        <select id="yearSelect" class="form-select form-select-sm" style="max-width:90px;">
+          <?php for ($y=date('Y')-2; $y<=date('Y')+2; $y++): ?>
+            <option value="<?= $y ?>" <?= ($y == $year) ? 'selected' : '' ?>><?= $y ?></option>
+          <?php endfor; ?>
+        </select>
 
-    <div class="col-auto">
-      <a href="<?= site_url("siswa/agendas/$nextYear/".str_pad($nextMonth,2,'0',STR_PAD_LEFT)) ?>" class="btn btn-outline-secondary btn-sm">▶</a>
+        <a href="<?= site_url("siswa/agendas/$nextYear/".str_pad($nextMonth,2,'0',STR_PAD_LEFT)) ?>" class="btn btn-outline-secondary btn-sm">▶</a>
+      </div>
     </div>
   </div>
 
   <!-- 🔹 Legend -->
-  <div class="mb-3 d-flex align-items-center gap-3">
+  <div class="mb-2 d-flex align-items-center gap-3 flex-wrap">
     <div class="d-flex align-items-center">
-      <div style="width:18px;height:18px;background:#f8d7da;border-radius:3px;border:1px solid rgba(0,0,0,0.08);margin-right:6px"></div>
-      <small class="text-muted">Hari Libur / Weekend</small>
+      <div style="width:14px;height:14px;background:#f8d7da;border-radius:3px;border:1px solid rgba(0,0,0,0.08);margin-right:5px"></div>
+      <small class="text-muted">Libur / Weekend</small>
     </div>
-
     <div class="d-flex align-items-center">
-      <span class="badge bg-primary me-2" style="width:12px;height:12px;padding:0;border-radius:50%">&nbsp;</span>
+      <span class="badge bg-primary me-2" style="width:10px;height:10px;padding:0;border-radius:50%">&nbsp;</span>
       <small class="text-muted">Ada Agenda</small>
     </div>
   </div>
 
   <!-- 🔹 Kalender -->
-  <table class="table table-bordered calendar">
+  <div class="table-responsive">
+  <table class="table table-bordered calendar mb-0">
     <thead class="table-light">
       <tr>
-        <?php foreach($headers as $h): ?>
-          <th class="text-center"><?= $h ?></th>
+        <?php
+          $shortDays = ['Min','Sen','Sel','Rab','Kam',"Jum",'Sab'];
+          foreach($headers as $i => $h):
+        ?>
+          <th class="text-center p-1 p-md-2" style="font-size:clamp(0.65rem,2vw,0.85rem);"><?= $shortDays[$i] ?></th>
         <?php endforeach; ?>
       </tr>
     </thead>
@@ -128,15 +130,16 @@ $holidays  = $holidays ?? [];       // array of holiday rows with ['date'=>...]
                }
             ?>
               <td class="<?= implode(' ', $classes) ?>"
-                  style="height:80px; cursor:pointer;"
+                  style="height:clamp(50px,10vw,80px); cursor:pointer; min-width:0;"
                   data-date="<?= $date ?>">
-                <div class="date-number fw-bold"><?= $d ?></div>
+                <div class="date-number fw-bold" style="font-size:clamp(0.7rem,2.5vw,1rem);"><?= $d ?></div>
 
                 <?php if (!empty($agendaMap[$date])): ?>
-                  <div class="text-primary small mt-1">● <?= $agendaMap[$date] ?></div>
+                  <div class="text-primary d-none d-sm-block" style="font-size:0.7rem;">● <?= $agendaMap[$date] ?></div>
+                  <div class="text-primary d-sm-none" style="font-size:0.55rem;">●</div>
                 <?php endif; ?>
 
-                <div class="small text-muted">klik disini</div>
+                <div class="small text-muted d-none d-md-block" style="font-size:0.65rem;">klik</div>
               </td>
             <?php endif; ?>
           <?php endforeach; ?>
@@ -150,6 +153,7 @@ $holidays  = $holidays ?? [];       // array of holiday rows with ['date'=>...]
       <?php endforeach; ?>
     </tbody>
   </table>
+  </div><!-- end table-responsive -->
 </div>
 
 <?= $this->endSection() ?>

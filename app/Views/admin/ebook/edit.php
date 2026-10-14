@@ -30,7 +30,7 @@
     <div class="card mb-3">
       <div class="card-header">✏️ Edit Metadata</div>
       <div class="card-body">
-        <form action="<?= base_url('admin/ebook/update/' . $book['id']) ?>" method="post">
+        <form action="<?= base_url('admin/ebook/update/' . $book['id']) ?>" method="post" enctype="multipart/form-data">
           <?= csrf_field() ?>
 
           <?php if (!empty($canManageUmum)): ?>
@@ -50,6 +50,50 @@
             <label class="form-label">Judul Buku <span class="text-danger">*</span></label>
             <input type="text" name="title" class="form-control" maxlength="255" required
                    value="<?= old('title', $book['title']) ?>">
+          </div>
+
+          <!-- Cover Image Section -->
+          <div class="mb-3">
+            <label class="form-label fw-bold">🖼️ Cover Buku (Thumbnail)</label>
+            <div class="d-flex flex-column flex-sm-row align-items-start gap-3 p-3 bg-light rounded border">
+              <div class="text-center">
+                <?php if (!empty($book['cover_image']) && file_exists(UPLOAD_PATH . 'ebook_covers/' . $book['cover_image'])): ?>
+                  <img src="<?= base_url('uploads/ebook_covers/' . esc($book['cover_image'])) ?>" alt="Cover Saat Ini" id="currentCoverImg" class="rounded shadow-sm border" style="width: 100px; height: 135px; object-fit: cover;">
+                  <div class="mt-1">
+                    <span class="badge bg-secondary" style="font-size: 0.7rem;">Cover Saat Ini</span>
+                  </div>
+                <?php else: ?>
+                  <div id="noCoverPlaceholder" class="rounded border d-flex flex-column align-items-center justify-content-center bg-white text-muted shadow-sm" style="width: 100px; height: 135px;">
+                    <span class="fs-2">📖</span>
+                    <small style="font-size: 0.65rem;">Belum ada cover</small>
+                  </div>
+                <?php endif; ?>
+
+                <!-- Live Preview Replacement -->
+                <div id="editCoverPreviewContainer" class="mt-2" style="display:none;">
+                  <img id="editCoverPreviewImg" src="" alt="Preview Baru" class="rounded shadow-sm border" style="width: 100px; height: 135px; object-fit: cover;">
+                  <div class="mt-1">
+                    <span class="badge bg-success" style="font-size: 0.7rem;">Cover Baru</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex-grow-1">
+                <label class="form-label small fw-bold">Unggah Cover Baru</label>
+                <input type="file" name="cover_image" class="form-control form-control-sm" accept="image/jpeg,image/png,image/webp,image/gif" id="editCoverImage">
+                <div class="form-text">Pilih file jika ingin mengganti cover. Format: JPG, PNG, WEBP, GIF (Maks: 3MB).</div>
+                <div id="editCoverError" class="text-danger small mt-1" style="display:none;"></div>
+
+                <?php if (!empty($book['cover_image'])): ?>
+                  <div class="form-check mt-3 pt-2 border-top">
+                    <input class="form-check-input" type="checkbox" name="remove_cover" value="1" id="removeCoverCheck">
+                    <label class="form-check-label text-danger small fw-semibold" for="removeCoverCheck">
+                      🗑️ Hapus cover saat ini (gunakan thumbnail default)
+                    </label>
+                  </div>
+                <?php endif; ?>
+              </div>
+            </div>
           </div>
 
           <div id="mapelFields">
@@ -202,6 +246,63 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     errorDiv.style.display = 'none';
   });
+
+  // Cover image preview for edit
+  const editCoverImage = document.getElementById('editCoverImage');
+  const editCoverError = document.getElementById('editCoverError');
+  const editCoverPreviewContainer = document.getElementById('editCoverPreviewContainer');
+  const editCoverPreviewImg = document.getElementById('editCoverPreviewImg');
+  const removeCoverCheck = document.getElementById('removeCoverCheck');
+
+  if (editCoverImage) {
+    editCoverImage.addEventListener('change', function() {
+      const file = this.files[0];
+      if (!file) {
+        editCoverPreviewContainer.style.display = 'none';
+        editCoverError.style.display = 'none';
+        return;
+      }
+
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+      if (!validTypes.includes(file.type)) {
+        editCoverError.textContent = 'Format cover harus berupa gambar (JPG, PNG, WEBP, GIF).';
+        editCoverError.style.display = 'block';
+        editCoverPreviewContainer.style.display = 'none';
+        this.value = '';
+        return;
+      }
+
+      if (file.size > 3 * 1024 * 1024) {
+        editCoverError.textContent = 'Ukuran file cover maksimal 3MB.';
+        editCoverError.style.display = 'block';
+        editCoverPreviewContainer.style.display = 'none';
+        this.value = '';
+        return;
+      }
+
+      editCoverError.style.display = 'none';
+      if (removeCoverCheck) {
+        removeCoverCheck.checked = false;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        editCoverPreviewImg.src = e.target.result;
+        editCoverPreviewContainer.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  if (removeCoverCheck) {
+    removeCoverCheck.addEventListener('change', function() {
+      if (this.checked && editCoverImage) {
+        editCoverImage.value = '';
+        editCoverPreviewContainer.style.display = 'none';
+        editCoverError.style.display = 'none';
+      }
+    });
+  }
 });
 </script>
 

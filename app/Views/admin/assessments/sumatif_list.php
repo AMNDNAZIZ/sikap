@@ -6,6 +6,7 @@
 
   <div class="card">
     <div class="card-body">
+      <div class="table-responsive">
       <table class="table table-bordered align-middle">
         <thead class="table-light">
           <tr>
@@ -35,17 +36,18 @@
                 <?php if (!empty($parts)): ?>
                   <!-- tombol lihat nilai untuk semester ini (menampilkan semua metode atau pilih metode di viewScores) -->
                   <a href="<?= site_url("admin/assessments/viewScores/sumatif/{$subjectId}/{$sem}/all?class_id={$classId}") ?>"
-                     class="btn btn-sm btn-info">📋 Lihat Nilai</a>
+                     class="btn btn-sm btn-info mb-1">📋 Lihat Nilai</a>
                 <?php endif; ?>
 
                 <!-- tombol input nilai: kirim semester via query string -->
                 <a href="<?= site_url("admin/assessments/input/{$classId}/{$subjectId}/sumatif?semester={$sem}") ?>"
-                   class="btn btn-sm btn-success">➕ Input Nilai</a>
+                   class="btn btn-sm btn-success mb-1">➕ Input Nilai</a>
               </td>
             </tr>
           <?php endforeach; ?>
         </tbody>
       </table>
+      </div>
     </div>
   </div>
 

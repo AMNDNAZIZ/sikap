@@ -1,7 +1,7 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-4">
     <h1 class="h3 mb-0 text-gray-800">🗓️ Program Tahunan & Semester</h1>
     <a href="<?= base_url('admin/administrasi-guru') ?>" class="btn btn-sm btn-secondary">Kembali</a>
 </div>
@@ -61,13 +61,13 @@
         <!-- Program Tahunan (PROTA) -->
         <div class="col-12 mb-4">
             <div class="card shadow">
-                <div class="card-header py-3 d-flex justify-content-between align-items-center bg-primary text-white">
+                <div class="card-header py-3 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 bg-primary text-white">
                     <h6 class="m-0 font-weight-bold">PROGRAM TAHUNAN (PROTA)</h6>
                     <a href="<?= base_url('admin/administrasi-guru/prota/print/' . $selected_class . '/'  . $selected_subject) ?>" target="_blank" class="btn btn-sm btn-light">
                         <i class="bi bi-printer"></i> Cetak Prota
                     </a>
                 </div>
-                <div class="card-body bg-white p-5">
+                <div class="card-body bg-white p-3 p-md-5">
                     <!-- Document Header -->
                     <div class="text-center mb-4">
                         <h5 class="fw-bold mb-0">PROGRAM TAHUNAN (PROTA)</h5>
@@ -100,6 +100,7 @@
                         </div>
                     </div>
 
+                    <div class="table-responsive">
                     <table class="table table-bordered border-dark main-prota-table">
                         <thead class="text-center align-middle bg-light text-uppercase small fw-bold">
                             <tr>
@@ -166,18 +167,19 @@
                             </tr>
                         </tfoot>
                     </table>
+                    </div>
 
                     <!-- Signature Section -->
                     <div class="row mt-5 pt-3">
-                        <div class="col-6 text-center">
+                        <div class="col-sm-6 col-12 text-center mb-4 mb-sm-0">
                             <p class="mb-0">Mengetahui,</p>
-                            <p class="mb-5 pb-4">Kepala Sekolah</p>
+                            <p class="mb-4 pb-2">Kepala Sekolah</p>
                             <p class="mb-0 fw-bold text-decoration-underline"><?= esc($school['headmaster'] ?? '-') ?></p>
                             <p class="small">NIP. <?= esc($school['principal_nip'] ?? '-') ?></p>
                         </div>
-                        <div class="col-6 text-center">
+                        <div class="col-sm-6 col-12 text-center">
                             <p class="mb-0"><?= esc($school['city_regency'] ?? 'Indramayu') ?>, <?= date('d F Y') ?></p>
-                            <p class="mb-5 pb-4">Guru Mata Pelajaran</p>
+                            <p class="mb-4 pb-2">Guru Mata Pelajaran</p>
                             <p class="mb-0 fw-bold text-decoration-underline"><?= esc($teacher['name'] ?? '-') ?></p>
                             <p class="small">NIP. <?= esc($teacher['nip'] ?? '-') ?></p>
                         </div>

@@ -23,21 +23,23 @@
 </table>
 
 
-<!-- Tabs -->
-<ul class="nav nav-tabs mb-3">
-  <li class="nav-item">
-    <a class="nav-link <?= $semester == 1 ? 'active' : '' ?>"
-       href="<?= site_url("admin/grades/show/$class[id]/$subject[id]/1") ?>">
-       Semester 1
-    </a>
-  </li>
-  <li class="nav-item">
-    <a class="nav-link <?= $semester == 2 ? 'active' : '' ?>"
-       href="<?= site_url("admin/grades/show/$class[id]/$subject[id]/2") ?>">
-       Semester 2
-    </a>
-  </li>
-  <li class="nav-item ms-auto">
+<!-- Tabs & Action Buttons -->
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <ul class="nav nav-tabs mb-0 border-bottom-0">
+    <li class="nav-item">
+      <a class="nav-link <?= $semester == 1 ? 'active' : '' ?>"
+         href="<?= site_url("admin/grades/show/$class[id]/$subject[id]/1") ?>">
+         Semester 1
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link <?= $semester == 2 ? 'active' : '' ?>"
+         href="<?= site_url("admin/grades/show/$class[id]/$subject[id]/2") ?>">
+         Semester 2
+      </a>
+    </li>
+  </ul>
+  <div class="d-flex gap-1 flex-wrap">
     <a class="btn btn-sm btn-outline-primary"
        href="<?= site_url("admin/grades/$class[id]/$subject[id]/$semester/pdf") ?>">
        📄 Cetak PDF
@@ -50,12 +52,12 @@
        href="<?= site_url("admin/erapor/input/$class[id]/$subject[id]/$semester?year_id=" . ($yearId ?? '')) ?>">
        ✏️ Input Erapor
     </a>
-  </li>
-</ul>
+  </div>
+</div>
 
 <!-- Tabel Nilai -->
-<div class="table-responsive">
-  <table class="table table-bordered table-striped align-middle text-center">
+<div class="table-responsive shadow-sm rounded-3">
+  <table class="table table-bordered table-striped align-middle text-center grades-manage-table mb-0">
     <thead class="table-light">
       <tr>
         <th rowspan="2">No</th>
@@ -162,5 +164,25 @@
     </tbody>
   </table>
 </div>
+
+<style>
+.grades-manage-table th:nth-child(1),
+.grades-manage-table td:nth-child(1),
+.grades-manage-table th:nth-child(2),
+.grades-manage-table td:nth-child(2) {
+  position: sticky;
+  background: #fff;
+  z-index: 2;
+}
+.grades-manage-table th:nth-child(1),
+.grades-manage-table td:nth-child(1) { left: 0; min-width: 35px; }
+.grades-manage-table th:nth-child(2),
+.grades-manage-table td:nth-child(2) { left: 35px; min-width: 140px; text-align: left !important; border-right: 2px solid #dee2e6; }
+.grades-manage-table thead th { background: #f8f9fa; z-index: 3; }
+@media (max-width: 576px) {
+  .grades-manage-table { font-size: 0.75rem; }
+  .grades-manage-table th, .grades-manage-table td { padding: 0.35rem 0.4rem; }
+}
+</style>
 
 <?= $this->endSection() ?>

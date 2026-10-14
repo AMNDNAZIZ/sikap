@@ -52,18 +52,22 @@ class EnrichBkCasesTable extends Migration
             $this->forge->addColumn('bk_cases', $fieldsToAdd);
         }
 
-        // 2. Modifikasi kolom status pada bk_cases agar menggunakan enum tidak ambigu
-        $this->db->query("ALTER TABLE bk_cases MODIFY COLUMN status ENUM(
-            'DRAFT',
-            'REPORTED',
-            'VERIFIED',
-            'IN_ASSESSMENT',
-            'IN_PROGRESS',
-            'MONITORING',
-            'REFERRED',
-            'RESOLVED',
-            'CLOSED'
-        ) NOT NULL DEFAULT 'REPORTED'");
+        // 2. Modifikasi kolom status pada bk_cases — wrap try/catch (idempotent)
+        try {
+            $this->db->query("ALTER TABLE bk_cases MODIFY COLUMN status ENUM(
+                'DRAFT',
+                'REPORTED',
+                'VERIFIED',
+                'IN_ASSESSMENT',
+                'IN_PROGRESS',
+                'MONITORING',
+                'REFERRED',
+                'RESOLVED',
+                'CLOSED'
+            ) NOT NULL DEFAULT 'REPORTED'");
+        } catch (\Exception $e) {
+            log_message('warning', '[EnrichBkCasesTable] MODIFY status: ' . $e->getMessage());
+        }
 
         // 3. Buat tabel bk_case_logs untuk Audit Log perubahan status & timeline
         if (!$this->db->tableExists('bk_case_logs')) {

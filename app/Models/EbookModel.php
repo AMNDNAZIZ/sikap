@@ -11,7 +11,7 @@ class EbookModel extends Model
     protected $useTimestamps = true;
     protected $allowedFields = [
         'title', 'book_type', 'level', 'subject_id', 'religion',
-        'description', 'filename', 'original_filename',
+        'description', 'cover_image', 'filename', 'original_filename',
         'file_size', 'uploaded_by'
     ];
 

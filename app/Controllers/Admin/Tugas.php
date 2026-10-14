@@ -56,7 +56,7 @@ class Tugas extends BaseController
     private function getClassesAndSubjects(?int $forClassId = null): array
     {
         if ($this->isAdmin()) {
-            // Admin: semua kelas aktif; subjects untuk pre-populate edit mode
+            // Admin: semua kelas aktif; subjects untuk pre-populate edit mode (kecuali BP/BK)
             $subjects = [];
             if ($forClassId) {
                 $activeYear = (new AcademicYearModel())->getActiveYear();
@@ -65,12 +65,13 @@ class Tugas extends BaseController
                     ->join('subjects s', 's.id = ta.subject_id')
                     ->where('ta.class_id', $forClassId)
                     ->where('ta.academic_year_id', $activeYear['id'] ?? 0)
+                    ->where('s.is_bk', 0)  // Kecualikan BP/BK dari tugas
                     ->groupBy('s.id')->orderBy('s.name')
                     ->get()->getResultArray();
                 // Fallback jika belum ada assignment
                 if (empty($subjects)) {
                     $subjects = $this->db->table('subjects')
-                        ->select('id, name')->orderBy('name')
+                        ->select('id, name')->where('is_bk', 0)->orderBy('name')
                         ->get()->getResultArray();
                 }
             }
@@ -92,6 +93,7 @@ class Tugas extends BaseController
             ->join('subjects s', 's.id = ta.subject_id')
             ->where('ta.teacher_id', $teacherId)
             ->where('ta.academic_year_id', $activeYear['id'] ?? 0)
+            ->where('s.is_bk', 0)  // Kecualikan BP/BK dari tugas
             ->groupBy('c.id, s.id')
             ->orderBy('c.name, s.name')
             ->get()->getResultArray();

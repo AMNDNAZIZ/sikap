@@ -9,16 +9,19 @@ class FixAtpTpIdNullable extends Migration
     public function up()
     {
         // tp_id di alur_tujuan_pembelajaran harus nullable
-        // karena pada struktur baru, ATP disimpan dulu baru TP-nya
-        $this->forge->modifyColumn('alur_tujuan_pembelajaran', [
-            'tp_id' => [
-                'type'       => 'INT',
-                'constraint' => 11,
-                'unsigned'   => true,
-                'null'       => true,
-                'default'    => null,
-            ],
-        ]);
+        try {
+            $this->forge->modifyColumn('alur_tujuan_pembelajaran', [
+                'tp_id' => [
+                    'type'       => 'INT',
+                    'constraint' => 11,
+                    'unsigned'   => true,
+                    'null'       => true,
+                    'default'    => null,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            log_message('warning', '[FixAtpTpIdNullable] modifyColumn tp_id: ' . $e->getMessage());
+        }
     }
 
     public function down()

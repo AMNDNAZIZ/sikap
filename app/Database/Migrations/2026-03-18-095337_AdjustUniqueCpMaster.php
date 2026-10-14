@@ -35,9 +35,18 @@ class AdjustUniqueCpMaster extends Migration
             $this->db->query('ALTER TABLE cp_master DROP INDEX unique_cp');
         }
         
-        // 3. Tambahkan unique key baru termasuk elemen
-        $this->forge->addUniqueKey(['mapel_master_id', 'fase', 'tahun', 'elemen'], 'unique_cp');
-        $this->forge->processIndexes('cp_master');
+        // 3. Tambahkan unique key baru termasuk elemen (cek dulu agar tidak duplikat)
+        $indexNewUnique = $this->db->query("
+            SELECT 1 FROM information_schema.statistics 
+            WHERE table_schema = DATABASE() 
+            AND table_name = 'cp_master' 
+            AND index_name = 'unique_cp' 
+            LIMIT 1
+        ")->getRow();
+        if (!$indexNewUnique) {
+            $this->forge->addUniqueKey(['mapel_master_id', 'fase', 'tahun', 'elemen'], 'unique_cp');
+            $this->forge->processIndexes('cp_master');
+        }
     }
 
     public function down()

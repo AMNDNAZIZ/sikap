@@ -1,8 +1,8 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="container">
-  <div class="d-flex justify-content-between align-items-center mb-3">
+<div class="container-fluid p-0">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
       <h3 class="mb-0">📊 Kelola Nilai</h3>
       <a href="<?= base_url('admin/grades/rekap') ?>" class="btn btn-outline-primary btn-sm">
           <i class="bi bi-table"></i> Rekap Nilai Kelas

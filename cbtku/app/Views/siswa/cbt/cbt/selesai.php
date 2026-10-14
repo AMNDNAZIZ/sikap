@@ -156,7 +156,7 @@
 
         <div class="text-center mt-5 mb-4 animate__animated animate__fadeIn animate__delay-4s">
           <p class="text-muted-modern small mb-0">&copy; <?= date('Y') ?> &bull; SakaSalika CBT System <span
-              class="badge bg-secondary-soft text-dark px-2 ms-1">v2.1.1</span></p>
+              class="badge bg-secondary-soft text-dark px-2 ms-1">v<?= defined('APP_VERSION') ? APP_VERSION : '1.0.0' ?></span></p>
         </div>
       </div>
     </div>

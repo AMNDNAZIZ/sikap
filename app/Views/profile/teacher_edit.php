@@ -220,14 +220,15 @@
                             <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal"
                                 data-bs-target="#modalEducation">+ Tambah</button>
                         </div>
-                        <table class="table table-bordered table-sm">
+                        <div class="table-responsive">
+                        <table class="table table-bordered table-sm align-middle">
                             <thead class="bg-light">
                                 <tr>
                                     <th>Jenjang</th>
                                     <th>Jurusan</th>
                                     <th>Institusi</th>
                                     <th>Lulus</th>
-                                    <th>Aksi</th>
+                                    <th width="70">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -260,6 +261,7 @@
                                 <?php endif; ?>
                             </tbody>
                         </table>
+                        </div>
                     </div>
 
                     <!-- Tab 4: Pelatihan & Karier -->
@@ -270,13 +272,14 @@
                                 <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal"
                                     data-bs-target="#modalTraining">+ Tambah</button>
                             </div>
-                            <table class="table table-bordered table-sm">
+                            <div class="table-responsive">
+                            <table class="table table-bordered table-sm align-middle">
                                 <thead class="bg-light">
                                     <tr>
                                         <th>Nama Pelatihan</th>
                                         <th>Tahun</th>
                                         <th>Penyelenggara</th>
-                                        <th>Aksi</th>
+                                        <th width="70">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -306,6 +309,7 @@
                                     <?php endif; ?>
                                 </tbody>
                             </table>
+                            </div>
                         </div>
 
                         <hr>
@@ -314,7 +318,8 @@
                             <h6>Riwayat Karier / Penugasan</h6>
                             <p class="text-muted small">Riwayat karier/penugasan otomatis tercatat oleh Admin
                                 berdasarkan SK Mengajar setiap tahun ajaran.</p>
-                            <table class="table table-bordered table-sm">
+                            <div class="table-responsive">
+                            <table class="table table-bordered table-sm align-middle">
                                 <thead class="bg-light">
                                     <tr>
                                         <th>Tahun Ajaran</th>
@@ -344,6 +349,7 @@
                                     <?php endif; ?>
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     </div>
 

@@ -44,6 +44,7 @@ class TeacherModel extends Model
         'gemini_api_key',
         'ai_provider',
         'is_active',
+        'is_koordinator_ekskul',
     ];
 
     public function withUser()

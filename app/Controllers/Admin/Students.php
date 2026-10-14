@@ -1038,7 +1038,7 @@ class Students extends BaseController
     }
 
     /**
-     * Parsing File Template SIAKAD Manual
+     * Parsing File Template ESPATA Manual
      */
     private function parseStandardRows(array $rows): array
     {

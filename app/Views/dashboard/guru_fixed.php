@@ -69,22 +69,72 @@
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
   }
 
-  .quick-action-btn {
-    border-radius: 12px;
-    padding: 1rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    border: none;
-    text-align: left;
+  .guru-action-tile {
+    display: flex;
+    align-items: center;
+    padding: 0.85rem 1rem;
+    border-radius: 14px;
+    background: #ffffff;
+    border: 1px solid rgba(14, 165, 233, 0.15);
+    box-shadow: 0 2px 6px rgba(14, 165, 233, 0.05);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none !important;
   }
-
-  .quick-action-btn:hover {
+  .guru-action-tile:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 20px rgba(14, 165, 233, 0.14);
+    border-color: rgba(14, 165, 233, 0.35);
   }
+  .guru-action-tile:active {
+    transform: scale(0.98);
+  }
+  .action-icon-box {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    color: white;
+    flex-shrink: 0;
+    margin-right: 0.9rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+  }
+  .action-icon-box.presensi { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
+  .action-icon-box.jurnal   { background: linear-gradient(135deg, #06b6d4, #0d9488); }
+  .action-icon-box.nilai    { background: linear-gradient(135deg, #10b981, #059669); }
+  .action-icon-box.modul    { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+  .action-icon-box.chat     { background: linear-gradient(135deg, #f59e0b, #d97706); }
 
-  .quick-action-btn i {
-    font-size: 1.25rem;
+  .action-text-box {
+    flex-grow: 1;
+    min-width: 0;
+  }
+  .action-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+    margin-bottom: 2px;
+  }
+  .action-desc {
+    font-size: 0.74rem;
+    color: #64748b;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .action-arrow {
+    color: #94a3b8;
+    font-size: 1.1rem;
+    margin-left: 0.5rem;
+    transition: transform 0.2s ease, color 0.2s ease;
+  }
+  .guru-action-tile:hover .action-arrow {
+    transform: translateX(4px);
+    color: #0ea5e9;
   }
 
   .announcement-content {
@@ -201,16 +251,16 @@
   </div>
 
   <!-- Teacher Stats Row -->
-  <div class="row g-3 g-md-4 mb-4">
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="teacher-stats-card" style="border-left-color: #667eea;">
+  <div class="row g-2 g-md-4 mb-4">
+    <div class="col-6 col-xl-3">
+      <div class="teacher-stats-card h-100" style="border-left-color: #667eea;">
         <div class="card-body p-3">
           <div class="d-flex align-items-center">
-            <div class="flex-shrink-0 bg-primary bg-opacity-10 p-2 rounded-3 me-3">
-              <i class="bi bi-calendar-check text-primary fs-4"></i>
+            <div class="flex-shrink-0 bg-primary bg-opacity-10 p-2 rounded-3 me-2 me-md-3">
+              <i class="bi bi-calendar-check text-primary fs-5 fs-md-4"></i>
             </div>
-            <div class="flex-grow-1">
-              <div class="small text-muted mb-1">Sesi Hari Ini</div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="small text-muted mb-1 text-truncate" style="font-size: 0.78rem;">Sesi Hari Ini</div>
               <div class="h4 mb-0 fw-bold"><?= $teacherStats['total_sessions_today'] ?? 0 ?></div>
             </div>
           </div>
@@ -218,15 +268,15 @@
       </div>
     </div>
     
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="teacher-stats-card" style="border-left-color: #11998e;">
+    <div class="col-6 col-xl-3">
+      <div class="teacher-stats-card h-100" style="border-left-color: #11998e;">
         <div class="card-body p-3">
           <div class="d-flex align-items-center">
-            <div class="flex-shrink-0 bg-success bg-opacity-10 p-2 rounded-3 me-3">
-              <i class="bi bi-clock-history text-success fs-4"></i>
+            <div class="flex-shrink-0 bg-success bg-opacity-10 p-2 rounded-3 me-2 me-md-3">
+              <i class="bi bi-clock-history text-success fs-5 fs-md-4"></i>
             </div>
-            <div class="flex-grow-1">
-              <div class="small text-muted mb-1">Total JP</div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="small text-muted mb-1 text-truncate" style="font-size: 0.78rem;">Total JP</div>
               <div class="h4 mb-0 fw-bold"><?= $teacherStats['total_jp_today'] ?? 0 ?></div>
             </div>
           </div>
@@ -234,15 +284,15 @@
       </div>
     </div>
     
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="teacher-stats-card" style="border-left-color: #f093fb;">
+    <div class="col-6 col-xl-3">
+      <div class="teacher-stats-card h-100" style="border-left-color: #f093fb;">
         <div class="card-body p-3">
           <div class="d-flex align-items-center">
-            <div class="flex-shrink-0 bg-warning bg-opacity-10 p-2 rounded-3 me-3">
-              <i class="bi bi-door-open text-warning fs-4"></i>
+            <div class="flex-shrink-0 bg-warning bg-opacity-10 p-2 rounded-3 me-2 me-md-3">
+              <i class="bi bi-door-open text-warning fs-5 fs-md-4"></i>
             </div>
-            <div class="flex-grow-1">
-              <div class="small text-muted mb-1">Kelas Diajar</div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="small text-muted mb-1 text-truncate" style="font-size: 0.78rem;">Kelas Diajar</div>
               <div class="h4 mb-0 fw-bold"><?= $teacherStats['unique_classes'] ?? 0 ?></div>
             </div>
           </div>
@@ -250,15 +300,15 @@
       </div>
     </div>
     
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="teacher-stats-card" style="border-left-color: #4facfe;">
+    <div class="col-6 col-xl-3">
+      <div class="teacher-stats-card h-100" style="border-left-color: #4facfe;">
         <div class="card-body p-3">
           <div class="d-flex align-items-center">
-            <div class="flex-shrink-0 bg-info bg-opacity-10 p-2 rounded-3 me-3">
-              <i class="bi bi-book text-info fs-4"></i>
+            <div class="flex-shrink-0 bg-info bg-opacity-10 p-2 rounded-3 me-2 me-md-3">
+              <i class="bi bi-book text-info fs-5 fs-md-4"></i>
             </div>
-            <div class="flex-grow-1">
-              <div class="small text-muted mb-1">Mapel Diajar</div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="small text-muted mb-1 text-truncate" style="font-size: 0.78rem;">Mapel Diajar</div>
               <div class="h4 mb-0 fw-bold"><?= $teacherStats['unique_subjects'] ?? 0 ?></div>
             </div>
           </div>
@@ -432,28 +482,73 @@
 
       <!-- Quick Actions Card -->
       <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-white py-3">
+        <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
           <h5 class="mb-0 fw-bold">
             <i class="bi bi-lightning-fill me-2 text-warning"></i>
             Akses Cepat Guru
           </h5>
+          <span class="badge bg-primary bg-opacity-10 text-primary small">Pintasan KBM</span>
         </div>
         <div class="card-body p-3">
           <div class="d-grid gap-2">
-            <a href="<?= site_url('admin/attendance') ?>" class="quick-action-btn btn btn-primary">
-              <i class="bi bi-calendar-check me-2"></i> Input Presensi
+            <!-- 1. Input Presensi -->
+            <a href="<?= site_url('admin/attendance') ?>" class="guru-action-tile">
+              <div class="action-icon-box presensi">
+                <i class="bi bi-calendar-check-fill"></i>
+              </div>
+              <div class="action-text-box">
+                <div class="action-title">Input Presensi</div>
+                <div class="action-desc">Catat absensi harian siswa kelas</div>
+              </div>
+              <i class="bi bi-chevron-right action-arrow"></i>
             </a>
-            <a href="<?= site_url('admin/teaching-journal') ?>" class="quick-action-btn btn btn-info text-white">
-              <i class="bi bi-journal-text me-2"></i> Jurnal Mengajar
+
+            <!-- 2. Jurnal Mengajar -->
+            <a href="<?= site_url('admin/teaching-journal') ?>" class="guru-action-tile">
+              <div class="action-icon-box jurnal">
+                <i class="bi bi-journal-text"></i>
+              </div>
+              <div class="action-text-box">
+                <div class="action-title">Jurnal Mengajar</div>
+                <div class="action-desc">Isi materi & ringkasan kegiatan KBM</div>
+              </div>
+              <i class="bi bi-chevron-right action-arrow"></i>
             </a>
-            <a href="<?= site_url('admin/scores') ?>" class="quick-action-btn btn btn-success text-white">
-              <i class="bi bi-clipboard-data me-2"></i> Input Nilai
+
+            <!-- 3. Input Nilai -->
+            <a href="<?= site_url('admin/scores') ?>" class="guru-action-tile">
+              <div class="action-icon-box nilai">
+                <i class="bi bi-clipboard-data-fill"></i>
+              </div>
+              <div class="action-text-box">
+                <div class="action-title">Input Nilai</div>
+                <div class="action-desc">Kelola nilai formatif & sumatif</div>
+              </div>
+              <i class="bi bi-chevron-right action-arrow"></i>
             </a>
-            <a href="<?= site_url('admin/administrasi-guru/modul-ajar') ?>" class="quick-action-btn btn btn-secondary text-white">
-              <i class="bi bi-folder me-2"></i> Modul Ajar
+
+            <!-- 4. Modul Ajar -->
+            <a href="<?= site_url('admin/administrasi-guru/modul-ajar') ?>" class="guru-action-tile">
+              <div class="action-icon-box modul">
+                <i class="bi bi-folder2-open"></i>
+              </div>
+              <div class="action-text-box">
+                <div class="action-title">Modul Ajar</div>
+                <div class="action-desc">Perangkat ajar & administrasi guru</div>
+              </div>
+              <i class="bi bi-chevron-right action-arrow"></i>
             </a>
-            <a href="<?= site_url('admin/chat') ?>" class="quick-action-btn btn btn-warning text-white">
-              <i class="bi bi-chat-dots me-2"></i> Ruang Chat
+
+            <!-- 5. Ruang Chat -->
+            <a href="<?= site_url('admin/chat') ?>" class="guru-action-tile">
+              <div class="action-icon-box chat">
+                <i class="bi bi-chat-dots-fill"></i>
+              </div>
+              <div class="action-text-box">
+                <div class="action-title">Ruang Chat</div>
+                <div class="action-desc">Komunikasi & diskusi guru-siswa</div>
+              </div>
+              <i class="bi bi-chevron-right action-arrow"></i>
             </a>
           </div>
         </div>

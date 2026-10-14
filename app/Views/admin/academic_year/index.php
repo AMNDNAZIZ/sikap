@@ -12,15 +12,16 @@
     <a href="<?= base_url('admin/academic-year/create') ?>" class="btn btn-primary mb-3">➕ Tambah Tahun Ajaran</a>
   <?php endif; ?>
 
-  <table class="table table-bordered table-striped">
-    <thead>
+  <div class="table-responsive">
+  <table class="table table-bordered table-striped align-middle">
+    <thead class="table-light">
       <tr>
         <th>Tahun</th>
         <th>Periode</th>
         <th>Bobot (F:S)</th>
         <th>Hari Sekolah</th>
         <th>Status</th>
-        <th>Aksi</th>
+        <th width="160">Aksi</th>
       </tr>
     </thead>
     <tbody>
@@ -43,11 +44,11 @@
           </td>
           <td>
             <?php if (session()->get('user')['role_id'] != 2): ?>
-              <a href="<?= base_url('admin/academic-year/edit/' . $y['id']) ?>" class="btn btn-sm btn-warning">✏️ Edit</a>
+              <a href="<?= base_url('admin/academic-year/edit/' . $y['id']) ?>" class="btn btn-sm btn-warning mb-1">✏️ Edit</a>
               <?php if (!$y['is_active']): ?>
                 <form method="post" action="<?= base_url('admin/academic-year/set-active/' . $y['id']) ?>" style="display:inline;">
                   <?= csrf_field() ?>
-                  <button type="submit" class="btn btn-sm btn-success"
+                  <button type="submit" class="btn btn-sm btn-success mb-1"
                     onclick="return confirm('Aktifkan tahun ajaran <?= esc($y['year']) ?>?')">
                     ✅ Aktifkan
                   </button>
@@ -61,6 +62,7 @@
       <?php endforeach; ?>
     </tbody>
   </table>
+  </div>
 </div>
 
 <?= $this->endSection() ?>

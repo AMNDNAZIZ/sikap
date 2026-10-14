@@ -4,41 +4,68 @@ namespace App\Controllers;
 
 use App\Models\OutgoingLetterModel;
 use App\Models\QrVerificationModel;
+use App\Models\SchoolModel;
 
 /**
  * Verify — Halaman publik verifikasi keaslian surat via QR Code
- * Accessible WITHOUT login: /verify/{qr_code_id}
+ * Accessible WITHOUT login: /verify/{qr_code_id} atau /verify/cek
  */
 class Verify extends BaseController
 {
     public function index(string $qrCodeId = '')
     {
-        if (empty($qrCodeId)) {
-            return redirect()->to(base_url('/'));
-        }
+        $schoolModel = new SchoolModel();
+        $school      = $schoolModel->first() ?: [];
 
-        // Validasi format UUID sederhana
-        $uuidPattern = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
-        if (! preg_match($uuidPattern, $qrCodeId)) {
+        $qrCodeId = trim($qrCodeId);
+
+        // Jika rute /verify atau /verify/cek tanpa parameter kode spesifik
+        if (empty($qrCodeId) || strtolower($qrCodeId) === 'cek') {
             return view('verify/index', [
-                'title'     => 'Verifikasi Surat',
-                'status'    => 'invalid',
+                'title'     => 'Verifikasi Keaslian Dokumen & Surat',
+                'status'    => 'cek',
                 'letter'    => null,
-                'qrCodeId'  => $qrCodeId,
+                'qrCodeId'  => '',
+                'school'    => $school,
             ]);
         }
 
         $model       = new OutgoingLetterModel();
         $qrModel     = new QrVerificationModel();
 
-        $letter = $model->findByQrCode($qrCodeId);
+        // Validasi format UUID
+        $uuidPattern = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
+        $letter      = null;
 
-        // Log akses verifikasi
-        $qrModel->logVerification(
-            $qrCodeId,
-            $letter ? (int) $letter['id'] : null,
-            $letter ? ($letter['status'] === 'active' ? 'valid' : 'revoked') : 'not_found'
-        );
+        if (preg_match($uuidPattern, $qrCodeId)) {
+            $letter = $model->findByQrCode($qrCodeId);
+        } else {
+            // Dukung pencarian alternatif dengan Nomor Surat jika user memasukkan nomor surat
+            $letter = $model->where('letter_number', $qrCodeId)->first();
+            if ($letter && !empty($letter['qr_code_id'])) {
+                $qrCodeId = $letter['qr_code_id'];
+            }
+        }
+
+        // Jika bukan UUID dan tidak ditemukan via nomor surat
+        if (! $letter && ! preg_match($uuidPattern, $qrCodeId)) {
+            return view('verify/index', [
+                'title'     => 'Verifikasi Surat — Format Tidak Valid',
+                'status'    => 'invalid',
+                'letter'    => null,
+                'qrCodeId'  => $qrCodeId,
+                'school'    => $school,
+            ]);
+        }
+
+        // Log akses verifikasi jika format UUID valid
+        if (preg_match($uuidPattern, $qrCodeId)) {
+            $qrModel->logVerification(
+                $qrCodeId,
+                $letter ? (int) $letter['id'] : null,
+                $letter ? ($letter['status'] === 'active' ? 'valid' : 'revoked') : 'not_found'
+            );
+        }
 
         if (! $letter) {
             return view('verify/index', [
@@ -46,16 +73,37 @@ class Verify extends BaseController
                 'status'   => 'not_found',
                 'letter'   => null,
                 'qrCodeId' => $qrCodeId,
+                'school'   => $school,
             ]);
         }
 
-        $status = $letter['status'] === 'active' ? 'valid' : 'revoked';
+        $status = ($letter['status'] ?? 'active') === 'active' ? 'valid' : 'revoked';
 
         return view('verify/index', [
             'title'    => 'Verifikasi Surat — ' . strtoupper($status),
             'status'   => $status,
             'letter'   => $letter,
             'qrCodeId' => $qrCodeId,
+            'school'   => $school,
         ]);
+    }
+
+    /**
+     * Proses input pencarian manual dari form /verify/cek
+     */
+    public function check()
+    {
+        $code = trim((string) ($this->request->getPost('qr_code_id') ?: $this->request->getPost('code')));
+        
+        if (empty($code)) {
+            return redirect()->to(base_url('verify/cek'))->with('error', 'Silakan masukkan ID Dokumen atau Nomor Surat.');
+        }
+
+        // Jika input berupa full URL (misal hasil scan QR: https://.../verify/UUID)
+        if (preg_match('/verify\/([0-9a-fA-F\-]+)/i', $code, $matches)) {
+            $code = $matches[1];
+        }
+
+        return redirect()->to(base_url('verify/' . rawurlencode($code)));
     }
 }

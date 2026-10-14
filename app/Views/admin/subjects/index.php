@@ -20,6 +20,7 @@
         <th>Nama</th>
         <th>Kelompok</th>
         <th>Urutan</th>
+        <th>BP/BK</th>
         <th>Status</th>
         <th>Aksi</th>
       </tr>
@@ -33,6 +34,13 @@
           <td><?= esc($s['name']) ?></td>
           <td><?= esc($s['subject_group']) ?></td>
           <td><?= esc($s['sort_order']) ?></td>
+          <td>
+            <?php if ($s['is_bk']): ?>
+              <span class="badge bg-info">🧠 BP/BK</span>
+            <?php else: ?>
+              <span class="badge bg-light text-secondary">-</span>
+            <?php endif; ?>
+          </td>
           <td>
             <?php if ($s['is_active']): ?>
               <span class="badge bg-success">Aktif</span>

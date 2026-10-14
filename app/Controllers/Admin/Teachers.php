@@ -198,6 +198,7 @@ class Teachers extends BaseController
             'certification_number' => $post['certification_number'] ?? null,
             'certification_field' => $post['certification_field'] ?? null,
             'certification_year' => $post['certification_year'] ?: null,
+            'is_koordinator_ekskul' => isset($post['is_koordinator_ekskul']) ? 1 : 0,
             'photo' => $photoName,
             'user_id' => $userId ?: null,
         ]);
@@ -326,6 +327,7 @@ class Teachers extends BaseController
             'certification_number' => $post['certification_number'] ?? null,
             'certification_field' => $post['certification_field'] ?? null,
             'certification_year' => $post['certification_year'] ?: null,
+            'is_koordinator_ekskul' => isset($post['is_koordinator_ekskul']) ? 1 : 0,
             'photo' => $photoName,
         ]);
 

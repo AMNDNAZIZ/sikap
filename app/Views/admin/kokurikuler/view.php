@@ -2,12 +2,12 @@
 <?= $this->section('content') ?>
 
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-4">
         <div>
             <h4 class="mb-0">Detail Dokumen Kokurikuler</h4>
             <small class="text-muted"><?= esc($document['tema']) ?></small>
         </div>
-        <div>
+        <div class="d-flex flex-wrap gap-1">
             <a href="<?= base_url('admin/kokurikuler') ?>" class="btn btn-secondary">
                 <i class="bi bi-arrow-left"></i> Kembali
             </a>
@@ -21,7 +21,7 @@
 
     <!-- Status Badge -->
     <div class="alert <?= $document['status'] === 'completed' ? 'alert-success' : 'alert-warning' ?>">
-        <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
             <div>
                 <strong>Status:</strong> 
                 <?= $document['status'] === 'completed' ? 'Dokumen Selesai' : 'Draft - Belum Generate AI' ?>

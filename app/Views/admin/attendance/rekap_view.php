@@ -14,13 +14,14 @@
   <?php endif; ?>
 </p>
 
-<div class="mb-3">
+<div class="mb-3 d-flex flex-wrap gap-2">
   <a href="<?= base_url('admin/attendance') ?>" class="btn btn-secondary">Kembali</a>
   <a href="<?= base_url("admin/attendance/rekapPdf?class_id={$class['id']}&periode={$periode}") ?>" class="btn btn-danger" target="_blank">Export PDF</a>
   <a href="<?= base_url("admin/attendance/rekapExcel?class_id={$class['id']}&periode={$periode}") ?>" class="btn btn-success">Export Excel</a>
 </div>
 
-<table class="table table-bordered table-striped">
+<div class="table-responsive">
+<table class="table table-bordered table-striped align-middle">
   <thead class="table-dark">
     <tr>
       <th>No</th>
@@ -50,5 +51,6 @@
     <?php endforeach ?>
   </tbody>
 </table>
+</div>
 
 <?= $this->endSection() ?>

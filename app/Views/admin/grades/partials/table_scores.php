@@ -1,3 +1,4 @@
+<div class="table-responsive">
 <table class="table table-bordered table-striped align-middle text-center">
     <thead class="table-light">
         <tr>
@@ -69,3 +70,4 @@
         <?php endforeach; ?>
     </tbody>
 </table>
+</div>

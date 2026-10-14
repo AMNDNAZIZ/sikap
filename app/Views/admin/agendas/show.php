@@ -2,9 +2,9 @@
 <?= $this->section('content') ?>
 
 <div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center">
+  <div class="card-header d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
     <h5 class="mb-0"><?= esc($agenda['title']) ?></h5>
-    <div>
+    <div class="d-flex flex-wrap gap-1">
       <?php if ($isOwnerOrAdmin): ?>
         <a href="<?= site_url('admin/agendas/' . $agenda['id'] . '/edit') ?>" class="btn btn-sm btn-warning">✏️ Edit</a>
         <a href="<?= site_url('admin/agendas/' . $agenda['id'] . '/delete') ?>" class="btn btn-sm btn-danger"

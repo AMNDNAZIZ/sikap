@@ -34,9 +34,10 @@
 <?php endif; ?>
 
 <?php
-// Detect if running on localhost
-$isLocalhost = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'])
-    || strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false;
+// Deteksi mode developer: cek keberadaan file marker .dev_mode di root.
+// File ini HANYA ada di PC development (tidak di-push ke git via .gitignore).
+// Instalasi lain (termasuk localhost klien) tidak punya file ini → mode online.
+$isLocalhost = file_exists(ROOTPATH . '.dev_mode');
 ?>
 
 <div class="row g-3">

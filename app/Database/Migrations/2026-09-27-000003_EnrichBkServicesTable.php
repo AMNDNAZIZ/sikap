@@ -80,20 +80,24 @@ class EnrichBkServicesTable extends Migration
             $this->forge->addColumn('bk_services', $fieldsToAdd);
         }
 
-        // Modify service_type column to support Rujukan & Orientasi & Informasi etc.
-        $this->db->query("ALTER TABLE bk_services MODIFY COLUMN service_type ENUM(
-            'Bimbingan Klasikal',
-            'Bimbingan Kelompok',
-            'Konseling Individual',
-            'Konseling Kelompok',
-            'Konsultasi',
-            'Rujukan',
-            'Home Visit',
-            'Orientasi',
-            'Informasi',
-            'Penempatan',
-            'Lainnya'
-        ) NOT NULL DEFAULT 'Bimbingan Klasikal'");
+        // Modify service_type column — wrap try/catch (idempotent)
+        try {
+            $this->db->query("ALTER TABLE bk_services MODIFY COLUMN service_type ENUM(
+                'Bimbingan Klasikal',
+                'Bimbingan Kelompok',
+                'Konseling Individual',
+                'Konseling Kelompok',
+                'Konsultasi',
+                'Rujukan',
+                'Home Visit',
+                'Orientasi',
+                'Informasi',
+                'Penempatan',
+                'Lainnya'
+            ) NOT NULL DEFAULT 'Bimbingan Klasikal'");
+        } catch (\Exception $e) {
+            log_message('warning', '[EnrichBkServicesTable] MODIFY service_type: ' . $e->getMessage());
+        }
     }
 
     public function down()

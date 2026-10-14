@@ -53,6 +53,7 @@ class GradesManageController extends BaseController
                     ->where('ta.teacher_id', $user['teacher_id'])
                     ->where('ta.class_id', $class['id'])
                     ->where('ta.academic_year_id', $activeYearId)
+                    ->where('s.is_bk', 0)  // Kecualikan mapel BP/BK dari penilaian
                     ->select('s.id, s.name')
                     ->get()->getResultArray();
             } else {
@@ -64,6 +65,7 @@ class GradesManageController extends BaseController
                     ->join('subjects s', 's.id = ta.subject_id')
                     ->where('ta.teacher_id', $user['teacher_id'])
                     ->where('ta.academic_year_id', $activeYearId)
+                    ->where('s.is_bk', 0)  // Kecualikan mapel BP/BK dari penilaian
                     ->select('c.id as class_id, c.name as class_name, s.id as subject_id, s.name as subject_name')
                     ->get()->getResultArray();
 

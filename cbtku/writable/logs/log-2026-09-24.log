@@ -1,0 +1,97 @@
+DEBUG - 2026-09-24 06:59:11 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 06:59:11 --> License marker mismatch: C:\xampp\htdocs\cbtku\app\Config/.lic_marker
+DEBUG - 2026-09-24 06:59:11 --> License marker mismatch: C:\xampp\htdocs\cbtku\writable\.lic_marker
+DEBUG - 2026-09-24 06:59:11 --> License marker mismatch: C:\xampp\htdocs\cbtku\.lic_marker
+ERROR - 2026-09-24 06:59:11 --> Hash mismatch for file: Controllers/Activate.php - Integrity Check Failed
+INFO - 2026-09-24 06:59:11 --> Hash mismatch ignored on localhost for development/maintenance.
+ERROR - 2026-09-24 06:59:12 --> Hash mismatch for file: Libraries/LicenseGuard.php - Integrity Check Failed
+INFO - 2026-09-24 06:59:12 --> Hash mismatch ignored on localhost for development/maintenance.
+ERROR - 2026-09-24 06:59:12 --> Hash mismatch for file: Config/Filters.php - Integrity Check Failed
+INFO - 2026-09-24 06:59:12 --> Hash mismatch ignored on localhost for development/maintenance.
+INFO - 2026-09-24 06:59:27 --> CSRF token verified.
+DEBUG - 2026-09-24 06:59:27 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+INFO - 2026-09-24 06:59:29 --> [Auth] Same device detected for user: admin, allowing seamless re-login
+DEBUG - 2026-09-24 06:59:30 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 06:59:37 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+INFO - 2026-09-24 06:59:47 --> CSRF token verified.
+DEBUG - 2026-09-24 06:59:47 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 06:59:48 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 06:59:53 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:04:27 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:07:26 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:07:44 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+ERROR - 2026-09-24 07:07:44 --> mysqli_sql_exception: Table 'cbtku.changelogs' doesn't exist in C:\xampp\htdocs\cbtku\system\Database\MySQLi\Connection.php:327
+Stack trace:
+#0 C:\xampp\htdocs\cbtku\system\Database\MySQLi\Connection.php(327): mysqli->query('SELECT *\nFROM `...', 0)
+#1 C:\xampp\htdocs\cbtku\system\Database\BaseConnection.php(729): CodeIgniter\Database\MySQLi\Connection->execute('SELECT *\nFROM `...')
+#2 C:\xampp\htdocs\cbtku\system\Database\BaseConnection.php(646): CodeIgniter\Database\BaseConnection->simpleQuery('SELECT *\nFROM `...')
+#3 C:\xampp\htdocs\cbtku\system\Database\BaseBuilder.php(1649): CodeIgniter\Database\BaseConnection->query('SELECT *\nFROM `...', Array, false)
+#4 C:\xampp\htdocs\cbtku\app\Controllers\Admin\Updater.php(550): CodeIgniter\Database\BaseBuilder->get()
+#5 C:\xampp\htdocs\cbtku\app\Controllers\Admin\Updater.php(53): App\Controllers\Admin\Updater->syncChangelogsToFile()
+#6 C:\xampp\htdocs\cbtku\system\CodeIgniter.php(933): App\Controllers\Admin\Updater->generateManifest()
+#7 C:\xampp\htdocs\cbtku\system\CodeIgniter.php(507): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Admin\Updater))
+#8 C:\xampp\htdocs\cbtku\system\CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(NULL, Object(Config\Cache), false)
+#9 C:\xampp\htdocs\cbtku\system\Boot.php(363): CodeIgniter\CodeIgniter->run()
+#10 C:\xampp\htdocs\cbtku\system\Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+#11 C:\xampp\htdocs\cbtku\index.php(71): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+#12 {main}
+WARNING - 2026-09-24 07:07:44 --> Failed to sync changelogs: Table 'cbtku.changelogs' doesn't exist
+INFO - 2026-09-24 07:08:57 --> [Manifest] Generated with 442 files, version 2.1.5
+CRITICAL - 2026-09-24 07:09:43 --> ErrorException: Maximum execution time of 120 seconds exceeded
+[Method: GET, Route: admin/updater/generate-manifest]
+in APPPATH\Controllers\Admin\Updater.php on line 1154.
+ 1 [internal function]: CodeIgniter\Debug\Exceptions->shutdownHandler()
+DEBUG - 2026-09-24 07:09:54 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+ERROR - 2026-09-24 07:09:54 --> mysqli_sql_exception: Table 'cbtku.changelogs' doesn't exist in C:\xampp\htdocs\cbtku\system\Database\MySQLi\Connection.php:327
+Stack trace:
+#0 C:\xampp\htdocs\cbtku\system\Database\MySQLi\Connection.php(327): mysqli->query('SELECT *\nFROM `...', 0)
+#1 C:\xampp\htdocs\cbtku\system\Database\BaseConnection.php(729): CodeIgniter\Database\MySQLi\Connection->execute('SELECT *\nFROM `...')
+#2 C:\xampp\htdocs\cbtku\system\Database\BaseConnection.php(646): CodeIgniter\Database\BaseConnection->simpleQuery('SELECT *\nFROM `...')
+#3 C:\xampp\htdocs\cbtku\system\Database\BaseBuilder.php(1649): CodeIgniter\Database\BaseConnection->query('SELECT *\nFROM `...', Array, false)
+#4 C:\xampp\htdocs\cbtku\app\Controllers\Admin\Updater.php(550): CodeIgniter\Database\BaseBuilder->get()
+#5 C:\xampp\htdocs\cbtku\app\Controllers\Admin\Updater.php(53): App\Controllers\Admin\Updater->syncChangelogsToFile()
+#6 C:\xampp\htdocs\cbtku\system\CodeIgniter.php(933): App\Controllers\Admin\Updater->generateManifest()
+#7 C:\xampp\htdocs\cbtku\system\CodeIgniter.php(507): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Admin\Updater))
+#8 C:\xampp\htdocs\cbtku\system\CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(NULL, Object(Config\Cache), false)
+#9 C:\xampp\htdocs\cbtku\system\Boot.php(363): CodeIgniter\CodeIgniter->run()
+#10 C:\xampp\htdocs\cbtku\system\Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+#11 C:\xampp\htdocs\cbtku\index.php(71): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+#12 {main}
+WARNING - 2026-09-24 07:09:54 --> Failed to sync changelogs: Table 'cbtku.changelogs' doesn't exist
+INFO - 2026-09-24 07:09:56 --> [Manifest] Generated with 442 files, version 2.1.5
+CRITICAL - 2026-09-24 07:12:07 --> ErrorException: Maximum execution time of 120 seconds exceeded
+[Method: GET, Route: admin/updater/generate-manifest]
+in APPPATH\Controllers\Admin\Updater.php on line 237.
+ 1 [internal function]: CodeIgniter\Debug\Exceptions->shutdownHandler()
+DEBUG - 2026-09-24 07:17:19 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+ERROR - 2026-09-24 07:17:19 --> mysqli_sql_exception: Table 'cbtku.changelogs' doesn't exist in C:\xampp\htdocs\cbtku\system\Database\MySQLi\Connection.php:327
+Stack trace:
+#0 C:\xampp\htdocs\cbtku\system\Database\MySQLi\Connection.php(327): mysqli->query('SELECT *\nFROM `...', 0)
+#1 C:\xampp\htdocs\cbtku\system\Database\BaseConnection.php(729): CodeIgniter\Database\MySQLi\Connection->execute('SELECT *\nFROM `...')
+#2 C:\xampp\htdocs\cbtku\system\Database\BaseConnection.php(646): CodeIgniter\Database\BaseConnection->simpleQuery('SELECT *\nFROM `...')
+#3 C:\xampp\htdocs\cbtku\system\Database\BaseBuilder.php(1649): CodeIgniter\Database\BaseConnection->query('SELECT *\nFROM `...', Array, false)
+#4 C:\xampp\htdocs\cbtku\app\Controllers\Admin\Updater.php(550): CodeIgniter\Database\BaseBuilder->get()
+#5 C:\xampp\htdocs\cbtku\app\Controllers\Admin\Updater.php(53): App\Controllers\Admin\Updater->syncChangelogsToFile()
+#6 C:\xampp\htdocs\cbtku\system\CodeIgniter.php(933): App\Controllers\Admin\Updater->generateManifest()
+#7 C:\xampp\htdocs\cbtku\system\CodeIgniter.php(507): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Admin\Updater))
+#8 C:\xampp\htdocs\cbtku\system\CodeIgniter.php(354): CodeIgniter\CodeIgniter->handleRequest(NULL, Object(Config\Cache), false)
+#9 C:\xampp\htdocs\cbtku\system\Boot.php(363): CodeIgniter\CodeIgniter->run()
+#10 C:\xampp\htdocs\cbtku\system\Boot.php(68): CodeIgniter\Boot::runCodeIgniter(Object(CodeIgniter\CodeIgniter))
+#11 C:\xampp\htdocs\cbtku\index.php(71): CodeIgniter\Boot::bootWeb(Object(Config\Paths))
+#12 {main}
+WARNING - 2026-09-24 07:17:19 --> Failed to sync changelogs: Table 'cbtku.changelogs' doesn't exist
+INFO - 2026-09-24 07:17:22 --> [Manifest] Generated with 442 files, version 2.1.5
+INFO - 2026-09-24 07:19:07 --> [GitPush] Successfully pushed v2.1.5 to Sakajaya/update-cbtku
+DEBUG - 2026-09-24 07:19:10 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:24:15 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:29:14 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:31:24 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:31:35 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:31:39 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:31:49 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:31:51 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:36:57 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:41:56 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:46:56 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:51:56 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+DEBUG - 2026-09-24 07:56:55 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.

@@ -114,7 +114,8 @@ $holidays = $holidays ?? [];       // array of holiday rows with ['date'=>...]
   </div>
 
   <!-- 🔹 Kalender -->
-  <table class="table table-bordered calendar">
+  <div class="table-responsive">
+  <table class="table table-bordered calendar" style="min-width: 600px;">
     <thead class="table-light">
       <tr>
         <?php foreach ($headers as $h): ?>
@@ -173,8 +174,9 @@ $holidays = $holidays ?? [];       // array of holiday rows with ['date'=>...]
       <?php endforeach; ?>
     </tbody>
   </table>
+  </div>
 
-  <a href="<?= site_url('admin/agendas/create') ?>" class="btn btn-primary btn-sm">Buat Agenda</a>
+  <a href="<?= site_url('admin/agendas/create') ?>" class="btn btn-primary btn-sm mb-3">Buat Agenda</a>
 </div>
 
 <?= $this->endSection() ?>

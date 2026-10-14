@@ -64,7 +64,7 @@ class CreateAppLicense extends Migration
         ]);
 
         $this->forge->addKey('id', true);
-        $this->forge->createTable('app_license');
+        $this->forge->createTable('app_license', true);
     }
 
     public function down()

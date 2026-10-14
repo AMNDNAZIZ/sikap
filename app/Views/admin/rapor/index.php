@@ -45,14 +45,28 @@
                   <td><?= esc($cls['wali_name'] ?? '-') ?></td>
                   <td><?= esc($activeYear['year'] ?? '-') ?></td>
                   <td>
-                    <a href="<?= site_url("admin/rapor/pts/{$cls['id']}/1") ?>"
-                       class="btn btn-sm btn-outline-primary" target="_blank">
-                      🖨️ Semester 1 (Ganjil)
-                    </a>
-                    <a href="<?= site_url("admin/rapor/pts/{$cls['id']}/2") ?>"
-                       class="btn btn-sm btn-outline-success" target="_blank">
-                      🖨️ Semester 2 (Genap)
-                    </a>
+                    <div class="mb-1">
+                      <!--<span class="badge bg-secondary mb-1">PTS</span><br>-->
+                      <a href="<?= site_url("admin/rapor/pts/{$cls['id']}/1") ?>"
+                         class="btn btn-sm btn-outline-primary" target="_blank">
+                        🖨️ Sem 1
+                      </a>
+                      <a href="<?= site_url("admin/rapor/pts/{$cls['id']}/2") ?>"
+                         class="btn btn-sm btn-outline-primary" target="_blank">
+                        🖨️ Sem 2
+                      </a>
+                    </div>
+                    <!--<div>
+                      <span class="badge bg-success mb-1">Akhir</span><br>
+                      <a href="<?= site_url("admin/rapor/akhir/{$cls['id']}/1") ?>"
+                         class="btn btn-sm btn-outline-success" target="_blank">
+                        🖨️ Sem 1
+                      </a>
+                      <a href="<?= site_url("admin/rapor/akhir/{$cls['id']}/2") ?>"
+                         class="btn btn-sm btn-outline-success" target="_blank">
+                        🖨️ Sem 2
+                      </a>
+                    </div>-->
                   </td>
                 </tr>
               <?php endforeach; ?>

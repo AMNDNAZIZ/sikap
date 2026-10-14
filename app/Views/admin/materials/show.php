@@ -76,105 +76,207 @@
 <?php endif; ?>
 
 <!-- ═══════════════════════════════════════════════════════════════
-     KONTEN SUB MATERI
+     SEGMEN PEMBELAJARAN (MICRO-LEARNING STEPPER / SEGMEN)
 ════════════════════════════════════════════════════════════════ -->
+<?php if (!empty($segments)): ?>
 <div class="card border-0 shadow-sm mb-4">
-  <div class="card-body p-3 p-md-4">
+  <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+      <h6 class="fw-bold mb-0 text-primary d-flex align-items-center gap-2">
+        <i class="bi bi-diagram-3-fill"></i>Alur Segmen Pembelajaran
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size:0.75rem;">
+          <?= count($segments) ?> Langkah
+        </span>
+      </h6>
+      <div class="text-muted" style="font-size:0.75rem;">
+        Siswa akan mempelajari setiap segmen secara berurutan dan menandai selesai tiap langkah.
+      </div>
+    </div>
+    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAddSegment">
+      <i class="bi bi-plus-lg me-1"></i>Tambah Segmen
+    </button>
+  </div>
 
-    <?php if ($contentType === 'text'): ?>
-      <div class="material-content">
+  <div class="card-body p-0">
+    <div class="list-group list-group-flush" id="segmentList">
+      <?php foreach ($segments as $sIdx => $seg): ?>
+        <?php
+          $segType = $seg['content_type'];
+          $typeBadge = match($segType) {
+            'video' => ['bg-danger-subtle text-danger border-danger-subtle', 'bi-camera-video', 'Video'],
+            'html'  => ['bg-info-subtle text-info border-info-subtle', 'bi-code-slash', 'HTML Interaktif'],
+            'slide' => ['bg-warning-subtle text-warning-emphasis border-warning-subtle', 'bi-images', 'Slide'],
+            'pdf'   => ['bg-danger-subtle text-danger border-danger-subtle', 'bi-file-earmark-pdf', 'PDF'],
+            'link'  => ['bg-secondary-subtle text-secondary border-secondary-subtle', 'bi-link-45deg', 'Tautan'],
+            default => ['bg-primary-subtle text-primary border-primary-subtle', 'bi-file-text', 'Teks'],
+          };
+        ?>
+        <div class="list-group-item p-3">
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+            <div class="d-flex align-items-center gap-2 flex-grow-1 overflow-hidden">
+              <span class="badge bg-secondary rounded-pill px-2 py-1" style="font-size:0.7rem;">
+                #<?= $sIdx + 1 ?>
+              </span>
+              <span class="badge rounded-pill <?= $typeBadge[0] ?> border px-2 py-1" style="font-size:0.7rem;">
+                <i class="bi <?= $typeBadge[1] ?> me-1"></i><?= $typeBadge[2] ?>
+              </span>
+              <strong class="text-dark text-truncate" style="font-size:0.92rem;">
+                <?= esc($seg['title']) ?>
+              </strong>
+              <?php if (!empty($seg['estimated_minutes'])): ?>
+                <span class="text-muted small ms-1" style="font-size:0.75rem;">
+                  <i class="bi bi-clock me-1"></i><?= $seg['estimated_minutes'] ?> mnt
+                </span>
+              <?php endif; ?>
+            </div>
+
+            <div class="d-flex align-items-center gap-1 flex-shrink-0">
+              <button class="btn btn-xs btn-outline-secondary py-1 px-2" type="button"
+                      data-bs-toggle="collapse" data-bs-target="#collapseSeg<?= $seg['id'] ?>"
+                      aria-expanded="false" title="Pratinjau Konten Segmen">
+                <i class="bi bi-eye me-1"></i>Pratinjau
+              </button>
+              <form method="post" action="<?= site_url('admin/materials/segment-delete/' . $seg['id']) ?>"
+                    class="d-inline" onsubmit="return confirm('Yakin ingin menghapus segmen ini?');">
+                <?= csrf_field() ?>
+                <button type="submit" class="btn btn-xs btn-outline-danger py-1 px-2" title="Hapus Segmen">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Preview Collapse -->
+          <div class="collapse mt-3 pt-3 border-top" id="collapseSeg<?= $seg['id'] ?>">
+            <div class="p-3 bg-light rounded-3">
+              <?php if ($segType === 'text'): ?>
+                <div class="material-content bg-white p-3 rounded border">
+                  <?= !empty($seg['content']) ? $seg['content'] : '<em class="text-muted">Konten teks belum diisi.</em>' ?>
+                </div>
+
+              <?php elseif ($segType === 'video'): ?>
+                <?php if (!empty($seg['embed_url'])): ?>
+                  <div class="ratio ratio-16x9 mb-2" style="max-height: 400px;">
+                    <iframe src="<?= esc($seg['embed_url']) ?>" title="<?= esc($seg['title']) ?>"
+                            allowfullscreen class="rounded border"></iframe>
+                  </div>
+                <?php else: ?>
+                  <div class="text-muted small">URL Video: <?= esc($seg['video_url'] ?? '-') ?></div>
+                <?php endif; ?>
+
+              <?php elseif ($segType === 'html'): ?>
+                <?php if (!empty($seg['content_html'])): ?>
+                  <?= view('admin/materials/_html_frame', ['html' => $seg['content_html']]) ?>
+                <?php else: ?>
+                  <p class="text-muted small">Kode HTML belum diisi.</p>
+                <?php endif; ?>
+
+              <?php elseif ($segType === 'slide'): ?>
+                <?php if (!empty($seg['slides'])): ?>
+                  <?= view('admin/materials/_slide_show', ['slides' => $seg['slides'], 'canComplete' => false]) ?>
+                <?php else: ?>
+                  <p class="text-muted small">Belum ada slide gambar.</p>
+                <?php endif; ?>
+
+              <?php elseif ($segType === 'pdf'): ?>
+                <?php if (!empty($seg['file_path'])): ?>
+                  <div class="ratio mb-2" style="--bs-aspect-ratio: 65%; min-height: 380px;">
+                    <iframe src="<?= site_url('admin/materials/segment-file/' . $seg['id']) ?>" class="rounded border"></iframe>
+                  </div>
+                <?php else: ?>
+                  <p class="text-muted small">File PDF belum tersedia.</p>
+                <?php endif; ?>
+
+              <?php elseif ($segType === 'link'): ?>
+                <div class="p-3 bg-white rounded border text-center">
+                  <i class="bi bi-link-45deg text-primary fs-3"></i>
+                  <div class="fw-semibold small my-1"><?= esc($seg['title']) ?></div>
+                  <a href="<?= esc($seg['external_link']) ?>" target="_blank" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-box-arrow-up-right me-1"></i>Buka Tautan Luar
+                  </a>
+                </div>
+              <?php endif; ?>
+            </div>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</div>
+<?php else: ?>
+  <!-- KONTEN SUB MATERI TUNGGAL -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <span class="badge bg-secondary-subtle text-secondary border px-3 py-1">
+        Konten Pertemuan Tunggal
+      </span>
+      <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAddSegment">
+        <i class="bi bi-diagram-3 me-1"></i>Pecah Jadi Segmen Bertahap
+      </button>
+    </div>
+    <div class="card-body p-3 p-md-4">
+      <?php if ($contentType === 'text'): ?>
+        <div class="material-content">
+          <?php if (!empty($subMat['content'])): ?>
+            <?= $subMat['content'] ?>
+          <?php elseif (!empty($subMat['description'])): ?>
+            <p class="text-muted"><?= nl2br(esc($subMat['description'])) ?></p>
+          <?php else: ?>
+            <p class="text-muted fst-italic">Konten belum tersedia.</p>
+          <?php endif; ?>
+        </div>
+      <?php elseif ($contentType === 'html'): ?>
         <?php if (!empty($subMat['content'])): ?>
-          <?= $subMat['content'] ?>
-        <?php elseif (!empty($subMat['description'])): ?>
-          <p class="text-muted"><?= nl2br(esc($subMat['description'])) ?></p>
+          <?= view('admin/materials/_html_frame', ['html' => $subMat['content']]) ?>
         <?php else: ?>
           <p class="text-muted fst-italic">Konten belum tersedia.</p>
         <?php endif; ?>
-      </div>
-
-    <?php elseif ($contentType === 'html'): ?>
-      <!-- ── Halaman HTML Interaktif (iframe sandbox, terisolasi) ── -->
-      <?php if (!empty($subMat['content'])): ?>
-        <?= view('admin/materials/_html_frame', ['html' => $subMat['content']]) ?>
-      <?php else: ?>
-        <p class="text-muted fst-italic">Konten belum tersedia.</p>
-      <?php endif; ?>
-
-    <?php elseif ($contentType === 'slide'): ?>
-      <!-- ── Slide Gambar (preview) ── -->
-      <?= view('admin/materials/_slide_show', ['slides' => $slides ?? [], 'canComplete' => false]) ?>
-
-    <?php elseif ($contentType === 'pdf'): ?>
-      <?php if (!empty($subMat['file_path'])): ?>
-        <div class="ratio mb-3" style="--bs-aspect-ratio: 75%; min-height: 420px;">
-          <iframe src="<?= site_url('admin/materials/file/' . $subMat['id']) ?>"
-                  class="rounded border" title="<?= esc($subMat['title']) ?>"></iframe>
-        </div>
-        <div class="text-center">
-          <a href="<?= site_url('admin/materials/file/' . $subMat['id']) ?>"
-             target="_blank" class="btn btn-sm btn-outline-danger">
-            <i class="bi bi-file-earmark-pdf me-1"></i>Buka di Tab Baru
-          </a>
-        </div>
-      <?php else: ?>
-        <p class="text-muted fst-italic">File PDF belum tersedia.</p>
-      <?php endif; ?>
-
-    <?php elseif ($contentType === 'video'): ?>
-      <?php
-        $embedUrl = $subMat['embed_url'] ?? '';
-        // Video bisa di-embed jika URL mengarah ke /embed/ (YouTube) atau player.vimeo
-        $canEmbed = $embedUrl && (strpos($embedUrl, '/embed/') !== false
-                    || strpos($embedUrl, 'player.vimeo.com') !== false);
-      ?>
-      <?php if ($canEmbed): ?>
-        <div class="ratio ratio-16x9 mb-3">
-          <iframe src="<?= esc($embedUrl) ?>"
-                  title="<?= esc($subMat['title']) ?>" allowfullscreen class="rounded border"
-                  referrerpolicy="strict-origin-when-cross-origin"
-                  loading="lazy"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share">
-          </iframe>
-        </div>
-        <?php if (!empty($subMat['video_url'])): ?>
-          <div class="text-center small text-muted mb-2">
-            Video tidak tampil?
-            <a href="<?= esc($subMat['video_url']) ?>" target="_blank" rel="noopener noreferrer" class="fw-semibold">
-              Tonton langsung di YouTube &rarr;
+      <?php elseif ($contentType === 'slide'): ?>
+        <?= view('admin/materials/_slide_show', ['slides' => $slides ?? [], 'canComplete' => false]) ?>
+      <?php elseif ($contentType === 'pdf'): ?>
+        <?php if (!empty($subMat['file_path'])): ?>
+          <div class="ratio mb-3" style="--bs-aspect-ratio: 75%; min-height: 420px;">
+            <iframe src="<?= site_url('admin/materials/file/' . $subMat['id']) ?>"
+                    class="rounded border" title="<?= esc($subMat['title']) ?>"></iframe>
+          </div>
+          <div class="text-center">
+            <a href="<?= site_url('admin/materials/file/' . $subMat['id']) ?>"
+               target="_blank" class="btn btn-sm btn-outline-danger">
+              <i class="bi bi-file-earmark-pdf me-1"></i>Buka di Tab Baru
             </a>
           </div>
+        <?php else: ?>
+          <p class="text-muted fst-italic">File PDF belum tersedia.</p>
         <?php endif; ?>
-      <?php elseif (!empty($subMat['video_url'])): ?>
-        <div class="alert alert-warning border-0 small">
-          <i class="bi bi-exclamation-triangle me-1"></i>
-          Video tidak dapat diputar langsung di halaman ini.
-          <a href="<?= esc($subMat['video_url']) ?>" target="_blank" rel="noopener noreferrer" class="fw-semibold">
-            Buka video di tab baru &rarr;
+      <?php elseif ($contentType === 'video'): ?>
+        <?php
+          $embedUrl = $subMat['embed_url'] ?? '';
+          $canEmbed = $embedUrl && (strpos($embedUrl, '/embed/') !== false
+                      || strpos($embedUrl, 'player.vimeo.com') !== false);
+        ?>
+        <?php if ($canEmbed): ?>
+          <div class="ratio ratio-16x9 mb-3">
+            <iframe src="<?= esc($embedUrl) ?>"
+                    title="<?= esc($subMat['title']) ?>" allowfullscreen class="rounded border"
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share">
+            </iframe>
+          </div>
+        <?php endif; ?>
+      <?php elseif ($contentType === 'link'): ?>
+        <div class="text-center py-4">
+          <i class="bi bi-link-45deg text-primary" style="font-size:3rem;"></i>
+          <p class="mt-2 mb-1 fw-semibold"><?= esc($subMat['title']) ?></p>
+          <a href="<?= esc($subMat['external_link']) ?>" target="_blank" rel="noopener noreferrer"
+             class="btn btn-primary">
+            <i class="bi bi-box-arrow-up-right me-2"></i>Buka Materi
           </a>
         </div>
-      <?php else: ?>
-        <p class="text-muted fst-italic">URL video belum diisi.</p>
       <?php endif; ?>
-      <?php if (!empty($subMat['description'])): ?>
-        <div class="text-muted small mt-2"><?= nl2br(esc($subMat['description'])) ?></div>
-      <?php endif; ?>
-
-    <?php elseif ($contentType === 'link'): ?>
-      <div class="text-center py-4">
-        <i class="bi bi-link-45deg text-primary" style="font-size:3rem;"></i>
-        <p class="mt-2 mb-1 fw-semibold"><?= esc($subMat['title']) ?></p>
-        <?php if (!empty($subMat['description'])): ?>
-          <p class="text-muted small mb-3"><?= nl2br(esc($subMat['description'])) ?></p>
-        <?php endif; ?>
-        <a href="<?= esc($subMat['external_link']) ?>" target="_blank" rel="noopener noreferrer"
-           class="btn btn-primary">
-          <i class="bi bi-box-arrow-up-right me-2"></i>Buka Materi
-        </a>
-      </div>
-    <?php endif; ?>
-
+    </div>
   </div>
-</div>
+<?php endif; ?>
 
 <!-- ── Progress ringkas ──────────────────────────────────────────── -->
 <?php if (!empty($progStats)): ?>
@@ -402,6 +504,83 @@
   <?php endif; ?>
 </div>
 
+<!-- Modal Tambah Segmen -->
+<div class="modal fade" id="modalAddSegment" tabindex="-1" aria-labelledby="modalAddSegmentLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="<?= site_url('admin/materials/segment-store/' . $subMat['id']) ?>" enctype="multipart/form-data">
+        <?= csrf_field() ?>
+        <div class="modal-header">
+          <h6 class="modal-title fw-bold" id="modalAddSegmentLabel">
+            <i class="bi bi-plus-circle me-1 text-primary"></i>Tambah Segmen Pembelajaran
+          </h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Judul Segmen <span class="text-danger">*</span></label>
+              <input type="text" name="title" class="form-control form-control-sm" required
+                     placeholder="cth: Langkah 1: Pengantar Konsep">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Tipe Konten <span class="text-danger">*</span></label>
+              <select name="content_type" id="modalSegType" class="form-select form-select-sm" required>
+                <option value="text">Teks &amp; Penjelasan (Editor)</option>
+                <option value="video">Video YouTube / Vimeo</option>
+                <option value="html">HTML Interaktif (Simulasi/Praktik)</option>
+                <option value="slide">Slide Gambar</option>
+                <option value="pdf">Dokumen PDF</option>
+                <option value="link">Tautan Eksternal</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small fw-semibold">Estimasi (menit)</label>
+              <input type="number" name="estimated_minutes" class="form-control form-control-sm"
+                     min="1" max="180" value="15">
+            </div>
+
+            <!-- Dynamic panels -->
+            <div class="col-12 modal-seg-panel" id="modalSegPanelText">
+              <label class="form-label small fw-semibold">Penjelasan Teks</label>
+              <textarea name="content" class="form-control" rows="8" placeholder="Tuliskan uraian materi di sini..."></textarea>
+            </div>
+            <div class="col-12 modal-seg-panel" id="modalSegPanelVideo" style="display:none;">
+              <label class="form-label small fw-semibold">URL Video YouTube / Vimeo</label>
+              <input type="url" name="video_url" class="form-control form-control-sm" placeholder="https://www.youtube.com/watch?v=...">
+            </div>
+            <div class="col-12 modal-seg-panel" id="modalSegPanelHtml" style="display:none;">
+              <label class="form-label small fw-semibold">Kode HTML / JS Interaktif</label>
+              <textarea name="content_html" class="form-control font-monospace form-control-sm" rows="10" placeholder="<!DOCTYPE html>... Kode interaktif"></textarea>
+              <div class="form-text">Dijalankan dalam iframe sandbox yang terisolasi.</div>
+            </div>
+            <div class="col-12 modal-seg-panel" id="modalSegPanelSlide" style="display:none;">
+              <label class="form-label small fw-semibold">Unggah Gambar Slide</label>
+              <input type="file" name="slide_images[]" class="form-control form-control-sm" accept="image/*" multiple>
+              <div class="form-text">Maks 5 MB per gambar.</div>
+            </div>
+            <div class="col-12 modal-seg-panel" id="modalSegPanelPdf" style="display:none;">
+              <label class="form-label small fw-semibold">Unggah File PDF</label>
+              <input type="file" name="file_upload" class="form-control form-control-sm" accept=".pdf">
+              <div class="form-text">Maks 10 MB.</div>
+            </div>
+            <div class="col-12 modal-seg-panel" id="modalSegPanelLink" style="display:none;">
+              <label class="form-label small fw-semibold">URL Tautan Eksternal</label>
+              <input type="url" name="external_link" class="form-control form-control-sm" placeholder="https://...">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-save me-1"></i>Simpan Segmen
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
@@ -590,6 +769,19 @@ document.addEventListener('click', function(e) {
     }
   }).catch(function(){ btn.disabled = false; });
 });
+
+// ── Tipe Konten Modal Tambah Segmen ───────────────────────────────
+var modalSegType = document.getElementById('modalSegType');
+if (modalSegType) {
+  modalSegType.addEventListener('change', function() {
+    var val = this.value;
+    document.querySelectorAll('.modal-seg-panel').forEach(function(p) {
+      p.style.display = 'none';
+    });
+    var p = document.getElementById('modalSegPanel' + val.charAt(0).toUpperCase() + val.slice(1));
+    if (p) p.style.display = 'block';
+  });
+}
 
 })();
 </script>

@@ -16,13 +16,16 @@ class AddHtmlContentTypeToSubjectMaterials extends Migration
 {
     public function up()
     {
-        // MODIFY enum untuk menambah 'html' (idempotent secara efektif:
-        // menjalankan ulang hanya menetapkan definisi enum yang sama).
-        $this->db->query(
-            "ALTER TABLE subject_materials
-             MODIFY COLUMN content_type ENUM('text','pdf','video','link','html')
-             NULL DEFAULT 'text'"
-        );
+        // MODIFY enum untuk menambah 'html' — idempotent, wrap try/catch.
+        try {
+            $this->db->query(
+                "ALTER TABLE subject_materials
+                 MODIFY COLUMN content_type ENUM('text','pdf','video','link','html')
+                 NULL DEFAULT 'text'"
+            );
+        } catch (\Exception $e) {
+            log_message('warning', '[AddHtmlContentType] MODIFY content_type: ' . $e->getMessage());
+        }
     }
 
     public function down()

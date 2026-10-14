@@ -17,6 +17,7 @@ class Ebook extends BaseController
         $this->ebookModel = new EbookModel();
         $this->accessService = new EbookAccessService();
         $this->db = \Config\Database::connect();
+        helper(['upload']);
     }
 
     /**
@@ -209,18 +210,34 @@ class Ebook extends BaseController
 
         $file->move($uploadPath, $newFilename);
 
+        // Handle cover image upload
+        $coverName = null;
+        $coverFile = $this->request->getFile('cover_image');
+        if ($coverFile && $coverFile->isValid() && !$coverFile->hasMoved()) {
+            $coverResult = safe_upload_image($coverFile, UPLOAD_PATH . 'ebook_covers', 3);
+            if (!$coverResult['success']) {
+                // If cover fails, cleanup uploaded PDF
+                if (is_file($uploadPath . $newFilename)) {
+                    unlink($uploadPath . $newFilename);
+                }
+                return redirect()->back()->withInput()->with('error', 'Gagal mengunggah cover buku: ' . $coverResult['error']);
+            }
+            $coverName = $coverResult['name'];
+        }
+
         // Save record
         $this->ebookModel->insert([
-            'title' => $title,
-            'book_type' => $bookType,
-            'level' => $level,
-            'subject_id' => $subjectId,
-            'religion' => $religion,
-            'description' => $description,
-            'filename' => $newFilename,
+            'title'             => $title,
+            'book_type'         => $bookType,
+            'level'             => $level,
+            'subject_id'        => $subjectId,
+            'religion'          => $religion,
+            'description'       => $description,
+            'cover_image'       => $coverName,
+            'filename'          => $newFilename,
             'original_filename' => $file->getClientName(),
-            'file_size' => $file->getSize(),
-            'uploaded_by' => $user['id'],
+            'file_size'         => $file->getSize(),
+            'uploaded_by'       => $user['id'],
         ]);
 
         log_message('info', "Ebook uploaded: {$title} (type: {$bookType}) by user #{$user['id']}");
@@ -350,14 +367,37 @@ class Ebook extends BaseController
             }
         }
 
-        $this->ebookModel->update($id, [
-            'title' => $title,
-            'book_type' => $bookType,
-            'level' => $level,
-            'subject_id' => $subjectId,
-            'religion' => $religion,
+        $dataToUpdate = [
+            'title'       => $title,
+            'book_type'   => $bookType,
+            'level'       => $level,
+            'subject_id'  => $subjectId,
+            'religion'    => $religion,
             'description' => $description,
-        ]);
+        ];
+
+        // Handle cover image upload or removal
+        $coverFile = $this->request->getFile('cover_image');
+        $removeCover = $this->request->getPost('remove_cover');
+
+        if ($coverFile && $coverFile->isValid() && !$coverFile->hasMoved()) {
+            $coverResult = safe_upload_image($coverFile, UPLOAD_PATH . 'ebook_covers', 3);
+            if (!$coverResult['success']) {
+                return redirect()->back()->withInput()->with('error', 'Gagal mengunggah cover buku: ' . $coverResult['error']);
+            }
+            // Delete old cover if exists
+            if (!empty($book['cover_image'])) {
+                safe_delete_upload(UPLOAD_PATH . 'ebook_covers', $book['cover_image']);
+            }
+            $dataToUpdate['cover_image'] = $coverResult['name'];
+        } elseif ($removeCover === '1') {
+            if (!empty($book['cover_image'])) {
+                safe_delete_upload(UPLOAD_PATH . 'ebook_covers', $book['cover_image']);
+            }
+            $dataToUpdate['cover_image'] = null;
+        }
+
+        $this->ebookModel->update($id, $dataToUpdate);
 
         return redirect()->to('/admin/ebook')->with('success', 'Buku berhasil diperbarui.');
     }
@@ -447,6 +487,11 @@ class Ebook extends BaseController
         $filePath = WRITEPATH . 'uploads/ebooks/' . $book['filename'];
         if (is_file($filePath)) {
             unlink($filePath);
+        }
+
+        // Delete cover image if exists
+        if (!empty($book['cover_image'])) {
+            safe_delete_upload(UPLOAD_PATH . 'ebook_covers', $book['cover_image']);
         }
 
         // Delete record
