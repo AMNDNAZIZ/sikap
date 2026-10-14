@@ -2091,7 +2091,7 @@ class AdministrasiGuru extends BaseController
                 'Content-Type: application/json'
             ]);
         } else {
-            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' . $apiKey;
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' . $apiKey;
             $ch = curl_init($url);
             $payload = json_encode([
                 "contents" => [
@@ -3001,7 +3001,7 @@ class AdministrasiGuru extends BaseController
             ]);
             $headers = ['Authorization: Bearer ' . $apiKey, 'Content-Type: application/json'];
         } else {
-            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' . $apiKey;
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' . $apiKey;
             $payload = json_encode(["contents" => [["parts" => [["text" => $prompt]]]]]);
             $headers = ['Content-Type: application/json'];
         }
