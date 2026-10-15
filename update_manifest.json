@@ -1,7 +1,7 @@
 {
     "version": "2.0.4",
-    "generated": "2026-10-15 06:53:17",
-    "last_update": "2026-10-15 06:53",
+    "generated": "2026-10-15 09:47:15",
+    "last_update": "2026-10-15 09:47",
     "total_files": 1049,
     "files": {
         "app/.htaccess": "0a949a74edc566be1e1944fbfab681a5",
@@ -60,7 +60,7 @@
         "app/Controllers/Admin/AcademicYear.php": "24a7f16ae4846794b723255965d3835b",
         "app/Controllers/Admin/AccountSync.php": "43f5e0b3307bb1280080003897340319",
         "app/Controllers/Admin/ActiveClasses.php": "7d0d706799cc87f96967e24ddf25ad97",
-        "app/Controllers/Admin/AdministrasiGuru.php": "f51beaa7f17325f239bd01e0101c83c1",
+        "app/Controllers/Admin/AdministrasiGuru.php": "1adfe26bb3e5a415747dcbde91635172",
         "app/Controllers/Admin/AgendaSurat.php": "2f0ac465b5f03bbd695087c19d12a89e",
         "app/Controllers/Admin/Agendas.php": "6388fd2a14295fda94acca5f8df801e7",
         "app/Controllers/Admin/Alumni.php": "d4efc50648cababf9e790052c742f7e3",
@@ -100,7 +100,7 @@
         "app/Controllers/Admin/Ekskul.php": "2b66b0cb68170db068cc8b3c376b701b",
         "app/Controllers/Admin/EkskulAbsensi.php": "7cb47bd846cb75b86887623ecda070dc",
         "app/Controllers/Admin/EkskulPembina.php": "04f1a72adaf0570b8e31a7897e2959c8",
-        "app/Controllers/Admin/Erapor.php": "5b2ddf07c3cfa6da0b167fda2ee354d7",
+        "app/Controllers/Admin/Erapor.php": "7bc74557beddfa12110792a0c371a862",
         "app/Controllers/Admin/ExamAttendance.php": "2ce5aa68461a3f5fe7983d9bb9980894",
         "app/Controllers/Admin/ExamSchedule.php": "236a53a7751ca36dade96bec4c592c6f",
         "app/Controllers/Admin/Grades.php": "4d7adcb88b884de00200aedaacd588f1",
