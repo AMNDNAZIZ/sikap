@@ -192,10 +192,12 @@ class WaliKelasStudents extends BaseController
 
             // Field yang boleh diedit oleh wali kelas
             $allowedFields = [
-                'address', 'residence_type', 'transportation', 'distance',
+                'address', 'phone', 'school_origin', 'family_status', 'residence_type', 'transportation', 'distance',
                 'father_name', 'father_nik', 'father_birth_year', 'father_education', 'father_job', 'father_income',
                 'mother_name', 'mother_nik', 'mother_birth_year', 'mother_education', 'mother_job', 'mother_income',
+                'parent_address', 'parent_phone',
                 'guardian_name', 'guardian_education', 'guardian_job', 'guardian_income',
+                'guardian_address', 'guardian_phone',
                 'special_needs', 'child_order',
             ];
 

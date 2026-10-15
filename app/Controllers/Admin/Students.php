@@ -348,6 +348,13 @@ class Students extends BaseController
             'guardian_education' => $post['guardian_education'] ?? null,
             'guardian_job' => $post['guardian_job'] ?? null,
             'guardian_income' => $post['guardian_income'] ?? null,
+            'phone' => $post['phone'] ?? null,
+            'school_origin' => $post['school_origin'] ?? null,
+            'family_status' => $post['family_status'] ?? 'Anak Kandung',
+            'parent_address' => $post['parent_address'] ?? null,
+            'parent_phone' => $post['parent_phone'] ?? null,
+            'guardian_address' => $post['guardian_address'] ?? null,
+            'guardian_phone' => $post['guardian_phone'] ?? null,
         ];
 
         // ✅ Handle Photo Upload with validation

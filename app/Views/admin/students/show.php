@@ -142,6 +142,18 @@
                                 </p>
                             </div>
                             <div class="col-sm-6">
+                                <label class="text-muted small d-block mb-1 text-uppercase fw-bold">Status dalam Keluarga</label>
+                                <p class="mb-0 fs-5">
+                                    <?= esc($student['family_status'] ?? 'Anak Kandung') ?>
+                                </p>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="text-muted small d-block mb-1 text-uppercase fw-bold">Sekolah Asal (SD/MI)</label>
+                                <p class="mb-0 fs-5">
+                                    <?= esc($student['school_origin'] ?? '-') ?>
+                                </p>
+                            </div>
+                            <div class="col-sm-6">
                                 <label class="text-muted small d-block mb-1 text-uppercase fw-bold">Agama</label>
                                 <p class="mb-0 fs-5">
                                     <?= esc($student['religion'] ?? '-') ?>
@@ -172,6 +184,12 @@
                                     Lengkap</label>
                                 <p class="mb-0 fs-5">
                                     <?= nl2br(esc($student['address'] ?? '-')) ?>
+                                </p>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="text-muted small d-block mb-1 text-uppercase fw-bold">Nomor Telepon Rumah</label>
+                                <p class="mb-0 fs-5">
+                                    <?= esc($student['phone'] ?? '-') ?>
                                 </p>
                             </div>
                             <div class="col-sm-6">
@@ -293,6 +311,18 @@
                                             <?= esc($student['mother_job'] ?? '-') ?>
                                         </p>
                                     </div>
+                                    <div class="col-md-8">
+                                        <label class="text-muted small d-block">Alamat Orang Tua</label>
+                                        <p class="mb-0 fw-bold">
+                                            <?= esc($student['parent_address'] ?: ($student['address'] ?? '-')) ?>
+                                        </p>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="text-muted small d-block">Nomor Telepon Orang Tua</label>
+                                        <p class="mb-0 fw-bold">
+                                            <?= esc($student['parent_phone'] ?? '-') ?>
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -323,6 +353,18 @@
                                         <label class="text-muted small d-block">Penghasilan</label>
                                         <p class="mb-0 fw-bold">
                                             <?= esc($student['guardian_income'] ?? '-') ?>
+                                        </p>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="text-muted small d-block">Alamat Wali</label>
+                                        <p class="mb-0 fw-bold">
+                                            <?= esc($student['guardian_address'] ?? '-') ?>
+                                        </p>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="text-muted small d-block">Nomor Telepon Rumah / HP Wali</label>
+                                        <p class="mb-0 fw-bold">
+                                            <?= esc($student['guardian_phone'] ?? '-') ?>
                                         </p>
                                     </div>
                                 </div>

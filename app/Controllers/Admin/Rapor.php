@@ -7,6 +7,7 @@ use App\Models\AcademicYearModel;
 use App\Models\SchoolModel;
 use App\Models\TeacherModel;
 use App\Models\SettingsModel;
+use App\Models\RaporConfigModel;
 
 /**
  * Modul Rapor.
@@ -23,6 +24,7 @@ class Rapor extends BaseController
     protected $schoolModel;
     protected $teacherModel;
     protected $settingsModel;
+    protected $configModel;
 
     public function __construct()
     {
@@ -31,6 +33,7 @@ class Rapor extends BaseController
         $this->schoolModel   = new SchoolModel();
         $this->teacherModel  = new TeacherModel();
         $this->settingsModel = new SettingsModel();
+        $this->configModel   = new RaporConfigModel();
     }
 
     /**
@@ -49,17 +52,63 @@ class Rapor extends BaseController
     }
 
     /**
+     * Helper: Format tanggal Indonesia (contoh: 14 Oktober 2026)
+     */
+    protected function formatIndonesianDate(?string $dateStr): string
+    {
+        if (empty($dateStr)) return date('d F Y');
+        $time = strtotime($dateStr);
+        if (!$time) return date('d F Y');
+        $months = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $m = (int) date('n', $time);
+        return date('j', $time) . ' ' . ($months[$m] ?? date('F', $time)) . ' ' . date('Y', $time);
+    }
+
+    /**
+     * Helper: Konversi file gambar ke base64 data URI
+     */
+    protected function imageToBase64(?string $path): string
+    {
+        if (empty($path)) return '';
+        $cleanPath = ltrim(str_replace('\\', '/', $path), '/');
+        $abs = FCPATH . $cleanPath;
+        if (!file_exists($abs) || is_dir($abs)) {
+            $abs = ROOTPATH . 'public/' . $cleanPath;
+            if (!file_exists($abs) || is_dir($abs)) {
+                $candidates = [
+                    FCPATH . 'uploads/' . $cleanPath,
+                    FCPATH . 'uploads/logo/' . basename($cleanPath),
+                    ROOTPATH . 'public/uploads/' . $cleanPath,
+                    ROOTPATH . 'public/uploads/logo/' . basename($cleanPath),
+                ];
+                $found = false;
+                foreach ($candidates as $cand) {
+                    if (file_exists($cand) && !is_dir($cand)) {
+                        $abs = $cand;
+                        $found = true;
+                        break;
+                    }
+                }
+                if (!$found) return '';
+            }
+        }
+        $ext  = strtolower(pathinfo($abs, PATHINFO_EXTENSION));
+        $mime = in_array($ext, ['jpg', 'jpeg']) ? 'jpeg' : ($ext === 'png' ? 'png' : ($ext === 'webp' ? 'webp' : 'gif'));
+        return 'data:image/' . $mime . ';base64,' . base64_encode(file_get_contents($abs));
+    }
+
+    /**
      * Ambil gambar KOP surat sebagai base64 data URI agar terbaca di browser print.
      */
     protected function getKopBase64(): string
     {
         $kopPath = $this->settingsModel->getValue('kop_surat');
         if (!$kopPath) return '';
-        $abs = FCPATH . ltrim($kopPath, '/');
-        if (!file_exists($abs)) return '';
-        $ext  = strtolower(pathinfo($abs, PATHINFO_EXTENSION));
-        $mime = in_array($ext, ['jpg', 'jpeg']) ? 'jpeg' : $ext; // png, jpeg, gif, webp
-        return 'data:image/' . $mime . ';base64,' . base64_encode(file_get_contents($abs));
+        return $this->imageToBase64($kopPath);
     }
 
     /**
@@ -92,11 +141,19 @@ class Rapor extends BaseController
 
         $classes = $builder->orderBy('c.level', 'ASC')->orderBy('c.name', 'ASC')->get()->getResultArray();
 
+        $school = $this->schoolModel->getProfile();
+        $activeYearId = $activeYear['id'] ?? null;
+        $configSem1 = $activeYearId ? $this->configModel->getConfig($activeYearId, '1', 'pts') : null;
+        $configSem2 = $activeYearId ? $this->configModel->getConfig($activeYearId, '2', 'pts') : null;
+
         return view('admin/rapor/index', [
-            'title'      => 'Cetak Rapor',
+            'title'      => 'Cetak Rapor PTS',
             'classes'    => $classes,
             'activeYear' => $activeYear,
             'roleId'     => $roleId,
+            'school'     => $school,
+            'configSem1' => $configSem1,
+            'configSem2' => $configSem2,
         ]);
     }
 
@@ -143,7 +200,7 @@ class Rapor extends BaseController
         }
 
         $class = $this->db->table('classes c')
-            ->select('c.*, t.name as wali_name, t.nip as wali_nip')
+            ->select('c.*, t.name as wali_name, t.nip as wali_nip, t.signature as wali_signature')
             ->join('teachers t', 't.id = c.teacher_id', 'left')
             ->where('c.id', $classId)
             ->get()->getRowArray();
@@ -343,15 +400,33 @@ class Rapor extends BaseController
             ];
         }
 
+        // Konfigurasi Titimangsa, Tanda Tangan, dan Watermark (khusus PTS)
+        $config = $this->configModel->getConfig($activeYearId, $semester, 'pts');
+        $showSignature  = !empty($config['show_signature']);
+        $showWatermark  = !empty($config['show_watermark']);
+        $titimangsaCity = !empty($config['place_city']) ? $config['place_city'] : ($school['city_regency'] ?? 'Kota/Kab.');
+        $titimangsaDate = $this->formatIndonesianDate($config['report_date'] ?? null);
+
+        $logoBase64         = $this->imageToBase64($school['logo'] ?? '');
+        $principalSigBase64 = $showSignature ? $this->imageToBase64($school['principal_signature'] ?? '') : '';
+        $waliSigBase64      = $showSignature ? $this->imageToBase64($class['wali_signature'] ?? '') : '';
+
         return view('admin/rapor/pts_print', [
-            'class'      => $class,
-            'school'     => $school,
-            'semester'   => $semester,
-            'activeYear' => $activeYear,
-            'reportData' => $reportData,
-            'subjects'   => $subjects,
-            'kopBase64'  => $kopBase64,
-            'fase'       => $fase,
+            'class'              => $class,
+            'school'             => $school,
+            'semester'           => $semester,
+            'activeYear'         => $activeYear,
+            'reportData'         => $reportData,
+            'subjects'           => $subjects,
+            'kopBase64'          => $kopBase64,
+            'fase'               => $fase,
+            'showSignature'      => $showSignature,
+            'showWatermark'      => $showWatermark,
+            'logoBase64'         => $logoBase64,
+            'principalSigBase64' => $principalSigBase64,
+            'waliSigBase64'      => $waliSigBase64,
+            'titimangsaCity'     => $titimangsaCity,
+            'titimangsaDate'     => $titimangsaDate,
         ]);
     }
 
@@ -552,6 +627,37 @@ class Rapor extends BaseController
             'subjects'   => $subjects,
             'kopBase64'  => $kopBase64,
             'fase'       => $fase,
+        ]);
+    }
+
+    /**
+     * Simpan Konfigurasi Titimangsa Rapor PTS (AJAX)
+     */
+    public function saveConfig()
+    {
+        $user   = session()->get('user');
+        $roleId = (int) ($user['role_id'] ?? 0);
+        if (!in_array($roleId, [1, 3], true)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Akses ditolak.']);
+        }
+
+        $yearId     = (int) $this->request->getPost('year_id');
+        $semester   = (string) $this->request->getPost('semester');
+        $reportDate = $this->request->getPost('report_date') ?: null;
+        $placeCity  = trim((string) $this->request->getPost('place_city')) ?: null;
+        $ttdLayout  = $this->request->getPost('ttd_layout') ?: '1_baris';
+        $showSig    = (int) ($this->request->getPost('show_signature') ? 1 : 0);
+        $showWm     = (int) ($this->request->getPost('show_watermark') ? 1 : 0);
+
+        if (!$yearId || !in_array($semester, ['1', '2'], true)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Parameter tidak lengkap atau semester tidak valid.']);
+        }
+
+        $saved = $this->configModel->saveConfig($yearId, $semester, $reportDate, $placeCity, $ttdLayout, $showSig, $showWm, 'pts');
+
+        return $this->response->setJSON([
+            'status'  => $saved ? 'success' : 'error',
+            'message' => $saved ? 'Pengaturan titimangsa Rapor PTS berhasil disimpan.' : 'Gagal menyimpan pengaturan titimangsa.',
         ]);
     }
 }

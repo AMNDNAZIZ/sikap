@@ -26,6 +26,8 @@
         <div class="modal-content border-0 shadow">
             <form action="<?= base_url('admin/administrasi-guru/modul-ajar/saveApiKey') ?>" method="post">
                 <?= csrf_field() ?>
+                <input type="hidden" name="class_id" value="<?= esc($selected_class) ?>">
+                <input type="hidden" name="subject_id" value="<?= esc($selected_subject) ?>">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title" id="apiKeyModalLabel"><i class="bi bi-robot"></i> Konfigurasi API AI</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>

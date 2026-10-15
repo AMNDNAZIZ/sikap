@@ -10,8 +10,9 @@ class SchoolModel extends Model
     protected $primaryKey = 'id';
     protected $useTimestamps = true;
     protected $allowedFields = [
-        'name', 'address', 'city_regency', 'phone', 'email', 'tinymce_api_key',
-        'logo', 'headmaster', 'principal_nip', 'level', 'status',
+        'name', 'npsn', 'nis_nss_nds', 'address', 'village', 'district', 'city_regency', 'province',
+        'phone', 'email', 'website', 'tinymce_api_key',
+        'logo', 'regional_logo', 'headmaster', 'principal_nip', 'principal_signature', 'level', 'status',
         'vision', 'mission', 'vision_image',
         'sambutan_title', 'sambutan_subtitle', 'sambutan_quote', 'sambutan_isi', 'sambutan_image',
         'facebook', 'instagram', 'youtube', 'tiktok', 'twitter', 'latitude', 'longitude'

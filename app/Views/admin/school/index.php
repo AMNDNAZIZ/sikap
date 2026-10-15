@@ -74,19 +74,29 @@
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Nama Sekolah</label>
                                 <input type="text" name="name" class="form-control" value="<?= $school['name'] ?? '' ?>"
-                                    required placeholder="Contoh: SMA Negeri 1 Jakarta">
+                                    required placeholder="Contoh: SMP Islam Tambora">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Level Sekolah</label>
                                 <select name="level" class="form-select" required>
                                     <option value="">Pilih Level</option>
-                                    <option value="1" <?= ($school['level'] ?? '') == 1 ? 'selected' : '' ?>>SD / Sederajat
-                                    </option>
-                                    <option value="2" <?= ($school['level'] ?? '') == 2 ? 'selected' : '' ?>>SMP /
-                                        Sederajat</option>
-                                    <option value="3" <?= ($school['level'] ?? '') == 3 ? 'selected' : '' ?>>SMA /
-                                        Sederajat</option>
+                                    <option value="1" <?= ($school['level'] ?? '') == 1 ? 'selected' : '' ?>>SD / Sederajat</option>
+                                    <option value="2" <?= ($school['level'] ?? '') == 2 ? 'selected' : '' ?>>SMP / Sederajat</option>
+                                    <option value="3" <?= ($school['level'] ?? '') == 3 ? 'selected' : '' ?>>SMA / Sederajat</option>
+                                    <option value="4" <?= ($school['level'] ?? '') == 4 ? 'selected' : '' ?>>SMK / Sederajat</option>
                                 </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">NPSN (Nomor Pokok Sekolah Nasional)</label>
+                                <input type="text" name="npsn" class="form-control"
+                                    value="<?= $school['npsn'] ?? '' ?>" placeholder="Contoh: 20106808">
+                                <small class="text-muted">Dicantumkan pada cover & identitas sekolah di rapor.</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">NIS / NSS / NDS</label>
+                                <input type="text" name="nis_nss_nds" class="form-control"
+                                    value="<?= $school['nis_nss_nds'] ?? '' ?>" placeholder="Contoh: 620508200280">
+                                <small class="text-muted">Nomor Identitas / Statistik Sekolah untuk kelengkapan rapor.</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Status Sekolah</label>
@@ -110,23 +120,44 @@
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Telepon</label>
                                 <input type="text" name="phone" class="form-control"
-                                    value="<?= $school['phone'] ?? '' ?>">
+                                    value="<?= $school['phone'] ?? '' ?>" placeholder="Contoh: 021-12345678">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Email</label>
+                                <label class="form-label fw-semibold">Email Sekolah</label>
                                 <input type="email" name="email" class="form-control"
-                                    value="<?= $school['email'] ?? '' ?>">
+                                    value="<?= $school['email'] ?? '' ?>" placeholder="Contoh: sekolah@email.com">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Website Sekolah</label>
+                                <input type="text" name="website" class="form-control"
+                                    value="<?= $school['website'] ?? '' ?>" placeholder="Contoh: http://www.sekolah.sch.id">
+                                <small class="text-muted">Alamat website resmi sekolah.</small>
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Alamat Lengkap</label>
                                 <textarea name="address" class="form-control"
-                                    rows="3"><?= $school['address'] ?? '' ?></textarea>
+                                    rows="2" placeholder="Contoh: Jl. Tambora Mesjid No. 11"><?= $school['address'] ?? '' ?></textarea>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Kabupaten/Kota</label>
+                                <label class="form-label fw-semibold">Kelurahan / Desa</label>
+                                <input type="text" name="village" class="form-control"
+                                    value="<?= $school['village'] ?? '' ?>" placeholder="Contoh: Tambora">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Kecamatan</label>
+                                <input type="text" name="district" class="form-control"
+                                    value="<?= $school['district'] ?? '' ?>" placeholder="Contoh: Kec. Tambora">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Kota / Kabupaten</label>
                                 <input type="text" name="city_regency" class="form-control"
-                                    value="<?= $school['city_regency'] ?? '' ?>" placeholder="Contoh: Indramayu">
-                                <small class="text-muted">Digunakan untuk titimangsa pada dokumen (ATP, Raport, dll).</small>
+                                    value="<?= $school['city_regency'] ?? '' ?>" placeholder="Contoh: Kota Jakarta Barat">
+                                <small class="text-muted">Digunakan untuk titimangsa pada dokumen (ATP, Rapor, dll).</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Provinsi</label>
+                                <input type="text" name="province" class="form-control"
+                                    value="<?= $school['province'] ?? '' ?>" placeholder="Contoh: Prov. D.K.I. Jakarta">
                             </div>
                         </div>
                     </div>
@@ -257,6 +288,21 @@
                                             accept="image/*">
                                         <small class="text-muted d-block mt-1">Format: PNG/JPG. Disarankan rasio
                                             1:1.</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-12">
+                                <h6 class="fw-bold mb-3 section-title"><i class="bi bi-shield-check me-2"></i>Logo Daerah (Pemerintah Provinsi / Kota / Kabupaten)</h6>
+                                <div class="d-flex align-items-center gap-4 p-3 border rounded bg-light">
+                                    <img id="regionalLogoPreview"
+                                        src="<?= !empty($school['regional_logo']) ? base_url($school['regional_logo']) : base_url('uploads/logo/logo_daerah_default.png') ?>"
+                                        class="rounded shadow-sm bg-white p-1"
+                                        style="max-height: 100px; width: 100px; object-fit: contain;">
+                                    <div class="flex-grow-1">
+                                        <input type="file" name="regional_logo" class="form-control" id="regionalLogoInput"
+                                            accept="image/*">
+                                        <small class="text-muted d-block mt-1">Logo ini akan dicetak di bagian atas cover depan rapor semester. Format: PNG transparan / JPG.</small>
                                     </div>
                                 </div>
                             </div>
@@ -647,6 +693,23 @@ document.getElementById('longitude').addEventListener('change', function() {
         }
         setMarker(lat, lng);
         map.setView([lat, lng], 15);
+    }
+});
+
+// Preview logo sekolah & daerah
+['logoInput', 'regionalLogoInput', 'visionInput'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+        el.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const previewId = id === 'logoInput' ? 'logoPreview' : (id === 'regionalLogoInput' ? 'regionalLogoPreview' : 'visionPreview');
+                const prev = document.getElementById(previewId);
+                if (prev) {
+                    prev.src = URL.createObjectURL(file);
+                }
+            }
+        });
     }
 });
 </script>

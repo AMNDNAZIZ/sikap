@@ -40,6 +40,7 @@ class TeacherModel extends Model
         'certification_field',
         'certification_year',
         'photo',
+        'signature',
         'user_id',
         'gemini_api_key',
         'ai_provider',

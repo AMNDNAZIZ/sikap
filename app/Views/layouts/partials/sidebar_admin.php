@@ -20,7 +20,7 @@
     $inKurikulum   = url_is('admin/administrasi-guru*') || url_is('admin/mapel-master*');
     $inJadwal      = url_is('admin/schedules*') || url_is('admin/agendas*') || url_is('admin/teaching-journal*') || url_is('kalender*');
     $inPresensi    = url_is('admin/attendance*') || url_is('admin/teacher-attendance*') || url_is('admin/ekskul-absensi*');
-    $inNilai       = url_is('admin/assessments*') || url_is('admin/grades*') || url_is('admin/erapor*') || url_is('admin/rapor*');
+    $inNilai       = url_is('admin/assessments*') || url_is('admin/grades*') || url_is('admin/erapor*') || url_is('admin/rapor*') || url_is('admin/rapor-semester*');
     $inKokuri      = url_is('admin/kokurikuler*');
     $inLearning    = url_is('admin/materials*') || url_is('admin/tugas*') || url_is('admin/quiz*') || url_is('learning*') || url_is('admin/ebook*');
     $inCbt         = url_is('admin/cbt*') || url_is('admin/exam-schedule*') || url_is('admin/kartu-peserta*');
@@ -171,7 +171,8 @@
           <li><a class="nav-link <?= url_is('admin/grades/rekap*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/rekap') ?>"><i class="bi bi-table me-1"></i> <span class="label">Rekap Nilai Kelas</span></a></li>
           <li><a class="nav-link <?= url_is('admin/grades') && !url_is('admin/grades/tracking*') && !url_is('admin/grades/rekap*') ? 'active' : '' ?>" href="<?= base_url('admin/grades') ?>"><i class="bi bi-file-earmark-bar-graph me-1"></i> <span class="label">Laporan Rapor</span></a></li>
           <li><a class="nav-link <?= url_is('admin/grades/tracking*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/tracking') ?>"><i class="bi bi-activity me-1"></i> <span class="label">Tracking Nilai</span></a></li>
-          <li><a class="nav-link <?= url_is('admin/rapor*') ? 'active' : '' ?>" href="<?= base_url('admin/rapor') ?>"><i class="bi bi-printer me-1"></i> <span class="label">Cetak Rapor</span></a></li>
+          <li><a class="nav-link <?= (url_is('admin/rapor*') && !url_is('admin/rapor-semester*')) ? 'active' : '' ?>" href="<?= base_url('admin/rapor') ?>"><i class="bi bi-printer me-1"></i> <span class="label">Rapor PTS (Tengah Sem.)</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/rapor-semester*') ? 'active' : '' ?>" href="<?= base_url('admin/rapor-semester') ?>"><i class="bi bi-file-earmark-ruled-fill me-1"></i> <span class="label">Rapor Semester (Akhir)</span></a></li>
         </ul>
       </div>
     </li>

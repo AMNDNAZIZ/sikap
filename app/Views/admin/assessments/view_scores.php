@@ -9,8 +9,9 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
         $base .= "/{$semester}";
     }
     $base .= "/{$method}";
-    if (!empty($classId)) {
-        $base .= "?class_id={$classId}";
+    $cid = !empty($classId) ? $classId : ($_GET['class_id'] ?? null);
+    if (!empty($cid)) {
+        $base .= "?class_id=" . urlencode($cid);
     }
     return site_url($base);
 }
@@ -136,10 +137,11 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
 
   <!-- Tab Metode (Hanya jika ada lebih dari 1 type dan bukan final) -->
   <?php if (!empty($types) && $type !== 'final'): ?>
+    <?php $cidParam = !empty($class_id) ? $class_id : ($currentClass['id'] ?? ($_GET['class_id'] ?? null)); ?>
     <ul class="nav nav-tabs mb-3" id="methodTabs" role="tablist">
       <li class="nav-item">
         <a class="nav-link <?= ($selected_method === 'all' || empty($selected_method)) ? 'active' : '' ?>"
-           href="<?= buildTabUrl($type, ($material['id'] ?? $subject['id']), 'all', $semester) ?>"
+           href="<?= buildTabUrl($type, ($material['id'] ?? $subject['id']), 'all', $semester, $cidParam) ?>"
            id="all-tab" role="tab">
           Semua (<?= count($types) ?> metode)
         </a>
@@ -147,7 +149,7 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
       <?php foreach ($types as $t): ?>
         <li class="nav-item">
           <a class="nav-link <?= $selected_method === $t ? 'active' : '' ?>"
-             href="<?= buildTabUrl($type, ($material['id'] ?? $subject['id']), $t, $semester) ?>"
+             href="<?= buildTabUrl($type, ($material['id'] ?? $subject['id']), $t, $semester, $cidParam) ?>"
              id="<?= esc($t) ?>-tab" role="tab">
             <?= esc(ucfirst($t)) ?>
           </a>
@@ -282,7 +284,7 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
       <div>
         <?php if (!empty($scores)): ?>
           <?php if ($type === 'formatif'): ?>
-            <a href="<?= site_url("admin/assessments/deleteBatch/formatif/{$material['id']}/{$selected_method}") ?>"
+            <a href="<?= site_url("admin/assessments/deleteBatch/formatif/{$material['id']}/{$selected_method}" . (!empty($class_id) ? "?class_id={$class_id}" : "")) ?>"
                class="btn btn-danger"
                onclick="return confirm('Yakin ingin menghapus semua nilai formatif untuk materi dan metode ini di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
               🗑 Hapus Semua (<?= count($scores) ?>)

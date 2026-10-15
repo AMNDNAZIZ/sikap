@@ -276,7 +276,7 @@ class MenuRegistry
                 'title'       => 'Penilaian & Rapor',
                 'id'          => 'menuPenilaianDyn',
                 'icon'        => 'bi bi-award-fill',
-                'active_urls' => ['admin/assessments*', 'admin/grades*', 'admin/erapor*'],
+                'active_urls' => ['admin/assessments*', 'admin/grades*', 'admin/erapor*', 'admin/rapor*'],
                 'items'       => [
                     [
                         'label'       => 'Asesmen & Penilaian',
@@ -298,6 +298,20 @@ class MenuRegistry
                         'icon'        => 'bi bi-file-earmark-pdf me-1',
                         'permission'  => 'erapor.manage',
                         'active_rule' => 'admin/erapor*',
+                    ],
+                    [
+                        'label'       => 'Rapor PTS (Tengah Sem.)',
+                        'url'         => 'admin/rapor',
+                        'icon'        => 'bi bi-printer me-1',
+                        'permission'  => ['grades.view', 'erapor.manage'],
+                        'active_rule' => 'admin/rapor',
+                    ],
+                    [
+                        'label'       => 'Rapor Semester (Akhir)',
+                        'url'         => 'admin/rapor-semester',
+                        'icon'        => 'bi bi-file-earmark-ruled-fill me-1',
+                        'permission'  => ['grades.view', 'erapor.manage'],
+                        'active_rule' => 'admin/rapor-semester*',
                     ],
                 ]
             ],

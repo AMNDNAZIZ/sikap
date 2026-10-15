@@ -48,25 +48,36 @@
   <input type="hidden" name="semester"   value="<?= $semester ?>">
   <?= csrf_field() ?>
 
-  <div class="card">
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center py-2 gap-2">
+      <span class="fw-bold text-dark"><i class="bi bi-list-check me-1 text-primary"></i> Daftar Nilai & Deskripsi Capaian Siswa</span>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-primary btn-sm" id="btn-generate-desc" title="Generate otomatis deskripsi capaian berdasarkan Tujuan Pembelajaran / Materi">
+          ⚡ Generate Deskripsi Otomatis
+        </button>
+      </div>
+    </div>
     <div class="card-body p-0">
       <div class="table-responsive">
         <table class="table table-bordered table-hover align-middle mb-0" id="erapor-table">
           <thead class="table-light text-center">
             <tr>
               <th style="width:40px;">#</th>
-              <th class="text-start" style="min-width:200px;">Nama Siswa</th>
-              <th style="width:110px;" class="bg-success-subtle">
+              <th class="text-start" style="min-width:180px;">Nama Siswa</th>
+              <th style="width:95px;" class="bg-success-subtle">
                 Rerata<br><small class="fw-normal">Formatif</small>
               </th>
-              <th style="width:110px;" class="bg-warning-subtle">
+              <th style="width:95px;" class="bg-warning-subtle">
                 Rerata<br><small class="fw-normal">Sumatif</small>
               </th>
-              <th style="width:110px;" class="bg-info-subtle">
-                Nilai Acuan<br><small class="fw-normal">(Sistem)</small>
+              <th style="width:95px;" class="bg-info-subtle">
+                Acuan<br><small class="fw-normal">(Sistem)</small>
               </th>
-              <th style="width:130px;" class="bg-primary text-white">
-                Nilai Erapor<br><small class="fw-normal">(Input Guru)</small>
+              <th style="width:110px;" class="bg-primary text-white">
+                Nilai Erapor<br><small class="fw-normal">(Input)</small>
+              </th>
+              <th style="min-width:320px;" class="bg-light text-start">
+                Deskripsi Capaian Kompetensi<br><small class="text-muted fw-normal">(Kurikulum Merdeka — Tertinggi & Perlu Bimbingan)</small>
               </th>
             </tr>
           </thead>
@@ -74,7 +85,12 @@
             <?php foreach ($students as $i => $stu): ?>
               <tr>
                 <td class="text-center"><?= $i + 1 ?></td>
-                <td><?= esc($stu['name']) ?></td>
+                <td>
+                  <strong><?= esc($stu['name']) ?></strong>
+                  <?php if (!empty($stu['religion'])): ?>
+                    <span class="badge bg-secondary-subtle text-secondary small ms-1"><?= esc($stu['religion']) ?></span>
+                  <?php endif; ?>
+                </td>
 
                 <!-- Rerata Formatif -->
                 <td class="text-center bg-success-subtle">
@@ -99,7 +115,7 @@
                   <?php if ($stu['acuan'] !== null): ?>
                     <span class="fw-bold text-primary"><?= number_format($stu['acuan'], 2) ?></span>
                   <?php else: ?>
-                    <span class="text-muted small">Belum ada data</span>
+                    <span class="text-muted small">—</span>
                   <?php endif; ?>
                 </td>
 
@@ -114,23 +130,32 @@
                          data-acuan="<?= $stu['acuan'] ?? '' ?>"
                          style="max-width:90px; margin:auto;">
                 </td>
+
+                <!-- Input Deskripsi Capaian Kompetensi -->
+                <td class="p-1">
+                  <textarea name="descriptions[<?= $stu['id'] ?>]"
+                            id="desc_<?= $stu['id'] ?>"
+                            class="form-control form-control-sm desc-input"
+                            rows="2"
+                            placeholder="Deskripsi capaian kompetensi..."><?= esc($stu['desc'] ?? '') ?></textarea>
+                </td>
               </tr>
             <?php endforeach; ?>
           </tbody>
         </table>
       </div>
     </div>
-    <div class="card-footer d-flex justify-content-between align-items-center">
+    <div class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2">
       <div class="d-flex gap-2">
         <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-fill-acuan">
-          📋 Isi dari Nilai Acuan
+          📋 Salin Semua Nilai Acuan
         </button>
         <button type="button" class="btn btn-outline-danger btn-sm" id="btn-clear-all">
-          🗑️ Kosongkan Semua
+          🗑️ Kosongkan Nilai
         </button>
       </div>
       <button type="submit" class="btn btn-primary" id="btn-save">
-        💾 Simpan Nilai Erapor
+        💾 Simpan Nilai & Deskripsi Erapor
       </button>
     </div>
   </div>
@@ -169,6 +194,52 @@ $(function() {
     }
   });
 
+  // Generate deskripsi otomatis berbasis ATP / Kurikulum Merdeka
+  $('#btn-generate-desc').on('click', function() {
+    var btn = $(this);
+    var oldText = btn.html();
+    btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Mengolah Deskripsi...');
+
+    $.ajax({
+      url: "<?= site_url('admin/erapor/generate-desc') ?>",
+      type: 'POST',
+      data: {
+        class_id: $('input[name="class_id"]').val(),
+        subject_id: $('input[name="subject_id"]').val(),
+        year_id: $('input[name="year_id"]').val(),
+        semester: $('input[name="semester"]').val(),
+        <?= csrf_token() ?>: $('input[name="<?= csrf_token() ?>"]').val()
+      },
+      dataType: 'json',
+      success: function(res) {
+        if (res.status === 'success' && res.descriptions) {
+          var count = 0;
+          $.each(res.descriptions, function(studentId, descText) {
+            var target = $('#desc_' + studentId);
+            if (target.length) {
+              target.val(descText).addClass('border-primary');
+              setTimeout(function() { target.removeClass('border-primary'); }, 2000);
+              count++;
+            }
+          });
+          $('#save-alert')
+            .removeClass('d-none alert-danger')
+            .addClass('alert-success')
+            .html('<i class="fas fa-magic me-1"></i> Berhasil menghasilkan deskripsi capaian otomatis untuk ' + count + ' siswa! Silakan review dan klik <strong>Simpan Nilai & Deskripsi</strong>.');
+          window.scrollTo({top: 0, behavior: 'smooth'});
+        } else {
+          alert(res.message || 'Gagal menghasilkan deskripsi.');
+        }
+      },
+      error: function() {
+        alert('Terjadi kesalahan koneksi saat memproses deskripsi.');
+      },
+      complete: function() {
+        btn.prop('disabled', false).html(oldText);
+      }
+    });
+  });
+
   // Submit via AJAX
   $('#erapor-form').on('submit', function(e) {
     e.preventDefault();
@@ -195,9 +266,9 @@ $(function() {
           .html('Gagal menyimpan. Coba lagi.');
       },
       complete: function() {
-        btn.prop('disabled', false).text('💾 Simpan Nilai Erapor');
-        // Sembunyikan alert setelah 4 detik
-        setTimeout(function() { $('#save-alert').addClass('d-none'); }, 4000);
+        btn.prop('disabled', false).text('💾 Simpan Nilai & Deskripsi Erapor');
+        // Sembunyikan alert setelah 5 detik
+        setTimeout(function() { $('#save-alert').addClass('d-none'); }, 5000);
       }
     });
   });

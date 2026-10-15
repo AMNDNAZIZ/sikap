@@ -43,7 +43,7 @@
   $inAdmGuru    = url_is('admin/administrasi-guru*');
   $inLearning   = url_is('admin/materials*') || url_is('admin/tugas*') || url_is('admin/quiz*') || url_is('learning*');
   $inKbm        = url_is('admin/attendance*') || url_is('admin/teacher-attendance*') || url_is('admin/teaching-journal*') || url_is('admin/agendas*');
-  $inPenilaian  = url_is('admin/assessments*') || url_is('admin/erapor*') || url_is('admin/grades*') || url_is('admin/rapor*');
+  $inPenilaian  = url_is('admin/assessments*') || url_is('admin/erapor*') || url_is('admin/grades*') || url_is('admin/rapor*') || url_is('admin/rapor-semester*');
   $inCbt        = url_is('admin/cbt*');
   $inKokuri     = url_is('admin/kokurikuler*');
   $inBimbingan  = url_is('admin/student-notes*') || url_is('admin/bk*') || url_is('admin/counseling-appointment*') || url_is('admin/counseling-summon*') || url_is('admin/student-map*');
@@ -158,7 +158,8 @@
           <li><a class="nav-link <?= url_is('admin/grades/rekap*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/rekap?class_id=' . $guruClassId) ?>"><i class="bi bi-table me-1"></i> <span class="label">Rekap Nilai Kelas</span></a></li>
           <?php endif; ?>
           <?php if ($guruIsWali): ?>
-          <li><a class="nav-link <?= url_is('admin/rapor*') ? 'active' : '' ?>" href="<?= base_url('admin/rapor') ?>"><i class="bi bi-printer me-1"></i> <span class="label">Cetak Rapor Kelas</span></a></li>
+          <li><a class="nav-link <?= (url_is('admin/rapor*') && !url_is('admin/rapor-semester*')) ? 'active' : '' ?>" href="<?= base_url('admin/rapor') ?>"><i class="bi bi-printer me-1"></i> <span class="label">Rapor PTS (Tengah Sem.)</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/rapor-semester*') ? 'active' : '' ?>" href="<?= base_url('admin/rapor-semester') ?>"><i class="bi bi-file-earmark-ruled-fill me-1"></i> <span class="label">Rapor Semester (Akhir)</span></a></li>
           <?php endif; ?>
         </ul>
       </div>

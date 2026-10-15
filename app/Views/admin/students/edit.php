@@ -113,6 +113,14 @@
               <input type="text" name="child_order" class="form-control" value="<?= esc($student['child_order']) ?>">
             </div>
             <div class="col-md-3">
+              <label class="form-label">Status dalam Keluarga</label>
+              <input type="text" name="family_status" class="form-control" value="<?= esc($student['family_status'] ?? 'Anak Kandung') ?>" placeholder="Anak Kandung / Anak Angkat">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Sekolah Asal (SD/MI)</label>
+              <input type="text" name="school_origin" class="form-control" value="<?= esc($student['school_origin'] ?? '') ?>" placeholder="Misal: SDN PEKOJAN 01">
+            </div>
+            <div class="col-md-3">
               <label class="form-label">Jenis Pendaftaran</label>
               <select name="registration_type" class="form-select">
                 <option value="Siswa Baru" <?= ($student['registration_type'] ?? '') == 'Siswa Baru' ? 'selected' : '' ?>>
@@ -156,6 +164,10 @@
             <div class="col-12">
               <label class="form-label">Alamat Lengkap</label>
               <textarea name="address" class="form-control" rows="3"><?= esc($student['address']) ?></textarea>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nomor Telepon Rumah Siswa</label>
+              <input type="text" name="phone" class="form-control" value="<?= esc($student['phone'] ?? '') ?>" placeholder="Misal: 088880906937">
             </div>
             <div class="col-md-4">
               <label class="form-label">Tempat Tinggal</label>
@@ -275,6 +287,16 @@
                 <input type="text" name="mother_job" class="form-control" value="<?= esc($student['mother_job']) ?>"
                   placeholder="ASN, TNI/Polri, Wirausaha, dll">
               </div>
+              <div class="col-md-8">
+                <label class="form-label">Alamat Orang Tua</label>
+                <input type="text" name="parent_address" class="form-control" value="<?= esc($student['parent_address'] ?? '') ?>"
+                  placeholder="Kosongkan jika sama dengan alamat siswa">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Nomor Telepon Orang Tua</label>
+                <input type="text" name="parent_phone" class="form-control" value="<?= esc($student['parent_phone'] ?? '') ?>"
+                  placeholder="Contoh: 081295909756">
+              </div>
             </div>
           </div>
 
@@ -306,6 +328,16 @@
                 <label class="form-label">Penghasilan Wali</label>
                 <input type="text" name="guardian_income" class="form-control"
                   value="<?= esc($student['guardian_income']) ?>">
+              </div>
+              <div class="col-md-8">
+                <label class="form-label">Alamat Wali</label>
+                <input type="text" name="guardian_address" class="form-control" value="<?= esc($student['guardian_address'] ?? '') ?>"
+                  placeholder="Alamat lengkap wali">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Nomor Telepon Rumah / HP Wali</label>
+                <input type="text" name="guardian_phone" class="form-control" value="<?= esc($student['guardian_phone'] ?? '') ?>"
+                  placeholder="Nomor telepon wali">
               </div>
             </div>
           </div>

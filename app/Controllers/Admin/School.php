@@ -24,8 +24,10 @@ class School extends BaseController
         $id = $this->request->getPost('id');
 
         $logo = $this->request->getFile('logo');
+        $regionalLogo = $this->request->getFile('regional_logo');
         $visionImage = $this->request->getFile('vision_image');
         $logoName = null;
+        $regionalLogoName = null;
         $visionImageName = null;
 
         if ($logo && $logo->isValid() && !$logo->hasMoved()) {
@@ -43,6 +45,20 @@ class School extends BaseController
             } catch (\Exception $e) {
                 log_message('error', 'Logo upload failed: ' . $e->getMessage() . ' | UPLOAD_PATH=' . UPLOAD_PATH . ' | FCPATH=' . FCPATH);
                 return redirect()->back()->with('error', 'Gagal upload logo: ' . $e->getMessage());
+            }
+        }
+
+        if ($regionalLogo && $regionalLogo->isValid() && !$regionalLogo->hasMoved()) {
+            $logoDir = UPLOAD_PATH . 'logo';
+            if (!is_dir($logoDir)) {
+                mkdir($logoDir, 0755, true);
+            }
+            try {
+                $regionalLogoName = $regionalLogo->getRandomName();
+                $regionalLogo->move($logoDir, $regionalLogoName);
+            } catch (\Exception $e) {
+                log_message('error', 'Regional logo upload failed: ' . $e->getMessage());
+                return redirect()->back()->with('error', 'Gagal upload logo daerah: ' . $e->getMessage());
             }
         }
 
@@ -65,10 +81,16 @@ class School extends BaseController
 
         $data = [
             'name' => $this->request->getPost('name'),
+            'npsn' => $this->request->getPost('npsn'),
+            'nis_nss_nds' => $this->request->getPost('nis_nss_nds'),
             'address' => $this->request->getPost('address'),
+            'village' => $this->request->getPost('village'),
+            'district' => $this->request->getPost('district'),
             'city_regency' => $this->request->getPost('city_regency'),
+            'province' => $this->request->getPost('province'),
             'phone' => $this->request->getPost('phone'),
             'email' => $this->request->getPost('email'),
+            'website' => $this->request->getPost('website'),
             'headmaster' => $this->request->getPost('headmaster'),
             'principal_nip' => $this->request->getPost('principal_nip'),
             'level' => $this->request->getPost('level'),
@@ -86,6 +108,10 @@ class School extends BaseController
 
         if ($logoName) {
             $data['logo'] = $logoName;
+        }
+
+        if ($regionalLogoName) {
+            $data['regional_logo'] = 'uploads/logo/' . $regionalLogoName;
         }
 
         if ($visionImageName) {

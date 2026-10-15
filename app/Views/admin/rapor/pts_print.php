@@ -15,8 +15,34 @@
     }
 
     /* ── Satu halaman per siswa ── */
-    .rapor-page { page-break-after: always; page-break-inside: avoid; }
+    .rapor-page { 
+      page-break-after: always; 
+      page-break-inside: avoid; 
+      position: relative;
+    }
     .rapor-page:last-child { page-break-after: auto; }
+
+    /* ── Watermark Background Logo ── */
+    .watermark-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0.08;
+      width: 380px;
+      pointer-events: none;
+      z-index: 0;
+      text-align: center;
+    }
+    .watermark-container img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .content-relative {
+      position: relative;
+      z-index: 1;
+    }
 
     /* ── KOP Surat ── */
     .kop-surat {
@@ -155,7 +181,19 @@
       padding: 0 16px;
     }
     .ttd-role { font-size: 10.5pt; margin-bottom: 0; }
-    .ttd-space { height: 64px; }
+    .ttd-space { 
+      height: 60px; 
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ttd-img {
+      max-height: 56px;
+      max-width: 140px;
+      display: block;
+      margin: auto;
+    }
     .ttd-nama {
       font-size: 10.5pt;
       font-weight: bold;
@@ -203,16 +241,22 @@
     $ekskul = $entry['ekskul'] ?? [];
 ?>
   <div class="rapor-page">
-
-    <!-- ═══ 1. KOP SURAT ═══ -->
-    <?php if (!empty($kopBase64)): ?>
-      <div class="kop-surat">
-        <img src="<?= $kopBase64 ?>" alt="Kop Surat">
+    <?php if ($showWatermark && !empty($logoBase64)): ?>
+      <div class="watermark-container">
+        <img src="<?= $logoBase64 ?>" alt="Watermark Logo">
       </div>
-    <?php else: ?>
-      <div class="kop-fallback">[ KOP Surat — <?= esc(strtoupper($school['name'] ?? 'NAMA SEKOLAH')) ?> ]<br>
-        <small>Upload kop surat di menu Pengaturan → KOP Surat</small></div>
     <?php endif; ?>
+
+    <div class="content-relative">
+      <!-- ═══ 1. KOP SURAT ═══ -->
+      <?php if (!empty($kopBase64)): ?>
+        <div class="kop-surat">
+          <img src="<?= $kopBase64 ?>" alt="Kop Surat">
+        </div>
+      <?php else: ?>
+        <div class="kop-fallback">[ KOP Surat — <?= esc(strtoupper($school['name'] ?? 'NAMA SEKOLAH')) ?> ]<br>
+          <small>Upload kop surat di menu Pengaturan → KOP Surat</small></div>
+      <?php endif; ?>
     <!--<div class="kop-divider"></div>-->
    
 
@@ -359,19 +403,28 @@
       <div class="ttd-col">
         <div class="ttd-role">Mengetahui,</div>
         <div class="ttd-role">Kepala Sekolah</div>
-        <div class="ttd-space"></div>
+        <div class="ttd-space">
+          <?php if ($showSignature && !empty($principalSigBase64)): ?>
+            <img src="<?= $principalSigBase64 ?>" alt="TTD Kepala Sekolah" class="ttd-img">
+          <?php endif; ?>
+        </div>
         <div><span class="ttd-nama"><?= esc($school['headmaster'] ?? 'Kepala Sekolah') ?></span></div>
         <div class="ttd-nip">NIP. <?= esc($school['principal_nip'] ?? '-') ?></div>
       </div>
       <div class="ttd-col">
-        <div class="ttd-role"><?= esc($school['city_regency'] ?? 'Kota/Kab.') ?>, <?= date('d F Y') ?></div>
+        <div class="ttd-role"><?= esc($titimangsaCity) ?>, <?= esc($titimangsaDate) ?></div>
         <div class="ttd-role">Wali Kelas</div>
-        <div class="ttd-space"></div>
+        <div class="ttd-space">
+          <?php if ($showSignature && !empty($waliSigBase64)): ?>
+            <img src="<?= $waliSigBase64 ?>" alt="TTD Wali Kelas" class="ttd-img">
+          <?php endif; ?>
+        </div>
         <div><span class="ttd-nama"><?= esc($class['wali_name'] ?? 'Wali Kelas') ?></span></div>
         <div class="ttd-nip">NIP. <?= esc($class['wali_nip'] ?? '-') ?></div>
       </div>
     </div>
 
+    </div><!-- /.content-relative -->
   </div><!-- /.rapor-page -->
 <?php endforeach; ?>
 

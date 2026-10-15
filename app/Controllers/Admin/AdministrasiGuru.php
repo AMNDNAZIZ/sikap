@@ -1497,15 +1497,21 @@ class AdministrasiGuru extends BaseController
     {
         $key = $this->request->getPost('gemini_api_key');
         $provider = $this->request->getPost('ai_provider') ?? 'gemini';
+        $classId = $this->request->getPost('class_id');
+        $subjectId = $this->request->getPost('subject_id');
+        $redirectUrl = ($classId && $subjectId)
+            ? base_url("admin/administrasi-guru/modul-ajar?class_id={$classId}&subject_id={$subjectId}")
+            : base_url("admin/administrasi-guru/modul-ajar");
+
         $user = session()->get('user');
         if ($user['role_id'] == 3) {
             $this->teacherModel->update($user['related_id'], ['gemini_api_key' => ltrim(rtrim($key)), 'ai_provider' => $provider]);
-            return redirect()->back()->with('success', 'Konfigurasi API AI Guru berhasil disimpan.');
+            return redirect()->to($redirectUrl)->with('success', 'Konfigurasi API AI Guru berhasil disimpan.');
         } elseif ($user['role_id'] == 1) {
             $this->db->table('users')->where('id', $user['id'])->update(['gemini_api_key' => ltrim(rtrim($key)), 'ai_provider' => $provider]);
-            return redirect()->back()->with('success', 'Konfigurasi API AI Admin berhasil disimpan.');
+            return redirect()->to($redirectUrl)->with('success', 'Konfigurasi API AI Admin berhasil disimpan.');
         }
-        return redirect()->back()->with('error', 'Anda tidak diizinkan menyimpan API Key.');
+        return redirect()->to($redirectUrl)->with('error', 'Anda tidak diizinkan menyimpan API Key.');
     }
 
     /**
@@ -1585,20 +1591,41 @@ class AdministrasiGuru extends BaseController
         $jumlahPertemuan = max(1, (int) ceil($totalJp / $jpPerPertemuan));
         $menitPerPertemuan = $jpPerPertemuan * 45;
 
-        $prompt = "Buatkan Modul Ajar Kurikulum Merdeka DEEP LEARNING (MJM) 2025 dengan STRUKTUR PERSIS mengikuti rujukan 'Guru Karier' (Poin A sampai K).\n\n"
-            . "ATURAN:\n"
-            . "0. FORMAT JUDUL BAGIAN: Gunakan <h3> dengan format LANGSUNG 'A. Identitas Modul', 'B. Kompetensi Awal', dst. JANGAN tulis kata 'Bagian'. Contoh BENAR: <h3>B. Kompetensi Awal</h3>.\n"
-            . "1. A. Identitas Modul: Tabel 2-kolom. Alokasi Waktu: '{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)'.\n"
-            . "2. B. Kompetensi Awal: Tulis HANYA CP.\n"
-            . "3. C. Tujuan Pembelajaran: Masukkan TP persis seperti input.\n"
-            . "4. Bagian F (Langkah Pembelajaran): Buat TEPAT {$jumlahPertemuan} tabel pertemuan. Kolom: (Tahap | Sintaks | Deskripsi | Waktu). TOTAL waktu setiap pertemuan = {$menitPerPertemuan} menit.\n"
-            . "5. Setiap pertemuan WAJIB memiliki TEPAT 3 baris terpisah:\n"
-            . "   Baris 1 → Tahap: Mindful    | Waktu: 10 menit\n"
-            . "   Baris 2 → Tahap: Meaningful | Waktu: " . max(10, $menitPerPertemuan - 25) . " menit\n"
-            . "   Baris 3 → Tahap: Joyful     | Waktu: 15 menit\n"
-            . "   JANGAN menggabungkan Joyful ke deskripsi Meaningful. Joyful HARUS baris tersendiri.\n"
-            . "6. Bagian K (Penilaian): Buat spesifik (Penilaian Proses + Penilaian Hasil).\n"
-            . "7. JANGAN buat bagian Tanda Tangan.\n\n"
+        $prompt = "Buatkan Modul Ajar Kurikulum Merdeka DEEP LEARNING (MJM) 2025 dengan STRUKTUR PERSIS mengikuti rujukan 'Guru Karier' (LENGKAP POIN A SAMPAI K BERURUTAN, DILARANG MELOMPATI BAGIAN APAPUN):\n\n"
+            . "WAJIB TULISKAN SELURUH 11 BAGIAN SECARA LENGKAP & BERURUTAN:\n"
+            . "<h3>A. Identitas Modul</h3>\n"
+            . "Tabel 2-kolom (Label: text-align: left; width: 170px; font-weight: bold;). Isi Alokasi Waktu: '{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)'.\n\n"
+            . "<h3>B. Kompetensi Awal</h3>\n"
+            . "Tuliskan narasi Capaian Pembelajaran (CP) dan kompetensi awal peserta didik.\n\n"
+            . "<h3>C. Tujuan Pembelajaran</h3>\n"
+            . "Masukkan Tujuan Pembelajaran (TP) persis seperti input data.\n\n"
+            . "<h3>D. Materi Pembelajaran</h3>\n"
+            . "Tuliskan ringkasan pokok materi esensial yang dipelajari siswa terkait materi " . ($atp['lingkup_materi'] ?? '-') . ".\n\n"
+            . "<h3>E. Metode Pembelajaran</h3>\n"
+            . "Tuliskan pendekatan Pembelajaran Mendalam (Deep Learning MJM: Mindful, Meaningful, Joyful), diskusi kolaboratif, eksplorasi konsep, dan presentasi.\n\n"
+            . "<h3>F. Langkah Pembelajaran</h3>\n"
+            . "Buat TEPAT {$jumlahPertemuan} tabel pertemuan (dari 'Pertemuan ke-1' sampai 'Pertemuan ke-{$jumlahPertemuan}').\n"
+            . "Setiap tabel pertemuan memiliki 4 kolom: (Tahap | Sintaks | Deskripsi | Waktu) dengan Header Cream (#fff9c4).\n"
+            . "SETIAP tabel pertemuan (TERMASUK PERTEMUAN TERAKHIR KE-{$jumlahPertemuan}) WAJIB memiliki TEPAT 3 baris lengkap:\n"
+            . "  Baris 1 → Tahap: Mindful    | Waktu: 10 menit\n"
+            . "  Baris 2 → Tahap: Meaningful | Waktu: " . max(10, $menitPerPertemuan - 25) . " menit\n"
+            . "  Baris 3 → Tahap: Joyful     | Waktu: 15 menit\n"
+            . "* PERHATIAN BESAR: Pada PERTEMUAN TERAKHIR, tahapan Joyful dan kolom waktunya (15 menit) HARUS DITULIS LENGKAP. DILARANG KERAS MENGOSONGKAN ATAU MEMOTONG BARIS JOYFUL ATAU ALOKASI WAKTUNYA!\n"
+            . "* Jaga deskripsi kegiatan pada setiap tahap tetap padat, konkret, dan aplikatif (2-3 kalimat lugas per tahap).\n\n"
+            . "<h3>G. Sumber Belajar</h3>\n"
+            . "Sebutkan buku pegangan siswa/guru, media digital/video interaktif, LKPD, dan sumber belajar lingkungan nyata yang relevan.\n\n"
+            . "<h3>H. Keterampilan</h3>\n"
+            . "Uraikan keterampilan abad-21 dan dimensi profil kelulusan yang dilatih (bernalar kritis, kreativitas, gotong royong/kolaborasi, komunikasi).\n\n"
+            . "<h3>I. Penilaian Sikap</h3>\n"
+            . "Uraikan teknik observasi sikap (keaktifan, kedisiplinan, kejujuran, dan tanggung jawab selama proses pembelajaran).\n\n"
+            . "<h3>J. Kriteria Kelulusan</h3>\n"
+            . "Uraikan kriteria ketercapaian tujuan pembelajaran peserta didik pada materi ini.\n\n"
+            . "<h3>K. Penilaian / Asesmen</h3>\n"
+            . "Uraikan secara spesifik: 1. Penilaian Proses (formatif/observasi keaktifan diskusi) dan 2. Penilaian Hasil (sumatif/tes tertulis dan rubrik tugas/produk).\n\n"
+            . "ATURAN TAMBAHAN (KETAT & MUTLAK):\n"
+            . "1. FORMAT JUDUL BAGIAN: Gunakan tag <h3> dengan format LANGSUNG huruf dan judul saja, TANPA kata 'Bagian'. Contoh: <h3>B. Kompetensi Awal</h3>.\n"
+            . "2. JANGAN MENGHASILKAN bagian Tanda Tangan (L, M, dst) karena sistem pencetak otomatis telah menyediakan kolom tanda tangan resmi di bawah modul.\n"
+            . "3. KEMBALIKAN HANYA PURE HTML (tanpa markdown, tanpa code block ```html).\n\n"
             . "DATA INPUT:\n"
             . "Sekolah: " . ($school['name'] ?? '-') . "\n"
             . "Penyusun: " . ($teacher['name'] ?? '-') . "\n"
@@ -1607,8 +1634,7 @@ class AdministrasiGuru extends BaseController
             . "Kelas: " . ($tps[0]['kelas'] ?? '-') . "\n"
             . "Alokasi: {$totalJp} JP → {$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP ({$menitPerPertemuan} menit)\n"
             . "CP:\n" . $cpDeskripsiAll . "\n"
-            . "TP:\n" . $tpDeskripsi . "\n\n"
-            . "KEMBALIKAN HANYA PURE HTML (tanpa markdown, tanpa code block).";
+            . "TP:\n" . $tpDeskripsi . "\n";
 
         return $this->response->setJSON([
             'success' => true,
@@ -1639,6 +1665,9 @@ class AdministrasiGuru extends BaseController
         if (empty($content) || strlen(strip_tags($content)) < 50) {
             return redirect()->back()->with('error', 'Konten modul terlalu pendek. Pastikan Anda paste hasil dari AI dengan benar.');
         }
+
+        // Jalankan auto-healer untuk menyempurnakan baris Joyful dan alokasi waktu
+        $content = $this->sanitizeAndHealModulContent($content, 90);
 
         $atpRaw = $this->atpModel->find($atpId);
         if (!$atpRaw) {
@@ -1922,6 +1951,7 @@ class AdministrasiGuru extends BaseController
 
     public function generateModulAjar()
     {
+<<<<<<< HEAD
         try {
             @set_time_limit(180);
 
@@ -1964,12 +1994,59 @@ class AdministrasiGuru extends BaseController
             if (empty($apiKey)) {
                 return redirect()->back()->with('error', 'Anda belum mengatur Gemini API Key.');
             }
+=======
+        $atpId     = $this->request->getPost('atp_id');
+        $subjectId = $this->request->getPost('subject_id');
+        $classId   = $this->request->getPost('class_id');
+        
+        $user = session()->get('user');
+        if (!in_array($user['role_id'], [1, 3])) {
+            return redirect()->to(base_url('admin/administrasi-guru/modul-ajar'))->with('error', 'Hanya guru atau admin yang dapat meng-generate Modul.');
+        }
 
         // Load ATP beserta elemen CP dan TP (struktur baru)
         $atpRaw = $this->atpModel->find($atpId);
         if (!$atpRaw) {
-            return redirect()->back()->with('error', 'ATP tidak ditemukan.');
+            $fallbackUrl = ($classId && $subjectId)
+                ? base_url("admin/administrasi-guru/modul-ajar?class_id={$classId}&subject_id={$subjectId}")
+                : base_url('admin/administrasi-guru/modul-ajar');
+            return redirect()->to($fallbackUrl)->with('error', 'ATP tidak ditemukan.');
         }
+
+        if (empty($classId)) {
+            $classId = $atpRaw['class_id'];
+        }
+
+        $redirectUrl = base_url("admin/administrasi-guru/modul-ajar?class_id={$classId}&subject_id={$subjectId}");
+        
+        if ($user['role_id'] == 3) {
+            $teacher = $this->teacherModel->find($user['related_id']);
+            $apiKey = $teacher['gemini_api_key'];
+            $aiProvider = $teacher['ai_provider'] ?? 'gemini';
+            $targetTeacherId = $user['related_id'];
+        } else {
+            // Admin
+            $userData = $this->db->table('users')->where('id', $user['id'])->get()->getRowArray();
+            $apiKey = $userData['gemini_api_key'];
+            $aiProvider = $userData['ai_provider'] ?? 'gemini';
+            
+            // Resolve Teacher based on subject & class
+            $assignment = $this->db->table('teaching_assignments')
+                ->where('subject_id', $subjectId)
+                ->where('class_id', $classId)
+                ->get()->getRowArray();
+            
+            if (!$assignment) {
+                return redirect()->to($redirectUrl)->with('error', 'Tidak ada guru yang diplot untuk Kelas dan Mapel ini. Modul tidak dapat digenerate karena membutuhkan identitas Guru Pengampu.');
+            }
+            $targetTeacherId = $assignment['teacher_id'];
+        }
+
+        if (empty($apiKey)) {
+            return redirect()->to($redirectUrl)->with('error', 'Anda belum mengatur Gemini API Key.');
+        }
+>>>>>>> 06c16ee3 (Penambahan fitur Rapor Semester)
+
         $atpResult   = $this->loadAtpWithElemen((int)$atpRaw['subject_id']);
         $atpFull     = null;
         foreach ($atpResult['list'] as $a) {
@@ -2048,31 +2125,41 @@ class AdministrasiGuru extends BaseController
         // Menit per pertemuan
         $menitPerPertemuan = $jpPerPertemuan * 45;
 
-        $prompt = "Buatkan Modul Ajar Kurikulum Merdeka DEEP LEARNING (MJM) 2025 dengan STRUKTUR PERSIS mengikuti rujukan 'Guru Karier' (Poin A sampai K).\n\n"
-                . "ATURAN TATA LETAK (WAJIB & KETAT):\n"
-                . "1. FORMAT JUDUL BAGIAN: Gunakan tag <h3> dengan format LANGSUNG huruf dan judul saja, TANPA kata 'Bagian'. Contoh yang BENAR: <h3>B. Kompetensi Awal</h3>. Contoh yang SALAH: <h3>Bagian B (Kompetensi Awal)</h3>.\n"
-                . "2. Bagian A (Identitas): Tabel 2-kolom. Kolom kiri (Label) WAJIB 'text-align: left; width: 170px; font-weight: bold;'. Isi baris Alokasi Waktu dengan '{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)'.\n"
-                . "3. Bagian B (Kompetensi Awal): Tuliskan HANYA Capaian Pembelajaran (CP) saja, jangan sertakan Tujuan Pembelajaran (TP).\n"
-                . "4. Bagian C (Tujuan Pembelajaran): Masukkan Tujuan Pembelajaran persis seperti input HTML, JANGAN buatkan penomoran list otomatis (1, 2) lagi karena sudah dimuat di teks.\n"
-                . "5. Bagian F (Langkah Pembelajaran): Pindahkan dan buat TEPAT {$jumlahPertemuan} tabel pertemuan di sini, masing-masing berlabel 'Pertemuan ke-1', 'Pertemuan ke-2', dst.\n"
-                . "   Setiap tabel pertemuan memiliki 4 kolom: (Tahap | Sintaks | Deskripsi | Waktu) dengan Header Cream (#fff9c4).\n"
-                . "   SETIAP tabel pertemuan WAJIB memiliki TEPAT 3 baris data (bukan lebih, bukan kurang):\n"
-                . "     Baris 1 → Tahap: Mindful    | Waktu: 10 menit\n"
-                . "     Baris 2 → Tahap: Meaningful | Waktu: " . max(10, $menitPerPertemuan - 25) . " menit\n"
-                . "     Baris 3 → Tahap: Joyful     | Waktu: 15 menit\n"
-                . "   JANGAN PERNAH menggabungkan Joyful ke dalam deskripsi Meaningful. Joyful HARUS menjadi baris terpisah.\n"
-                . "   TOTAL waktu setiap pertemuan WAJIB {$menitPerPertemuan} menit ({$jpPerPertemuan} JP × 45 menit).\n"
-                . "6. Bagian K (Penilaian / Asesmen): Buat SPESIFIK. Jelaskan 'Penilaian Proses' (bentuknya) dan 'Penilaian Hasil' (instrumennya) yang benar-benar dapat mengukur Tujuan Pembelajaran tersebut.\n"
-                . "7. JANGAN MENGHASILKAN bagian Tanda Tangan (L, M, dst) sama sekali karena sistem pencetak otomatis telah menyediakan kolom tanda tangan di bawah modul.\n\n"
-                . "PANDUAN DEEP LEARNING MJM (SANGAT PENTING — WAJIB ADA DI SETIAP PERTEMUAN):\n"
-                . "Setiap pertemuan wajib mengandung ketiga elemen MJM dalam kolom 'Deskripsi' dengan proporsi waktu berikut:\n"
-                . "  a. MINDFUL (~10 menit): Tuliskan SCRIPT kata-kata guru untuk teknik STOP / mindfulness singkat.\n"
-                . "     Contoh: 'Guru mengajak siswa memejamkan mata 30 detik, fokus pada napas, lalu bertanya: Apa yang ingin kamu capai hari ini?'\n"
-                . "  b. MEANINGFUL (~" . max(10, $menitPerPertemuan - 25) . " menit): Eksplorasi → Diskusi Kolaboratif → Koneksi ke dunia nyata yang SPESIFIK untuk materi " . $atp['lingkup_materi'] . ".\n"
-                . "     Gunakan model: Motivasi → Eksplorasi Konsep → Diskusi Kelompok → Presentasi/Sintesis.\n"
-                . "     JANGAN gunakan kalimat normatif 'Guru menjelaskan'. Gunakan deskripsi aksi nyata.\n"
-                . "  c. JOYFUL (~15 menit): Rincikan AKTIVITAS/GAME/PROYEK MINI yang memancing emosi positif terkait materi.\n"
-                . "     WAJIB: Joyful ditulis sebagai BARIS TERPISAH (baris ke-3) dalam tabel, TIDAK boleh digabung ke dalam baris Meaningful.\n\n"
+        $prompt = "Buatkan Modul Ajar Kurikulum Merdeka DEEP LEARNING (MJM) 2025 dengan STRUKTUR PERSIS mengikuti rujukan 'Guru Karier' (LENGKAP POIN A SAMPAI K BERURUTAN, DILARANG MELOMPATI BAGIAN APAPUN):\n\n"
+                . "WAJIB TULISKAN SELURUH 11 BAGIAN SECARA LENGKAP & BERURUTAN:\n"
+                . "<h3>A. Identitas Modul</h3>\n"
+                . "Tabel 2-kolom (Label: text-align: left; width: 170px; font-weight: bold;). Isi Alokasi Waktu: '{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)'.\n\n"
+                . "<h3>B. Kompetensi Awal</h3>\n"
+                . "Tuliskan narasi Capaian Pembelajaran (CP) dan kompetensi awal peserta didik.\n\n"
+                . "<h3>C. Tujuan Pembelajaran</h3>\n"
+                . "Masukkan Tujuan Pembelajaran (TP) persis seperti input data.\n\n"
+                . "<h3>D. Materi Pembelajaran</h3>\n"
+                . "Tuliskan ringkasan pokok materi esensial yang dipelajari siswa terkait materi " . $atp['lingkup_materi'] . ".\n\n"
+                . "<h3>E. Metode Pembelajaran</h3>\n"
+                . "Tuliskan pendekatan Pembelajaran Mendalam (Deep Learning MJM: Mindful, Meaningful, Joyful), diskusi kolaboratif, eksplorasi konsep, dan presentasi.\n\n"
+                . "<h3>F. Langkah Pembelajaran</h3>\n"
+                . "Buat TEPAT {$jumlahPertemuan} tabel pertemuan (dari 'Pertemuan ke-1' sampai 'Pertemuan ke-{$jumlahPertemuan}').\n"
+                . "Setiap tabel pertemuan memiliki 4 kolom: (Tahap | Sintaks | Deskripsi | Waktu) dengan Header Cream (#fff9c4).\n"
+                . "SETIAP tabel pertemuan (TERMASUK PERTEMUAN TERAKHIR KE-{$jumlahPertemuan}) WAJIB memiliki TEPAT 3 baris lengkap:\n"
+                . "  Baris 1 → Tahap: Mindful    | Waktu: 10 menit\n"
+                . "  Baris 2 → Tahap: Meaningful | Waktu: " . max(10, $menitPerPertemuan - 25) . " menit\n"
+                . "  Baris 3 → Tahap: Joyful     | Waktu: 15 menit\n"
+                . "* PERHATIAN BESAR: Pada PERTEMUAN TERAKHIR, tahapan Joyful dan kolom waktunya (15 menit) HARUS DITULIS LENGKAP. DILARANG KERAS MENGOSONGKAN ATAU MEMOTONG BARIS JOYFUL ATAU ALOKASI WAKTUNYA!\n"
+                . "* Jaga deskripsi kegiatan pada setiap tahap tetap padat, konkret, dan aplikatif (2-3 kalimat lugas per tahap).\n\n"
+                . "<h3>G. Sumber Belajar</h3>\n"
+                . "Sebutkan buku pegangan siswa/guru, media digital/video interaktif, LKPD, dan sumber belajar lingkungan nyata yang relevan.\n\n"
+                . "<h3>H. Keterampilan</h3>\n"
+                . "Uraikan keterampilan abad-21 dan dimensi profil kelulusan yang dilatih (bernalar kritis, kreativitas, gotong royong/kolaborasi, komunikasi).\n\n"
+                . "<h3>I. Penilaian Sikap</h3>\n"
+                . "Uraikan teknik observasi sikap (keaktifan, kedisiplinan, kejujuran, dan tanggung jawab selama proses pembelajaran).\n\n"
+                . "<h3>J. Kriteria Kelulusan</h3>\n"
+                . "Uraikan kriteria ketercapaian tujuan pembelajaran peserta didik pada materi ini.\n\n"
+                . "<h3>K. Penilaian / Asesmen</h3>\n"
+                . "Uraikan secara spesifik: 1. Penilaian Proses (formatif/observasi keaktifan diskusi) dan 2. Penilaian Hasil (sumatif/tes tertulis dan rubrik tugas/produk).\n\n"
+                . "ATURAN TAMBAHAN (KETAT & MUTLAK):\n"
+                . "1. FORMAT JUDUL BAGIAN: Gunakan tag <h3> dengan format LANGSUNG huruf dan judul saja, TANPA kata 'Bagian'. Contoh: <h3>B. Kompetensi Awal</h3>.\n"
+                . "2. JANGAN MENGHASILKAN bagian Tanda Tangan (L, M, dst) karena sistem pencetak otomatis telah menyediakan kolom tanda tangan resmi di bawah modul.\n"
+                . "3. KEMBALIKAN HANYA PURE HTML (tanpa markdown, tanpa code block ```html).\n\n"
                 . "DATA INPUT:\n"
                 . "Sekolah: " . ($school['name'] ?? '-') . "\n"
                 . "Penyusun: " . ($teacher['name'] ?? '-') . "\n"
@@ -2082,7 +2169,7 @@ class AdministrasiGuru extends BaseController
                 . "Alokasi Waktu: {$totalJp} JP → {$jumlahPertemuan} Pertemuan (masing-masing {$jpPerPertemuan} JP / {$menitPerPertemuan} menit)\n"
                 . "CP: " . $cpDeskripsiAll . "\n"
                 . "TP:\n" . $tpDeskripsi . "\n\n"
-                . "KEMBALIKAN HANYA PURE HTML (TANPA MARKDOWN). Pastikan esensi MJM terlihat kuat dalam deskripsi kegiatan.";
+                . "KEMBALIKAN HANYA PURE HTML (TANPA MARKDOWN). Pastikan seluruh bagian A sampai K dan seluruh pertemuan selesai tuntas sempurna.";
 
         if ($aiProvider === 'groq') {
             $url = 'https://api.groq.com/openai/v1/chat/completions';
@@ -2091,7 +2178,8 @@ class AdministrasiGuru extends BaseController
                 "messages" => [
                     ["role" => "user", "content" => $prompt]
                 ],
-                "temperature" => 0.7
+                "temperature" => 0.7,
+                "max_tokens" => 8192
             ]);
             $headers = [
                 'Authorization: Bearer ' . $apiKey,
@@ -2102,6 +2190,10 @@ class AdministrasiGuru extends BaseController
             $payload = json_encode([
                 "contents" => [
                     ["parts" => [["text" => $prompt]]]
+                ],
+                "generationConfig" => [
+                    "maxOutputTokens" => 8192,
+                    "temperature" => 0.7
                 ]
             ]);
             $headers = ['Content-Type: application/json'];
@@ -2150,10 +2242,14 @@ class AdministrasiGuru extends BaseController
             } elseif ($curlError) {
                 $errorMsg .= "cURL: $curlError";
             }
+<<<<<<< HEAD
             if ($httpCode == 503) {
                 $errorMsg .= " (Server $aiProvider sedang padat/antre. Anda juga dapat beralih ke provider Groq di menu API Key yang lebih cepat & stabil).";
             }
             return redirect()->back()->with('error', $errorMsg);
+=======
+            return redirect()->to($redirectUrl)->with('error', $errorMsg);
+>>>>>>> 06c16ee3 (Penambahan fitur Rapor Semester)
         }
 
         $resData = json_decode($response, true);
@@ -2164,6 +2260,7 @@ class AdministrasiGuru extends BaseController
         }
         $content = preg_replace('/```(?:html)?(.*?)```/s', '$1', $content);
 
+<<<<<<< HEAD
         if (empty(trim($content))) {
             $blockedReason = $resData['candidates'][0]['finishReason'] ?? ($resData['promptFeedback']['blockReason'] ?? 'Unknown');
             return redirect()->back()->with('error', "AI tidak mengembalikan teks modul ajar (Status: {$blockedReason}). Silakan coba generate ulang atau gunakan provider Groq.");
@@ -2172,6 +2269,13 @@ class AdministrasiGuru extends BaseController
         $finalClassId = $postClassId ?: ($atp['class_id'] ?? 0);
         $modulModel = new \App\Models\ModulAjarModel();
         $existing = $modulModel->where('atp_id', $atpId)->where('class_id', $finalClassId)->first();
+=======
+        // Jalankan auto-healer untuk menyempurnakan setiap pertemuan (terutama pertemuan terakhir)
+        $content = $this->sanitizeAndHealModulContent($content, $menitPerPertemuan);
+
+        $modulModel = new \App\Models\ModulAjarModel();
+        $existing = $modulModel->where('atp_id', $atpId)->where('class_id', $classId)->first();
+>>>>>>> 06c16ee3 (Penambahan fitur Rapor Semester)
         if ($existing) {
             if (!empty($existing['file_pdf'])) {
                 $oldPath = FCPATH . 'uploads/modul_ajar/' . $existing['file_pdf'];
@@ -2189,7 +2293,11 @@ class AdministrasiGuru extends BaseController
             $modulModel->insert([
                 'atp_id'     => $atpId,
                 'subject_id' => $subjectId,
+<<<<<<< HEAD
                 'class_id'   => $finalClassId,
+=======
+                'class_id'   => $classId,
+>>>>>>> 06c16ee3 (Penambahan fitur Rapor Semester)
                 'teacher_id' => $targetTeacherId,
                 'content'    => trim($content),
                 'tipe'       => 'editor',
@@ -2199,10 +2307,14 @@ class AdministrasiGuru extends BaseController
             ]);
         }
 
+<<<<<<< HEAD
         return redirect()->back()->with('success', 'Modul Ajar berhasil digenerate.');
     } catch (\Throwable $e) {
         log_message('error', 'generateModulAjar error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
         return redirect()->back()->with('error', 'Terjadi kesalahan sistem (500): ' . $e->getMessage());
+=======
+        return redirect()->to($redirectUrl)->with('success', 'Modul Ajar berhasil digenerate.');
+>>>>>>> 06c16ee3 (Penambahan fitur Rapor Semester)
     }
 }
 
@@ -2217,6 +2329,13 @@ class AdministrasiGuru extends BaseController
         $modul = $modulModel->find($id);
         if (!$modul) return redirect()->back()->with('error', 'Modul tidak ditemukan.');
         
+        // Auto-heal konten modul jika ada tabel pertemuan yang terpotong / belum memiliki baris Joyful
+        $healed = $this->sanitizeAndHealModulContent($modul['content']);
+        if ($healed !== $modul['content']) {
+            $modulModel->update($id, ['content' => $healed]);
+            $modul['content'] = $healed;
+        }
+
         $data['title'] = 'Edit Modul Ajar';
         $data['modul'] = $modul;
         $data['class_id'] = $classId;
@@ -2237,6 +2356,8 @@ class AdministrasiGuru extends BaseController
         $classId = $this->request->getPost('class_id');
         $subjectId = $this->request->getPost('subject_id');
         
+        $content = $this->sanitizeAndHealModulContent($content);
+
         $modulModel = new \App\Models\ModulAjarModel();
         $modulModel->update($id, [
             'content'  => $content,
@@ -2254,6 +2375,13 @@ class AdministrasiGuru extends BaseController
 
         if (($modul['tipe'] ?? 'editor') === 'pdf') {
             return redirect()->to(base_url('admin/administrasi-guru/modul-ajar/pdf/' . $id));
+        }
+
+        // Auto-heal konten modul jika ada tabel pertemuan yang terpotong / belum memiliki baris Joyful
+        $healed = $this->sanitizeAndHealModulContent($modul['content']);
+        if ($healed !== $modul['content']) {
+            $modulModel->update($id, ['content' => $healed]);
+            $modul['content'] = $healed;
         }
 
         $data['modul'] = $modul;
@@ -2283,6 +2411,156 @@ class AdministrasiGuru extends BaseController
         $data['teacher'] = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
         
         return view('admin/administrasi_guru/modul_ajar_print', $data);
+    }
+
+    /**
+     * Memastikan konten Modul Ajar selalu sempurna:
+     * 1. Menjaga setiap tabel pertemuan memiliki 3 baris lengkap: Mindful, Meaningful, dan Joyful.
+     * 2. Mengisi alokasi waktu jika kolom waktu kosong (Meaningful sisa waktu, Joyful 15 menit).
+     * 3. Menyempurnakan kalimat yang terpotong jika output AI terkena batas token.
+     * 4. Melengkapi Poin Penilaian (K) jika terpotong sebelum selesai.
+     */
+    protected function sanitizeAndHealModulContent(string $content, int $menitPerPertemuan = 90): string
+    {
+        if (trim($content) === '') {
+            return $content;
+        }
+
+        $content = preg_replace('/```(?:html)?(.*?)```/s', '$1', $content);
+        $waktuMeaningful = max(10, $menitPerPertemuan - 25) . " menit";
+
+        if (class_exists('DOMDocument')) {
+            libxml_use_internal_errors(true);
+            $dom = new \DOMDocument('1.0', 'UTF-8');
+            $loaded = $dom->loadHTML('<?xml encoding="UTF-8"><div id="__root_wrapper">' . $content . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+            libxml_clear_errors();
+
+            if ($loaded && ($wrapper = $dom->getElementById('__root_wrapper'))) {
+                $tables = $wrapper->getElementsByTagName('table');
+                foreach ($tables as $table) {
+                    $tableHtml = $dom->saveHTML($table);
+                    // Periksa apakah tabel ini adalah tabel langkah pembelajaran pertemuan
+                    if (stripos($tableHtml, 'Mindful') === false && stripos($tableHtml, 'Meaningful') === false && stripos($tableHtml, 'Sintaks') === false) {
+                        continue;
+                    }
+
+                    $rows = $table->getElementsByTagName('tr');
+                    $hasJoyful = false;
+
+                    foreach ($rows as $row) {
+                        $rowText = $row->textContent;
+                        if (stripos($rowText, 'Joyful') !== false) {
+                            $hasJoyful = true;
+                            $cells = $row->getElementsByTagName('td');
+                            if ($cells->length >= 4) {
+                                $waktuCell = $cells->item(3);
+                                if (trim($waktuCell->textContent) === '') {
+                                    $waktuCell->textContent = '15 menit';
+                                }
+                            } elseif ($cells->length === 3) {
+                                $newTd = $dom->createElement('td', '15 menit');
+                                $row->appendChild($newTd);
+                            }
+                        } elseif (stripos($rowText, 'Meaningful') !== false) {
+                            $cells = $row->getElementsByTagName('td');
+                            if ($cells->length >= 4) {
+                                $waktuCell = $cells->item(3);
+                                if (trim($waktuCell->textContent) === '') {
+                                    $waktuCell->textContent = $waktuMeaningful;
+                                }
+                            } elseif ($cells->length === 3) {
+                                $newTd = $dom->createElement('td', $waktuMeaningful);
+                                $row->appendChild($newTd);
+                            }
+
+                            // Rapikan deskripsi jika terpotong di tengah kalimat
+                            if ($cells->length >= 3) {
+                                $descCell = $cells->item(2);
+                                $descText = trim($descCell->textContent);
+                                if ($descText !== '' && !preg_match('/[.!?:]$/', $descText)) {
+                                    $descCell->textContent = $descText . ' serta menyimpulkan konsep materi secara bermakna.';
+                                }
+                            }
+                        }
+                    }
+
+                    // Jika tabel langkah pertemuan belum memiliki baris Joyful (misal terpotong di akhir), tambahkan!
+                    if (!$hasJoyful) {
+                        $trJoyful = $dom->createElement('tr');
+                        $tdTahap   = $dom->createElement('td', 'Joyful');
+                        $tdSintaks = $dom->createElement('td');
+                        $tdSintaks->appendChild($dom->createTextNode('Refleksi & Game Edukatif'));
+                        $tdDesc    = $dom->createElement('td', 'Peserta didik berpartisipasi dalam kuis interaktif singkat / refleksi apresiatif yang menyenangkan untuk menguatkan pemahaman konsep materi.');
+                        $tdWaktu   = $dom->createElement('td', '15 menit');
+
+                        $trJoyful->appendChild($tdTahap);
+                        $trJoyful->appendChild($tdSintaks);
+                        $trJoyful->appendChild($tdDesc);
+                        $trJoyful->appendChild($tdWaktu);
+
+                        $table->appendChild($trJoyful);
+                    }
+                }
+
+                $fixedHtml = '';
+                foreach ($wrapper->childNodes as $child) {
+                    $fixedHtml .= $dom->saveHTML($child);
+                }
+                $content = $fixedHtml;
+            }
+        }
+
+        // Cek dan lengkapi bagian-bagian modul yang mungkin terlewat (D, E, G, H, I, J, K)
+        $hasD = (preg_match('/<h3>\s*D\./i', $content) || stripos($content, 'Materi Pembelajaran') !== false);
+        $hasE = (preg_match('/<h3>\s*E\./i', $content) || stripos($content, 'Metode Pembelajaran') !== false);
+
+        if (!$hasD || !$hasE) {
+            $insertDE = "";
+            if (!$hasD) {
+                $insertDE .= "<h3>D. Materi Pembelajaran</h3>\n<p>Materi pokok dan konsep esensial yang dipelajari peserta didik secara kontekstual dan bermakna.</p>\n\n";
+            }
+            if (!$hasE) {
+                $insertDE .= "<h3>E. Metode Pembelajaran</h3>\n<p>Pendekatan Pembelajaran Mendalam (Deep Learning MJM: Mindful, Meaningful, Joyful), diskusi kolaboratif, eksplorasi konsep, dan presentasi.</p>\n\n";
+            }
+
+            if (preg_match('/<h3>\s*F\./i', $content)) {
+                $content = preg_replace('/(<h3>\s*F\.)/i', $insertDE . '$1', $content, 1);
+            }
+        }
+
+        $hasG = (preg_match('/<h3>\s*G\./i', $content) || stripos($content, 'Sumber Belajar') !== false);
+        $hasH = (preg_match('/<h3>\s*H\./i', $content) || stripos($content, 'Keterampilan') !== false);
+        $hasI = (preg_match('/<h3>\s*I\./i', $content) || stripos($content, 'Penilaian Sikap') !== false);
+        $hasJ = (preg_match('/<h3>\s*J\./i', $content) || stripos($content, 'Kriteria Kelulusan') !== false);
+
+        $missingGHIJ = "";
+        if (!$hasG) {
+            $missingGHIJ .= "<h3>G. Sumber Belajar</h3>\n<p>Buku pegangan siswa dan guru, media digital/video interaktif, LKPD, serta sumber belajar lingkungan nyata yang relevan.</p>\n\n";
+        }
+        if (!$hasH) {
+            $missingGHIJ .= "<h3>H. Keterampilan</h3>\n<p>Keterampilan abad-21 dan dimensi profil kelulusan yang dilatihkan (bernalar kritis, kreativitas, gotong royong/kolaborasi, dan komunikasi hasil belajar).</p>\n\n";
+        }
+        if (!$hasI) {
+            $missingGHIJ .= "<h3>I. Penilaian Sikap</h3>\n<p>Penilaian sikap dilakukan melalui observasi terhadap kedisiplinan, rasa ingin tahu, keaktifan diskusi, dan tanggung jawab selama proses pembelajaran.</p>\n\n";
+        }
+        if (!$hasJ) {
+            $missingGHIJ .= "<h3>J. Kriteria Kelulusan</h3>\n<p>Peserta didik dinyatakan tuntas apabila telah mencapai kriteria ketercapaian tujuan pembelajaran yang ditetapkan satuan pendidikan pada materi ini.</p>\n\n";
+        }
+
+        if ($missingGHIJ !== "") {
+            if (preg_match('/<h3>\s*K\./i', $content)) {
+                $content = preg_replace('/(<h3>\s*K\.)/i', $missingGHIJ . '$1', $content, 1);
+            } else {
+                $content .= "\n\n" . $missingGHIJ;
+            }
+        }
+
+        // Cek jika bagian asesmen (K. Penilaian / Asesmen) terpotong atau belum ada
+        if (!preg_match('/<h3>\s*K\./i', $content) && stripos($content, 'Penilaian / Asesmen') === false) {
+            $content .= "\n\n<h3>K. Penilaian / Asesmen</h3>\n<p>Penilaian proses dilaksanakan melalui observasi keaktifan diskusi, pemahaman konsep, dan kolaborasi kelompok. Penilaian hasil dilaksanakan melalui tes tertulis (pemahaman konsep) dan penilaian produk/proyek untuk mengukur ketercapaian Tujuan Pembelajaran.</p>";
+        }
+
+        return trim($content);
     }
 
     public function atpPrint($classId, $subjectId)
