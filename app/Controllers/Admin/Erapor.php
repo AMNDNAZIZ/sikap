@@ -262,16 +262,92 @@ class Erapor extends BaseController
             ];
         }
 
+        $classLevel = (string) ($class['level'] ?? '');
+
+        // 1. Ambil semua TP untuk mapel, tingkat kelas, dan semester ini
+        $allTpsBuilder = $this->db->table('tujuan_pembelajaran tp')
+            ->select('tp.id, tp.kode_tp, tp.deskripsi, tp.lingkup_materi, tp.elemen, tp.kelas, atp.semester')
+            ->join('atp_elemen ae', 'ae.id = tp.atp_elemen_id', 'left')
+            ->join('alur_tujuan_pembelajaran atp', 'atp.id = COALESCE(tp.atp_id, ae.atp_id)', 'left')
+            ->join('classes c', 'c.id = atp.class_id', 'left')
+            ->where('tp.subject_id', $subjectId);
+
+        if ($classLevel !== '') {
+            $allTpsBuilder->groupStart()
+                ->where('tp.kelas', $classLevel)
+                ->orWhere('c.level', $classLevel)
+                ->orWhere('tp.kelas IS NULL')
+                ->orWhere('tp.kelas', '')
+            ->groupEnd();
+        }
+
+        $allTpsBuilder->groupStart()
+            ->where('atp.semester', (int) $semester)
+            ->orWhere('atp.semester IS NULL')
+        ->groupEnd();
+
+        $allTps = $allTpsBuilder->groupBy('tp.id')
+            ->orderBy('tp.kode_tp', 'ASC')
+            ->orderBy('tp.id', 'ASC')
+            ->get()->getResultArray();
+
+        // Fallback jika kosong: ambil semua TP mapel ini
+        if (empty($allTps)) {
+            $allTps = $this->db->table('tujuan_pembelajaran tp')
+                ->select('tp.id, tp.kode_tp, tp.deskripsi, tp.lingkup_materi, tp.elemen, tp.kelas')
+                ->where('tp.subject_id', $subjectId)
+                ->orderBy('tp.kode_tp', 'ASC')
+                ->get()->getResultArray();
+        }
+
+        // 2. Ambil TP yang sudah dipilih di tingkat level kelas
+        $selectedTpRows = $this->db->table('erapor_tp_settings')
+            ->where('academic_year_id', $yearId)
+            ->where('class_level', $classLevel)
+            ->where('subject_id', $subjectId)
+            ->where('semester', (int) $semester)
+            ->get()->getResultArray();
+        $selectedTpIds = array_map('intval', array_column($selectedTpRows, 'tp_id'));
+
+        // Filter TP aktif yang terpilih
+        $activeSelectedTps = [];
+        if (!empty($selectedTpIds)) {
+            foreach ($allTps as $tp) {
+                if (in_array((int)$tp['id'], $selectedTpIds, true)) {
+                    $activeSelectedTps[] = $tp;
+                }
+            }
+        }
+
+        // 3. Ambil pilihan TP Maksimal & Minimal per siswa
+        $studentTpRows = $this->db->table('erapor_student_tp')
+            ->where('academic_year_id', $yearId)
+            ->where('class_id', $classId)
+            ->where('subject_id', $subjectId)
+            ->where('semester', (int) $semester)
+            ->whereIn('student_id', $studentIds)
+            ->get()->getResultArray();
+
+        $studentTpMap = [];
+        foreach ($studentTpRows as $str) {
+            $studentTpMap[$str['student_id']][$str['tp_id']] = $str['type'];
+        }
+
         return view('admin/erapor/input', [
-            'title'     => 'Input Nilai Erapor',
-            'class'     => $class,
-            'subject'   => $subject,
-            'year'      => $year,
-            'semester'  => (int) $semester,
-            'students'  => $data,
-            'fWeight'   => $fWeight * 100,
-            'sWeight'   => $sWeight * 100,
-            'isAdmin'   => in_array($roleId, [1, 2]),
+            'title'             => 'Input Nilai Erapor',
+            'class'             => $class,
+            'subject'           => $subject,
+            'year'              => $year,
+            'semester'          => (int) $semester,
+            'students'          => $data,
+            'fWeight'           => $fWeight * 100,
+            'sWeight'           => $sWeight * 100,
+            'isAdmin'           => in_array($roleId, [1, 2]),
+            'allTps'            => $allTps,
+            'selectedTpIds'     => $selectedTpIds,
+            'activeSelectedTps' => $activeSelectedTps,
+            'studentTpMap'      => $studentTpMap,
+            'classLevel'        => $classLevel,
         ]);
     }
 
@@ -361,6 +437,40 @@ class Erapor extends BaseController
             $saved++;
         }
 
+        // ── Simpan pilihan TP Maksimal & Minimal per Siswa ──────────
+        $studentTps = $this->request->getPost('student_tp'); // [student_id => [tp_id => 'maksimal'|'minimal']]
+        if (is_array($studentTps)) {
+            $this->db->table('erapor_student_tp')
+                ->where('academic_year_id', $yearId)
+                ->where('class_id', $classId)
+                ->where('subject_id', $subjectId)
+                ->where('semester', $semester)
+                ->delete();
+
+            $insertStudentTps = [];
+            foreach ($studentTps as $sid => $tpSelections) {
+                if (!is_array($tpSelections)) continue;
+                foreach ($tpSelections as $tpId => $tpType) {
+                    if (in_array($tpType, ['maksimal', 'minimal'], true)) {
+                        $insertStudentTps[] = [
+                            'academic_year_id' => $yearId,
+                            'class_id'         => $classId,
+                            'student_id'       => (int) $sid,
+                            'subject_id'       => $subjectId,
+                            'semester'         => $semester,
+                            'tp_id'            => (int) $tpId,
+                            'type'             => $tpType,
+                            'created_at'       => date('Y-m-d H:i:s'),
+                            'updated_at'       => date('Y-m-d H:i:s'),
+                        ];
+                    }
+                }
+            }
+            if (!empty($insertStudentTps)) {
+                $this->db->table('erapor_student_tp')->insertBatch($insertStudentTps);
+            }
+        }
+
         log_message('info', "Erapor saved: class=$classId subject=$subjectId year=$yearId semester=$semester count=$saved by user={$user['id']}");
 
         // ── Notifikasi nilai erapor: kirim ke siswa yang nilainya disimpan ───
@@ -399,8 +509,68 @@ class Erapor extends BaseController
 
         return $this->response->setJSON([
             'status'  => 'success',
-            'message' => "Nilai erapor dan deskripsi berhasil disimpan ($saved siswa).",
+            'message' => "Nilai erapor, pilihan TP, dan deskripsi berhasil disimpan ($saved siswa).",
             'saved'   => $saved,
+        ]);
+    }
+
+    // =========================================================
+    // SAVE TP SETTINGS — Simpan TP Acuan Rapor Level Kelas
+    // =========================================================
+    public function saveTpSettings()
+    {
+        $user   = $this->currentUser();
+        $roleId = (int) ($user['role_id'] ?? 0);
+        if (!in_array($roleId, [1, 2, 3])) {
+            return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => 'Akses ditolak.']);
+        }
+
+        $yearId     = (int) $this->request->getPost('year_id');
+        $classLevel = trim((string) $this->request->getPost('class_level'));
+        $subjectId  = (int) $this->request->getPost('subject_id');
+        $semester   = (int) $this->request->getPost('semester');
+        $tpIds      = $this->request->getPost('tp_ids'); // array of int
+
+        if (!$yearId || $classLevel === '' || !$subjectId || !$semester) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Parameter tidak lengkap.']);
+        }
+
+        // Hapus pengaturan TP sebelumnya untuk level, mapel, semester & tahun ini
+        $this->db->table('erapor_tp_settings')
+            ->where('academic_year_id', $yearId)
+            ->where('class_level', $classLevel)
+            ->where('subject_id', $subjectId)
+            ->where('semester', $semester)
+            ->delete();
+
+        $count = 0;
+        if (!empty($tpIds) && is_array($tpIds)) {
+            $inserts = [];
+            foreach ($tpIds as $tId) {
+                $tId = (int) $tId;
+                if ($tId > 0) {
+                    $inserts[] = [
+                        'academic_year_id' => $yearId,
+                        'class_level'      => $classLevel,
+                        'subject_id'       => $subjectId,
+                        'semester'         => $semester,
+                        'tp_id'            => $tId,
+                        'created_by'       => $user['id'] ?? null,
+                        'created_at'       => date('Y-m-d H:i:s'),
+                        'updated_at'       => date('Y-m-d H:i:s'),
+                    ];
+                    $count++;
+                }
+            }
+            if (!empty($inserts)) {
+                $this->db->table('erapor_tp_settings')->insertBatch($inserts);
+            }
+        }
+
+        return $this->response->setJSON([
+            'status'  => 'success',
+            'message' => "Berhasil menyimpan {$count} TP Acuan untuk Tingkat Kelas {$classLevel}.",
+            'count'   => $count,
         ]);
     }
 
@@ -433,13 +603,82 @@ class Erapor extends BaseController
             ->where('sr.status', 'aktif')
             ->get()->getResultArray();
 
+        // 1. Cek pilihan student_tp dari POST atau dari database
+        $postStudentTps = $this->request->getPost('student_tp');
+        $studentTpsMap  = [];
+
+        if (is_array($postStudentTps)) {
+            $studentTpsMap = $postStudentTps;
+        } else {
+            $dbStudentTps = $this->db->table('erapor_student_tp')
+                ->where('academic_year_id', $yearId)
+                ->where('class_id', $classId)
+                ->where('subject_id', $subjectId)
+                ->where('semester', $semester)
+                ->get()->getResultArray();
+
+            foreach ($dbStudentTps as $str) {
+                $studentTpsMap[$str['student_id']][$str['tp_id']] = $str['type'];
+            }
+        }
+
+        // 2. Preload seluruh data TP untuk mapel ini
+        $allTpsList = $this->db->table('tujuan_pembelajaran')
+            ->where('subject_id', $subjectId)
+            ->get()->getResultArray();
+        $tpDescMap = [];
+        foreach ($allTpsList as $t) {
+            $tpDescMap[(int)$t['id']] = $t['deskripsi'] ?? '';
+        }
+
+        $cleanTpText = function($raw) {
+            $clean = trim((string) $raw);
+            $clean = preg_replace('/^(mampu|siswa dapat|peserta didik dapat|dapat)\s+/i', '', $clean);
+            $clean = rtrim($clean, " .\t\n\r\0\x0B");
+            if (mb_strlen($clean) > 85) {
+                $clean = mb_substr($clean, 0, 82) . '...';
+            }
+            return lcfirst($clean);
+        };
+
         $descs = [];
         $semesterLabel = $semester == 1 ? 'ganjil' : 'genap';
 
         foreach ($students as $stu) {
             $sid = (int) $stu['id'];
+            $stuSelections = $studentTpsMap[$sid] ?? [];
 
-            // Ambil semua skor formatif/materi siswa untuk mapel ini
+            $maksList = [];
+            $minList  = [];
+
+            if (!empty($stuSelections) && is_array($stuSelections)) {
+                foreach ($stuSelections as $tpId => $type) {
+                    $tpId = (int) $tpId;
+                    $tpDesc = $tpDescMap[$tpId] ?? '';
+                    if ($tpDesc === '') continue;
+
+                    if ($type === 'maksimal') {
+                        $maksList[] = $cleanTpText($tpDesc);
+                    } elseif ($type === 'minimal') {
+                        $minList[] = $cleanTpText($tpDesc);
+                    }
+                }
+            }
+
+            // Jika ada pilihan TP Maksimal atau Minimal untuk siswa ini
+            if (!empty($maksList) || !empty($minList)) {
+                $parts = [];
+                if (!empty($maksList)) {
+                    $parts[] = "Menunjukkan penguasaan yang sangat baik dalam " . implode(' dan ', $maksList) . ".";
+                }
+                if (!empty($minList)) {
+                    $parts[] = "Perlu bimbingan dan peningkatan dalam " . implode(' serta ', $minList) . ".";
+                }
+                $descs[$sid] = implode(' ', $parts);
+                continue;
+            }
+
+            // Fallback jika belum memilih TP: gunakan skor formatif/materi atau nilai akhir
             $materiScores = $this->db->table('material_scores ms')
                 ->select('ms.score, atp.materi, atp.tujuan_pembelajaran')
                 ->join('alur_tujuan_pembelajaran atp', 'atp.id = ms.material_id', 'inner')

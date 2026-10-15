@@ -43,15 +43,8 @@
           <li><hr class="dropdown-divider"></li>
           <li>
             <a class="dropdown-item py-2" href="<?= site_url("admin/rapor-semester/print-awal/{$class['id']}") ?>" target="_blank">
-              <i class="bi bi-journal-album text-primary me-2"></i><strong>Cetak Bagian Awal</strong><br>
-              <small class="text-muted ps-4">Cover Depan, Petunjuk, Profil & Biodata Seluruh Siswa</small>
-            </a>
-          </li>
-          <li><hr class="dropdown-divider"></li>
-          <li>
-            <a class="dropdown-item py-2" href="<?= site_url("admin/rapor-semester/print-mutasi/{$class['id']}") ?>" target="_blank">
-              <i class="bi bi-arrow-left-right text-warning me-2"></i><strong>Cetak Lembar Mutasi</strong><br>
-              <small class="text-muted ps-4">Catatan Pindah Masuk & Keluar Seluruh Siswa</small>
+              <i class="bi bi-journal-album text-primary me-2"></i><strong>Cetak Kelengkapan Rapor</strong><br>
+              <small class="text-muted ps-4">Cover Depan, Petunjuk, Profil, Biodata & Lembar Mutasi Seluruh Siswa</small>
             </a>
           </li>
         </ul>
@@ -182,12 +175,7 @@
                           </li>
                           <li>
                             <a class="dropdown-item py-1" href="<?= site_url("admin/rapor-semester/print-awal-student/{$class['id']}/{$sid}") ?>" target="_blank">
-                              <i class="bi bi-journal-album text-primary me-2"></i>Cetak Bagian Awal (Cover & Biodata)
-                            </a>
-                          </li>
-                          <li>
-                            <a class="dropdown-item py-1" href="<?= site_url("admin/rapor-semester/print-mutasi-student/{$class['id']}/{$sid}") ?>" target="_blank">
-                              <i class="bi bi-arrow-left-right text-warning me-2"></i>Cetak Lembar Mutasi Siswa
+                              <i class="bi bi-journal-album text-primary me-2"></i>Cetak Kelengkapan Rapor
                             </a>
                           </li>
                         </ul>

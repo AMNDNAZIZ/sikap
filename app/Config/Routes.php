@@ -521,6 +521,8 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('rapor-semester/upload-regional-logo', 'RaporSemester::uploadRegionalLogo', $auth123);
     $routes->get('rapor-semester/print/(:num)/(:num)', 'RaporSemester::cetakKelas/$1/$2', $auth123);
     $routes->get('rapor-semester/print-student/(:num)/(:num)/(:num)', 'RaporSemester::cetakSiswa/$1/$2/$3', $auth123);
+    $routes->get('rapor-semester/print-kelengkapan/(:num)', 'RaporSemester::cetakAwal/$1', $auth123);
+    $routes->get('rapor-semester/print-kelengkapan-student/(:num)/(:num)', 'RaporSemester::cetakAwalSiswa/$1/$2', $auth123);
     $routes->get('rapor-semester/print-awal/(:num)', 'RaporSemester::cetakAwal/$1', $auth123);
     $routes->get('rapor-semester/print-awal-student/(:num)/(:num)', 'RaporSemester::cetakAwalSiswa/$1/$2', $auth123);
     $routes->get('rapor-semester/print-mutasi/(:num)', 'RaporSemester::cetakMutasi/$1', $auth123);
@@ -552,6 +554,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('erapor/subjects/(:num)', 'Erapor::subjectList/$1', $auth123);
     $routes->get('erapor/input/(:num)/(:num)/(:num)', 'Erapor::input/$1/$2/$3', $auth123);
     $routes->post('erapor/save', 'Erapor::save', $auth123);
+    $routes->post('erapor/save-tp-settings', 'Erapor::saveTpSettings', $auth123);
     $routes->post('erapor/generate-desc', 'Erapor::generateDesc', $auth123);
 
     // Wizard Import Leger — Admin (1) & Guru (3)

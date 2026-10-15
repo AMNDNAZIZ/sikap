@@ -729,8 +729,18 @@ class RaporSemester extends BaseController
     }
 
     // =========================================================
-    // CETAK BAGIAN AWAL (Cover, Petunjuk & Identitas Siswa)
+    // CETAK KELENGKAPAN RAPOR (Cover, Petunjuk, Identitas Sekolah, Identitas Siswa & Lembar Mutasi)
     // =========================================================
+    public function cetakKelengkapan($classId)
+    {
+        return $this->renderAwal((int) $classId, null);
+    }
+
+    public function cetakKelengkapanSiswa($classId, $studentId)
+    {
+        return $this->renderAwal((int) $classId, (int) $studentId);
+    }
+
     public function cetakAwal($classId)
     {
         return $this->renderAwal((int) $classId, null);

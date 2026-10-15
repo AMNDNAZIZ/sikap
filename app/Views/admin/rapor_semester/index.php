@@ -127,15 +127,8 @@
                           <li><hr class="dropdown-divider"></li>
                           <li>
                             <a class="dropdown-item py-2" href="<?= site_url("admin/rapor-semester/print-awal/{$cls['id']}") ?>" target="_blank">
-                              <i class="bi bi-journal-album text-primary me-2"></i><strong>Cetak Bagian Awal</strong><br>
-                              <small class="text-muted ps-4">Cover Depan, Petunjuk, Profil & Biodata Siswa</small>
-                            </a>
-                          </li>
-                          <li><hr class="dropdown-divider"></li>
-                          <li>
-                            <a class="dropdown-item py-2" href="<?= site_url("admin/rapor-semester/print-mutasi/{$cls['id']}") ?>" target="_blank">
-                              <i class="bi bi-arrow-left-right text-warning me-2"></i><strong>Cetak Catatan Mutasi</strong><br>
-                              <small class="text-muted ps-4">Lembar Pindah Masuk & Pindah Keluar</small>
+                              <i class="bi bi-journal-album text-primary me-2"></i><strong>Cetak Kelengkapan Rapor</strong><br>
+                              <small class="text-muted ps-4">Cover Depan, Petunjuk, Profil, Biodata & Lembar Mutasi</small>
                             </a>
                           </li>
                         </ul>
