@@ -1,8 +1,8 @@
 {
     "version": "2.0.4",
-    "generated": "2026-10-15 09:47:15",
-    "last_update": "2026-10-15 09:47",
-    "total_files": 1049,
+    "generated": "2026-10-15 12:25:18",
+    "last_update": "2026-10-15 12:25",
+    "total_files": 1050,
     "files": {
         "app/.htaccess": "0a949a74edc566be1e1944fbfab681a5",
         "app/Commands/CheckLevel.php": "f8fa76ecd1644a8e469de5fc126217b7",
@@ -267,6 +267,7 @@
         "app/Database/Migrations/2026-10-14-000002_AddRaporEnhancements.php": "0a839344246fbb184b33c2c396cb5d84",
         "app/Database/Migrations/2026-10-14-000003_AddIdentityFieldsToSchoolProfile.php": "d8b27bd1c1d7b5aca106789c837de87e",
         "app/Database/Migrations/2026-10-15-000001_AddBiodataFieldsToStudents.php": "7bb2bb72d17a873a3a42e7273b71ec78",
+        "app/Database/Migrations/2026-10-15-000002_AddRaporTypeToRaporConfigs.php": "462f61409440eafc2455af18e11f2857",
         "app/Database/Migrations/README_MIGRASI.md": "a460a9d695044d861cfc21213b9f35aa",
         "app/Database/Seeds/NewPermissionsSeeder.php": "e55645ef12053bf687323e6427ab40c7",
         "app/Database/Seeds/PermissionSeeder.php": "75ee03de06a19a578134ecc4b16270d1",
@@ -399,7 +400,7 @@
         "app/Models/QrVerificationModel.php": "e8a9aaf6a8bd118a1c046035b3e9e179",
         "app/Models/QuizConfigModel.php": "9b5e0467a40e3bf7a6b12754df1d4950",
         "app/Models/QuizSessionModel.php": "8a804dbc10fab8ca03a7b3466b0c9ead",
-        "app/Models/RaporConfigModel.php": "9ab10505d1028a5b50c3f29c4acf46d6",
+        "app/Models/RaporConfigModel.php": "44d70ae2faa09efd8dce573e44b3db5a",
         "app/Models/RaporNoteModel.php": "56e8d37f171b2f1c07c789acec12ee17",
         "app/Models/RoleModel.php": "87577f55a014ed42384e7882e7156cb1",
         "app/Models/ScheduleModel.php": "61a845c82e1d30c5300672c2369829aa",
