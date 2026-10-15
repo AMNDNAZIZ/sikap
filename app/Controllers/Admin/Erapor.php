@@ -405,7 +405,103 @@ class Erapor extends BaseController
     }
 
     // =========================================================
-<<<<<<< HEAD
+    // GENERATE DESC — Otomatisasi deskripsi capaian berbasis TP
+    // =========================================================
+    public function generateDesc()
+    {
+        $user   = $this->currentUser();
+        $roleId = (int) ($user['role_id'] ?? 0);
+        if (!in_array($roleId, [1, 2, 3])) {
+            return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => 'Akses ditolak.']);
+        }
+
+        $classId   = (int) $this->request->getPost('class_id');
+        $subjectId = (int) $this->request->getPost('subject_id');
+        $yearId    = (int) $this->request->getPost('year_id');
+        $semester  = (int) $this->request->getPost('semester');
+
+        if (!$classId || !$subjectId || !$yearId || !$semester) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Parameter tidak lengkap.']);
+        }
+
+        // Siswa aktif di kelas
+        $students = $this->db->table('student_records sr')
+            ->select('s.id, s.name')
+            ->join('students s', 's.id = sr.student_id', 'inner')
+            ->where('sr.class_id', $classId)
+            ->where('sr.academic_year_id', $yearId)
+            ->where('sr.status', 'aktif')
+            ->get()->getResultArray();
+
+        $descs = [];
+        $semesterLabel = $semester == 1 ? 'ganjil' : 'genap';
+
+        foreach ($students as $stu) {
+            $sid = (int) $stu['id'];
+
+            // Ambil semua skor formatif/materi siswa untuk mapel ini
+            $materiScores = $this->db->table('material_scores ms')
+                ->select('ms.score, atp.materi, atp.tujuan_pembelajaran')
+                ->join('alur_tujuan_pembelajaran atp', 'atp.id = ms.material_id', 'inner')
+                ->where('ms.student_id', $sid)
+                ->where('atp.subject_id', $subjectId)
+                ->where('ms.score IS NOT NULL')
+                ->orderBy('ms.score', 'DESC')
+                ->get()->getResultArray();
+
+            $existing = $this->db->table('grades')
+                ->where('student_id', $sid)
+                ->where('subject_id', $subjectId)
+                ->where('year_id', $yearId)
+                ->where('semester', $semesterLabel)
+                ->get()->getRowArray();
+            $nilaiAkhir = $existing['erapor_score'] ?? null;
+
+            if (!empty($materiScores)) {
+                $highest = $materiScores[0];
+                $lowest  = end($materiScores);
+
+                $topText = !empty($highest['materi']) ? trim($highest['materi']) : (!empty($highest['tujuan_pembelajaran']) ? trim($highest['tujuan_pembelajaran']) : 'materi pokok');
+                $lowText = !empty($lowest['materi']) ? trim($lowest['materi']) : (!empty($lowest['tujuan_pembelajaran']) ? trim($lowest['tujuan_pembelajaran']) : '');
+
+                if (mb_strlen($topText) > 65) {
+                    $topText = mb_substr($topText, 0, 62) . '...';
+                }
+                if (mb_strlen($lowText) > 65) {
+                    $lowText = mb_substr($lowText, 0, 62) . '...';
+                }
+
+                $kalimat = "Menunjukkan penguasaan yang sangat baik dalam memahami " . lcfirst($topText) . ".";
+
+                if ($lowest && (float)$lowest['score'] < 75 && strcasecmp($topText, $lowText) !== 0) {
+                    $kalimat .= " Perlu bimbingan dan peningkatan dalam " . lcfirst($lowText) . ".";
+                } elseif ($lowest && ((float)$highest['score'] - (float)$lowest['score'] >= 15) && strcasecmp($topText, $lowText) !== 0) {
+                    $kalimat .= " Perlu penguatan lebih lanjut dalam " . lcfirst($lowText) . ".";
+                }
+
+                $descs[$sid] = $kalimat;
+            } else {
+                if ($nilaiAkhir !== null) {
+                    if ((float)$nilaiAkhir >= 85) {
+                        $descs[$sid] = "Menunjukkan penguasaan yang sangat baik dalam mencapai seluruh tujuan pembelajaran yang ditetapkan.";
+                    } elseif ((float)$nilaiAkhir >= 75) {
+                        $descs[$sid] = "Menunjukkan penguasaan yang baik dalam mencapai tujuan pembelajaran, pertahankan dan tingkatkan prestasi.";
+                    } else {
+                        $descs[$sid] = "Cukup menguasai materi pembelajaran, perlu pendampingan dan latihan lebih giat untuk optimalisasi capaian kompetensi.";
+                    }
+                } else {
+                    $descs[$sid] = "Menunjukkan capaian pembelajaran yang baik pada semester ini.";
+                }
+            }
+        }
+
+        return $this->response->setJSON([
+            'status'       => 'success',
+            'descriptions' => $descs,
+        ]);
+    }
+
+    // =========================================================
     // WIZARD IMPORT LEGER — LANGKAH 0: Form Upload File
     // =========================================================
     public function importForm()
@@ -1040,99 +1136,10 @@ class Erapor extends BaseController
                         'updated_at'       => date('Y-m-d H:i:s'),
                     ]);
                     $absenceSaved++;
-=======
-    // GENERATE DESC — Otomatisasi deskripsi capaian berbasis TP
-    // =========================================================
-    public function generateDesc()
-    {
-        $user   = $this->currentUser();
-        $roleId = (int) ($user['role_id'] ?? 0);
-        if (!in_array($roleId, [1, 2, 3])) {
-            return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => 'Akses ditolak.']);
-        }
-
-        $classId   = (int) $this->request->getPost('class_id');
-        $subjectId = (int) $this->request->getPost('subject_id');
-        $yearId    = (int) $this->request->getPost('year_id');
-        $semester  = (int) $this->request->getPost('semester');
-
-        if (!$classId || !$subjectId || !$yearId || !$semester) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Parameter tidak lengkap.']);
-        }
-
-        // Siswa aktif di kelas
-        $students = $this->db->table('student_records sr')
-            ->select('s.id, s.name')
-            ->join('students s', 's.id = sr.student_id', 'inner')
-            ->where('sr.class_id', $classId)
-            ->where('sr.academic_year_id', $yearId)
-            ->where('sr.status', 'aktif')
-            ->get()->getResultArray();
-
-        $descs = [];
-        $semesterLabel = $semester == 1 ? 'ganjil' : 'genap';
-
-        foreach ($students as $stu) {
-            $sid = (int) $stu['id'];
-
-            // Ambil semua skor formatif/materi siswa untuk mapel ini
-            $materiScores = $this->db->table('material_scores ms')
-                ->select('ms.score, atp.materi, atp.tujuan_pembelajaran')
-                ->join('alur_tujuan_pembelajaran atp', 'atp.id = ms.material_id', 'inner')
-                ->where('ms.student_id', $sid)
-                ->where('atp.subject_id', $subjectId)
-                ->where('ms.score IS NOT NULL')
-                ->orderBy('ms.score', 'DESC')
-                ->get()->getResultArray();
-
-            $existing = $this->db->table('grades')
-                ->where('student_id', $sid)
-                ->where('subject_id', $subjectId)
-                ->where('year_id', $yearId)
-                ->where('semester', $semesterLabel)
-                ->get()->getRowArray();
-            $nilaiAkhir = $existing['erapor_score'] ?? null;
-
-            if (!empty($materiScores)) {
-                $highest = $materiScores[0];
-                $lowest  = end($materiScores);
-
-                $topText = !empty($highest['materi']) ? trim($highest['materi']) : (!empty($highest['tujuan_pembelajaran']) ? trim($highest['tujuan_pembelajaran']) : 'materi pokok');
-                $lowText = !empty($lowest['materi']) ? trim($lowest['materi']) : (!empty($lowest['tujuan_pembelajaran']) ? trim($lowest['tujuan_pembelajaran']) : '');
-
-                if (mb_strlen($topText) > 65) {
-                    $topText = mb_substr($topText, 0, 62) . '...';
-                }
-                if (mb_strlen($lowText) > 65) {
-                    $lowText = mb_substr($lowText, 0, 62) . '...';
-                }
-
-                $kalimat = "Menunjukkan penguasaan yang sangat baik dalam memahami " . lcfirst($topText) . ".";
-
-                if ($lowest && (float)$lowest['score'] < 75 && strcasecmp($topText, $lowText) !== 0) {
-                    $kalimat .= " Perlu bimbingan dan peningkatan dalam " . lcfirst($lowText) . ".";
-                } elseif ($lowest && ((float)$highest['score'] - (float)$lowest['score'] >= 15) && strcasecmp($topText, $lowText) !== 0) {
-                    $kalimat .= " Perlu penguatan lebih lanjut dalam " . lcfirst($lowText) . ".";
-                }
-
-                $descs[$sid] = $kalimat;
-            } else {
-                if ($nilaiAkhir !== null) {
-                    if ((float)$nilaiAkhir >= 85) {
-                        $descs[$sid] = "Menunjukkan penguasaan yang sangat baik dalam mencapai seluruh tujuan pembelajaran yang ditetapkan.";
-                    } elseif ((float)$nilaiAkhir >= 75) {
-                        $descs[$sid] = "Menunjukkan penguasaan yang baik dalam mencapai tujuan pembelajaran, pertahankan dan tingkatkan prestasi.";
-                    } else {
-                        $descs[$sid] = "Cukup menguasai materi pembelajaran, perlu pendampingan dan latihan lebih giat untuk optimalisasi capaian kompetensi.";
-                    }
-                } else {
-                    $descs[$sid] = "Menunjukkan capaian pembelajaran yang baik pada semester ini.";
->>>>>>> 06c16ee3 (Penambahan fitur Rapor Semester)
                 }
             }
         }
 
-<<<<<<< HEAD
         $this->db->transComplete();
 
         if ($this->db->transStatus() === false) {
@@ -1537,13 +1544,6 @@ class Erapor extends BaseController
             'A4'
         );
     }
-=======
-        return $this->response->setJSON([
-            'status'       => 'success',
-            'descriptions' => $descs,
-        ]);
-    }
->>>>>>> 06c16ee3 (Penambahan fitur Rapor Semester)
 }
 
 
