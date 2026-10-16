@@ -92,7 +92,7 @@
     <div class="col-12 col-md-6">
       <div class="card border-0 shadow-sm h-100">
         <div class="card-header bg-transparent fw-semibold">
-          <i class="bi bi-bar-chart-fill text-primary me-1"></i> Rekap Bulan Ini
+          <i class="bi bi-bar-chart-fill text-primary me-1"></i> Rekap Bulan <?= ($month === date('Y-m')) ? 'Ini' : '(' . date('M Y', strtotime($month . '-01')) . ')' ?>
         </div>
         <div class="card-body p-0">
           <table class="table table-sm mb-0">
@@ -108,6 +108,16 @@
               <?php endforeach; ?>
             </tbody>
           </table>
+        </div>
+        <div class="card-footer bg-transparent">
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="small text-muted">Persentase Kehadiran</span>
+            <span class="fw-bold text-primary fs-5"><?= $monthAttendancePercentage ?>%</span>
+          </div>
+          <div class="progress mt-1" style="height:6px;">
+            <div class="progress-bar bg-primary" style="width:<?= $monthAttendancePercentage ?>%"></div>
+          </div>
+          <small class="text-muted"><?= $summary['Hadir'] ?>/<?= $totalHariAktifBulan ?> hari aktif</small>
         </div>
       </div>
     </div>

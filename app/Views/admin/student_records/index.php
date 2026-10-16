@@ -53,7 +53,7 @@
     <tbody>
       <?php if (empty($records)): ?>
         <tr>
-          <td colspan="6" class="text-center text-muted">Tidak ada data.</td>
+          <td colspan="7" class="text-center text-muted py-3">Tidak ada data.</td>
         </tr>
       <?php else: ?>
         <?php $no = 1;
@@ -69,8 +69,18 @@
                 <?= esc(ucfirst($r['status'])) ?></span>
             </td>
             <td>
-              <a class="btn btn-sm btn-outline-primary"
-                href="<?= base_url('admin/student-records/' . $r['student_id']) ?>">Lihat Riwayat</a>
+              <div class="d-flex gap-1 flex-wrap">
+                <a class="btn btn-sm btn-outline-primary"
+                  href="<?= base_url('admin/student-records/' . $r['student_id']) ?>"
+                  title="Lihat Riwayat Siswa">
+                  <i class="bi bi-clock-history me-1"></i> Riwayat
+                </a>
+                <a class="btn btn-sm btn-outline-success"
+                  href="<?= site_url('admin/grades/tracking?student_id=' . $r['student_id']) ?>"
+                  title="Tracking Nilai Siswa">
+                  <i class="bi bi-activity me-1"></i> Tracking Nilai
+                </a>
+              </div>
             </td>
           </tr>
         <?php endforeach ?>

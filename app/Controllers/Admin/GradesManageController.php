@@ -700,35 +700,43 @@ class GradesManageController extends BaseController
     public function studentTracking()
     {
         $studentId = $this->request->getGet('student_id');
+        $yearId    = $this->request->getGet('year_id');
         $data = [
             'student' => null,
             'records' => [],
             'grades' => [],
+            'yearId' => $yearId,
         ];
 
         if ($studentId) {
-            $data = $this->getStudentTrackingData($studentId);
+            $data = $this->getStudentTrackingData($studentId, $yearId);
+            $data['yearId'] = $yearId;
         }
 
         return view('admin/grades/student_tracking', $data);
     }
 
-    private function getStudentTrackingData($studentId)
+    private function getStudentTrackingData($studentId, $yearId = null)
     {
         $db = db_connect();
         $student = $db->table('students')->where('id', $studentId)->get()->getRowArray();
 
         if (!$student) {
-            return ['student' => null, 'records' => [], 'grades' => [], 'matrix' => [], 'subjects' => []];
+            return ['student' => null, 'records' => [], 'grades' => [], 'matrix' => [], 'subjects' => [], 'school' => null, 'yearId' => $yearId];
         }
 
-        $records = $db->table('student_records sr')
+        $recordsBuilder = $db->table('student_records sr')
             ->select('sr.*, ay.year as year_name, c.name as class_name')
             ->join('academic_years ay', 'ay.id = sr.academic_year_id')
             ->join('classes c', 'c.id = sr.class_id')
             ->where('sr.student_id', $studentId)
-            ->where('sr.status !=', 'lulus')
-            ->orderBy('ay.year', 'ASC') // Order ascending for the matrix columns
+            ->where('sr.status !=', 'lulus');
+
+        if (!empty($yearId)) {
+            $recordsBuilder->where('sr.academic_year_id', $yearId);
+        }
+
+        $records = $recordsBuilder->orderBy('ay.year', 'ASC') // Order ascending for the matrix columns
             ->get()->getResultArray();
 
         // Timeline view data (old format)
@@ -815,10 +823,11 @@ class GradesManageController extends BaseController
     public function studentTrackingPdf()
     {
         $studentId = $this->request->getGet('student_id');
+        $yearId    = $this->request->getGet('year_id');
         if (!$studentId)
             return redirect()->back();
 
-        $data = $this->getStudentTrackingData($studentId);
+        $data = $this->getStudentTrackingData($studentId, $yearId);
         if (!$data['student'])
             return redirect()->back();
 
@@ -840,10 +849,11 @@ class GradesManageController extends BaseController
     public function studentTrackingExcel()
     {
         $studentId = $this->request->getGet('student_id');
+        $yearId    = $this->request->getGet('year_id');
         if (!$studentId)
             return redirect()->back();
 
-        $data = $this->getStudentTrackingData($studentId);
+        $data = $this->getStudentTrackingData($studentId, $yearId);
         if (!$data['student'])
             return redirect()->back();
 

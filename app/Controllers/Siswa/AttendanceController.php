@@ -166,6 +166,11 @@ class AttendanceController extends BaseController
             }
         }
 
+        $totalHariAktifBulan = array_sum($summary);
+        $monthAttendancePercentage = $totalHariAktifBulan > 0
+            ? round(($summary['Hadir'] / $totalHariAktifBulan) * 100, 2)
+            : 0;
+
         // --- REKAP SEMESTER BERJALAN ---
         // Tentukan semester berjalan berdasarkan tanggal hari ini (bukan $month)
         $todayMonthNum = (int) date('n'); // 1..12
@@ -266,6 +271,8 @@ class AttendanceController extends BaseController
             'semesterSummary' => $semesterSummary,
             'attendancePercentage' => $attendancePercentage,
             'totalHariAktifSemester' => $totalHariAktifSemester,
+            'monthAttendancePercentage' => $monthAttendancePercentage,
+            'totalHariAktifBulan' => $totalHariAktifBulan,
         ]);
     }
 }

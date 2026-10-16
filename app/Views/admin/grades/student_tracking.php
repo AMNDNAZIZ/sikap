@@ -24,17 +24,27 @@
 
     <?php if ($student): ?>
         <div class="card shadow-sm border-0 rounded-4 mb-4">
-            <div class="card-body d-flex justify-content-between align-items-center">
+            <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <h5 class="fw-bold mb-1"><?= esc($student['name']) ?></h5>
                     <p class="text-muted mb-0">NIS: <?= esc($student['nis']) ?></p>
+                    <?php if (!empty($yearId) && !empty($records)): ?>
+                        <div class="mt-2 d-flex align-items-center flex-wrap gap-2">
+                            <span class="badge bg-primary text-white px-3 py-1.5 fw-semibold shadow-sm" style="color: #ffffff !important;">
+                                <i class="bi bi-funnel me-1"></i> Difilter Tahun Ajaran: <strong><?= esc($records[0]['year_name']) ?></strong>
+                            </span>
+                            <a href="<?= site_url('admin/grades/tracking?student_id=' . $student['id']) ?>" class="btn btn-link btn-sm text-decoration-none py-0 ms-1">
+                                <i class="bi bi-x-circle me-1"></i> Tampilkan Semua Tahun
+                            </a>
+                        </div>
+                    <?php endif; ?>
                 </div>
                 <div>
-                    <a href="<?= site_url('admin/grades/tracking/pdf?student_id=' . $student['id']) ?>" target="_blank"
+                    <a href="<?= site_url('admin/grades/tracking/pdf?student_id=' . $student['id'] . (!empty($yearId) ? '&year_id=' . $yearId : '')) ?>" target="_blank"
                         class="btn btn-danger btn-sm">
                         <i class="bi bi-file-pdf"></i> Export PDF
                     </a>
-                    <a href="<?= site_url('admin/grades/tracking/excel?student_id=' . $student['id']) ?>" target="_blank"
+                    <a href="<?= site_url('admin/grades/tracking/excel?student_id=' . $student['id'] . (!empty($yearId) ? '&year_id=' . $yearId : '')) ?>" target="_blank"
                         class="btn btn-success btn-sm">
                         <i class="bi bi-file-excel"></i> Export Excel
                     </a>
