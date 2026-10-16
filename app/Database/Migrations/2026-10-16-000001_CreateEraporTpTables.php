@@ -2,14 +2,21 @@
 
 namespace App\Database\Migrations;
 
+use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\Database\Migration;
 
+/**
+ * @property BaseConnection $db
+ */
 class CreateEraporTpTables extends Migration
 {
     public function up()
     {
+        /** @var BaseConnection $db */
+        $db = $this->db;
+
         // 1. Tabel erapor_tp_settings (Pengaturan TP terpilih tingkat level kelas)
-        if (!$this->db->tableExists('erapor_tp_settings')) {
+        if (!$db->tableExists('erapor_tp_settings')) {
             $this->forge->addField([
                 'id' => [
                     'type'           => 'INT',
@@ -62,7 +69,7 @@ class CreateEraporTpTables extends Migration
         }
 
         // 2. Tabel erapor_student_tp (Pilihan TP Maksimal & Minimal per Siswa)
-        if (!$this->db->tableExists('erapor_student_tp')) {
+        if (!$db->tableExists('erapor_student_tp')) {
             $this->forge->addField([
                 'id' => [
                     'type'           => 'INT',
@@ -122,10 +129,13 @@ class CreateEraporTpTables extends Migration
 
     public function down()
     {
-        if ($this->db->tableExists('erapor_student_tp')) {
+        /** @var BaseConnection $db */
+        $db = $this->db;
+
+        if ($db->tableExists('erapor_student_tp')) {
             $this->forge->dropTable('erapor_student_tp', true);
         }
-        if ($this->db->tableExists('erapor_tp_settings')) {
+        if ($db->tableExists('erapor_tp_settings')) {
             $this->forge->dropTable('erapor_tp_settings', true);
         }
     }

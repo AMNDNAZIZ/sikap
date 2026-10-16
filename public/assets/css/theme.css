@@ -275,21 +275,27 @@ body {
 /* ── Badges ── */
 .badge.bg-primary {
   background: linear-gradient(135deg, var(--clr-primary), var(--clr-secondary)) !important;
+  color: #fff !important;
 }
 .badge.bg-success {
   background: linear-gradient(135deg, #059669, #10b981) !important;
+  color: #fff !important;
 }
 .badge.bg-warning {
   background: linear-gradient(135deg, #d97706, #f59e0b) !important;
+  color: #fff !important;
 }
 .badge.bg-danger {
   background: linear-gradient(135deg, #dc2626, #ef4444) !important;
+  color: #fff !important;
 }
 .badge.bg-info {
   background: linear-gradient(135deg, var(--clr-info), #0ea5e9) !important;
+  color: #fff !important;
 }
 .badge.bg-secondary {
   background: linear-gradient(135deg, #475569, #64748b) !important;
+  color: #fff !important;
 }
 
 /* ── Alerts ── */

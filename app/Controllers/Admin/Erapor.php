@@ -266,7 +266,7 @@ class Erapor extends BaseController
 
         // 1. Ambil semua TP untuk mapel, tingkat kelas, dan semester ini
         $allTpsBuilder = $this->db->table('tujuan_pembelajaran tp')
-            ->select('tp.id, tp.kode_tp, tp.deskripsi, tp.lingkup_materi, tp.elemen, tp.kelas, atp.semester')
+            ->select('tp.id, tp.kode_tp, tp.deskripsi, tp.lingkup_materi, tp.elemen, tp.kelas, atp.semester, atp.class_id')
             ->join('atp_elemen ae', 'ae.id = tp.atp_elemen_id', 'left')
             ->join('alur_tujuan_pembelajaran atp', 'atp.id = COALESCE(tp.atp_id, ae.atp_id)', 'left')
             ->join('classes c', 'c.id = atp.class_id', 'left')
@@ -294,11 +294,46 @@ class Erapor extends BaseController
         // Fallback jika kosong: ambil semua TP mapel ini
         if (empty($allTps)) {
             $allTps = $this->db->table('tujuan_pembelajaran tp')
-                ->select('tp.id, tp.kode_tp, tp.deskripsi, tp.lingkup_materi, tp.elemen, tp.kelas')
+                ->select('tp.id, tp.kode_tp, tp.deskripsi, tp.lingkup_materi, tp.elemen, tp.kelas, 0 as semester, 0 as class_id')
                 ->where('tp.subject_id', $subjectId)
                 ->orderBy('tp.kode_tp', 'ASC')
                 ->get()->getResultArray();
         }
+
+        // Deduplikasi TP agar setiap Tujuan Pembelajaran hanya muncul satu kali (mencegah dobel akibat kelas paralel / duplikasi data)
+        $uniqueTps  = [];
+        $tpEquivMap = []; // Pemetaan: tp_id -> representative_tp_id
+
+        foreach ($allTps as $tp) {
+            $descKey = mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string)($tp['deskripsi'] ?? ''))));
+            $descKey = rtrim($descKey, '.');
+            if ($descKey === '') {
+                $descKey = 'tp_' . $tp['id'];
+            }
+
+            if (!isset($uniqueTps[$descKey])) {
+                $uniqueTps[$descKey] = $tp;
+                $tpEquivMap[(int)$tp['id']] = (int)$tp['id'];
+            } else {
+                $repId  = (int) $uniqueTps[$descKey]['id'];
+                $currId = (int) $tp['id'];
+                $tpEquivMap[$currId] = $repId;
+
+                // Jika TP saat ini milik kelas yang sedang dibuka, jadikan sebagai representative utama
+                if (isset($tp['class_id']) && (int)$tp['class_id'] === $classId) {
+                    $uniqueTps[$descKey] = $tp;
+                    $newRepId = $currId;
+                    foreach ($tpEquivMap as $k => $v) {
+                        if ($v === $repId) {
+                            $tpEquivMap[$k] = $newRepId;
+                        }
+                    }
+                } elseif (empty($uniqueTps[$descKey]['kode_tp']) && !empty($tp['kode_tp'])) {
+                    $uniqueTps[$descKey]['kode_tp'] = $tp['kode_tp'];
+                }
+            }
+        }
+        $allTps = array_values($uniqueTps);
 
         // 2. Ambil TP yang sudah dipilih di tingkat level kelas
         $selectedTpRows = $this->db->table('erapor_tp_settings')
@@ -307,7 +342,15 @@ class Erapor extends BaseController
             ->where('subject_id', $subjectId)
             ->where('semester', (int) $semester)
             ->get()->getResultArray();
-        $selectedTpIds = array_map('intval', array_column($selectedTpRows, 'tp_id'));
+
+        $rawSelectedTpIds = array_map('intval', array_column($selectedTpRows, 'tp_id'));
+        $selectedTpIds = [];
+        foreach ($rawSelectedTpIds as $sId) {
+            $repId = $tpEquivMap[$sId] ?? $sId;
+            if (!in_array($repId, $selectedTpIds, true)) {
+                $selectedTpIds[] = $repId;
+            }
+        }
 
         // Filter TP aktif yang terpilih
         $activeSelectedTps = [];
@@ -330,7 +373,8 @@ class Erapor extends BaseController
 
         $studentTpMap = [];
         foreach ($studentTpRows as $str) {
-            $studentTpMap[$str['student_id']][$str['tp_id']] = $str['type'];
+            $mappedTpId = $tpEquivMap[(int)$str['tp_id']] ?? (int)$str['tp_id'];
+            $studentTpMap[$str['student_id']][$mappedTpId] = $str['type'];
         }
 
         return view('admin/erapor/input', [

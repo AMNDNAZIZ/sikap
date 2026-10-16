@@ -14,8 +14,8 @@
     <div class="card-body py-2 px-3">
       <div class="d-flex flex-wrap gap-3 align-items-center">
         <div><span class="text-muted small">Siswa:</span> <span class="fw-semibold"><?= esc($student['name']) ?></span></div>
-        <div><span class="text-muted small">Kelas:</span> <span class="badge bg-primary bg-opacity-10 text-primary"><?= esc($student['class_name']) ?></span></div>
-        <div><span class="text-muted small">T.A.:</span> <span class="badge bg-secondary bg-opacity-10 text-secondary"><?= esc($activeYear['year']) ?></span></div>
+        <div><span class="text-muted small">Kelas:</span> <span class="badge bg-primary text-white fw-semibold px-2.5 py-1" style="color: #fff !important;"><?= esc($student['class_name']) ?></span></div>
+        <div><span class="text-muted small">T.A.:</span> <span class="badge bg-secondary text-white fw-semibold px-2.5 py-1" style="color: #fff !important;"><?= esc($activeYear['year']) ?></span></div>
       </div>
     </div>
   </div>
