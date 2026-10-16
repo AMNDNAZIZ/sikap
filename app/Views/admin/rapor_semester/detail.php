@@ -30,10 +30,10 @@
       </button>
 
       <div class="btn-group">
-        <button type="button" class="btn btn-sm btn-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+        <button type="button" class="btn btn-sm btn-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" data-bs-popper-config='{"strategy":"fixed"}'>
           🖨️ Cetak Seluruh Kelas
         </button>
-        <ul class="dropdown-menu dropdown-menu-end shadow">
+        <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2" style="min-width: 280px; z-index: 1060;">
           <li>
             <a class="dropdown-item py-2" href="<?= site_url("admin/rapor-semester/print/{$class['id']}/{$semester}") ?>" target="_blank">
               <i class="bi bi-file-earmark-text text-success me-2"></i><strong>Cetak Nilai Semester</strong><br>
@@ -164,10 +164,13 @@
                         ✏️ Catatan
                       </button>
                       <div class="btn-group">
-                        <button type="button" class="btn btn-sm btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Pilih Format Cetak">
+                        <button type="button" class="btn btn-sm btn-outline-success dropdown-toggle"
+                                data-bs-toggle="dropdown" aria-expanded="false"
+                                data-bs-popper-config='{"strategy":"fixed"}'
+                                title="Pilih Format Cetak">
                           🖨️ Cetak
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow">
+                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2" style="z-index: 1060;">
                           <li>
                             <a class="dropdown-item py-1" href="<?= site_url("admin/rapor-semester/print-student/{$class['id']}/{$semester}/{$sid}") ?>" target="_blank">
                               <i class="bi bi-file-earmark-text text-success me-2"></i>Cetak Nilai Semester

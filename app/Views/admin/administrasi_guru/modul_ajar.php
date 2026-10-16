@@ -36,16 +36,16 @@
                     <div class="mb-3">
                         <label class="form-label font-weight-bold">Pilih Provider AI:</label>
                         <select name="ai_provider" class="form-select mb-2" id="providerSelect">
+                            <option value="groq" <?= $ai_provider == 'groq' ? 'selected' : '' ?>>Groq (OpenAI GPT-OSS 120B / Llama - Ultra Fast & Kuota Tinggi)</option>
                             <option value="gemini" <?= $ai_provider == 'gemini' ? 'selected' : '' ?>>Google Gemini (Flash)</option>
-                            <option value="groq" <?= $ai_provider == 'groq' ? 'selected' : '' ?>>Groq (Llama 3.1 8B - Ultra Fast & High Limit)</option>
                         </select>
-                        <div id="geminiInstructions" class="small text-muted p-2 bg-light rounded <?= $ai_provider != 'gemini' ? 'd-none' : '' ?>">
-                            <p class="mb-1"><strong>Google Gemini:</strong> Gratis, namun sering terkena limit kuota di wilayah tertentu.</p>
-                            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn btn-sm btn-link p-0">Dapatkan API Key Gemini <i class="bi bi-box-arrow-up-right"></i></a>
-                        </div>
                         <div id="groqInstructions" class="small text-muted p-2 bg-light rounded <?= $ai_provider != 'groq' ? 'd-none' : '' ?>">
-                            <p class="mb-1"><strong>Groq (Sangat Disarankan):</strong> Jauh lebih cepat dan jarang terkena limit kuota.</p>
+                            <p class="mb-1"><strong>Groq (Sangat Disarankan):</strong> Didukung mesin OpenAI GPT-OSS 120B dan Llama via Groq LPU, proses generate sangat cepat dan jarang limit.</p>
                             <a href="https://console.groq.com/keys" target="_blank" class="btn btn-sm btn-link p-0 text-success">Dapatkan API Key Groq <i class="bi bi-box-arrow-up-right"></i></a>
+                        </div>
+                        <div id="geminiInstructions" class="small text-muted p-2 bg-light rounded <?= $ai_provider != 'gemini' ? 'd-none' : '' ?>">
+                            <p class="mb-1"><strong>Google Gemini:</strong> Gratis via Google AI Studio. Didukung model Gemini 2.5 Flash / 1.5 Flash.</p>
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn btn-sm btn-link p-0">Dapatkan API Key Gemini <i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -341,6 +341,7 @@
                         <div class="mb-3">
                             <label class="form-label fw-bold">Hasil dari AI (HTML):</label>
                             <textarea name="modul_content" id="pasteArea" class="form-control" rows="12" required placeholder="Paste hasil HTML dari AI di sini..."></textarea>
+                            <div class="form-text small text-muted mt-1"><i class="bi bi-magic text-primary me-1"></i>Sistem otomatis membersihkan tanda backslash (\), rumus LaTeX, dan format berlebih.</div>
                         </div>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-outline-secondary" id="backToPrompt">
@@ -464,6 +465,54 @@
     $('#backToPrompt').on('click', function() {
         $('#pasteStep').hide();
         $('#promptStep').show();
+    });
+
+    function cleanModulInput(val) {
+        if (!val) return val;
+        val = val.replace(/\\div\b/g, '÷')
+                 .replace(/\\times\b/g, '×')
+                 .replace(/\\pm\b/g, '±')
+                 .replace(/\\(?:le|leq)\b/g, '≤')
+                 .replace(/\\(?:ge|geq)\b/g, '≥')
+                 .replace(/\\cdot\b/g, '·')
+                 .replace(/\\approx\b/g, '≈')
+                 .replace(/\\(?:neq|ne)\b/g, '≠')
+                 .replace(/\\infty\b/g, '∞')
+                 .replace(/\\degree\b/g, '°')
+                 .replace(/\^\\(?:circ)\b/g, '°');
+
+        val = val.replace(/\\\(/g, '(')
+                 .replace(/\\\)/g, ')')
+                 .replace(/\\\[/g, '[')
+                 .replace(/\\\]/g, ']')
+                 .replace(/\\\{/g, '{')
+                 .replace(/\\\}/g, '}')
+                 .replace(/\\%/g, '%');
+
+        val = val.replace(/<(p|div|span|h[1-6]|li)[^>]*>\s*(?:\\[\s\\]*)+\s*<\/\1>/gi, '');
+        val = val.replace(/^[ \t\r\n]*(?:\\[ \t\\]*)+[ \t\r\n]*$/gm, '');
+        val = val.replace(/(^|[\s>])\\+([a-zA-Z0-9]+)\./gm, '$1$2.');
+        val = val.replace(/\\+([.,:;!?%])/g, '$1');
+        val = val.replace(/([.,:;!?%])\\+/g, '$1');
+        val = val.replace(/\\+\s*(?=<\/(?:p|h[1-6]|td|th|li|div|span|strong|b|em|i)>|$|\r|\n)/gi, '');
+
+        val = val.split(/(<[^>]+>)/).map(function(part) {
+            return (part && part[0] !== '<') ? part.replace(/\\+/g, '') : part;
+        }).join('');
+
+        return val.trim();
+    }
+
+    $('#pasteArea').on('paste', function() {
+        setTimeout(function() {
+            var el = $('#pasteArea');
+            el.val(cleanModulInput(el.val()));
+        }, 50);
+    });
+
+    $('#pasteStep form').on('submit', function() {
+        var el = $('#pasteArea');
+        el.val(cleanModulInput(el.val()));
     });
 
     // Upload PDF modal trigger

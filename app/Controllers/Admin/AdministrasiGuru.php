@@ -1625,7 +1625,8 @@ class AdministrasiGuru extends BaseController
             . "ATURAN TAMBAHAN (KETAT & MUTLAK):\n"
             . "1. FORMAT JUDUL BAGIAN: Gunakan tag <h3> dengan format LANGSUNG huruf dan judul saja, TANPA kata 'Bagian'. Contoh: <h3>B. Kompetensi Awal</h3>.\n"
             . "2. JANGAN MENGHASILKAN bagian Tanda Tangan (L, M, dst) karena sistem pencetak otomatis telah menyediakan kolom tanda tangan resmi di bawah modul.\n"
-            . "3. KEMBALIKAN HANYA PURE HTML (tanpa markdown, tanpa code block ```html).\n\n"
+            . "3. KEMBALIKAN HANYA PURE HTML (tanpa markdown, tanpa code block ```html).\n"
+            . "4. DILARANG MENGGUNAKAN TANDA BACKSLASH (\\) DALAM BENTUK APAPUN: dilarang rumus LaTeX (\\( \\), \\div, \\times, \\%), dilarang escape penomoran (\\d., \\e.), dilarang backslash di akhir kalimat/baris/sel tabel (Bobot\\, Nilai\\).\n\n"
             . "DATA INPUT:\n"
             . "Sekolah: " . ($school['name'] ?? '-') . "\n"
             . "Penyusun: " . ($teacher['name'] ?? '-') . "\n"
@@ -2117,7 +2118,8 @@ class AdministrasiGuru extends BaseController
                 . "ATURAN TAMBAHAN (KETAT & MUTLAK):\n"
                 . "1. FORMAT JUDUL BAGIAN: Gunakan tag <h3> dengan format LANGSUNG huruf dan judul saja, TANPA kata 'Bagian'. Contoh: <h3>B. Kompetensi Awal</h3>.\n"
                 . "2. JANGAN MENGHASILKAN bagian Tanda Tangan (L, M, dst) karena sistem pencetak otomatis telah menyediakan kolom tanda tangan resmi di bawah modul.\n"
-                . "3. KEMBALIKAN HANYA PURE HTML (tanpa markdown, tanpa code block ```html).\n\n"
+                . "3. KEMBALIKAN HANYA PURE HTML (tanpa markdown, tanpa code block ```html).\n"
+                . "4. DILARANG MENGGUNAKAN TANDA BACKSLASH (\\) DALAM BENTUK APAPUN: dilarang rumus LaTeX (\\( \\), \\div, \\times, \\%), dilarang escape penomoran (\\d., \\e.), dilarang backslash di akhir kalimat/baris/sel tabel (Bobot\\, Nilai\\).\n\n"
                 . "DATA INPUT:\n"
                 . "Sekolah: " . ($school['name'] ?? '-') . "\n"
                 . "Penyusun: " . ($teacher['name'] ?? '-') . "\n"
@@ -2129,22 +2131,64 @@ class AdministrasiGuru extends BaseController
                 . "TP:\n" . $tpDeskripsi . "\n\n"
                 . "KEMBALIKAN HANYA PURE HTML (TANPA MARKDOWN). Pastikan seluruh bagian A sampai K dan seluruh pertemuan selesai tuntas sempurna.";
 
+        $response = null;
+        $httpCode = 0;
+        $curlError = '';
+
         if ($aiProvider === 'groq') {
             $url = 'https://api.groq.com/openai/v1/chat/completions';
-            $payload = json_encode([
-                "model" => "llama-3.1-8b-instant",
-                "messages" => [
-                    ["role" => "user", "content" => $prompt]
-                ],
-                "temperature" => 0.7,
-                "max_tokens" => 8192
-            ]);
             $headers = [
                 'Authorization: Bearer ' . $apiKey,
                 'Content-Type: application/json'
             ];
+            // Prioritas model: openai/gpt-oss-120b (mesin OpenAI di Groq), lalu llama-3.1-8b-instant, lalu llama-3.3-70b-versatile
+            $groqModels = ['openai/gpt-oss-120b', 'llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
+
+            foreach ($groqModels as $model) {
+                $payload = json_encode([
+                    "model" => $model,
+                    "messages" => [
+                        ["role" => "user", "content" => $prompt]
+                    ],
+                    "temperature" => 0.7,
+                    "max_tokens" => 8192
+                ]);
+
+                $attempt = 0;
+                while ($attempt < 2) {
+                    $attempt++;
+                    $ch = curl_init($url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+                    $response = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    $curlError = curl_error($ch);
+                    curl_close($ch);
+
+                    if ($httpCode === 200) {
+                        break 2; // Sukses, keluar dari perulangan model
+                    }
+
+                    // Jika 400 atau 404 (model tidak didukung/tidak ada akses di akun ini), coba model berikutnya
+                    if (in_array($httpCode, [400, 404])) {
+                        break;
+                    }
+
+                    if ($httpCode === 429 || $httpCode === 503) {
+                        sleep(2);
+                    } else {
+                        break;
+                    }
+                }
+            }
         } else {
-            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' . $apiKey;
+            // Gemini (dengan fallback model)
+            $geminiModels = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
+            $headers = ['Content-Type: application/json'];
             $payload = json_encode([
                 "contents" => [
                     ["parts" => [["text" => $prompt]]]
@@ -2154,36 +2198,38 @@ class AdministrasiGuru extends BaseController
                     "temperature" => 0.7
                 ]
             ]);
-            $headers = ['Content-Type: application/json'];
-        }
 
-        $maxRetries = 3;
-        $attempt = 0;
-        $response = null;
-        $httpCode = 0;
-        $curlError = '';
+            foreach ($geminiModels as $gModel) {
+                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$gModel}:generateContent?key=" . $apiKey;
+                $attempt = 0;
+                while ($attempt < 2) {
+                    $attempt++;
+                    $ch = curl_init($url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+                    $response = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    $curlError = curl_error($ch);
+                    curl_close($ch);
 
-        while ($attempt < $maxRetries) {
-            $attempt++;
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 120);
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlError = curl_error($ch);
-            curl_close($ch);
+                    if ($httpCode === 200) {
+                        break 2;
+                    }
 
-            // Jika sukses atau bukan transient error (503 overload / 429 rate limit), jangan retry
-            if ($httpCode === 200 || !in_array($httpCode, [503, 429])) {
-                break;
-            }
+                    if (in_array($httpCode, [400, 404])) {
+                        break;
+                    }
 
-            if ($attempt < $maxRetries) {
-                sleep(2); // Jeda 2 detik sebelum mencoba lagi
+                    if ($httpCode === 429 || $httpCode === 503) {
+                        sleep(2);
+                    } else {
+                        break;
+                    }
+                }
             }
         }
 
@@ -2368,6 +2414,7 @@ class AdministrasiGuru extends BaseController
         }
 
         $content = preg_replace('/```(?:html)?(.*?)```/s', '$1', $content);
+        $content = $this->cleanBackslashesAndLatex($content);
         $waktuMeaningful = max(10, $menitPerPertemuan - 25) . " menit";
 
         if (class_exists('DOMDocument')) {
@@ -2500,6 +2547,77 @@ class AdministrasiGuru extends BaseController
         if (!preg_match('/<h3>\s*K\./i', $content) && stripos($content, 'Penilaian / Asesmen') === false) {
             $content .= "\n\n<h3>K. Penilaian / Asesmen</h3>\n<p>Penilaian proses dilaksanakan melalui observasi keaktifan diskusi, pemahaman konsep, dan kolaborasi kelompok. Penilaian hasil dilaksanakan melalui tes tertulis (pemahaman konsep) dan penilaian produk/proyek untuk mengukur ketercapaian Tujuan Pembelajaran.</p>";
         }
+
+        return trim($this->cleanBackslashesAndLatex($content));
+    }
+
+    /**
+     * Membersihkan tanda backslash (\), LaTeX math artifacts, dan escape markdown yang tidak diinginkan
+     */
+    protected function cleanBackslashesAndLatex(string $content): string
+    {
+        if (trim($content) === '') {
+            return $content;
+        }
+
+        // 1. Lindungi blok <style> dan <script>
+        $placeholders = [];
+        $content = preg_replace_callback('/<(style|script)[^>]*>.*?<\/\\1>/is', function ($matches) use (&$placeholders) {
+            $key = '___PROTECTED_BLOCK_' . count($placeholders) . '___';
+            $placeholders[$key] = $matches[0];
+            return $key;
+        }, $content);
+
+        // 2. Konversi simbol matematika LaTeX umum menjadi simbol Unicode murni
+        $content = str_replace(
+            ['\div', '\times', '\pm', '\le', '\leq', '\ge', '\geq', '\cdot', '\approx', '\neq', '\ne', '\infty', '\degree', '^\circ'],
+            ['÷',    '×',      '±',   '≤',   '≤',    '≥',   '≥',    '·',     '≈',       '≠',    '≠',   '∞',      '°',       '°'],
+            $content
+        );
+
+        // 3. Konversi kurung dan pembatas LaTeX
+        $content = str_replace(
+            ['\(', '\)', '\[', '\]', '\{', '\}', '\%'],
+            ['(', ')', '[', ']', '{', '}', '%'],
+            $content
+        );
+
+        // 4. Hapus elemen/baris yang hanya berisi backslash atau rentetan backslash (seperti \ \\\\\\\\ \ \\\\\\ \ \)
+        $content = preg_replace('/<(p|div|span|h[1-6]|li)[^>]*>\s*(?:\\\\[\s\\\\]*)+\s*<\/\1>/iu', '', $content);
+        $content = preg_replace('/^[ \t\r\n]*(?:\\\\[ \t\\\\]*)+[ \t\r\n]*$/m', '', $content);
+
+        // 5. Bersihkan backslash di awal penomoran atau huruf list: \d., \e., \1., \A.
+        $content = preg_replace('/(^|[\s>])\\\+([a-zA-Z0-9]+)\./um', '$1$2.', $content);
+
+        // 6. Bersihkan backslash sebelum atau sesudah tanda baca umum: \., \:, \,, \(, \)
+        $content = preg_replace('/\\\+([.,:;!?%])/u', '$1', $content);
+        $content = preg_replace('/([.,:;!?%])\\\+/u', '$1', $content);
+
+        // 7. Bersihkan backslash di akhir tag, sel tabel, heading, atau akhir baris
+        $content = preg_replace('/\\\+\s*(?=<\/(?:p|h[1-6]|td|th|li|div|span|strong|b|em|i)>|$|\r|\n)/iu', '', $content);
+
+        // 8. Bersihkan backslash sebelum atau sesudah tag HTML
+        $content = preg_replace('/(<br\s*\/?>)\s*\\\+/iu', '$1', $content);
+        $content = preg_replace('/\\\+\s*(<br\s*\/?>)/iu', '$1', $content);
+        $content = preg_replace('/(<\/?(?:b|strong|em|i|span|p|div|td|th)>)\s*\\\+/iu', '$1', $content);
+        $content = preg_replace('/\\\+\s*(<\/?(?:b|strong|em|i|span|p|div|td|th)>)/iu', '$1', $content);
+
+        // 9. Bersihkan sisa backslash di luar tag HTML (teks biasa)
+        $parts = preg_split('/(<[^>]+>)/u', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
+        for ($i = 0; $i < count($parts); $i++) {
+            if (!empty($parts[$i]) && $parts[$i][0] !== '<') {
+                $parts[$i] = str_replace('\\', '', $parts[$i]);
+            }
+        }
+        $content = implode('', $parts);
+
+        // 10. Kembalikan blok yang dilindungi (<style>, <script>)
+        if (!empty($placeholders)) {
+            $content = strtr($content, $placeholders);
+        }
+
+        // Rapikan baris kosong berlebih
+        $content = preg_replace('/(?:\r?\n){3,}/', "\n\n", $content);
 
         return trim($content);
     }
@@ -3256,44 +3374,85 @@ class AdministrasiGuru extends BaseController
             . "- KEMBALIKAN HANYA JSON ARRAY MURNI, tanpa backtick, tanpa markdown";
 
         // Call AI
-        if ($aiProvider === 'groq') {
-            $url = 'https://api.groq.com/openai/v1/chat/completions';
-            $payload = json_encode([
-                "model" => "llama-3.1-8b-instant",
-                "messages" => [["role" => "user", "content" => $prompt]],
-                "temperature" => 0.7
-            ]);
-            $headers = ['Authorization: Bearer ' . $apiKey, 'Content-Type: application/json'];
-        } else {
-            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' . $apiKey;
-            $payload = json_encode(["contents" => [["parts" => [["text" => $prompt]]]]]);
-            $headers = ['Content-Type: application/json'];
-        }
-
-        $maxRetries = 3;
-        $attempt = 0;
         $response = null;
         $httpCode = 0;
 
-        while ($attempt < $maxRetries) {
-            $attempt++;
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 90);
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
+        if ($aiProvider === 'groq') {
+            $url = 'https://api.groq.com/openai/v1/chat/completions';
+            $headers = ['Authorization: Bearer ' . $apiKey, 'Content-Type: application/json'];
+            $groqModels = ['openai/gpt-oss-120b', 'llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
 
-            if ($httpCode === 200 || !in_array($httpCode, [503, 429])) {
-                break;
+            foreach ($groqModels as $model) {
+                $payload = json_encode([
+                    "model" => $model,
+                    "messages" => [["role" => "user", "content" => $prompt]],
+                    "temperature" => 0.7
+                ]);
+
+                $attempt = 0;
+                while ($attempt < 2) {
+                    $attempt++;
+                    $ch = curl_init($url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 90);
+                    $response = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    curl_close($ch);
+
+                    if ($httpCode === 200) {
+                        break 2;
+                    }
+
+                    if (in_array($httpCode, [400, 404])) {
+                        break;
+                    }
+
+                    if ($httpCode === 429 || $httpCode === 503) {
+                        sleep(2);
+                    } else {
+                        break;
+                    }
+                }
             }
+        } else {
+            $geminiModels = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
+            $headers = ['Content-Type: application/json'];
+            $payload = json_encode(["contents" => [["parts" => [["text" => $prompt]]]]]);
 
-            if ($attempt < $maxRetries) {
-                sleep(2);
+            foreach ($geminiModels as $gModel) {
+                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$gModel}:generateContent?key=" . $apiKey;
+                $attempt = 0;
+                while ($attempt < 2) {
+                    $attempt++;
+                    $ch = curl_init($url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 90);
+                    $response = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    curl_close($ch);
+
+                    if ($httpCode === 200) {
+                        break 2;
+                    }
+
+                    if (in_array($httpCode, [400, 404])) {
+                        break;
+                    }
+
+                    if ($httpCode === 429 || $httpCode === 503) {
+                        sleep(2);
+                    } else {
+                        break;
+                    }
+                }
             }
         }
 

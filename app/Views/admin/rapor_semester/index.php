@@ -63,12 +63,61 @@
       <?php endif; ?>
     </div>
   <?php else: ?>
+    <?php if (($roleId ?? 0) === 3 && count($classes) === 1):
+      $myCls   = $classes[0];
+      $myCid   = (int) $myCls['id'];
+      $mySt    = $classStats[$myCid] ?? ['students' => 0, 'subjects' => 0, 'notes' => 0, 'has_koku' => false];
+      $myFase  = ($myCls['level'] <= 2 ? 'Fase A' : ($myCls['level'] <= 4 ? 'Fase B' : ($myCls['level'] <= 6 ? 'Fase C' : ($myCls['level'] <= 8 ? 'Fase D' : ($myCls['level'] == 9 ? 'Fase E' : 'Fase F')))));
+    ?>
+      <!-- Banner Cepat Khusus Akun Wali Kelas -->
+      <div class="card border-0 shadow-sm mb-4" style="background: linear-gradient(135deg, #f8faff 0%, #eef4ff 100%); border-left: 5px solid #0d6efd !important;">
+        <div class="card-body p-4">
+          <div class="row align-items-center g-3">
+            <div class="col-lg-6">
+              <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <span class="badge bg-primary px-2 py-1"><i class="bi bi-person-badge me-1"></i> Kelas Binaan Anda</span>
+                <span class="badge bg-white text-primary border">Tingkat <?= esc($myCls['level']) ?> (<?= $myFase ?>)</span>
+                <span class="badge bg-info text-dark"><?= $mySt['students'] ?> Siswa Aktif</span>
+              </div>
+              <h3 class="fw-bold text-primary mb-2"><?= esc($myCls['name']) ?></h3>
+              <div class="d-flex flex-wrap gap-3 small text-muted">
+                <span>
+                  <i class="bi <?= $mySt['has_koku'] ? 'bi-check-circle-fill text-success' : 'bi-exclamation-circle text-warning' ?> me-1"></i>
+                  Kokurikuler: <strong><?= $mySt['has_koku'] ? 'Tersedia' : 'Belum Ada' ?></strong>
+                </span>
+                <span>
+                  <i class="bi <?= ($mySt['notes'] >= $mySt['students'] && $mySt['students'] > 0) ? 'bi-check-circle-fill text-success' : 'bi-pencil-square text-secondary' ?> me-1"></i>
+                  Catatan Wali Kelas: <strong><?= $mySt['notes'] ?> / <?= $mySt['students'] ?> Siswa</strong>
+                </span>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="d-flex flex-column flex-sm-row flex-lg-wrap justify-content-lg-end gap-2">
+                <a href="<?= site_url("admin/rapor-semester/kelas/{$myCls['id']}?semester={$selectedSemester}") ?>"
+                   class="btn btn-primary d-inline-flex align-items-center justify-content-center gap-1 shadow-sm">
+                  <i class="bi bi-folder2-open"></i> Kelola Catatan & Kenaikan
+                </a>
+                <a href="<?= site_url("admin/rapor-semester/print/{$myCls['id']}/{$selectedSemester}") ?>" target="_blank"
+                   class="btn btn-success d-inline-flex align-items-center justify-content-center gap-1 shadow-sm">
+                  <i class="bi bi-printer-fill"></i> Cetak Nilai Semester
+                </a>
+                <a href="<?= site_url("admin/rapor-semester/print-awal/{$myCls['id']}") ?>" target="_blank"
+                   class="btn btn-outline-primary bg-white d-inline-flex align-items-center justify-content-center gap-1 shadow-sm">
+                  <i class="bi bi-journal-album"></i> Cetak Kelengkapan Rapor
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    <?php endif; ?>
+
     <div class="card shadow-sm border-0 mb-4">
       <div class="card-header bg-white py-3">
         <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-mortarboard-fill me-2 text-primary"></i>Daftar Kelas – Tahun Pelajaran <?= esc($activeYear['year'] ?? '-') ?> (Semester <?= $selectedSemester == '1' ? '1 / Ganjil' : '2 / Genap' ?>)</h6>
       </div>
       <div class="card-body p-0">
-        <div class="table-responsive">
+        <div class="table-responsive" style="min-height: 200px;">
           <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
               <tr>
@@ -78,7 +127,7 @@
                 <th>Wali Kelas</th>
                 <th class="text-center" style="width:110px;">Siswa Aktif</th>
                 <th>Kesiapan Rapor</th>
-                <th class="text-center" style="min-width:260px;">Aksi</th>
+                <th class="text-center" style="min-width:240px;">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -110,21 +159,23 @@
                   <td class="text-center">
                     <div class="d-flex justify-content-center gap-1">
                       <a href="<?= site_url("admin/rapor-semester/kelas/{$cls['id']}?semester={$selectedSemester}") ?>"
-                         class="btn btn-sm btn-primary" title="Kelola Catatan & Kenaikan">
+                         class="btn btn-sm btn-primary text-nowrap" title="Kelola Catatan & Kenaikan">
                         📂 Kelola Kelas
                       </a>
                       <div class="btn-group">
-                        <button type="button" class="btn btn-sm btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <button type="button" class="btn btn-sm btn-success dropdown-toggle"
+                                data-bs-toggle="dropdown" aria-expanded="false"
+                                data-bs-popper-config='{"strategy":"fixed"}'>
                           🖨️ Cetak
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow">
+                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2" style="min-width: 280px; z-index: 1060;">
                           <li>
                             <a class="dropdown-item py-2" href="<?= site_url("admin/rapor-semester/print/{$cls['id']}/{$selectedSemester}") ?>" target="_blank">
                               <i class="bi bi-file-earmark-text text-success me-2"></i><strong>Cetak Nilai Semester</strong><br>
                               <small class="text-muted ps-4">Lembar 1 (Nilai) & Lembar 2 (Kokurikuler & Catatan)</small>
                             </a>
                           </li>
-                          <li><hr class="dropdown-divider"></li>
+                          <li><hr class="dropdown-divider my-1"></li>
                           <li>
                             <a class="dropdown-item py-2" href="<?= site_url("admin/rapor-semester/print-awal/{$cls['id']}") ?>" target="_blank">
                               <i class="bi bi-journal-album text-primary me-2"></i><strong>Cetak Kelengkapan Rapor</strong><br>

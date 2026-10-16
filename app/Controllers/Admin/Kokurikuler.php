@@ -580,56 +580,103 @@ class Kokurikuler extends BaseController
         }
 
         // Call AI API
-        if ($aiProvider === 'groq') {
-            $url = 'https://api.groq.com/openai/v1/chat/completions';
-            $payload = json_encode([
-                "model" => "llama-3.1-8b-instant",
-                "messages" => [
-                    ["role" => "user", "content" => $prompt]
-                ],
-                "temperature" => 0.7
-            ]);
-            $headers = [
-                'Authorization: Bearer ' . $apiKey,
-                'Content-Type: application/json'
-            ];
-        } else {
-            // Gemini
-            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' . $apiKey;
-            $payload = json_encode([
-                "contents" => [
-                    ["parts" => [["text" => $prompt]]]
-                ]
-            ]);
-            $headers = ['Content-Type: application/json'];
-        }
-
-        $maxRetries = 3;
-        $attempt = 0;
         $response = null;
         $httpCode = 0;
         $curlError = '';
 
-        while ($attempt < $maxRetries) {
-            $attempt++;
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 120);
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlError = curl_error($ch);
-            curl_close($ch);
+        if ($aiProvider === 'groq') {
+            $url = 'https://api.groq.com/openai/v1/chat/completions';
+            $headers = [
+                'Authorization: Bearer ' . $apiKey,
+                'Content-Type: application/json'
+            ];
+            $groqModels = ['openai/gpt-oss-120b', 'llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
 
-            if ($httpCode === 200 || !in_array($httpCode, [503, 429])) {
-                break;
+            foreach ($groqModels as $model) {
+                $payload = json_encode([
+                    "model" => $model,
+                    "messages" => [
+                        ["role" => "user", "content" => $prompt]
+                    ],
+                    "temperature" => 0.7,
+                    "max_tokens" => 8192
+                ]);
+
+                $attempt = 0;
+                while ($attempt < 2) {
+                    $attempt++;
+                    $ch = curl_init($url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+                    $response = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    $curlError = curl_error($ch);
+                    curl_close($ch);
+
+                    if ($httpCode === 200) {
+                        break 2;
+                    }
+
+                    if (in_array($httpCode, [400, 404])) {
+                        break;
+                    }
+
+                    if ($httpCode === 429 || $httpCode === 503) {
+                        sleep(2);
+                    } else {
+                        break;
+                    }
+                }
             }
+        } else {
+            // Gemini (dengan fallback model)
+            $geminiModels = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
+            $headers = ['Content-Type: application/json'];
+            $payload = json_encode([
+                "contents" => [
+                    ["parts" => [["text" => $prompt]]]
+                ],
+                "generationConfig" => [
+                    "maxOutputTokens" => 8192,
+                    "temperature" => 0.7
+                ]
+            ]);
 
-            if ($attempt < $maxRetries) {
-                sleep(2);
+            foreach ($geminiModels as $gModel) {
+                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$gModel}:generateContent?key=" . $apiKey;
+                $attempt = 0;
+                while ($attempt < 2) {
+                    $attempt++;
+                    $ch = curl_init($url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+                    $response = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    $curlError = curl_error($ch);
+                    curl_close($ch);
+
+                    if ($httpCode === 200) {
+                        break 2;
+                    }
+
+                    if (in_array($httpCode, [400, 404])) {
+                        break;
+                    }
+
+                    if ($httpCode === 429 || $httpCode === 503) {
+                        sleep(2);
+                    } else {
+                        break;
+                    }
+                }
             }
         }
 
