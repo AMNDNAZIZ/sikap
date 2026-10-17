@@ -497,7 +497,9 @@
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 welcome-content">
       <div class="min-w-0">
         <div class="d-flex align-items-center gap-2 mb-1">
-          <span class="badge bg-white bg-opacity-20 text-white rounded-pill px-2 py-0.5" style="font-size: 0.65rem; font-weight: 700; letter-spacing: 0.6px;">ADMINISTRATOR</span>
+          <span class="badge rounded-pill px-2.5 py-1" style="background: #ffffff !important; color: #1e40af !important; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); display: inline-flex; align-items: center; gap: 4px;">
+            <i class="bi bi-shield-lock-fill" style="color: #1e40af; font-size: 0.72rem;"></i> ADMINISTRATOR
+          </span>
         </div>
         <h2 class="welcome-title mb-0">Dashboard Admin</h2>
         <p class="welcome-subtitle text-truncate">Selamat datang kembali, <strong><?= esc($user['fullname'] ?? $user['username']) ?></strong>! 👋</p>
@@ -510,6 +512,35 @@
       </div>
     </div>
   </div>
+
+  <?php if (!empty($updateInfo['has_update'])): ?>
+    <!-- Alert Pembaruan Aplikasi Tersedia -->
+    <div class="alert border-0 shadow-sm d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3 text-white" 
+         style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); border-radius: 14px; padding: 1rem 1.25rem;">
+      <div class="d-flex align-items-center gap-3">
+        <div class="rounded-circle bg-white bg-opacity-25 p-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 44px; height: 44px;">
+          <i class="bi bi-cloud-arrow-down-fill fs-4 text-white"></i>
+        </div>
+        <div>
+          <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+            <span class="badge bg-danger rounded-pill px-2 py-0.5 update-pulse" style="font-size:0.65rem;">UPDATE BARU</span>
+            <strong class="fs-6">Versi <?= esc($updateInfo['remote_version']) ?> Siap Diinstal!</strong>
+            <?php if (!empty($updateInfo['release_date'])): ?>
+              <span class="badge bg-white bg-opacity-20 text-white rounded-pill px-2 py-0.5" style="font-size:0.65rem;">Rilis: <?= esc(substr($updateInfo['release_date'], 0, 10)) ?></span>
+            <?php endif; ?>
+          </div>
+          <p class="mb-0 small text-white text-opacity-90">
+            Aplikasi Anda saat ini berjalan pada versi <code>v<?= esc($updateInfo['current_version']) ?></code>. Terapkan pembaruan sekarang untuk mendapatkan fitur terbaru dan peningkatan performa.
+          </p>
+        </div>
+      </div>
+      <div>
+        <a href="<?= base_url('admin/updater') ?>" class="btn btn-light text-primary fw-bold btn-sm px-3 py-2 shadow-sm rounded-3">
+          <i class="bi bi-arrow-repeat me-1"></i> Buka Pembaruan Sistem
+        </a>
+      </div>
+    </div>
+  <?php endif; ?>
 
   <!-- Quick Stats Row -->
   <div class="row g-2 g-md-3 mb-3 mb-md-4">
@@ -632,60 +663,113 @@
         </div>
         <div class="card-body p-4">
           <div class="row g-4">
-            <div class="col-md-6">
-              <h6 class="fw-bold mb-3 text-dark">
-                <i class="bi bi-server me-2 text-success"></i>Status Server
+            <!-- Kolom Kiri: Status Server & Lingkungan Sistem -->
+            <div class="col-md-6 border-end">
+              <h6 class="fw-bold mb-3 text-dark d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-hdd-network me-2 text-primary"></i>Kondisi Server & Database</span>
+                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2.5 py-1" style="font-size: 0.7rem;">
+                  <i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i> Optimal
+                </span>
               </h6>
-              <div class="d-flex align-items-center mb-3">
-                <div class="me-3">
-                  <div class="rounded-circle bg-success bg-opacity-10 text-success d-flex align-items-center justify-content-center" 
-                       style="width: 40px; height: 40px;">
-                    <i class="bi bi-check-circle-fill"></i>
+              
+              <!-- Web Server & PHP -->
+              <div class="p-2.5 rounded-3 bg-light bg-opacity-60 mb-2.5 border border-light">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center" style="width: 34px; height: 34px;">
+                      <i class="bi bi-cpu fs-6"></i>
+                    </div>
+                    <div>
+                      <div class="fw-bold small text-dark">Engine & Web Server</div>
+                      <small class="text-muted" style="font-size: 0.72rem;"><?= esc($systemStatus['server_soft'] ?? 'Apache/PHP') ?></small>
+                    </div>
                   </div>
+                  <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill font-monospace" style="font-size: 0.7rem;">PHP <?= esc($systemStatus['php_version'] ?? PHP_VERSION) ?></span>
                 </div>
-                <div>
-                  <div class="fw-bold">Online</div>
-                  <small class="text-muted">Sistem berjalan normal</small>
+                <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-light-subtle small text-muted" style="font-size: 0.75rem;">
+                  <span>Memory RAM Terpakai:</span>
+                  <span class="fw-semibold text-dark"><?= esc($systemStatus['memory_usage'] ?? '-') ?> <span class="text-muted fw-normal">/ <?= esc($systemStatus['memory_limit'] ?? '-') ?></span></span>
                 </div>
               </div>
-              
-              <div class="d-flex align-items-center">
-                <div class="me-3">
-                  <div class="rounded-circle bg-info bg-opacity-10 text-info d-flex align-items-center justify-content-center" 
-                       style="width: 40px; height: 40px;">
-                    <i class="bi bi-database"></i>
+
+              <!-- Database -->
+              <div class="p-2.5 rounded-3 bg-light bg-opacity-60 mb-2.5 border border-light">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-info bg-opacity-10 text-info d-flex align-items-center justify-content-center" style="width: 34px; height: 34px;">
+                      <i class="bi bi-database-check fs-6"></i>
+                    </div>
+                    <div>
+                      <div class="fw-bold small text-dark">Database Server</div>
+                      <small class="text-muted" style="font-size: 0.72rem;"><?= esc($systemStatus['db_version'] ?? 'MariaDB/MySQL') ?></small>
+                    </div>
                   </div>
+                  <span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size: 0.7rem;">
+                    <i class="bi bi-check2 me-1"></i><?= esc($systemStatus['db_status'] ?? 'Terhubung') ?>
+                  </span>
                 </div>
-                <div>
-                  <div class="fw-bold">Database</div>
-                  <small class="text-muted">Koneksi stabil</small>
+                <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-light-subtle small text-muted" style="font-size: 0.75rem;">
+                  <span>Ukuran Basis Data:</span>
+                  <span class="fw-semibold text-dark"><?= esc($systemStatus['db_size'] ?? '-') ?></span>
                 </div>
+              </div>
+
+              <!-- Disk Storage -->
+              <div class="d-flex align-items-center justify-content-between px-2 pt-1 small text-muted" style="font-size: 0.75rem;">
+                <span><i class="bi bi-hdd me-1"></i>Ruang Disk Server Bebas:</span>
+                <span class="fw-bold text-dark"><?= esc($systemStatus['free_disk'] ?? '-') ?></span>
               </div>
             </div>
             
+            <!-- Kolom Kanan: Aktivitas Sistem & Pengguna Real-Time -->
             <div class="col-md-6">
-              <h6 class="fw-bold mb-3 text-dark">
-                <i class="bi bi-activity me-2 text-info"></i>Aktivitas Terkini
+              <h6 class="fw-bold mb-3 text-dark d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-activity me-2 text-info"></i>Aktivitas Nyata Pengguna</span>
+                <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2.5 py-1" style="font-size: 0.7rem;">
+                  <i class="bi bi-lightning-charge me-1"></i> Real-time
+                </span>
               </h6>
-              <div class="list-group list-group-flush">
-                <div class="list-group-item border-0 px-0 py-2">
-                  <div class="d-flex justify-content-between">
-                    <small class="text-muted">Login terakhir</small>
-                    <small class="fw-semibold"><?= date('H:i') ?></small>
+
+              <!-- 2 Stat mini: Sesi Aktif & Transaksi Hari Ini -->
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <div class="p-2.5 rounded-3 bg-light bg-opacity-70 border border-light text-center">
+                    <div class="fw-bold fs-5 text-primary mb-0" id="dashOnlineUsers"><?= (int)($systemActivity['online_users'] ?? 1) ?></div>
+                    <small class="text-muted" style="font-size: 0.72rem;">Sesi Pengguna Aktif</small>
                   </div>
                 </div>
-                <div class="list-group-item border-0 px-0 py-2">
-                  <div class="d-flex justify-content-between">
-                    <small class="text-muted">Pengguna online</small>
-                    <small class="fw-semibold"><?= rand(5, 20) ?></small>
+                <div class="col-6">
+                  <div class="p-2.5 rounded-3 bg-light bg-opacity-70 border border-light text-center">
+                    <div class="fw-bold fs-5 text-success mb-0"><?= number_format((int)($systemActivity['today_requests'] ?? 0)) ?></div>
+                    <small class="text-muted" style="font-size: 0.72rem;">Operasi Data Hari Ini</small>
                   </div>
                 </div>
-                <div class="list-group-item border-0 px-0 py-2">
-                  <div class="d-flex justify-content-between">
-                    <small class="text-muted">Permintaan hari ini</small>
-                    <small class="fw-semibold"><?= rand(100, 500) ?></small>
+              </div>
+
+              <!-- Feed Aktivitas Nyata Terakhir -->
+              <div class="small fw-semibold text-muted mb-1 d-flex align-items-center justify-content-between" style="font-size: 0.75rem;">
+                <span><i class="bi bi-clock-history me-1"></i>Riwayat Log Audit Terakhir:</span>
+                <span class="text-muted fw-normal" style="font-size: 0.7rem;">Login Anda: <?= esc($systemActivity['last_login'] ?? date('H:i')) ?></span>
+              </div>
+              
+              <div class="list-group list-group-flush border rounded-3 bg-white" style="font-size: 0.78rem;">
+                <?php if (!empty($systemActivity['recent_activities'])): ?>
+                  <?php foreach ($systemActivity['recent_activities'] as $act): ?>
+                    <div class="list-group-item py-2 px-3 border-light d-flex align-items-center justify-content-between">
+                      <div class="d-flex align-items-center gap-2 overflow-hidden me-2">
+                        <i class="bi bi-dot text-primary fs-5 lh-1"></i>
+                        <span class="fw-semibold text-dark text-truncate" style="max-width: 140px;"><?= esc($act['actor']) ?></span>
+                        <span class="text-muted text-truncate"><?= esc($act['action']) ?></span>
+                      </div>
+                      <span class="text-muted flex-shrink-0 font-monospace" style="font-size: 0.7rem;"><?= esc($act['time']) ?></span>
+                    </div>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <div class="list-group-item py-3 px-3 border-0 text-center text-muted">
+                    <i class="bi bi-shield-check text-success d-block mb-1 fs-5"></i>
+                    Belum ada riwayat audit terbaru hari ini
                   </div>
-                </div>
+                <?php endif; ?>
               </div>
             </div>
           </div>
@@ -1211,6 +1295,13 @@
                     <div class="flex-grow-1 ms-3">
                       <h6 class="mb-1 fw-bold"><?= esc($notification['title']) ?></h6>
                       <p class="mb-0 small text-muted"><?= esc($notification['message']) ?></p>
+                      <?php if (!empty($notification['url'])): ?>
+                        <div class="mt-2">
+                          <a href="<?= esc($notification['url']) ?>" class="btn btn-sm btn-<?= $color ?> py-1 px-3 text-white" style="font-size: 0.78rem;">
+                            <i class="bi bi-box-arrow-up-right me-1"></i> Buka Sekarang
+                          </a>
+                        </div>
+                      <?php endif; ?>
                     </div>
                   </div>
                 </div>
@@ -1339,6 +1430,7 @@ $(function() {
     $('#btnRefreshSession').prop('disabled', true).find('i').addClass('spin');
     $.getJSON(sessionInfoUrl, function(d) {
       $('#statActive').text(d.active);
+      $('#dashOnlineUsers').text(d.active);
       $('#statExpired').text(d.expired);
       $('#statSize').text(d.size_label);
       const pct = d.total > 0 ? Math.round((d.expired / d.total) * 100) : 0;

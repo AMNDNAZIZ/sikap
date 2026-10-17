@@ -29,6 +29,10 @@
     $inKomunikasi  = url_is('admin/announcements*') || url_is('admin/chat*') || url_is('admin/staff-chat*');
     $inCms         = url_is('admin/cms*') || url_is('admin/changelogs*');
     $inSistem      = url_is('admin/users*') || url_is('admin/audit-logs*') || url_is('admin/role-permission*') || url_is('profile*') || url_is('admin/updater*') || url_is('admin/settings/session*') || url_is('admin/settings/payment*');
+
+    // Cek pembaruan sistem (cached 6 jam)
+    $appUpdateInfo = \App\Libraries\UpdateChecker::check();
+    $hasAppUpdate  = !empty($appUpdateInfo['has_update']);
     ?>
 
     <!-- ══ DATA MASTER & KESISWAAN ══ -->
@@ -351,7 +355,10 @@
       <a class="nav-link d-flex align-items-center" data-bs-toggle="collapse" href="#menuAkun"
         role="button" aria-expanded="<?= $inSistem ? 'true' : 'false' ?>" title="Akun & Sistem">
         <i class="bi bi-gear-wide-connected"></i> <span class="label">Akun &amp; Sistem</span>
-        <i class="bi bi-chevron-down chevron label ms-auto"></i>
+        <?php if ($hasAppUpdate): ?>
+          <span class="badge rounded-pill bg-danger ms-auto me-1 px-1 update-pulse" style="font-size:0.62rem;">UPDATE</span>
+        <?php endif; ?>
+        <i class="bi bi-chevron-down chevron label <?= $hasAppUpdate ? '' : 'ms-auto' ?>"></i>
       </a>
       <div class="collapse <?= $inSistem ? 'show' : '' ?>" id="menuAkun">
         <ul class="nav flex-column ms-3">
@@ -363,7 +370,14 @@
           <?php if (is_school_swasta()): ?>
           <li><a class="nav-link <?= url_is('admin/settings/payment*') ? 'active' : '' ?>" href="<?= base_url('admin/settings/payment') ?>"><i class="bi bi-credit-card me-1"></i> <span class="label">Integrasi Pembayaran</span></a></li>
           <?php endif; ?>
-          <li><a class="nav-link <?= url_is('admin/updater*') ? 'active' : '' ?>" href="<?= base_url('admin/updater') ?>"><i class="bi bi-arrow-repeat me-1"></i> <span class="label">Pembaruan Sistem</span></a></li>
+          <li>
+            <a class="nav-link d-flex align-items-center justify-content-between <?= url_is('admin/updater*') ? 'active' : '' ?>" href="<?= base_url('admin/updater') ?>">
+              <span><i class="bi bi-arrow-repeat me-1"></i> <span class="label">Pembaruan Sistem</span></span>
+              <?php if ($hasAppUpdate): ?>
+                <span class="badge bg-danger ms-1 update-pulse" style="font-size:0.65rem;">v<?= esc($appUpdateInfo['remote_version']) ?></span>
+              <?php endif; ?>
+            </a>
+          </li>
         </ul>
       </div>
     </li>

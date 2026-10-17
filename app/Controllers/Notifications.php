@@ -62,9 +62,10 @@ class Notifications extends BaseController
 
         // Tambahkan metadata icon & color agar frontend tidak perlu tahu logika ini
         foreach ($items as &$n) {
-            $n['icon']  = NotificationModel::getIcon($n['type']);
-            $n['color'] = NotificationModel::getColor($n['type']);
-            $n['label'] = NotificationModel::getLabel($n['type']);
+            $relType    = $n['related_type'] ?? null;
+            $n['icon']  = NotificationModel::getIcon($n['type'], $relType);
+            $n['color'] = NotificationModel::getColor($n['type'], $relType);
+            $n['label'] = NotificationModel::getLabel($n['type'], $relType);
             $n['time_ago'] = $this->timeAgo($n['created_at']);
         }
         unset($n);
@@ -87,9 +88,10 @@ class Notifications extends BaseController
 
         // Tambahkan metadata
         foreach ($items as &$n) {
-            $n['icon']     = NotificationModel::getIcon($n['type']);
-            $n['color']    = NotificationModel::getColor($n['type']);
-            $n['label']    = NotificationModel::getLabel($n['type']);
+            $relType       = $n['related_type'] ?? null;
+            $n['icon']     = NotificationModel::getIcon($n['type'], $relType);
+            $n['color']    = NotificationModel::getColor($n['type'], $relType);
+            $n['label']    = NotificationModel::getLabel($n['type'], $relType);
             $n['time_ago'] = $this->timeAgo($n['created_at']);
         }
         unset($n);
@@ -124,7 +126,8 @@ class Notifications extends BaseController
 
         if ($notif && (int) $notif['user_id'] === $uid) {
             $this->notifModel->markRead($id, $uid);
-            $targetUrl = $notif['url'] ?? null;
+            $redirectParam = $this->request->getGet('redirect');
+            $targetUrl = !empty($redirectParam) ? $redirectParam : ($notif['url'] ?? null);
         } else {
             $targetUrl = null;
         }

@@ -55,6 +55,25 @@ class CounselingSummon extends BaseController
         ];
 
         $this->summonModel->insert($data);
+        $insertId = $this->summonModel->getInsertID();
+
+        // Notifikasi ke Siswa dan Orang Tua
+        try {
+            helper('notification');
+            $summonDate = !empty($data['summon_date']) ? date('d M Y', strtotime($data['summon_date'])) : '-';
+            notify_student_and_parents(
+                (int) $data['student_id'],
+                'info',
+                'Surat Panggilan BK (' . $data['level'] . ')',
+                "Jadwal: {$summonDate} · Alasan: {$data['reason']}",
+                base_url('siswa/counseling'),
+                'bk_summon',
+                $insertId ?: null
+            );
+        } catch (\Throwable $e) {
+            log_message('error', '[CounselingSummon::store] Gagal kirim notif: ' . $e->getMessage());
+        }
+
         return redirect()->to(base_url('admin/counseling-summon'))->with('success', 'Surat panggilan berhasil dibuat.');
     }
 

@@ -139,6 +139,23 @@ class SuratMasuk extends BaseController
             return redirect()->back()->withInput()->with('error', 'Gagal menyimpan surat masuk.');
         }
 
+        // Notifikasi ke Kepala Sekolah (2) dan Administrator (1)
+        try {
+            helper('notification');
+            $sender = $data['sender_name'] . (!empty($data['sender_agency']) ? ' (' . $data['sender_agency'] . ')' : '');
+            notify_by_role(
+                [1, 2], // Admin & Kepala Sekolah
+                'info',
+                'Surat Masuk: ' . $data['subject'],
+                "Pengirim: {$sender} · Diterima: " . date('d M Y', strtotime($data['received_at'])),
+                base_url('admin/surat-masuk/detail/' . $id),
+                'surat_masuk',
+                (int) $id
+            );
+        } catch (\Throwable $e) {
+            log_message('error', '[SuratMasuk::store] Gagal kirim notif: ' . $e->getMessage());
+        }
+
         return redirect()->to(base_url('admin/surat-masuk'))
                          ->with('success', 'Surat masuk berhasil dicatat.');
     }

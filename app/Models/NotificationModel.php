@@ -122,48 +122,75 @@ class NotificationModel extends Model
         return $this->where('created_at <', $cutoff)->delete();
     }
 
-    // ─── Ikon Bootstrap Icons berdasarkan type ────────────────────────────
-    public static function getIcon(string $type): string
+    // ─── Ikon Bootstrap Icons berdasarkan type & relatedType ──────────────
+    public static function getIcon(string $type, ?string $relatedType = null): string
     {
-        return match ($type) {
-            'tugas_baru'     => 'bi-journal-text',
-            'pengumuman_baru'=> 'bi-megaphone',
-            'nilai_masuk'    => 'bi-award',
-            'agenda_baru'    => 'bi-calendar-event',
-            'tugas_dinilai'  => 'bi-check2-circle',
-            'cbt_dibuka'     => 'bi-clipboard2-check',
-            'materi_baru'    => 'bi-book',
-            default          => 'bi-bell',
+        return match ($relatedType) {
+            'system_update'    => 'bi-cloud-arrow-down-fill',
+            'bk_summon'        => 'bi-exclamation-octagon-fill',
+            'bk_appointment'   => 'bi-calendar2-check-fill',
+            'tugas_submission' => 'bi-file-earmark-check-fill',
+            'surat_masuk'      => 'bi-envelope-paper-fill',
+            'erapor'           => 'bi-journal-check',
+            'cbt'              => 'bi-clipboard2-check',
+            default            => match ($type) {
+                'tugas_baru'     => 'bi-journal-text',
+                'pengumuman_baru'=> 'bi-megaphone',
+                'nilai_masuk'    => 'bi-award',
+                'agenda_baru'    => 'bi-calendar-event',
+                'tugas_dinilai'  => 'bi-check2-circle',
+                'cbt_dibuka'     => 'bi-clipboard2-check',
+                'materi_baru'    => 'bi-book',
+                default          => 'bi-bell',
+            },
         };
     }
 
-    // ─── Warna badge berdasarkan type ─────────────────────────────────────
-    public static function getColor(string $type): string
+    // ─── Warna badge berdasarkan type & relatedType ───────────────────────
+    public static function getColor(string $type, ?string $relatedType = null): string
     {
-        return match ($type) {
-            'tugas_baru'     => 'primary',
-            'pengumuman_baru'=> 'warning',
-            'nilai_masuk'    => 'success',
-            'agenda_baru'    => 'info',
-            'tugas_dinilai'  => 'success',
-            'cbt_dibuka'     => 'danger',
-            'materi_baru'    => 'secondary',
-            default          => 'secondary',
+        return match ($relatedType) {
+            'system_update'    => 'primary',
+            'bk_summon'        => 'danger',
+            'bk_appointment'   => 'primary',
+            'tugas_submission' => 'info',
+            'surat_masuk'      => 'info',
+            'erapor'           => 'success',
+            'cbt'              => 'danger',
+            default            => match ($type) {
+                'tugas_baru'     => 'primary',
+                'pengumuman_baru'=> 'warning',
+                'nilai_masuk'    => 'success',
+                'agenda_baru'    => 'info',
+                'tugas_dinilai'  => 'success',
+                'cbt_dibuka'     => 'danger',
+                'materi_baru'    => 'secondary',
+                default          => 'secondary',
+            },
         };
     }
 
     // ─── Label tipe notifikasi (Indonesia) ───────────────────────────────
-    public static function getLabel(string $type): string
+    public static function getLabel(string $type, ?string $relatedType = null): string
     {
-        return match ($type) {
-            'tugas_baru'     => 'Tugas Baru',
-            'pengumuman_baru'=> 'Pengumuman',
-            'nilai_masuk'    => 'Nilai',
-            'agenda_baru'    => 'Agenda',
-            'tugas_dinilai'  => 'Tugas Dinilai',
-            'cbt_dibuka'     => 'Ujian',
-            'materi_baru'    => 'Materi Baru',
-            default          => 'Info',
+        return match ($relatedType) {
+            'system_update'    => 'Pembaruan Sistem',
+            'bk_summon'        => 'Panggilan BK',
+            'bk_appointment'   => 'Janji Temu BK',
+            'tugas_submission' => 'Tugas Masuk',
+            'surat_masuk'      => 'Surat Masuk',
+            'erapor'           => 'Rapor Siswa',
+            'cbt'              => 'Ujian CBT',
+            default            => match ($type) {
+                'tugas_baru'     => 'Tugas Baru',
+                'pengumuman_baru'=> 'Pengumuman',
+                'nilai_masuk'    => 'Nilai',
+                'agenda_baru'    => 'Agenda',
+                'tugas_dinilai'  => 'Tugas Dinilai',
+                'cbt_dibuka'     => 'Ujian CBT',
+                'materi_baru'    => 'Materi Baru',
+                default          => 'Info',
+            },
         };
     }
 }

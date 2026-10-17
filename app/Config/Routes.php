@@ -162,6 +162,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('updater/apply-online', 'Updater::applyOnlineUpdate', ['filter' => 'auth:1']);
     $routes->get('updater/backup-database', 'Updater::backupDatabase', ['filter' => 'auth:1']);
     $routes->post('updater/restore-database', 'Updater::restoreDatabase', ['filter' => 'auth:1']);
+    $routes->get('updater/clean-backups', 'Updater::cleanBackups', ['filter' => 'auth:1']);
 
     // 4. Personalia & Kesiswaan (Admin & Principal)
     $routes->get('teachers', 'Teachers::index', $auth127);

@@ -526,23 +526,35 @@ class Erapor extends BaseController
             $studentIds = array_filter($studentIds, fn($id) => $id > 0);
 
             if (!empty($studentIds)) {
-                $userRows = $this->db->table('students s')
-                    ->select('u.id as user_id')
-                    ->join('users u', 'u.id = s.user_id', 'left')
-                    ->whereIn('s.id', $studentIds)
-                    ->where('u.id IS NOT NULL')
-                    ->where('u.is_active', 1)
+                $students = $this->db->table('students')
+                    ->select('user_id')
+                    ->whereIn('id', $studentIds)
+                    ->get()->getResultArray();
+                $directUserIds = array_filter(array_column($students, 'user_id'));
+
+                $userRows = $this->db->table('users')
+                    ->select('id')
+                    ->groupStart()
+                        ->whereIn('id', !empty($directUserIds) ? $directUserIds : [0])
+                        ->orGroupStart()
+                            ->where('related_type', 'student')
+                            ->whereIn('related_id', $studentIds)
+                            ->whereIn('role_id', [4, 5])
+                        ->groupEnd()
+                    ->groupEnd()
+                    ->where('is_active', 1)
                     ->get()->getResultArray();
 
-                $userIds = array_column($userRows, 'user_id');
+                $userIds = array_unique(array_column($userRows, 'id'));
 
                 if (!empty($userIds)) {
                     notify_users(
                         $userIds,
                         'nilai_masuk',
-                        "Nilai Rapor Masuk: {$subjectName}",
-                        "Nilai e-Rapor semester {$semesterLabel} untuk {$subjectName} telah diinput.",
-                        base_url('siswa/grades')
+                        "Nilai Rapor: {$subjectName}",
+                        "Nilai e-Rapor semester {$semesterLabel} untuk {$subjectName} telah diperbarui.",
+                        base_url('siswa/grades'),
+                        'erapor'
                     );
                 }
             }

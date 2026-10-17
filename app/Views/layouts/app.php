@@ -686,6 +686,23 @@
       0%,100% { transform: translate(-50%,-50%) scale(1); }
       50%      { transform: translate(-50%,-50%) scale(1.3); }
     }
+    .update-pulse {
+      animation: update-pulse-glow 2s infinite;
+    }
+    @keyframes update-pulse-glow {
+      0% {
+        transform: scale(0.96);
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+      }
+      70% {
+        transform: scale(1.04);
+        box-shadow: 0 0 0 6px rgba(220, 53, 69, 0);
+      }
+      100% {
+        transform: scale(0.96);
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+      }
+    }
   </style>
 
   <!-- Fresh & Elegant Theme Stylesheet -->

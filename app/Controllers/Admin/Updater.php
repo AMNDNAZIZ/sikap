@@ -14,10 +14,13 @@ class Updater extends BaseController
             $deployStatus = json_decode(file_get_contents($deployStatusPath), true);
         }
 
+        $updateInfo = \App\Libraries\UpdateChecker::check();
+
         $data = [
-            'title' => 'System Updater',
-            'migrations' => $this->getMigrationHistory(),
-            'deployStatus' => $deployStatus
+            'title'        => 'System Updater',
+            'migrations'   => $this->getMigrationHistory(),
+            'deployStatus' => $deployStatus,
+            'updateInfo'   => $updateInfo,
         ];
         return view('admin/updater/index', $data);
     }
@@ -63,6 +66,13 @@ class Updater extends BaseController
 
                 // Step 7: Disable maintenance mode
                 $this->disableMaintenanceMode();
+
+                // Step 8: Bersihkan file/folder backup pre_update setelah update dipastikan sukses
+                $this->cleanupPreUpdateBackups($backupPath);
+
+                // Step 9: Clear update checker cache & mark update notifications as read
+                \App\Libraries\UpdateChecker::clearCache();
+                \App\Libraries\UpdateChecker::markUpdateNotifsRead();
 
                 // Build success message
                 $message = 'File sistem berhasil diperbarui.';
@@ -731,6 +741,9 @@ class Updater extends BaseController
         // Step 5: Push orphan ke update repo (Sakajaya/espata-update)
         $pushResult = $this->pushToUpdateRepo();
 
+        // Clear update checker cache
+        \App\Libraries\UpdateChecker::clearCache();
+
         $message = 'Manifest berhasil digenerate: ' . count($files) . ' file (v' . $syncedVersion . ').';
         if ($hasLocalChanges) {
             $message .= ' 📦 Perubahan file lokal otomatis di-commit.';
@@ -895,6 +908,14 @@ class Updater extends BaseController
             if (strpos($relativePath, 'public/uploads/') !== false) continue;
             if (strpos($relativePath, 'app/Config/.lic_hash') !== false) continue;
             if (strpos($relativePath, 'app/Config/.security_hash') !== false) continue;
+
+            // Jangan sertakan core lisensi dalam manifest update agar file ter-encode di klien tidak tertimpa
+            if (strpos($relativePath, 'app/Libraries/LicenseGuard.php') !== false) continue;
+            if (strpos($relativePath, 'app/Libraries/SecurityGuard.php') !== false) continue;
+            if (strpos($relativePath, 'app/Libraries/SecureConfig.php') !== false) continue;
+            if (strpos($relativePath, 'app/Helpers/license_helper.php') !== false) continue;
+            if (strpos($relativePath, 'app/Filters/LicenseFilter.php') !== false) continue;
+            if (strpos($relativePath, 'app/Models/LicenseModel.php') !== false) continue;
 
             if (is_file($fullPath)) {
                 // Normalize CRLF → LF untuk text files agar hash konsisten lintas OS
@@ -1069,7 +1090,7 @@ class Updater extends BaseController
             }
 
             // Step 2: Backup critical files
-            $this->backupCriticalFiles();
+            $backupPath = $this->backupCriticalFiles();
 
             // Step 3: Reconnect database (koneksi mungkin timeout selama download)
             $db = \Config\Database::connect();
@@ -1092,6 +1113,13 @@ class Updater extends BaseController
             $this->clearSessions();
             $this->disableMaintenanceMode();
             $this->cleanupStaging($stagingDir);
+
+            // Bersihkan file/folder backup pre_update setelah update dipastikan sukses
+            $this->cleanupPreUpdateBackups($backupPath);
+
+            // Clear update checker cache & mark update notifications read
+            \App\Libraries\UpdateChecker::clearCache();
+            \App\Libraries\UpdateChecker::markUpdateNotifsRead();
 
             // Build result message
             $actualSuccess = $successCount - count($moveFailedFiles);
@@ -1170,23 +1198,105 @@ class Updater extends BaseController
     }
 
     /**
+     * Hapus direktori beserta seluruh isinya secara rekursif
+     */
+    private function deleteDirectoryRecursive(string $dir): bool
+    {
+        if (!is_dir($dir)) {
+            return false;
+        }
+
+        try {
+            $it = new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS);
+            $files = new \RecursiveIteratorIterator($it, \RecursiveIteratorIterator::CHILD_FIRST);
+
+            foreach ($files as $file) {
+                if ($file->isDir()) {
+                    @rmdir($file->getRealPath());
+                } else {
+                    @unlink($file->getRealPath());
+                }
+            }
+            return @rmdir($dir);
+        } catch (\Throwable $e) {
+            log_message('warning', '[deleteDirectoryRecursive] Error deleting ' . $dir . ': ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Cleanup staging directory
      */
     private function cleanupStaging(string $stagingDir): void
     {
-        if (!is_dir($stagingDir)) return;
+        $this->deleteDirectoryRecursive($stagingDir);
+    }
 
-        $it = new \RecursiveDirectoryIterator($stagingDir, \RecursiveDirectoryIterator::SKIP_DOTS);
-        $files = new \RecursiveIteratorIterator($it, \RecursiveIteratorIterator::CHILD_FIRST);
-
-        foreach ($files as $file) {
-            if ($file->isDir()) {
-                rmdir($file->getRealPath());
-            } else {
-                unlink($file->getRealPath());
+    /**
+     * Bersihkan folder backup pre_update setelah update dipastikan sukses.
+     * Membersihkan folder pre_update saat ini dan membersihkan folder pre_update lama
+     * agar tidak menumpuk di writable/backups/.
+     *
+     * @param string|null $currentBackupPath Path folder backup yang baru dibuat
+     */
+    private function cleanupPreUpdateBackups(?string $currentBackupPath = null): void
+    {
+        try {
+            // 1. Hapus backup pre_update yang baru dibuat untuk proses update ini
+            if ($currentBackupPath && is_dir($currentBackupPath)) {
+                $this->deleteDirectoryRecursive($currentBackupPath);
+                log_message('info', '[cleanupPreUpdateBackups] Cleaned current backup: ' . $currentBackupPath);
             }
+
+            // 2. Bersihkan seluruh folder pre_update_* lama di WRITEPATH . 'backups/'
+            $backupsDir = WRITEPATH . 'backups/';
+            if (is_dir($backupsDir)) {
+                $items = glob($backupsDir . 'pre_update_*');
+                if (is_array($items)) {
+                    foreach ($items as $item) {
+                        if (is_dir($item)) {
+                            $this->deleteDirectoryRecursive($item);
+                            log_message('info', '[cleanupPreUpdateBackups] Cleaned stale backup dir: ' . $item);
+                        }
+                    }
+                }
+            }
+
+            // 3. Bersihkan sisa staging folder jika ada (update_staging_*) di WRITEPATH
+            $stagingItems = glob(WRITEPATH . 'update_staging_*');
+            if (is_array($stagingItems)) {
+                foreach ($stagingItems as $item) {
+                    if (is_dir($item)) {
+                        $this->deleteDirectoryRecursive($item);
+                        log_message('info', '[cleanupPreUpdateBackups] Cleaned stale staging dir: ' . $item);
+                    }
+                }
+            }
+
+            // 4. Bersihkan file patch zip sementara di public/uploads/backups/ jika ada (lebih dari 1 hari)
+            $patchUploadsDir = FCPATH . 'uploads/backups/';
+            if (is_dir($patchUploadsDir)) {
+                $patchZips = glob($patchUploadsDir . 'patch_*.zip');
+                if (is_array($patchZips)) {
+                    foreach ($patchZips as $zipFile) {
+                        if (is_file($zipFile) && (time() - filemtime($zipFile)) > 86400) {
+                            @unlink($zipFile);
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            log_message('warning', '[cleanupPreUpdateBackups] Failed to cleanup backups: ' . $e->getMessage());
         }
-        rmdir($stagingDir);
+    }
+
+    /**
+     * Endpoint untuk membersihkan file/folder sisa update secara manual dari halaman updater
+     */
+    public function cleanBackups()
+    {
+        $this->cleanupPreUpdateBackups();
+        return redirect()->to(base_url('admin/updater'))->with('success', 'File dan folder sisa update di writable/backups/ berhasil dibersihkan.');
     }
 
     /**
@@ -1403,6 +1513,15 @@ class Updater extends BaseController
                 if (strpos($filePath, '.git') !== false || strpos($filePath, 'node_modules') !== false) {
                     continue;
                 }
+
+                // Jangan sertakan core lisensi dalam patch zip rutin
+                $normalizedLocal = str_replace('\\', '/', $localPath);
+                if (strpos($normalizedLocal, 'Libraries/LicenseGuard.php') !== false) continue;
+                if (strpos($normalizedLocal, 'Libraries/SecurityGuard.php') !== false) continue;
+                if (strpos($normalizedLocal, 'Libraries/SecureConfig.php') !== false) continue;
+                if (strpos($normalizedLocal, 'Helpers/license_helper.php') !== false) continue;
+                if (strpos($normalizedLocal, 'Filters/LicenseFilter.php') !== false) continue;
+                if (strpos($normalizedLocal, 'Models/LicenseModel.php') !== false) continue;
 
                 if (is_file($filePath)) {
                     $zipArchive->addFile($filePath, $localPath);

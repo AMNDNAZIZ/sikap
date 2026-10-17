@@ -1,8 +1,27 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h4>🔄 System Updater</h4>
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h4 class="mb-1">🔄 Pembaruan Sistem (System Updater)</h4>
+        <span class="text-muted small">
+            Versi saat ini: <strong class="text-primary">v<?= defined('APP_VERSION') ? APP_VERSION : '1.0.0' ?></strong>
+            <?php if (defined('LAST_UPDATE')): ?>
+                &bull; Tanggal rilis: <?= esc(LAST_UPDATE) ?>
+            <?php endif; ?>
+        </span>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <?php if (!empty($updateInfo['has_update'])): ?>
+            <span class="badge bg-danger fs-6 px-3 py-2 update-pulse">
+                <i class="bi bi-cloud-arrow-down-fill me-1"></i> Update Tersedia: v<?= esc($updateInfo['remote_version']) ?>
+            </span>
+        <?php else: ?>
+            <span class="badge bg-success bg-opacity-10 text-success border border-success fs-6 px-3 py-2">
+                <i class="bi bi-check-circle-fill me-1"></i> Versi Sistem Terbaru
+            </span>
+        <?php endif; ?>
+    </div>
 </div>
 
 <?php if (session()->getFlashdata('success')): ?>
@@ -118,6 +137,12 @@ $isLocalhost = file_exists(ROOTPATH . '.dev_mode');
                         <small class="text-muted d-block mt-2">
                             <i class="bi bi-info-circle"></i> Disimpan di <code>writable/backups/</code>
                         </small>
+                        <div class="mt-3 pt-2 border-top">
+                            <a href="<?= base_url('admin/updater/clean-backups') ?>" class="btn btn-outline-secondary btn-sm w-100"
+                                onclick="return confirm('Bersihkan file dan folder temporary sisa update di writable/backups/?')">
+                                🧹 Bersihkan File Sisa Update
+                            </a>
+                        </div>
                     </div>
 
                     <!-- Restore Section -->

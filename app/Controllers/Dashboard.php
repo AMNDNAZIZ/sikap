@@ -211,6 +211,18 @@ class Dashboard extends BaseController
                     }
                 }
                 
+                // Check for system updates (Admin only)
+                $updateInfo = \App\Libraries\UpdateChecker::check();
+                if (!empty($updateInfo['has_update'])) {
+                    $systemNotifications[] = [
+                        'type'    => 'primary',
+                        'icon'    => 'cloud-arrow-down-fill',
+                        'title'   => 'Pembaruan Aplikasi Tersedia (v' . ($updateInfo['remote_version'] ?? '') . ')',
+                        'message' => 'Versi baru ' . ($updateInfo['remote_version'] ?? '') . ' telah dirilis. Silakan perbarui sistem melalui menu Pembaruan Sistem.',
+                        'url'     => base_url('admin/updater'),
+                    ];
+                }
+
                 // If no notifications, add a success message
                 if (empty($systemNotifications)) {
                     $systemNotifications[] = [
@@ -221,53 +233,116 @@ class Dashboard extends BaseController
                     ];
                 }
 
-                // Get system activity data
-                $systemActivity = [
-                    'last_login' => null,
-                    'online_users' => 0,
-                    'today_requests' => 0,
+                // --- 1. Real System Status (Server, PHP, DB, Storage) ---
+                $dbVersion = $db->getVersion();
+                $dbSizeMb  = 0;
+                try {
+                    $sizeRow = $db->query("SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS db_size_mb FROM information_schema.TABLES WHERE table_schema = DATABASE()")->getRowArray();
+                    $dbSizeMb = (float) ($sizeRow['db_size_mb'] ?? 0);
+                } catch (\Throwable $e) {}
+
+                $freeDiskGb  = 0;
+                $totalDiskGb = 0;
+                try {
+                    $fcPath = defined('FCPATH') ? FCPATH : ROOTPATH . 'public/';
+                    $freeDiskGb  = round(disk_free_space($fcPath) / (1024 * 1024 * 1024), 1);
+                    $totalDiskGb = round(disk_total_space($fcPath) / (1024 * 1024 * 1024), 1);
+                } catch (\Throwable $e) {}
+
+                $systemStatus = [
+                    'php_version'    => PHP_VERSION,
+                    'server_soft'    => $_SERVER['SERVER_SOFTWARE'] ?? ('PHP ' . PHP_VERSION),
+                    'memory_usage'   => round(memory_get_usage(true) / 1024 / 1024, 1) . ' MB',
+                    'memory_limit'   => ini_get('memory_limit') ?: '512M',
+                    'db_version'     => $dbVersion,
+                    'db_size'        => $dbSizeMb . ' MB',
+                    'db_status'      => 'Online & Normal',
+                    'free_disk'      => $freeDiskGb . ' GB',
+                    'total_disk'     => $totalDiskGb . ' GB',
+                    'disk_usage_pct' => ($totalDiskGb > 0) ? round((($totalDiskGb - $freeDiskGb) / $totalDiskGb) * 100) : 0,
+                    'timezone'       => date_default_timezone_get(),
                 ];
-                
-                // Get last login time from current user session
-                if (session()->has('login_time')) {
-                    $systemActivity['last_login'] = session()->get('login_time');
-                } else {
-                    $systemActivity['last_login'] = date('Y-m-d H:i:s');
+
+                // --- 2. Real System Activity (Sessions, Logs, Today Ops) ---
+                $expiration = config('Session')->expiration ?: 7200;
+                $cutoff     = time() - $expiration;
+                $activeSessionsCount = 1;
+                try {
+                    $activeSessionsCount = $db->table('ci_sessions')->where('timestamp >=', $cutoff)->countAllResults();
+                    if ($activeSessionsCount < 1) $activeSessionsCount = 1;
+                } catch (\Throwable $e) {
+                    $activeSessionsCount = 1;
                 }
-                
-                // Count online users (users with last_activity in last 15 minutes)
-                $fifteenMinutesAgo = date('Y-m-d H:i:s', strtotime('-15 minutes'));
-                
-                // Check if last_activity column exists
-                $fields = $db->getFieldNames('users');
-                if (in_array('last_activity', $fields)) {
-                    $systemActivity['online_users'] = $db->table('users')
-                        ->where('last_activity >=', $fifteenMinutesAgo)
-                        ->countAllResults();
-                } else {
-                    // Fallback: count all users
-                    $systemActivity['online_users'] = $db->table('users')->countAllResults();
+
+                $lastLoginTime = null;
+                try {
+                    $lastLoginLog = $db->table('audit_logs')
+                        ->where('user_id', $user['id'])
+                        ->where('action', 'login')
+                        ->orderBy('id', 'DESC')
+                        ->limit(1)
+                        ->get()->getRowArray();
+                    if ($lastLoginLog && !empty($lastLoginLog['created_at'])) {
+                        $lastLoginTime = date('d M Y, H:i', strtotime($lastLoginLog['created_at']));
+                    }
+                } catch (\Throwable $e) {}
+
+                if (!$lastLoginTime) {
+                    $lastLoginTime = session()->has('login_time') ? date('d M Y, H:i', strtotime(session()->get('login_time'))) : date('d M Y, H:i');
                 }
-                
-                // Count today's activities (attendances + agendas + announcements created today)
+
                 $todayStart = date('Y-m-d 00:00:00');
-                $todayEnd = date('Y-m-d 23:59:59');
-                
-                $attendanceCount = $db->table('attendances')
-                    ->where('date', $today)
-                    ->countAllResults();
-                    
-                $agendaCount = $db->table('agendas')
-                    ->where('created_at >=', $todayStart)
-                    ->where('created_at <=', $todayEnd)
-                    ->countAllResults();
-                    
-                $announcementCount = $db->table('announcements')
-                    ->where('created_at >=', $todayStart)
-                    ->where('created_at <=', $todayEnd)
-                    ->countAllResults();
-                
-                $systemActivity['today_requests'] = $attendanceCount + $agendaCount + $announcementCount;
+                $todayEnd   = date('Y-m-d 23:59:59');
+
+                $todayAttendance  = $db->table('attendances')->where('date', $today)->countAllResults();
+                $todaySubmissions = 0;
+                try {
+                    $todaySubmissions = $db->table('tugas_submissions')->where('dikumpul_at >=', $todayStart)->where('dikumpul_at <=', $todayEnd)->countAllResults();
+                } catch (\Throwable $e) {}
+
+                $todayAuditLogs = 0;
+                try {
+                    $todayAuditLogs = $db->table('audit_logs')->where('created_at >=', $todayStart)->where('created_at <=', $todayEnd)->countAllResults();
+                } catch (\Throwable $e) {}
+
+                $recentActivities = [];
+                try {
+                    $logs = $db->table('audit_logs a')
+                        ->select('a.*, u.fullname, u.username, u.role_id')
+                        ->join('users u', 'u.id = a.user_id', 'left')
+                        ->orderBy('a.id', 'DESC')
+                        ->limit(4)
+                        ->get()->getResultArray();
+
+                    foreach ($logs as $l) {
+                        $actor = $l['fullname'] ?: ($l['username'] ?: 'Sistem');
+                        $actionLabel = match($l['action']) {
+                            'login'  => 'Login ke sistem',
+                            'logout' => 'Logout dari sistem',
+                            'insert' => 'Tambah data',
+                            'update' => 'Ubah data',
+                            'delete' => 'Hapus data',
+                            default  => ucfirst($l['action'])
+                        };
+                        $target = !empty($l['table_name']) ? ' · ' . ucwords(str_replace('_', ' ', $l['table_name'])) : '';
+                        $recentActivities[] = [
+                            'actor'       => $actor,
+                            'action'      => $actionLabel . $target,
+                            'time'        => date('H:i', strtotime($l['created_at'])),
+                            'created_at'  => $l['created_at'],
+                        ];
+                    }
+                } catch (\Throwable $e) {}
+
+                $systemActivity = [
+                    'last_login'        => $lastLoginTime,
+                    'online_users'      => $activeSessionsCount,
+                    'today_attendance'  => $todayAttendance,
+                    'today_submissions' => $todaySubmissions,
+                    'today_audit_logs'  => $todayAuditLogs,
+                    'today_requests'    => $todayAttendance + $todaySubmissions + $todayAuditLogs,
+                    'recent_activities' => $recentActivities,
+                ];
 
                 // --- Statistik Siswa per Kelas ---
                 $statsAcademicYearId = (int)($this->request->getGet('stats_year_id') ?? $activeYear['id']);
@@ -286,11 +361,13 @@ class Dashboard extends BaseController
                     'selectedClassId'      => $selectedClassId,
                     'holidayInfo'          => $holidayInfo,
                     'systemNotifications'  => $systemNotifications,
+                    'systemStatus'         => $systemStatus,
                     'systemActivity'       => $systemActivity,
                     'studentStatsPerClass' => $studentStatsPerClass,
                     'academicYears'        => $allAcademicYears,
                     'statsAcademicYearId'  => $statsAcademicYearId,
                     'statsActiveYear'      => $statsAcademicYear,
+                    'updateInfo'           => $updateInfo,
                 ]);
 
             case 2: // Kepala Sekolah

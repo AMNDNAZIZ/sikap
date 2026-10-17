@@ -239,13 +239,15 @@ class Agendas extends BaseController
             }
 
             if (empty($classIds)) {
-                // Agenda umum → kirim ke semua siswa aktif (role 5)
-                notify_by_role(5, 'agenda_baru', 'Agenda Baru: ' . $formData['title'], $notifMsg, base_url('siswa/agendas'));
+                // Agenda umum sekolah → kirim ke Siswa (5) & Orang Tua (4)
+                notify_by_role([4, 5], 'agenda_baru', 'Agenda Sekolah: ' . $formData['title'], $notifMsg, base_url('siswa/agendas'), 'agenda', $agendaId ?: null);
+                // Dan kirim juga ke Guru (3), Kepala Sekolah (2), Staf TU (7)
+                notify_by_role([2, 3, 7], 'agenda_baru', 'Agenda Sekolah: ' . $formData['title'], $notifMsg, base_url('admin/agendas'), 'agenda', $agendaId ?: null);
             } else {
-                // Agenda per kelas → kirim ke siswa kelas tersebut
+                // Agenda per kelas → kirim ke siswa & orang tua kelas tersebut
                 foreach ($classIds as $cid) {
                     if (!empty($cid)) {
-                        notify_class((int) $cid, 'agenda_baru', 'Agenda Baru: ' . $formData['title'], $notifMsg, base_url('siswa/agendas'));
+                        notify_class((int) $cid, 'agenda_baru', 'Agenda Kelas: ' . $formData['title'], $notifMsg, base_url('siswa/agendas'), 'agenda', $agendaId ?: null, true);
                     }
                 }
             }

@@ -71,6 +71,25 @@ class Counseling extends BaseController
         ];
 
         $this->appointmentModel->insert($data);
+        $insertId = $this->appointmentModel->getInsertID();
+
+        // Notifikasi ke Admin & Guru BK
+        try {
+            helper('notification');
+            $student = (new \App\Models\StudentModel())->find($studentId);
+            $studentName = $student['name'] ?? 'Siswa';
+            notify_by_role(
+                [1, 3], // Admin & Guru (termasuk Guru BK)
+                'info',
+                'Pengajuan Janji Temu BK: ' . $studentName,
+                "Topik: {$data['topic']} · Menunggu konfirmasi jadwal",
+                base_url('admin/counseling-appointment'),
+                'bk_appointment',
+                $insertId ?: null
+            );
+        } catch (\Throwable $e) {
+            log_message('error', '[Siswa\Counseling::store] Gagal kirim notif: ' . $e->getMessage());
+        }
 
         return redirect()->to(base_url('siswa/counseling'))->with('success', 'Pengajuan janji temu berhasil dikirim. Menunggu konfirmasi dari Guru BK.');
     }

@@ -375,6 +375,46 @@ class CbtTestStatus extends BaseController
 
         try {
             $this->testStatusModel->insert($insert);
+            $insertedId = $this->testStatusModel->getInsertID();
+
+            // Kirim notifikasi ke siswa kelas peserta
+            try {
+                helper('notification');
+                $classInput = $post['class_codes'] ?? [];
+                if (!empty($classInput)) {
+                    $numericIds  = array_filter($classInput, 'is_numeric');
+                    $stringNames = array_filter($classInput, fn($v) => !is_numeric($v));
+                    $targetClassIds = array_map('intval', $numericIds);
+
+                    if (!empty($stringNames)) {
+                        $db = \Config\Database::connect();
+                        $nameRows = $db->table('classes')->select('id')->whereIn('name', $stringNames)->get()->getResultArray();
+                        foreach ($nameRows as $nr) {
+                            $targetClassIds[] = (int) $nr['id'];
+                        }
+                    }
+                    $targetClassIds = array_unique(array_filter($targetClassIds));
+
+                    if (!empty($targetClassIds)) {
+                        $examNameRow = $this->examNameModel->find((int) $post['exam_name_id']);
+                        $examTitle   = $examNameRow['name'] ?? 'Ujian';
+                        $subjectName = $bank['subject_name'] ?? 'Mata Pelajaran';
+                        $startFmt    = date('d M Y, H:i', strtotime($post['start_time']));
+
+                        notify_classes(
+                            $targetClassIds,
+                            'cbt_dibuka',
+                            'Jadwal Ujian: ' . $examTitle . ' - ' . $subjectName,
+                            "Mulai: {$startFmt} WIB · Durasi: {$post['duration']} Menit",
+                            base_url('siswa/cbt'),
+                            'cbt',
+                            $insertedId ?: null
+                        );
+                    }
+                }
+            } catch (\Throwable $notifEx) {
+                log_message('error', '[CbtTestStatus] Gagal kirim notif CBT: ' . $notifEx->getMessage());
+            }
 
             return $this->response->setJSON([
                 'success' => true,

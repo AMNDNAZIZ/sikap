@@ -493,6 +493,31 @@ class Tugas extends BaseController
             'dinilai_oleh' => $user['id'],
         ]);
 
+        // Kirim notifikasi ke siswa dan orang tua
+        try {
+            helper('notification');
+            $labels = [
+                'sangat_bagus' => 'Sangat Bagus ⭐⭐⭐⭐',
+                'bagus'        => 'Bagus ⭐⭐⭐',
+                'kurang'       => 'Cukup / Perlu Ditingkatkan',
+                'belajar_lagi' => 'Perlu Belajar Lagi',
+            ];
+            $labelNilai = $labels[$nilai] ?? ucfirst(str_replace('_', ' ', $nilai));
+            $notifMsg   = "Nilai: {$labelNilai}" . (!empty($catatan) ? " · Catatan: {$catatan}" : '');
+
+            notify_student_and_parents(
+                (int) $studentId,
+                'tugas_dinilai',
+                'Tugas Dinilai: ' . $tugas['judul'],
+                $notifMsg,
+                base_url('siswa/tugas/' . $tugasId),
+                'tugas',
+                (int) $tugasId
+            );
+        } catch (\Throwable $e) {
+            log_message('error', '[Tugas::nilai] Gagal kirim notifikasi penilaian: ' . $e->getMessage());
+        }
+
         return redirect()->to('admin/tugas/' . $tugasId)->with('success', 'Penilaian berhasil disimpan.');
     }
 

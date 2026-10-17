@@ -133,6 +133,35 @@ class Tugas extends BaseController
             ]);
         }
 
+        // Kirim notifikasi ke guru pengampu tugas
+        try {
+            helper('notification');
+            $teacherUserId = (int) ($tugas['created_by'] ?? 0);
+            if ($teacherUserId <= 0 && !empty($tugas['teacher_id'])) {
+                $teacherUser = $this->db->table('users')
+                    ->select('id')
+                    ->where('role_id', 3)
+                    ->where('related_id', $tugas['teacher_id'])
+                    ->get()->getRowArray();
+                $teacherUserId = (int) ($teacherUser['id'] ?? 0);
+            }
+
+            if ($teacherUserId > 0) {
+                $studentName = $info['user']['fullname'] ?? ($info['user']['username'] ?? 'Siswa');
+                notify_user(
+                    $teacherUserId,
+                    'info',
+                    'Tugas Dikumpulkan: ' . $studentName,
+                    "{$studentName} telah mengumpulkan tugas: {$tugas['judul']}",
+                    base_url('admin/tugas/' . $id),
+                    'tugas_submission',
+                    (int) $id
+                );
+            }
+        } catch (\Throwable $e) {
+            log_message('error', '[Siswa\Tugas::submit] Gagal kirim notif ke guru: ' . $e->getMessage());
+        }
+
         return redirect()->to('siswa/tugas/' . $id)->with('success', 'Tugas berhasil dikumpulkan.');
     }
 
