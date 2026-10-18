@@ -17,7 +17,20 @@ class UpdateChecker
     private const MANIFEST_FILE = 'update_manifest.json';
 
     /**
-     * URL raw manifest di GitHub
+     * Dapatkan daftar URL mirror manifest di GitHub & CDN
+     */
+    public static function getManifestUrls(): array
+    {
+        $cacheBuster = '?t=' . time();
+        return [
+            sprintf('https://raw.githubusercontent.com/%s/%s/%s/%s', self::GITHUB_USER, self::GITHUB_REPO, self::GITHUB_BRANCH, self::MANIFEST_FILE),
+            sprintf('https://cdn.jsdelivr.net/gh/%s/%s@%s/%s%s', self::GITHUB_USER, self::GITHUB_REPO, self::GITHUB_BRANCH, self::MANIFEST_FILE, $cacheBuster),
+            sprintf('https://fastly.jsdelivr.net/gh/%s/%s@%s/%s%s', self::GITHUB_USER, self::GITHUB_REPO, self::GITHUB_BRANCH, self::MANIFEST_FILE, $cacheBuster),
+        ];
+    }
+
+    /**
+     * URL raw manifest di GitHub (backward compatibility)
      */
     public static function getManifestUrl(): string
     {
@@ -58,20 +71,33 @@ class UpdateChecker
             }
         }
 
-        // 2. Fetch manifest dari remote GitHub
-        $manifestUrl = self::getManifestUrl();
-        $ch = curl_init($manifestUrl);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 6);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 4);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'ESPATA-Siakad-Updater');
+        // 2. Fetch manifest dari remote GitHub / multi-mirror CDN
+        $manifestUrls = self::getManifestUrls();
+        $body = false;
+        $httpCode = 0;
+        $curlError = '';
 
-        $body = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        curl_close($ch);
+        foreach ($manifestUrls as $manifestUrl) {
+            $ch = curl_init($manifestUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 4);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            // Paksa IPv4 untuk menghindari cURL error 7: Network is unreachable akibat routing IPv6
+            curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'ESPATA-Siakad-Updater/1.0');
+
+            $body = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            if ($httpCode === 200 && !empty($body)) {
+                break;
+            }
+        }
 
         if ($httpCode === 200 && $body) {
             $manifest = json_decode($body, true);

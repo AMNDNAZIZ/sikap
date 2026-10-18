@@ -195,18 +195,26 @@ class Dashboard extends BaseController
                     $daysRemaining = floor(($expiresAt - $todayTimestamp) / 86400);
                     
                     if ($daysRemaining > 0 && $daysRemaining <= 30) {
+                        $waText = urlencode("Halo Tim Support, saya Administrator aplikasi SIAKAD. Lisensi aplikasi kami akan berakhir dalam " . $daysRemaining . " hari (berlaku hingga: " . date('d M Y', $expiresAt) . "). Mohon informasi perpanjangan lisensinya.");
                         $systemNotifications[] = [
-                            'type' => 'warning',
-                            'icon' => 'shield-exclamation',
-                            'title' => 'Lisensi Akan Berakhir',
-                            'message' => 'Lisensi aplikasi akan berakhir dalam ' . $daysRemaining . ' hari',
+                            'type'     => 'warning',
+                            'icon'     => 'shield-exclamation',
+                            'title'    => 'Lisensi Akan Berakhir (' . $daysRemaining . ' Hari Lagi)',
+                            'message'  => 'Lisensi aplikasi akan berakhir pada ' . date('d M Y', $expiresAt) . '. Segera perpanjang agar operasional KBM tetap lancar tanpa kendala.',
+                            'url'      => 'https://wa.me/6281298732440?text=' . $waText,
+                            'btn_text' => 'Hubungi WA (0812-9873-2440)',
+                            'btn_icon' => 'whatsapp',
                         ];
                     } elseif ($daysRemaining <= 0) {
+                        $waText = urlencode("Halo Tim Support, lisensi aplikasi SIAKAD sekolah kami telah berakhir. Mohon bantuan aktivasi/perpanjangan lisensi baru.");
                         $systemNotifications[] = [
-                            'type' => 'danger',
-                            'icon' => 'shield-x',
-                            'title' => 'Lisensi Telah Berakhir',
-                            'message' => 'Lisensi aplikasi telah berakhir. Silakan perpanjang lisensi Anda',
+                            'type'     => 'danger',
+                            'icon'     => 'shield-x',
+                            'title'    => 'Lisensi Telah Berakhir',
+                            'message'  => 'Masa aktif lisensi aplikasi telah habis. Silakan hubungi tim pengembang untuk perpanjangan lisensi Anda.',
+                            'url'      => 'https://wa.me/6281298732440?text=' . $waText,
+                            'btn_text' => 'Hubungi WA (0812-9873-2440)',
+                            'btn_icon' => 'whatsapp',
                         ];
                     }
                 }

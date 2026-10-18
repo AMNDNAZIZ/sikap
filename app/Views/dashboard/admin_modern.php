@@ -1296,9 +1296,15 @@
                       <h6 class="mb-1 fw-bold"><?= esc($notification['title']) ?></h6>
                       <p class="mb-0 small text-muted"><?= esc($notification['message']) ?></p>
                       <?php if (!empty($notification['url'])): ?>
+                        <?php 
+                          $isWa = strpos($notification['url'], 'wa.me') !== false;
+                          $btnClass = $isWa ? 'btn-success' : 'btn-' . $color;
+                          $btnIcon = $notification['btn_icon'] ?? 'box-arrow-up-right';
+                          $btnText = $notification['btn_text'] ?? 'Buka Sekarang';
+                        ?>
                         <div class="mt-2">
-                          <a href="<?= esc($notification['url']) ?>" class="btn btn-sm btn-<?= $color ?> py-1 px-3 text-white" style="font-size: 0.78rem;">
-                            <i class="bi bi-box-arrow-up-right me-1"></i> Buka Sekarang
+                          <a href="<?= esc($notification['url']) ?>" class="btn btn-sm <?= $btnClass ?> py-1 px-3 text-white fw-semibold" style="font-size: 0.78rem;" <?= $isWa ? 'target="_blank" rel="noopener noreferrer"' : '' ?>>
+                            <i class="bi bi-<?= esc($btnIcon) ?> me-1"></i> <?= esc($btnText) ?>
                           </a>
                         </div>
                       <?php endif; ?>

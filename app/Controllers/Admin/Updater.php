@@ -662,6 +662,82 @@ class Updater extends BaseController
     }
 
     /**
+     * Dapatkan daftar URL mirror untuk file tertentu di repository update.
+     * Menggunakan multi-CDN mirror (GitHub Raw, jsDelivr via Cloudflare Edge, Fastly jsDelivr)
+     * agar update tetap berjalan lancar meski salah satu jalur mengalami gangguan ISP / DNS / IPv6.
+     */
+    private function getRemoteMirrors(string $path): array
+    {
+        $cfg = $this->getUpdateConfig();
+        $user = $cfg['github_user'];
+        $repo = $cfg['github_repo'];
+        $branch = $cfg['github_branch'];
+        $cleanPath = ltrim($path, '/');
+        $cacheBuster = '?t=' . time();
+
+        return [
+            // Mirror 1: GitHub Raw langsung (paling update jika tidak ada blokir ISP/DNS)
+            "https://raw.githubusercontent.com/{$user}/{$repo}/{$branch}/{$cleanPath}",
+            // Mirror 2: jsDelivr CDN via Cloudflare Edge (sangat stabil & cepat di Indonesia)
+            "https://cdn.jsdelivr.net/gh/{$user}/{$repo}@{$branch}/{$cleanPath}{$cacheBuster}",
+            // Mirror 3: Fastly jsDelivr CDN
+            "https://fastly.jsdelivr.net/gh/{$user}/{$repo}@{$branch}/{$cleanPath}{$cacheBuster}",
+        ];
+    }
+
+    /**
+     * Unduh konten file dari remote server dengan multi-mirror fallback dan IPv4.
+     *
+     * @param string $path Path relatif file di repositori
+     * @param int $timeout Timeout per attempt dalam detik
+     * @return array ['success' => bool, 'body' => string, 'error' => string, 'source' => string]
+     */
+    private function fetchRemoteContent(string $path, int $timeout = 30): array
+    {
+        $mirrors = $this->getRemoteMirrors($path);
+        $lastError = '';
+
+        foreach ($mirrors as $url) {
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            // Paksa IPv4 untuk menghindari cURL error 7: Network is unreachable akibat routing IPv6
+            curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+            // Kompatibilitas SSL pada server tanpa CA bundle terbaru
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'ESPATA-Siakad-Updater/1.0');
+
+            $body = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $err = curl_error($ch);
+            curl_close($ch);
+
+            if ($httpCode === 200 && $body !== false && strlen($body) > 0) {
+                return [
+                    'success' => true,
+                    'body'    => $body,
+                    'error'   => '',
+                    'source'  => parse_url($url, PHP_URL_HOST),
+                ];
+            }
+
+            $host = parse_url($url, PHP_URL_HOST) ?? 'remote';
+            $lastError = "{$host} (HTTP {$httpCode}" . ($err ? ": {$err}" : '') . ")";
+            log_message('warning', "[Updater::fetchRemoteContent] {$path} fallback from {$url}: {$lastError}");
+        }
+
+        return [
+            'success' => false,
+            'body'    => '',
+            'error'   => $lastError ?: 'Semua mirror remote gagal dihubungi.',
+            'source'  => '',
+        ];
+    }
+
+    /**
      * Generate manifest file (localhost/developer only).
      * Scans app/ and public/ folders, creates update_manifest.json at ROOTPATH.
      */
@@ -942,24 +1018,12 @@ class Updater extends BaseController
     {
         set_time_limit(120);
 
-        $manifestUrl = $this->githubRawUrl('update_manifest.json');
-
-        $client = \Config\Services::curlrequest();
-        try {
-            $response = $client->get($manifestUrl, [
-                'timeout' => 30,
-                'http_errors' => false,
-            ]);
-        } catch (\Exception $e) {
-            return redirect()->to(base_url('admin/updater'))->with('error', 'Gagal menghubungi server update: ' . $e->getMessage());
+        $fetchResult = $this->fetchRemoteContent('update_manifest.json', 30);
+        if (!$fetchResult['success']) {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Gagal menghubungi server update: ' . $fetchResult['error']);
         }
 
-        $statusCode = $response->getStatusCode();
-        if ($statusCode !== 200) {
-            return redirect()->to(base_url('admin/updater'))->with('error', 'Manifest tidak ditemukan di server (HTTP ' . $statusCode . '). Pastikan update_manifest.json sudah di-push ke GitHub.');
-        }
-
-        $body = $response->getBody();
+        $body = $fetchResult['body'];
         if (empty($body)) {
             return redirect()->to(base_url('admin/updater'))->with('error', 'Response server kosong. Coba lagi.');
         }
@@ -1054,28 +1118,18 @@ class Updater extends BaseController
             $failedFiles = [];
 
             foreach ($allFiles as $relativePath) {
-                $rawUrl = $this->githubRawUrl($relativePath);
+                $fetchResult = $this->fetchRemoteContent($relativePath, 45);
 
-                $ch = curl_init($rawUrl);
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-                $body = curl_exec($ch);
-                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                $error = curl_error($ch);
-                curl_close($ch);
-
-                if ($httpCode === 200 && $body !== false && strlen($body) > 0) {
+                if ($fetchResult['success']) {
                     $stagingPath = $stagingDir . $relativePath;
                     $dir = dirname($stagingPath);
                     if (!is_dir($dir)) {
                         mkdir($dir, 0755, true);
                     }
-                    file_put_contents($stagingPath, $body);
+                    file_put_contents($stagingPath, $fetchResult['body']);
                     $successCount++;
                 } else {
-                    $failedFiles[] = $relativePath . ' (HTTP ' . $httpCode . ($error ? ': ' . $error : '') . ')';
+                    $failedFiles[] = $relativePath . ' (' . $fetchResult['error'] . ')';
                 }
             }
 

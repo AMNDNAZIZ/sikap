@@ -964,6 +964,55 @@
 
       <!-- Main Content -->
       <main id="mainContent" class="px-2 px-md-4 py-2 py-md-3">
+        <?php
+          // ── Global License Expiration Notice (Admin Only) ──
+          if ($user && ((int)($user['role_id'] ?? 0) === 1)):
+              $licAlertExpires = session()->get('sys_license_expires_cache');
+              if ($licAlertExpires === null) {
+                  try {
+                      $dbConn = \Config\Database::connect();
+                      $licRow = $dbConn->table('app_license')->select('expires_at')->get()->getFirstRow('array');
+                      $licAlertExpires = $licRow['expires_at'] ?? '';
+                      session()->set('sys_license_expires_cache', $licAlertExpires);
+                  } catch (\Throwable $e) {
+                      $licAlertExpires = '';
+                  }
+              }
+
+              if (!empty($licAlertExpires)):
+                  $licExpTime = strtotime($licAlertExpires);
+                  $licDaysLeft = (int) floor(($licExpTime - time()) / 86400);
+
+                  if ($licDaysLeft <= 30):
+                      $isExpDanger = ($licDaysLeft <= 7);
+                      $licWaMsg = rawurlencode("Halo Tim Support, saya Administrator aplikasi SIAKAD. Lisensi sekolah kami akan berakhir dalam " . ($licDaysLeft > 0 ? $licDaysLeft . " hari" : "waktu dekat (sudah kedaluwarsa)") . " (berlaku s.d " . date('d M Y', $licExpTime) . "). Mohon informasi perpanjangan lisensinya.");
+        ?>
+          <div class="alert <?= $isExpDanger ? 'alert-danger' : 'alert-warning' ?> alert-dismissible fade show shadow-sm mb-3 d-flex align-items-center flex-wrap gap-2 border-0" role="alert" style="border-radius: 12px; background: <?= $isExpDanger ? 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)' : 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)' ?>; color: <?= $isExpDanger ? '#991b1b' : '#92400e' ?>;">
+            <div class="d-flex align-items-center flex-grow-1">
+              <div class="rounded-circle p-2 me-2 d-flex align-items-center justify-content-center" style="background: rgba(255,255,255,0.7); width: 38px; height: 38px; min-width: 38px;">
+                <i class="bi bi-shield-exclamation fs-5 <?= $isExpDanger ? 'text-danger' : 'text-warning' ?>"></i>
+              </div>
+              <div>
+                <strong class="d-block" style="font-size: 0.9rem;">
+                  <?= $licDaysLeft <= 0 ? 'Pemberitahuan: Lisensi Aplikasi Telah Berakhir' : 'Pemberitahuan: Masa Aktif Lisensi Tersisa ' . $licDaysLeft . ' Hari' ?>
+                </strong>
+                <span style="font-size: 0.82rem;">
+                  Masa berlaku lisensi hingga <strong><?= date('d M Y', $licExpTime) ?></strong>. Segera lakukan perpanjangan agar seluruh operasional KBM dan administrasi tetap berjalan normal.
+                </span>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-2 mt-2 mt-sm-0 ms-auto">
+              <a href="https://wa.me/6281298732440?text=<?= $licWaMsg ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-success px-3 fw-bold shadow-sm" style="border-radius: 8px;">
+                <i class="bi bi-whatsapp me-1"></i> Hubungi WA (0812-9873-2440)
+              </a>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="font-size: 0.75rem;"></button>
+            </div>
+          </div>
+        <?php 
+                  endif;
+              endif;
+          endif; 
+        ?>
         <?= $this->renderSection('content') ?>
       </main>
     </div>
