@@ -11,6 +11,11 @@
     th { background-color: #f0f0f0; }
     .text-left { text-align: left; }
     tfoot td { font-weight: bold; background-color: #e0e0e0; }
+    .signature-section { margin-top: 25px; page-break-inside: avoid; }
+    table.signature-table { width: 100%; border: none !important; font-size: 11px; margin-top: 10px; }
+    table.signature-table td { border: none !important; width: 50%; text-align: center; vertical-align: top; padding: 0 15px; }
+    .signature-space { height: 50px; }
+    .signature-img { max-height: 48px; max-width: 130px; display: block; margin: 0 auto; }
   </style>
 </head>
 <body>
@@ -78,5 +83,42 @@
       </tr>
     </tfoot>
   </table>
+
+  <!-- TANDA TANGAN -->
+  <?php
+    $kota = !empty($school['city_regency']) ? $school['city_regency'] : (!empty($school['city']) ? $school['city'] : 'Kota/Kab.');
+    $kepsekNama = !empty($school['headmaster']) ? $school['headmaster'] : 'Kepala Sekolah';
+    $kepsekNip  = !empty($school['principal_nip']) ? $school['principal_nip'] : '-';
+    $waliNama   = !empty($waliKelas['name']) ? $waliKelas['name'] : 'Wali Kelas';
+    $waliNip    = !empty($waliKelas['nip']) ? $waliKelas['nip'] : '-';
+  ?>
+  <div class="signature-section">
+    <table class="signature-table">
+      <tr>
+        <td>
+          Mengetahui,<br>
+          <strong>Kepala Sekolah</strong>
+          <div class="signature-space">
+            <?php if (!empty($principalSigBase64)): ?>
+              <img src="<?= $principalSigBase64 ?>" alt="TTD Kepala Sekolah" class="signature-img">
+            <?php endif; ?>
+          </div>
+          <strong style="text-decoration: underline;"><?= esc($kepsekNama) ?></strong><br>
+          NIP. <?= esc($kepsekNip) ?>
+        </td>
+        <td>
+          <?= esc($kota) ?>, <?= esc($titimangsaDate ?? date('d F Y')) ?><br>
+          <strong>Wali Kelas <?= esc($class['name'] ?? '') ?></strong>
+          <div class="signature-space">
+            <?php if (!empty($waliSigBase64)): ?>
+              <img src="<?= $waliSigBase64 ?>" alt="TTD Wali Kelas" class="signature-img">
+            <?php endif; ?>
+          </div>
+          <strong style="text-decoration: underline;"><?= esc($waliNama) ?></strong><br>
+          NIP. <?= esc($waliNip) ?>
+        </td>
+      </tr>
+    </table>
+  </div>
 </body>
 </html>
