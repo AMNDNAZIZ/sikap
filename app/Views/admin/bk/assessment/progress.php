@@ -73,7 +73,11 @@
                     <p class="text-muted mb-2">
                         <strong>Instrumen:</strong> <?= esc($assignment['instrument_title']) ?>
                         <?php if (!empty($assignment['instrument_description'])): ?>
-                            &bull; <span class="small"><?= esc(character_limiter(strip_tags($assignment['instrument_description']), 120)) ?></span>
+                            <?php 
+                            $desc = strip_tags($assignment['instrument_description']);
+                            $shortDesc = (mb_strlen($desc) > 120) ? mb_substr($desc, 0, 117) . '...' : $desc;
+                            ?>
+                            &bull; <span class="small"><?= esc($shortDesc) ?></span>
                         <?php endif; ?>
                     </p>
                     <div class="small text-muted d-flex align-items-center gap-3 flex-wrap">

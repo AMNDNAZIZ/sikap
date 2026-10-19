@@ -21,6 +21,7 @@ class BkAssessment extends BaseController
 
     public function __construct()
     {
+        helper(['text']);
         $this->instrumentModel = new BkInstrumentModel();
         $this->domainModel = new BkInstrumentDomainModel();
         $this->scaleModel = new BkInstrumentScaleModel();
@@ -211,6 +212,41 @@ class BkAssessment extends BaseController
         return (int)($activeYear['id'] ?? 1);
     }
 
+    /**
+     * Dapatkan siswa pada kelas-kelas target dengan toleransi terhadap tahun ajaran & status
+     */
+    private function getStudentsForClasses($db, array $classIds, int $academicYearId): array
+    {
+        $classIds = array_values(array_filter(array_map('intval', $classIds)));
+        if (empty($classIds)) {
+            return [];
+        }
+
+        $builder = $db->table('student_records sr')
+            ->select('sr.student_id')
+            ->whereIn('sr.class_id', $classIds)
+            ->where('LOWER(sr.status)', 'aktif');
+
+        if ($academicYearId > 0) {
+            $hasYear = (clone $builder)->where('sr.academic_year_id', $academicYearId)->countAllResults();
+            if ($hasYear > 0) {
+                $builder->where('sr.academic_year_id', $academicYearId);
+            }
+        }
+        $students = $builder->groupBy('sr.student_id')->get()->getResultArray();
+
+        // Fallback jika tidak ditemukan dengan status 'aktif' (misal status null atau format lain)
+        if (empty($students)) {
+            $students = $db->table('student_records sr')
+                ->select('sr.student_id')
+                ->whereIn('sr.class_id', $classIds)
+                ->groupBy('sr.student_id')
+                ->get()->getResultArray();
+        }
+
+        return $students;
+    }
+
     // --- PENUGASAN (ASSIGNMENTS) ---
 
     public function assignments()
@@ -295,16 +331,27 @@ class BkAssessment extends BaseController
         // POPULATE STUDENTS
         $assignmentStudentModel = new \App\Models\BkAssignmentStudentModel();
         $db = \Config\Database::connect();
-        $builder = $db->table('student_records sr')
-                      ->select('sr.student_id')
-                      ->where('sr.academic_year_id', $academic_year_id)
-                      ->where('sr.status', 'aktif');
-                      
-        if ($target_type === 'class') {
-            $builder->whereIn('sr.class_id', $target_ids);
-        }
 
-        $students = $builder->get()->getResultArray();
+        if ($target_type === 'class') {
+            $students = $this->getStudentsForClasses($db, $target_ids, $academic_year_id);
+        } else {
+            $builder = $db->table('student_records sr')
+                          ->select('sr.student_id')
+                          ->where('LOWER(sr.status)', 'aktif');
+            if ($academic_year_id > 0) {
+                $hasYear = (clone $builder)->where('sr.academic_year_id', $academic_year_id)->countAllResults();
+                if ($hasYear > 0) {
+                    $builder->where('sr.academic_year_id', $academic_year_id);
+                }
+            }
+            $students = $builder->groupBy('sr.student_id')->get()->getResultArray();
+            if (empty($students)) {
+                $students = $db->table('student_records sr')
+                               ->select('sr.student_id')
+                               ->groupBy('sr.student_id')
+                               ->get()->getResultArray();
+            }
+        }
         
         $insertData = [];
         foreach ($students as $s) {
@@ -644,13 +691,7 @@ class BkAssessment extends BaseController
             ]);
 
             // Sinkronisasi siswa: ambil semua siswa di kelas-kelas yang dipilih
-            $students = $db->table('student_records sr')
-                ->select('sr.student_id')
-                ->where('sr.academic_year_id', $academicYearId)
-                ->where('sr.status', 'aktif')
-                ->whereIn('sr.class_id', $target_ids)
-                ->get()->getResultArray();
-
+            $students = $this->getStudentsForClasses($db, $target_ids, $academicYearId);
             $targetStudentIds = array_column($students, 'student_id');
 
             $existingStudents = $db->table('bk_assignment_students')
@@ -766,25 +807,50 @@ class BkAssessment extends BaseController
 
         // Parse class names jika penugasan mencakup lebih dari satu kelas
         $targetClassNames = [];
+        $targetClassIds = [];
         if (!empty($assignment['notes'])) {
             $parsedNotes = json_decode($assignment['notes'], true);
             if (!empty($parsedNotes['class_names']) && is_array($parsedNotes['class_names'])) {
                 $targetClassNames = $parsedNotes['class_names'];
             }
+            if (!empty($parsedNotes['class_ids']) && is_array($parsedNotes['class_ids'])) {
+                $targetClassIds = array_map('intval', $parsedNotes['class_ids']);
+            }
         }
         if (empty($targetClassNames) && !empty($assignment['class_name'])) {
             $targetClassNames = [$assignment['class_name']];
         }
+        if (empty($targetClassIds) && !empty($assignment['target_id'])) {
+            $targetClassIds = [(int)$assignment['target_id']];
+        }
         $assignment['target_class_names'] = $targetClassNames;
+
+        // Auto-backfill jika penugasan kelas ini belum memiliki siswa di bk_assignment_students
+        $existingCount = $db->table('bk_assignment_students')->where('assignment_id', $id)->countAllResults();
+        if ($existingCount === 0 && !empty($targetClassIds)) {
+            $studentsToInsert = $this->getStudentsForClasses($db, $targetClassIds, $academicYearId);
+            $backfill = [];
+            foreach ($studentsToInsert as $st) {
+                $backfill[] = [
+                    'assignment_id' => $id,
+                    'student_id'    => $st['student_id'],
+                    'status'        => 'ASSIGNED',
+                ];
+            }
+            if (!empty($backfill)) {
+                (new \App\Models\BkAssignmentStudentModel())->insertBatch($backfill);
+            }
+        }
 
         // Get assigned students with their status and result
         $students = $db->table('bk_assignment_students bas')
             ->select('bas.id as assignment_student_id, bas.status as student_status, bas.started_at, bas.completed_at, bas.last_saved_at, s.id as student_id, s.nis, s.nisn, s.name as student_name, s.gender, cl.name as current_class_name, bsr.id as result_id, bsr.total_score, bsr.total_max_score, bsr.percentage, bsr.overall_level')
             ->join('students s', 's.id = bas.student_id')
-            ->join('student_records sr', 'sr.student_id = s.id AND sr.status = \'aktif\' AND sr.academic_year_id = ' . $academicYearId, 'left')
+            ->join('student_records sr', 'sr.student_id = s.id AND LOWER(sr.status) = \'aktif\'', 'left')
             ->join('classes cl', 'cl.id = sr.class_id', 'left')
             ->join('bk_student_results bsr', 'bsr.assignment_student_id = bas.id', 'left')
             ->where('bas.assignment_id', $id)
+            ->groupBy('bas.id')
             ->orderBy('s.name', 'ASC')
             ->get()->getResultArray();
 

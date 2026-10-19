@@ -26,18 +26,89 @@ class Assessment extends BaseController
         $this->studentAnswerModel = new BkStudentAnswerModel();
     }
 
-    private function getStudentId()
+    private function getStudentId(): int
     {
         $session = session();
-        return $session->get('user')['student_id'] ?? $session->get('user')['related_id'];
+        $user = $session->get('user') ?? [];
+        $studentId = $user['student_id'] ?? $user['related_id'] ?? null;
+        if (empty($studentId) && !empty($user['id'])) {
+            $db = \Config\Database::connect();
+            $s = $db->table('students')->where('user_id', $user['id'])->get()->getRowArray();
+            if ($s) {
+                $studentId = (int)$s['id'];
+                $user['student_id'] = $studentId;
+                $session->set('user', $user);
+            }
+        }
+        return (int)$studentId;
     }
 
     public function index()
     {
         $studentId = $this->getStudentId();
+        $db = \Config\Database::connect();
+        
+        if ($studentId > 0) {
+            // Ambil data record kelas siswa (prioritas status aktif / record terbaru)
+            $studentRecord = $db->table('student_records')
+                ->where('student_id', $studentId)
+                ->where('LOWER(status)', 'aktif')
+                ->orderBy('id', 'DESC')
+                ->get()->getRowArray();
+
+            if (!$studentRecord) {
+                $studentRecord = $db->table('student_records')
+                    ->where('student_id', $studentId)
+                    ->orderBy('id', 'DESC')
+                    ->get()->getRowArray();
+            }
+
+            $studentClassId = (int)($studentRecord['class_id'] ?? 0);
+
+            // Dapatkan semua penugasan aktif untuk disinkronkan ke siswa jika belum terdaftar
+            $activeAssignments = $db->table('bk_assignments')
+                ->where('status', 'active')
+                ->get()->getResultArray();
+
+            foreach ($activeAssignments as $assign) {
+                $isTarget = false;
+                if ($assign['target_type'] === 'all') {
+                    $isTarget = true;
+                } elseif ($assign['target_type'] === 'class') {
+                    $targetClassIds = [];
+                    if (!empty($assign['notes'])) {
+                        $parsed = json_decode($assign['notes'], true);
+                        if (!empty($parsed['class_ids']) && is_array($parsed['class_ids'])) {
+                            $targetClassIds = array_map('intval', $parsed['class_ids']);
+                        }
+                    }
+                    if (empty($targetClassIds) && !empty($assign['target_id'])) {
+                        $targetClassIds = [(int)$assign['target_id']];
+                    }
+
+                    if ($studentClassId > 0 && in_array($studentClassId, $targetClassIds)) {
+                        $isTarget = true;
+                    }
+                }
+
+                if ($isTarget) {
+                    $exists = $db->table('bk_assignment_students')
+                        ->where('assignment_id', $assign['id'])
+                        ->where('student_id', $studentId)
+                        ->countAllResults();
+
+                    if ($exists == 0) {
+                        $db->table('bk_assignment_students')->insert([
+                            'assignment_id' => $assign['id'],
+                            'student_id'    => $studentId,
+                            'status'        => 'ASSIGNED'
+                        ]);
+                    }
+                }
+            }
+        }
         
         // Get assigned assessments for this student
-        $db = \Config\Database::connect();
         $assessments = $db->table('bk_assignment_students bas')
             ->select('bas.id as assignment_student_id, bas.status, bas.completed_at, ba.start_date, ba.end_date, bi.title, bi.assessment_type, bi.description')
             ->join('bk_assignments ba', 'ba.id = bas.assignment_id')
