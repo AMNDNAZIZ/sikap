@@ -3461,69 +3461,78 @@ class AdministrasiGuru extends BaseController
      */
     public function getSoalPrompt()
     {
-        $user = session()->get('user');
-        if (!in_array($user['role_id'], [1, 3])) {
-            return $this->response->setJSON(['success' => false, 'error' => 'Akses ditolak.']);
-        }
-
-        $atpId = $this->request->getPost('atp_id');
-        $subjectId = $this->request->getPost('subject_id');
-        $classId = $this->request->getPost('class_id');
-        $tipeListJson = $this->request->getPost('tipe_list');
-        $selectedTps = $this->request->getPost('tp_ids');
-        $jenisAsesmen = $this->request->getPost('jenis_asesmen') ?? 'formatif';
-        $atpIds = $this->request->getPost('atp_ids');
-        $semester = $this->request->getPost('semester');
-
-        $tipeList = json_decode($tipeListJson, true);
-        if (empty($tipeList)) {
-            return $this->response->setJSON(['success' => false, 'error' => 'Pilih minimal satu tipe soal.']);
-        }
-
-        // Load data
-        $materiList = '';
-        if ($jenisAsesmen === 'sumatif' && !empty($atpIds)) {
-            $atps = $this->atpModel->whereIn('id', $atpIds)->findAll();
-            foreach ($atps as $a) {
-                $materiList .= "- " . $a['lingkup_materi'] . "\n";
+        try {
+            $user = session()->get('user');
+            if (empty($user) || !in_array($user['role_id'] ?? null, [1, 3])) {
+                return $this->response->setJSON(['success' => false, 'error' => 'Akses ditolak atau sesi login telah berakhir.']);
             }
-        } else {
-            $atp = $this->atpModel->find($atpId);
-            if (!$atp) {
-                return $this->response->setJSON(['success' => false, 'error' => 'ATP tidak ditemukan.']);
+
+            $atpId = $this->request->getPost('atp_id');
+            $subjectId = $this->request->getPost('subject_id');
+            $classId = $this->request->getPost('class_id');
+            $tipeListJson = $this->request->getPost('tipe_list');
+            $selectedTps = $this->request->getPost('tp_ids');
+            $jenisAsesmen = $this->request->getPost('jenis_asesmen') ?? 'formatif';
+            $atpIds = $this->request->getPost('atp_ids');
+            $semester = $this->request->getPost('semester');
+
+            $tipeList = json_decode($tipeListJson, true);
+            if (empty($tipeList)) {
+                return $this->response->setJSON(['success' => false, 'error' => 'Pilih minimal satu tipe soal.']);
             }
-            $materiList = $atp['lingkup_materi'] ?? '-';
-        }
 
-        $subject = $this->subjectModel->find($subjectId);
-        $school = $this->db->table('school_profile')->get()->getRowArray();
-        $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
-
-        $tpDeskripsi = '';
-        if (!empty($selectedTps)) {
-            $tps = $this->db->table('tujuan_pembelajaran')
-                ->whereIn('id', $selectedTps)->get()->getResultArray();
-            foreach ($tps as $tp) {
-                $tpDeskripsi .= "- " . ($tp['kode_tp'] ? $tp['kode_tp'] . ': ' : '') . $tp['deskripsi'] . "\n";
+            // Load data
+            $materiList = '';
+            if ($jenisAsesmen === 'sumatif' && !empty($atpIds)) {
+                $atps = $this->atpModel->whereIn('id', (array) $atpIds)->findAll();
+                foreach ($atps as $a) {
+                    $materiList .= "- " . ($a['lingkup_materi'] ?? '-') . "\n";
+                }
+            } else {
+                $atp = $this->atpModel->find($atpId);
+                if (!$atp) {
+                    return $this->response->setJSON(['success' => false, 'error' => 'Materi ATP tidak ditemukan. Silakan pilih materi terlebih dahulu.']);
+                }
+                $materiList = $atp['lingkup_materi'] ?? '-';
             }
+
+            $subject = $this->subjectModel->find($subjectId) ?? [];
+            $school = $this->db->table('school_profile')->get()->getRowArray() ?? [];
+            $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray() ?? [];
+
+            $tpDeskripsi = '';
+            if (!empty($selectedTps)) {
+                $tps = $this->db->table('tujuan_pembelajaran')
+                    ->whereIn('id', (array) $selectedTps)->get()->getResultArray();
+                foreach ($tps as $tp) {
+                    $tpDeskripsi .= "- " . (!empty($tp['kode_tp']) ? $tp['kode_tp'] . ': ' : '') . ($tp['deskripsi'] ?? '') . "\n";
+                }
+            }
+
+            $prompt = $this->buildSoalAiPrompt(
+                $school,
+                $classInfo,
+                $subject,
+                (string) $materiList,
+                (string) $tpDeskripsi,
+                $tipeList,
+                (string) $jenisAsesmen,
+                $semester
+            );
+
+            return $this->response->setJSON([
+                'success' => true,
+                'prompt'  => $prompt,
+                'csrf'    => csrf_hash(),
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', '[getSoalPrompt] Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            return $this->response->setJSON([
+                'success' => false,
+                'error'   => 'Terjadi kesalahan sistem: ' . $e->getMessage(),
+                'csrf'    => csrf_hash(),
+            ]);
         }
-
-        $prompt = $this->buildSoalAiPrompt(
-            $school ?? [],
-            $classInfo ?? [],
-            $subject ?? [],
-            $materiList,
-            $tpDeskripsi,
-            $tipeList,
-            $jenisAsesmen,
-            $semester
-        );
-
-        return $this->response->setJSON([
-            'success' => true,
-            'prompt'  => $prompt,
-            'csrf'    => csrf_hash(),
-        ]);
     }
 
     /**
@@ -3531,15 +3540,19 @@ class AdministrasiGuru extends BaseController
      * Menegakkan kaidah penulisan butir soal: kesetaraan panjang opsi, distraktor berkualitas & homogen, paralelisme gramatikal, dan pencegahan clue verbal.
      */
     private function buildSoalAiPrompt(
-        array $school,
-        ?array $classInfo,
-        ?array $subject,
+        $school,
+        $classInfo,
+        $subject,
         string $materiList,
         string $tpDeskripsi,
         array $tipeList,
         string $jenisAsesmen,
         $semester
     ): string {
+        $school = is_array($school) ? $school : [];
+        $classInfo = is_array($classInfo) ? $classInfo : [];
+        $subject = is_array($subject) ? $subject : [];
+
         $schoolLevel = (int)($school['level'] ?? 1);
         $jenjang = ($schoolLevel == 1) ? 'SD' : (($schoolLevel == 2) ? 'SMP' : 'SMA');
         $kelasLevel = (int)($classInfo['level'] ?? 7);

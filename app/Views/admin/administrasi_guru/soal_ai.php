@@ -312,18 +312,42 @@ document.getElementById('btn-generate')?.addEventListener('click', async functio
 
     try {
         const res = await fetch('<?= base_url("admin/administrasi-guru/soal-ai/generate") ?>', { method: 'POST', body });
-        const data = await res.json();
+        
+        let data;
+        const text = await res.text();
+        try {
+            data = JSON.parse(text);
+        } catch (_) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-stars me-1"></i> Generate Soal (API)';
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal Generate Soal',
+                html: 'Server mengembalikan respons tidak terduga.<br><small>Status HTTP: ' + res.status + '</small>',
+            });
+            return;
+        }
+
         if (data.csrf) csrfHash = data.csrf;
 
-        if (data.success) {
+        if (data.success && Array.isArray(data.soal)) {
             generatedSoal = data.soal;
             generatedTipe = 'multi';
             renderHasil(data.soal);
         } else {
-            alert('Gagal: ' + (data.error || 'Unknown error'));
+            const errMsg = data.error || data.message || (data.messages && data.messages.error) || 'Gagal generate soal.';
+            Swal.fire({
+                icon: 'warning',
+                title: 'Gagal Generate',
+                text: errMsg,
+            });
         }
     } catch (e) {
-        alert('Error: ' + e.message);
+        Swal.fire({
+            icon: 'error',
+            title: 'Terjadi Kesalahan',
+            text: 'Gagal terhubung ke server: ' + e.message,
+        });
     }
 
     btn.disabled = false;
@@ -618,10 +642,25 @@ document.getElementById('btn-manual-prompt')?.addEventListener('click', async fu
 
     try {
         const res = await fetch('<?= base_url("admin/administrasi-guru/soal-ai/get-prompt") ?>', { method: 'POST', body });
-        const data = await res.json();
+        
+        let data;
+        const text = await res.text();
+        try {
+            data = JSON.parse(text);
+        } catch (_) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-clipboard me-1"></i> Generate Manual (Copy Prompt)';
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal Menyiapkan Prompt',
+                html: 'Server mengembalikan respons tidak terduga.<br><small>Status HTTP: ' + res.status + '</small>',
+            });
+            return;
+        }
+
         if (data.csrf) csrfHash = data.csrf;
 
-        if (data.success) {
+        if (data.success && data.prompt) {
             document.getElementById('soalPromptText').value = data.prompt;
             document.getElementById('soalPasteStep').style.display = 'none';
             document.getElementById('soalPromptStep').style.display = 'block';
@@ -629,10 +668,19 @@ document.getElementById('btn-manual-prompt')?.addEventListener('click', async fu
             soalManualModalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
             soalManualModalInstance.show();
         } else {
-            alert('Error: ' + (data.error || 'Unknown'));
+            const errMsg = data.error || data.message || (data.messages && data.messages.error) || 'Gagal menyiapkan prompt soal.';
+            Swal.fire({
+                icon: 'warning',
+                title: 'Perhatian',
+                text: errMsg,
+            });
         }
     } catch (e) {
-        alert('Error: ' + e.message);
+        Swal.fire({
+            icon: 'error',
+            title: 'Terjadi Kesalahan',
+            text: 'Gagal terhubung ke server: ' + e.message,
+        });
     }
 
     btn.disabled = false;
