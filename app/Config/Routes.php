@@ -659,6 +659,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('bk/pemetaan/instrumen/update/(:num)', 'BkAssessment::updateInstrument/$1', $auth1237);
     $routes->post('bk/pemetaan/instrumen/delete/(:num)', 'BkAssessment::deleteInstrument/$1', $auth1237);
     $routes->post('bk/pemetaan/instrumen/publish/(:num)', 'BkAssessment::publishInstrument/$1', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/unpublish/(:num)', 'BkAssessment::unpublishInstrument/$1', $auth1237);
     $routes->post('bk/pemetaan/instrumen/duplicate/(:num)', 'BkAssessment::duplicateInstrument/$1', $auth1237);
     $routes->get('bk/pemetaan/instrumen/preview/(:num)', 'BkAssessment::previewInstrument/$1', $auth1237);
     

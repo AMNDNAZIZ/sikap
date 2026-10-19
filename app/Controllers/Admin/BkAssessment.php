@@ -123,6 +123,60 @@ class BkAssessment extends BaseController
         return redirect()->back()->with('success', 'Instrumen berhasil dipublish dan siap digunakan.');
     }
 
+    public function unpublishInstrument($id)
+    {
+        $instrument = $this->instrumentModel->find($id);
+        if (!$instrument) {
+            return redirect()->back()->with('error', 'Instrumen tidak ditemukan.');
+        }
+
+        $this->instrumentModel->update($id, ['status' => 'draft']);
+        return redirect()->back()->with('success', 'Instrumen berhasil di-unpublish menjadi status Draft.');
+    }
+
+    public function deleteInstrument($id)
+    {
+        $instrument = $this->instrumentModel->find($id);
+        if (!$instrument) {
+            return redirect()->back()->with('error', 'Instrumen tidak ditemukan.');
+        }
+
+        $db = \Config\Database::connect();
+        
+        // Cek apakah ada jawaban siswa yang terkait dengan instrumen ini
+        $hasAnswers = $db->table('bk_assignments ba')
+            ->join('bk_assignment_students bas', 'bas.assignment_id = ba.id')
+            ->where('ba.instrument_id', $id)
+            ->where('bas.status !=', 'ASSIGNED')
+            ->countAllResults();
+
+        if ($hasAnswers > 0) {
+            return redirect()->back()->with('error', 'Instrumen tidak dapat dihapus karena sudah memiliki hasil atau respon jawaban siswa. Silakan unpublish jika ingin menonaktifkannya.');
+        }
+
+        // Hapus penugasan yang belum diisi siswa jika ada
+        $assignments = $db->table('bk_assignments')->where('instrument_id', $id)->get()->getResultArray();
+        foreach ($assignments as $a) {
+            $db->table('bk_assignment_students')->where('assignment_id', $a['id'])->delete();
+            $db->table('bk_assignments')->where('id', $a['id'])->delete();
+        }
+
+        // Hapus detail konfigurasi instrumen: pertanyaan, opsi, skala, domain, interpretasi
+        $questions = $this->questionModel->where('instrument_id', $id)->findAll();
+        foreach ($questions as $q) {
+            $this->optionModel->where('question_id', $q['id'])->delete();
+        }
+        $this->questionModel->where('instrument_id', $id)->delete();
+        $this->domainModel->where('instrument_id', $id)->delete();
+        $this->scaleModel->where('instrument_id', $id)->delete();
+        $this->interpretationModel->where('instrument_id', $id)->delete();
+
+        // Hapus instrumen
+        $this->instrumentModel->delete($id);
+
+        return redirect()->to('admin/bk/pemetaan')->with('success', 'Instrumen "' . $instrument['title'] . '" berhasil dihapus.');
+    }
+
     // --- AJAX METHODS FOR BUILDER ---
 
     // Domain CRUD
@@ -529,12 +583,6 @@ class BkAssessment extends BaseController
     }
     
     // --- ADDITIONAL METHODS FOR ROUTES ---
-    
-    public function deleteInstrument($id)
-    {
-        $this->instrumentModel->delete($id);
-        return redirect()->back()->with('success', 'Instrumen berhasil dihapus.');
-    }
     
     public function duplicateInstrument($id)
     {

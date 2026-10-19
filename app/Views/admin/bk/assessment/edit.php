@@ -4,11 +4,11 @@
 <div class="container-fluid">
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">⚙️ Builder Instrumen: <?= esc($instrument['title']) ?></h1>
-        <div>
+        <div class="d-flex align-items-center gap-1 flex-wrap">
             <a href="<?= base_url('admin/bk/pemetaan') ?>" class="btn btn-sm btn-secondary shadow-sm">
                 <i class="fas fa-arrow-left fa-sm text-white-50"></i> Kembali
             </a>
-            <a href="<?= base_url('admin/bk/pemetaan/instrumen/preview/' . $instrument['id']) ?>" target="_blank" class="btn btn-sm btn-info shadow-sm" title="Lihat simulasi tampilan instrumen">
+            <a href="<?= base_url('admin/bk/pemetaan/instrumen/preview/' . $instrument['id']) ?>" target="_blank" class="btn btn-sm btn-info shadow-sm text-white" title="Lihat simulasi tampilan instrumen">
                 <i class="fas fa-eye fa-sm text-white-50"></i> Preview
             </a>
             <?php if ($instrument['status'] === 'draft'): ?>
@@ -18,7 +18,20 @@
                     <i class="fas fa-check fa-sm text-white-50"></i> Publish
                 </button>
             </form>
+            <?php else: ?>
+            <form action="<?= base_url('admin/bk/pemetaan/instrumen/unpublish/'.$instrument['id']) ?>" method="POST" class="d-inline">
+                <?= csrf_field() ?>
+                <button type="submit" class="btn btn-sm btn-warning shadow-sm text-dark" onclick="return confirm('Kembalikan status instrumen ini ke Draft (Unpublish)?')">
+                    <i class="fas fa-undo fa-sm"></i> Unpublish
+                </button>
+            </form>
             <?php endif; ?>
+            <form action="<?= base_url('admin/bk/pemetaan/instrumen/delete/'.$instrument['id']) ?>" method="POST" class="d-inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus instrumen ini secara permanen?')">
+                <?= csrf_field() ?>
+                <button type="submit" class="btn btn-sm btn-danger shadow-sm" title="Hapus Instrumen">
+                    <i class="fas fa-trash fa-sm text-white-50"></i> Hapus
+                </button>
+            </form>
         </div>
     </div>
 
