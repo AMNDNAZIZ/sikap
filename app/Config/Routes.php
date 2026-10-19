@@ -478,6 +478,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
 
     $routes->get('grades', 'GradesManageController::index', $auth123);
     $routes->get('grades/rekap', 'GradesManageController::rekap', $auth123);
+    $routes->get('reports', 'GradesManageController::rekap', $auth123);
     $routes->get('grades/rekap/cetak', 'GradesManageController::rekapCetak', $auth123);
     $routes->get('grades/rekap/excel', 'GradesManageController::rekapExcel', $auth123);
     $routes->get('grades/select-teacher', 'GradesManageController::selectTeacher', $auth123);

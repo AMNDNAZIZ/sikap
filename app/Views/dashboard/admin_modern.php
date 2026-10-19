@@ -820,7 +820,7 @@
               <i class="bi bi-chevron-right admin-action-arrow"></i>
             </a>
 
-            <a href="<?= site_url('admin/reports') ?>" class="admin-action-tile">
+            <a href="<?= site_url('admin/grades/rekap') ?>" class="admin-action-tile">
               <div class="admin-action-icon laporan">
                 <i class="bi bi-graph-up"></i>
               </div>
@@ -1092,7 +1092,7 @@
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
                               <li>
-                                <a class="dropdown-item" href="<?= site_url('admin/schedules/edit/' . $item['id']) ?>">
+                                <a class="dropdown-item" href="<?= site_url('admin/schedules/manage/' . $item['class_id']) ?>">
                                   <i class="bi bi-pencil me-2"></i> Edit Jadwal
                                 </a>
                               </li>

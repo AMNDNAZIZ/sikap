@@ -134,7 +134,7 @@ $formatCardDate = function($cfg, $sch) {
                 <th>Kelas</th>
                 <th>Wali Kelas</th>
                 <th>Tahun Ajaran Aktif</th>
-                <th style="width:320px;" class="text-center">Aksi Cetak Rapor PTS</th>
+                <th style="width:420px;" class="text-center">Aksi Cetak Rapor PTS</th>
               </tr>
             </thead>
             <tbody>
