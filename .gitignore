@@ -63,3 +63,7 @@ docs/
 /.agents
 /AGENT.md
 
+
+/.qoder/
+.qoder
+/ai-context/
