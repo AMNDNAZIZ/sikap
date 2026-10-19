@@ -289,6 +289,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->get('atp', 'AdministrasiGuru::atp');
         $routes->post('atp/store', 'AdministrasiGuru::atpStore');
         $routes->get('atp/delete/(:num)', 'AdministrasiGuru::atpDelete/$1');
+        $routes->get('atp/delete-tp/(:num)', 'AdministrasiGuru::atpDeleteTp/$1');
         $routes->post('atp/copy-from-source', 'AdministrasiGuru::atpCopyFromSource');
         $routes->get('atp/print/(:num)/(:num)', 'AdministrasiGuru::atpPrint/$1/$2');
         $routes->get('prota-prosem', 'AdministrasiGuru::protaProsem');

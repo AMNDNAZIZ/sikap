@@ -1009,6 +1009,50 @@ class AdministrasiGuru extends BaseController
     }
 
     /**
+     * Hapus satu Tujuan Pembelajaran (TP) dari ATP
+     */
+    public function atpDeleteTp($id)
+    {
+        $user = session()->get('user');
+        if ($user['role_id'] == 2) {
+            return redirect()->back()->with('error', 'Kepala Sekolah tidak memiliki akses untuk menghapus data.');
+        }
+
+        $tp = $this->tpModel->find($id);
+        if ($tp) {
+            $atpId = $tp['atp_id'] ?? null;
+            if ($user['role_id'] == 3 && $atpId) {
+                $atp = $this->atpModel->find($atpId);
+                if ($atp) {
+                    $isOwner = $this->db->table('teaching_assignments')
+                        ->where('teacher_id', $user['related_id'])
+                        ->where('class_id', $atp['class_id'])
+                        ->where('subject_id', $atp['subject_id'])
+                        ->countAllResults();
+                    if (!$isOwner) {
+                        return redirect()->back()->with('error', 'Anda tidak memiliki akses untuk menghapus TP ini.');
+                    }
+                }
+            }
+
+            $this->tpModel->delete($id);
+
+            // Jika TP yang dihapus adalah tp_id utama di header ATP, update ke TP lain jika ada
+            if ($atpId) {
+                $atp = $this->atpModel->find($atpId);
+                if ($atp && (int)($atp['tp_id'] ?? 0) === (int)$id) {
+                    $nextTp = $this->tpModel->where('atp_id', $atpId)->first();
+                    $this->atpModel->update($atpId, ['tp_id' => $nextTp['id'] ?? 0]);
+                }
+            }
+
+            return redirect()->back()->with('success', 'Tujuan Pembelajaran (TP) berhasil dihapus.');
+        }
+
+        return redirect()->back()->with('error', 'Tujuan Pembelajaran tidak ditemukan.');
+    }
+
+    /**
      * Salin semua ATP dari kelas sumber ke kelas tujuan (deep copy).
      * ATP baru disimpan permanen dengan class_id kelas tujuan.
      * Data asli tidak terpengaruh sama sekali.

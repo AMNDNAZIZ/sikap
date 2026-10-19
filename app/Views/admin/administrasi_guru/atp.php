@@ -325,9 +325,22 @@
                                                 <td class="align-middle fw-bold text-success"><?= esc($el['elemen']) ?></td>
                                                 <td class="align-middle">
                                                     <?php if (!empty($el['tps'])): ?>
-                                                        <ul class="mb-0 ps-3">
+                                                        <ul class="mb-0 ps-0 list-unstyled">
                                                             <?php foreach ($el['tps'] as $tp): ?>
-                                                                <li><strong><?= esc($tp['kode_tp']) ?></strong> <?= esc($tp['deskripsi']) ?></li>
+                                                                <li class="py-1 d-flex justify-content-between align-items-start border-bottom border-light">
+                                                                    <div>
+                                                                        <span class="badge bg-primary me-1"><?= esc($tp['kode_tp']) ?></span>
+                                                                        <span><?= esc($tp['deskripsi']) ?></span>
+                                                                    </div>
+                                                                    <?php if (!$readonly): ?>
+                                                                        <a href="<?= base_url('admin/administrasi-guru/atp/delete-tp/' . $tp['id']) ?>"
+                                                                           class="text-danger ms-2 flex-shrink-0"
+                                                                           title="Hapus TP ini"
+                                                                           onclick="return confirm('Hapus Tujuan Pembelajaran (TP) ini?\n\nKode: <?= esc($tp['kode_tp'], 'js') ?>\nDeskripsi: <?= esc(addslashes($tp['deskripsi'])) ?>')">
+                                                                            <i class="bi bi-trash"></i>
+                                                                        </a>
+                                                                    <?php endif; ?>
+                                                                </li>
                                                             <?php endforeach; ?>
                                                         </ul>
                                                     <?php else: ?>
@@ -415,14 +428,14 @@
 <template id="tpl_tp_row">
     <div class="tp-row bg-light p-2 border rounded mb-2">
         <div class="d-flex justify-content-end mb-1">
-            <button type="button" class="btn-close btn-sm btn-remove-tp" style="font-size:0.7rem;"></button>
+            <button type="button" class="btn-close btn-sm btn-remove-tp" style="font-size:0.7rem;" title="Hapus baris TP ini"></button>
         </div>
         <div class="row g-2">
             <div class="col-3">
-                <input type="text" class="form-control form-control-sm tp-kode-input" placeholder="1.1" required>
+                <input type="text" class="form-control form-control-sm tp-kode-input" placeholder="1.1">
             </div>
             <div class="col-9">
-                <textarea class="form-control form-control-sm tp-deskripsi-input" rows="2" placeholder="Deskripsi TP..." required></textarea>
+                <textarea class="form-control form-control-sm tp-deskripsi-input" rows="2" placeholder="Deskripsi TP..."></textarea>
             </div>
         </div>
     </div>
@@ -462,11 +475,14 @@ $(document).ready(function () {
     // ─── HAPUS TP ─────────────────────────────────────────────────────────
     $(document).on('click', '.btn-remove-tp', function () {
         const $tpList = $(this).closest('.tp-list');
-        if ($tpList.find('.tp-row').length <= 1) {
-            alert('Minimal harus ada satu TP per elemen.');
-            return;
+        const $row    = $(this).closest('.tp-row');
+
+        $row.remove();
+
+        // Jika semua baris TP di elemen ini dihapus, buat 1 baris kosong baru
+        if ($tpList.find('.tp-row').length === 0) {
+            $tpList.append(createTpRow());
         }
-        $(this).closest('.tp-row').remove();
         reindexElemen();
     });
 
@@ -498,6 +514,35 @@ $(document).ready(function () {
         $('#elemen_container').append($block);
         reindexElemen();
     }
+
+    // ─── VALIDASI SUBMIT FORM ATP ─────────────────────────────────────────
+    $('#atpForm').on('submit', function (e) {
+        let hasValidTp = false;
+        let hasIncompleteTp = false;
+
+        $('#elemen_container .tp-row').each(function () {
+            const kode = ($(this).find('.tp-kode-input').val() || '').trim();
+            const desc = ($(this).find('.tp-deskripsi-input').val() || '').trim();
+
+            if (kode !== '' && desc !== '') {
+                hasValidTp = true;
+            } else if ((kode !== '' && desc === '') || (kode === '' && desc !== '')) {
+                hasIncompleteTp = true;
+            }
+        });
+
+        if (hasIncompleteTp) {
+            e.preventDefault();
+            alert('Harap lengkapi Kode TP dan Deskripsi TP pada baris yang sedang diisi, atau kosongkan keduanya jika ingin menghapusnya.');
+            return false;
+        }
+
+        if (!hasValidTp) {
+            e.preventDefault();
+            alert('Minimal harus ada 1 Tujuan Pembelajaran (TP) yang diisi untuk alur ini.');
+            return false;
+        }
+    });
 
     // ─── INISIALISASI: satu elemen kosong ─────────────────────────────────
     (function init() {
