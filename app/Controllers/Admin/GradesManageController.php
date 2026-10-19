@@ -1165,11 +1165,33 @@ class GradesManageController extends BaseController
 
         $rekapData = $this->_buildRekapData($classId, $semester, $scoreType, $yearId, $db);
 
+        // Data sekolah & wali kelas untuk tanda tangan
+        $schoolModel = new \App\Models\SchoolModel();
+        $school = $schoolModel->getProfile();
+
+        $teacherModel = new \App\Models\TeacherModel();
+        $waliKelas = null;
+        if (!empty($rekapData['class']['teacher_id'])) {
+            $waliKelas = $teacherModel->find($rekapData['class']['teacher_id']);
+        }
+
+        $principalSigBase64 = $this->imageToBase64($school['principal_signature'] ?? '');
+        $waliSigBase64      = $waliKelas ? $this->imageToBase64($waliKelas['signature'] ?? '') : '';
+
+        // Format tanggal titimangsa Indonesia
+        $bulanIndo = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'];
+        $titimangsaDate = date('j') . ' ' . ($bulanIndo[(int)date('n')] ?? date('F')) . ' ' . date('Y');
+
         return view('admin/grades/rekap_cetak', [
-            'title'     => 'Cetak Rekap Nilai',
-            'semester'  => $semester,
-            'scoreType' => $scoreType,
-            'rekap'     => $rekapData,
+            'title'              => 'Cetak Rekap Nilai',
+            'semester'           => $semester,
+            'scoreType'          => $scoreType,
+            'rekap'              => $rekapData,
+            'school'             => $school,
+            'waliKelas'          => $waliKelas,
+            'principalSigBase64' => $principalSigBase64,
+            'waliSigBase64'      => $waliSigBase64,
+            'titimangsaDate'     => $titimangsaDate,
         ]);
     }
 
@@ -1541,4 +1563,41 @@ class GradesManageController extends BaseController
             'score_type_label' => $scoreTypeLabels[$scoreType] ?? $scoreType,
         ];
     }
+
+    /**
+     * Helper: Konversi file gambar ke base64 data URI agar aman di cetak/offline/PDF
+     */
+    protected function imageToBase64(?string $path): string
+    {
+        if (empty($path)) return '';
+        $cleanPath = ltrim(str_replace('\\', '/', $path), '/');
+
+        $candidatePaths = [
+            FCPATH . $cleanPath,
+            FCPATH . 'uploads/signatures/' . basename($cleanPath),
+            FCPATH . 'uploads/logo/' . basename($cleanPath),
+            FCPATH . 'uploads/' . $cleanPath,
+            ROOTPATH . 'public/' . $cleanPath,
+            ROOTPATH . 'public/uploads/signatures/' . basename($cleanPath),
+            ROOTPATH . 'public/uploads/logo/' . basename($cleanPath),
+            ROOTPATH . 'public/uploads/' . $cleanPath,
+        ];
+
+        $abs = null;
+        foreach ($candidatePaths as $candidate) {
+            if (file_exists($candidate) && !is_dir($candidate)) {
+                $abs = $candidate;
+                break;
+            }
+        }
+
+        if (!$abs) {
+            return '';
+        }
+
+        $ext  = strtolower(pathinfo($abs, PATHINFO_EXTENSION));
+        $mime = in_array($ext, ['jpg', 'jpeg']) ? 'jpeg' : ($ext === 'png' ? 'png' : ($ext === 'webp' ? 'webp' : 'gif'));
+        return 'data:image/' . $mime . ';base64,' . base64_encode(file_get_contents($abs));
+    }
 }
+

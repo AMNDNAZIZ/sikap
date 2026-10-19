@@ -654,14 +654,36 @@ class Attendance extends BaseController
             }
         }
 
+        // Data sekolah & wali kelas untuk tanda tangan
+        $schoolModel = new \App\Models\SchoolModel();
+        $school = $schoolModel->getProfile();
+
+        $teacherModel = new \App\Models\TeacherModel();
+        $waliKelas = null;
+        if (!empty($class['teacher_id'])) {
+            $waliKelas = $teacherModel->find($class['teacher_id']);
+        }
+
+        $principalSigBase64 = $this->imageToBase64($school['principal_signature'] ?? '');
+        $waliSigBase64      = $waliKelas ? $this->imageToBase64($waliKelas['signature'] ?? '') : '';
+
+        // Format tanggal titimangsa Indonesia
+        $bulanIndo = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'];
+        $titimangsaDate = date('j') . ' ' . ($bulanIndo[(int)date('n')] ?? date('F')) . ' ' . date('Y');
+
         $data = [
-            'class' => $class,
-            'month' => $month,
-            'students' => $students,
-            'dates' => $dates,
-            'attMap' => $attMap,
-            'holidays' => $holidays,
-            'schoolDays' => $schoolDays,
+            'class'              => $class,
+            'month'              => $month,
+            'students'           => $students,
+            'dates'              => $dates,
+            'attMap'             => $attMap,
+            'holidays'           => $holidays,
+            'schoolDays'         => $schoolDays,
+            'school'             => $school,
+            'waliKelas'          => $waliKelas,
+            'principalSigBase64' => $principalSigBase64,
+            'waliSigBase64'      => $waliSigBase64,
+            'titimangsaDate'     => $titimangsaDate,
         ];
 
         $html = view('admin/attendance/pdf_grid', $data);
@@ -1003,11 +1025,32 @@ class Attendance extends BaseController
         $class = $this->classModel->find($classId);
         $rekap = $this->generateRekap((int) $classId, $periode);
 
+        $schoolModel = new \App\Models\SchoolModel();
+        $school = $schoolModel->getProfile();
+
+        $teacherModel = new \App\Models\TeacherModel();
+        $waliKelas = null;
+        if (!empty($class['teacher_id'])) {
+            $waliKelas = $teacherModel->find($class['teacher_id']);
+        }
+
+        $principalSigBase64 = $this->imageToBase64($school['principal_signature'] ?? '');
+        $waliSigBase64      = $waliKelas ? $this->imageToBase64($waliKelas['signature'] ?? '') : '';
+
+        // Format tanggal titimangsa Indonesia
+        $bulanIndo = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'];
+        $titimangsaDate = date('j') . ' ' . ($bulanIndo[(int)date('n')] ?? date('F')) . ' ' . date('Y');
+
         $html = view('admin/attendance/rekap_pdf_template', [
-            'class' => $class,
-            'activeYear' => $rekap['activeYear'],
-            'periode' => $periode,
-            'rekapSiswa' => $rekap['rekapSiswa'],
+            'class'              => $class,
+            'activeYear'         => $rekap['activeYear'],
+            'periode'            => $periode,
+            'rekapSiswa'         => $rekap['rekapSiswa'],
+            'school'             => $school,
+            'waliKelas'          => $waliKelas,
+            'principalSigBase64' => $principalSigBase64,
+            'waliSigBase64'      => $waliSigBase64,
+            'titimangsaDate'     => $titimangsaDate,
         ]);
 
         // =========================
@@ -1349,4 +1392,41 @@ class Attendance extends BaseController
         return false;
     }
 
+    /**
+     * Helper: Konversi file gambar ke base64 data URI agar aman di PDF/offline
+     */
+    protected function imageToBase64(?string $path): string
+    {
+        if (empty($path)) return '';
+        $cleanPath = ltrim(str_replace('\\', '/', $path), '/');
+
+        $candidatePaths = [
+            FCPATH . $cleanPath,
+            FCPATH . 'uploads/signatures/' . basename($cleanPath),
+            FCPATH . 'uploads/logo/' . basename($cleanPath),
+            FCPATH . 'uploads/' . $cleanPath,
+            ROOTPATH . 'public/' . $cleanPath,
+            ROOTPATH . 'public/uploads/signatures/' . basename($cleanPath),
+            ROOTPATH . 'public/uploads/logo/' . basename($cleanPath),
+            ROOTPATH . 'public/uploads/' . $cleanPath,
+        ];
+
+        $abs = null;
+        foreach ($candidatePaths as $candidate) {
+            if (file_exists($candidate) && !is_dir($candidate)) {
+                $abs = $candidate;
+                break;
+            }
+        }
+
+        if (!$abs) {
+            return '';
+        }
+
+        $ext  = strtolower(pathinfo($abs, PATHINFO_EXTENSION));
+        $mime = in_array($ext, ['jpg', 'jpeg']) ? 'jpeg' : ($ext === 'png' ? 'png' : ($ext === 'webp' ? 'webp' : 'gif'));
+        return 'data:image/' . $mime . ';base64,' . base64_encode(file_get_contents($abs));
+    }
+
 }
+

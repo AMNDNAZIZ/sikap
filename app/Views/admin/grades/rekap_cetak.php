@@ -23,6 +23,14 @@
         .btn-print { padding: 8px 18px; background: #0d6efd; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 10pt; }
         .btn-back  { padding: 8px 18px; background: #6c757d; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 10pt; text-decoration: none; margin-right: 6px; }
 
+        .signature-section { margin-top: 25px; page-break-inside: avoid; break-inside: avoid; }
+        table.signature-table { width: 100%; border: none !important; font-size: 9pt; margin-top: 10px; }
+        table.signature-table td { border: none !important; width: 50%; text-align: center; vertical-align: top; padding: 0 20px; }
+        .signature-space { height: 55px; }
+        .signature-img { max-height: 50px; max-width: 140px; display: block; margin: 0 auto; }
+        .signature-name { font-weight: bold; text-decoration: underline; font-size: 9.5pt; }
+        .signature-nip { font-size: 8.5pt; margin-top: 2px; }
+
         @media print {
             .no-print { display: none; }
             body { margin: 8mm; }
@@ -107,7 +115,44 @@ function fmt($val) {
     <?php endforeach; ?>
 </div>
 
-<div style="margin-top: 30px; text-align: right; font-size: 8pt;">
+<!-- TANDA TANGAN -->
+<?php
+    $kota = !empty($school['city_regency']) ? $school['city_regency'] : (!empty($school['city']) ? $school['city'] : 'Kota/Kab.');
+    $kepsekNama = !empty($school['headmaster']) ? $school['headmaster'] : 'Kepala Sekolah';
+    $kepsekNip  = !empty($school['principal_nip']) ? $school['principal_nip'] : '-';
+    $waliNama   = !empty($waliKelas['name']) ? $waliKelas['name'] : 'Wali Kelas';
+    $waliNip    = !empty($waliKelas['nip']) ? $waliKelas['nip'] : '-';
+?>
+<div class="signature-section">
+    <table class="signature-table">
+        <tr>
+            <td>
+                Mengetahui,<br>
+                <strong>Kepala Sekolah</strong>
+                <div class="signature-space">
+                    <?php if (!empty($principalSigBase64)): ?>
+                        <img src="<?= $principalSigBase64 ?>" alt="TTD Kepala Sekolah" class="signature-img">
+                    <?php endif; ?>
+                </div>
+                <div class="signature-name"><?= esc($kepsekNama) ?></div>
+                <div class="signature-nip">NIP. <?= esc($kepsekNip) ?></div>
+            </td>
+            <td>
+                <?= esc($kota) ?>, <?= esc($titimangsaDate ?? date('d F Y')) ?><br>
+                <strong>Wali Kelas <?= esc($rekap['class']['name'] ?? '') ?></strong>
+                <div class="signature-space">
+                    <?php if (!empty($waliSigBase64)): ?>
+                        <img src="<?= $waliSigBase64 ?>" alt="TTD Wali Kelas" class="signature-img">
+                    <?php endif; ?>
+                </div>
+                <div class="signature-name"><?= esc($waliNama) ?></div>
+                <div class="signature-nip">NIP. <?= esc($waliNip) ?></div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<div style="margin-top: 20px; text-align: right; font-size: 8pt;">
     Dicetak: <?= date('d/m/Y H:i') ?>
 </div>
 
