@@ -93,6 +93,19 @@ class Assessment extends BaseController
         $domains = $db->table('bk_instrument_domains')->where('instrument_id', $assignment['instrument_id'])->orderBy('sort_order', 'ASC')->get()->getResultArray();
         $questions = $db->table('bk_instrument_questions')->where('instrument_id', $assignment['instrument_id'])->where('is_active', 1)->orderBy('sort_order', 'ASC')->get()->getResultArray();
         
+        // Safeguard jika belum ada aspek/domain: buat 1 tab default agar pertanyaan tetap tampil
+        if (empty($domains)) {
+            $domains = [
+                ['id' => 0, 'domain_name' => 'Pertanyaan Asesmen']
+            ];
+            foreach ($questions as &$q) {
+                if (empty($q['domain_id'])) {
+                    $q['domain_id'] = 0;
+                }
+            }
+            unset($q);
+        }
+
         // Fetch saved answers
         $savedAnswersRaw = $this->studentAnswerModel->where('assignment_student_id', $assignment_student_id)->findAll();
         $savedAnswers = [];
@@ -100,22 +113,38 @@ class Assessment extends BaseController
             $savedAnswers[$ans['question_id']] = $ans;
         }
 
-        // Simple default scale mapping for placeholder logic (will be enhanced by actual scale fetching if needed)
-        // For standard AKPD/Likert: 4, 3, 2, 1
-        $defaultScale = [
-            ['value' => 4, 'label' => 'Sangat Sesuai / Sangat Membutuhkan'],
-            ['value' => 3, 'label' => 'Sesuai / Membutuhkan'],
-            ['value' => 2, 'label' => 'Kurang Sesuai / Kurang Membutuhkan'],
-            ['value' => 1, 'label' => 'Tidak Sesuai / Tidak Membutuhkan'],
-        ];
+        // Ambil skala yang sebenarnya dikonfigurasikan pada instrumen ini
+        $scalesRaw = $db->table('bk_instrument_scales')
+            ->where('instrument_id', $assignment['instrument_id'])
+            ->orderBy('sort_order', 'ASC')
+            ->orderBy('scale_value', 'DESC')
+            ->get()->getResultArray();
+
+        $scale = [];
+        if (!empty($scalesRaw)) {
+            foreach ($scalesRaw as $s) {
+                $scale[] = [
+                    'value' => $s['scale_value'],
+                    'label' => $s['scale_label']
+                ];
+            }
+        } else {
+            // Default fallback jika belum dikonfigurasi skala di instrumen
+            $scale = [
+                ['value' => 4, 'label' => 'Sangat Sesuai / Sangat Membutuhkan'],
+                ['value' => 3, 'label' => 'Sesuai / Membutuhkan'],
+                ['value' => 2, 'label' => 'Kurang Sesuai / Kurang Membutuhkan'],
+                ['value' => 1, 'label' => 'Tidak Sesuai / Tidak Membutuhkan'],
+            ];
+        }
 
         $data = [
-            'title' => 'Mengisi: ' . $assignment['title'],
-            'assignment' => $assignment,
-            'domains' => $domains,
-            'questions' => $questions,
+            'title'        => 'Mengisi: ' . $assignment['title'],
+            'assignment'   => $assignment,
+            'domains'      => $domains,
+            'questions'    => $questions,
             'savedAnswers' => $savedAnswers,
-            'scale' => $defaultScale
+            'scale'        => $scale
         ];
 
         return view('siswa/assessment/fill', $data);
@@ -183,9 +212,9 @@ class Assessment extends BaseController
         $assignDetail = $db->table('bk_assignments')->where('id', $assignment['assignment_id'])->get()->getRowArray();
         $instrument_id = $assignDetail['instrument_id'];
         
-        // 2. Dapatkan max scale value (Asumsi scale 1-4 untuk perhitungan reverse)
-        $maxScale = $db->table('bk_instrument_scales')->where('instrument_id', $instrument_id)->selectMax('scale_value')->get()->getRowArray()['scale_value'] ?? 4;
-        $minScale = 1; // Asumsi min = 1
+        // 2. Dapatkan max & min scale value untuk perhitungan skor/reverse
+        $maxScale = (float)($db->table('bk_instrument_scales')->where('instrument_id', $instrument_id)->selectMax('scale_value')->get()->getRowArray()['scale_value'] ?? 4);
+        $minScale = (float)($db->table('bk_instrument_scales')->where('instrument_id', $instrument_id)->selectMin('scale_value')->get()->getRowArray()['scale_value'] ?? 0);
         
         // 3. Ambil semua jawaban siswa untuk penugasan ini
         $answers = $this->studentAnswerModel->where('assignment_student_id', $assignment_student_id)->findAll();

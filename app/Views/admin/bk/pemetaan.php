@@ -65,7 +65,10 @@
                                             </td>
                                             <td><?= date('d M Y', strtotime($a['created_at'])) ?></td>
                                             <td class="text-center">
-                                                <a href="<?= base_url('admin/bk/pemetaan/instrumen/edit/' . $a['id']) ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3">Builder</a>
+                                                <div class="d-flex justify-content-center gap-1">
+                                                    <a href="<?= base_url('admin/bk/pemetaan/instrumen/edit/' . $a['id']) ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3">Builder</a>
+                                                    <a href="<?= base_url('admin/bk/pemetaan/instrumen/preview/' . $a['id']) ?>" target="_blank" class="btn btn-sm btn-outline-info rounded-pill px-2" title="Preview Tampilan Siswa"><i class="bi bi-eye"></i></a>
+                                                </div>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

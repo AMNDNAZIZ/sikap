@@ -686,6 +686,8 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     // 2. Penugasan
     $routes->get('bk/pemetaan/penugasan', 'BkAssessment::assignments', $auth1237);
     $routes->post('bk/pemetaan/penugasan/store', 'BkAssessment::storeAssignment', $auth1237);
+    $routes->post('bk/pemetaan/penugasan/update/(:num)', 'BkAssessment::updateAssignment/$1', $auth1237);
+    $routes->post('bk/pemetaan/penugasan/delete/(:num)', 'BkAssessment::deleteAssignment/$1', $auth1237);
     $routes->post('bk/pemetaan/penugasan/activate/(:num)', 'BkAssessment::activateAssignment/$1', $auth1237);
     $routes->post('bk/pemetaan/penugasan/close/(:num)', 'BkAssessment::closeAssignment/$1', $auth1237);
     $routes->get('bk/pemetaan/penugasan/progress/(:num)', 'BkAssessment::assignmentProgress/$1', $auth1237);

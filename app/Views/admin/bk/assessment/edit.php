@@ -8,9 +8,9 @@
             <a href="<?= base_url('admin/bk/pemetaan') ?>" class="btn btn-sm btn-secondary shadow-sm">
                 <i class="fas fa-arrow-left fa-sm text-white-50"></i> Kembali
             </a>
-            <button type="button" class="btn btn-sm btn-info shadow-sm" onclick="previewInstrument()">
+            <a href="<?= base_url('admin/bk/pemetaan/instrumen/preview/' . $instrument['id']) ?>" target="_blank" class="btn btn-sm btn-info shadow-sm" title="Lihat simulasi tampilan instrumen">
                 <i class="fas fa-eye fa-sm text-white-50"></i> Preview
-            </button>
+            </a>
             <?php if ($instrument['status'] === 'draft'): ?>
             <form action="<?= base_url('admin/bk/pemetaan/instrumen/publish/'.$instrument['id']) ?>" method="POST" class="d-inline">
                 <?= csrf_field() ?>
@@ -125,22 +125,33 @@
                     </div>
                     <div class="card-body">
                         <ul class="list-group list-group-flush mb-3" id="question-list-<?= $domain['id'] ?>">
-                            <?php foreach ($questions as $q): ?>
-                                <?php if ($q['domain_id'] == $domain['id']): ?>
+                            <?php 
+                                $qIndex = 1;
+                                $domainQ = array_values(array_filter($questions, fn($item) => $item['domain_id'] == $domain['id']));
+                            ?>
+                            <?php if (empty($domainQ)): ?>
+                                <li class="list-group-item text-muted text-center py-3 empty-notice">
+                                    <small><i class="fas fa-info-circle me-1"></i>Belum ada pertanyaan pada aspek ini.</small>
+                                </li>
+                            <?php else: ?>
+                                <?php foreach ($domainQ as $q): ?>
                                 <li class="list-group-item d-flex justify-content-between align-items-center" id="question-<?= $q['id'] ?>">
-                                    <div>
-                                        <?= esc($q['question_text']) ?>
+                                    <div class="d-flex align-items-center me-2">
+                                        <span class="badge bg-secondary me-2 q-number"><?= $qIndex++ ?></span>
+                                        <span class="text-dark fw-semibold q-text"><?= esc($q['question_text']) ?></span>
                                         <?php if ($q['is_reverse']): ?>
-                                            <span class="badge bg-warning text-dark ms-2">Reverse</span>
+                                            <span class="badge bg-warning text-dark ms-2 q-reverse">Reverse</span>
                                         <?php endif; ?>
                                     </div>
-                                    <button class="btn btn-sm btn-danger" onclick="deleteQuestion(<?= $q['id'] ?>)"><i class="fas fa-times"></i></button>
+                                    <button class="btn btn-sm btn-outline-danger rounded-circle shadow-sm" style="width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center;" onclick="deleteQuestion(<?= $q['id'] ?>)" title="Hapus Pertanyaan">
+                                        <i class="fas fa-times"></i>
+                                    </button>
                                 </li>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </ul>
-                        <button class="btn btn-sm btn-outline-secondary" onclick="openQuestionModal(<?= $domain['id'] ?>)">
-                            <i class="fas fa-plus"></i> Tambah Pertanyaan
+                        <button class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm" onclick="openQuestionModal(<?= $domain['id'] ?>)">
+                            <i class="fas fa-plus me-1"></i> Tambah Pertanyaan
                         </button>
                     </div>
                 </div>
@@ -326,6 +337,16 @@
                 </div>
             </form>
         </div>
+    <!-- Toast Container for Notifications -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1090;">
+    <div id="builderToast" class="toast align-items-center text-white border-0 shadow rounded-3" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body d-flex align-items-center gap-2">
+                <i class="fas fa-check-circle fs-5" id="toastIcon"></i>
+                <span id="toastMessage">Pesan</span>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
     </div>
 </div>
 
@@ -334,9 +355,58 @@
 <?= $this->section('scripts') ?>
 <script>
     const baseUrl = '<?= base_url('admin/bk/pemetaan/instrumen') ?>';
-    
+    const instrumentId = '<?= $instrument['id'] ?>';
+
+    function showBuilderToast(message, type = 'success') {
+        const toastEl = document.getElementById('builderToast');
+        const toastMsg = document.getElementById('toastMessage');
+        const toastIcon = document.getElementById('toastIcon');
+        if (!toastEl) return;
+
+        toastEl.className = 'toast align-items-center text-white border-0 shadow rounded-3 ' + 
+            (type === 'success' ? 'bg-success' : (type === 'info' ? 'bg-info' : 'bg-danger'));
+        toastIcon.className = type === 'success' ? 'fas fa-check-circle fs-5' : 
+            (type === 'info' ? 'fas fa-info-circle fs-5' : 'fas fa-exclamation-circle fs-5');
+        toastMsg.innerText = message;
+
+        bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3000 }).show();
+    }
+
+    function syncActiveTab() {
+        const hash = window.location.hash || localStorage.getItem('active_tab_inst_' + instrumentId);
+        if (hash) {
+            const btn = document.querySelector('#builderTabs button[data-bs-target="' + hash + '"]');
+            if (btn) {
+                bootstrap.Tab.getOrCreateInstance(btn).show();
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        syncActiveTab();
+
+        document.querySelectorAll('#builderTabs button[data-bs-toggle="tab"]').forEach(tabBtn => {
+            tabBtn.addEventListener('shown.bs.tab', function (e) {
+                const target = e.target.getAttribute('data-bs-target');
+                if (target) {
+                    history.replaceState(null, null, target);
+                    localStorage.setItem('active_tab_inst_' + instrumentId, target);
+                }
+            });
+        });
+    });
+
+    // Fallback sync after window fully loads
+    window.addEventListener('load', syncActiveTab);
+
     function saveDomain(e) {
         e.preventDefault();
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...';
+        }
+
         let formData = new FormData(e.target);
         fetch(baseUrl + '/domain/store', {
             method: 'POST',
@@ -346,7 +416,23 @@
         .then(res => res.json())
         .then(data => {
             if (data.status === 'success') {
-                location.reload(); // Sederhana: reload halaman untuk melihat hasil
+                localStorage.setItem('active_tab_inst_' + instrumentId, '#question');
+                window.location.hash = '#question';
+                location.reload();
+            } else {
+                alert(data.message || 'Gagal menyimpan aspek.');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Simpan';
+                }
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Terjadi kesalahan koneksi.');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Simpan';
             }
         });
     }
@@ -362,18 +448,45 @@
         })
         .then(res => res.json())
         .then(data => {
-            if(data.status === 'success') document.getElementById('domain-' + id).remove();
+            if(data.status === 'success') {
+                const el = document.getElementById('domain-' + id);
+                if (el) el.remove();
+                showBuilderToast('Aspek berhasil dihapus.', 'info');
+            }
         });
     }
 
     function openQuestionModal(domainId) {
         document.getElementById('modal_domain_id').value = domainId;
+        const qInput = document.querySelector('#formAddQuestion textarea[name="question_text"]');
+        if (qInput) qInput.value = '';
+        const revInput = document.getElementById('is_reverse');
+        if (revInput) revInput.checked = false;
+        
+        const submitBtn = document.querySelector('#formAddQuestion button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Simpan';
+        }
+
         new bootstrap.Modal(document.getElementById('questionModal')).show();
     }
 
     function saveQuestion(e) {
         e.preventDefault();
-        let formData = new FormData(e.target);
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            if (submitBtn.disabled) return;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...';
+        }
+
+        const form = e.target;
+        const formData = new FormData(form);
+        const domainId = formData.get('domain_id');
+        const qText = (formData.get('question_text') || '').trim();
+        const isReverse = form.querySelector('#is_reverse')?.checked;
+
         fetch(baseUrl + '/question/store', {
             method: 'POST',
             body: formData,
@@ -381,8 +494,78 @@
         })
         .then(res => res.json())
         .then(data => {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Simpan';
+            }
+
             if (data.status === 'success') {
-                location.reload();
+                // Tutup modal
+                const modalEl = document.getElementById('questionModal');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+
+                // Tambahkan pertanyaan secara dinamis ke list tanpa reload halaman
+                const listEl = document.getElementById('question-list-' + domainId);
+                if (listEl) {
+                    const emptyNotice = listEl.querySelector('.empty-notice');
+                    if (emptyNotice) {
+                        emptyNotice.remove();
+                    }
+
+                    const currentCount = listEl.querySelectorAll('li[id^="question-"]').length;
+                    const newIndex = currentCount + 1;
+                    const newId = data.id;
+
+                    const reverseBadge = isReverse ? '<span class="badge bg-warning text-dark ms-2 q-reverse">Reverse</span>' : '';
+                    
+                    // Buat elemen aman dari XSS
+                    const safeDiv = document.createElement('div');
+                    safeDiv.innerText = qText;
+                    const escapedText = safeDiv.innerHTML;
+
+                    const newLi = document.createElement('li');
+                    newLi.className = 'list-group-item d-flex justify-content-between align-items-center bg-success-subtle';
+                    newLi.id = 'question-' + newId;
+                    newLi.innerHTML = `
+                        <div class="d-flex align-items-center me-2">
+                            <span class="badge bg-secondary me-2 q-number">${newIndex}</span>
+                            <span class="text-dark fw-semibold q-text">${escapedText}</span>
+                            ${reverseBadge}
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger rounded-circle shadow-sm" style="width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center;" onclick="deleteQuestion(${newId})" title="Hapus Pertanyaan">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+
+                    listEl.appendChild(newLi);
+
+                    // Hilangkan highlight hijau halus setelah 1.5 detik
+                    setTimeout(() => {
+                        newLi.classList.remove('bg-success-subtle');
+                    }, 1500);
+                }
+
+                // Reset form
+                form.reset();
+
+                // Pastikan tab tetap tersimpan
+                localStorage.setItem('active_tab_inst_' + instrumentId, '#question');
+                history.replaceState(null, null, '#question');
+
+                showBuilderToast('Pertanyaan berhasil ditambahkan!', 'success');
+            } else {
+                alert(data.message || 'Gagal menyimpan pertanyaan');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Terjadi kesalahan koneksi.');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Simpan';
             }
         });
     }
@@ -398,8 +581,36 @@
         })
         .then(res => res.json())
         .then(data => {
-            if(data.status === 'success') document.getElementById('question-' + id).remove();
+            if(data.status === 'success') {
+                const el = document.getElementById('question-' + id);
+                if (el) {
+                    const parentList = el.closest('ul');
+                    el.remove();
+
+                    // Re-index remaining questions
+                    if (parentList) {
+                        const remaining = parentList.querySelectorAll('li[id^="question-"]');
+                        if (remaining.length === 0) {
+                            parentList.innerHTML = `
+                                <li class="list-group-item text-muted text-center py-3 empty-notice">
+                                    <small><i class="fas fa-info-circle me-1"></i>Belum ada pertanyaan pada aspek ini.</small>
+                                </li>
+                            `;
+                        } else {
+                            remaining.forEach((item, idx) => {
+                                const badge = item.querySelector('.q-number');
+                                if (badge) badge.innerText = idx + 1;
+                            });
+                        }
+                    }
+                }
+                showBuilderToast('Pertanyaan berhasil dihapus.', 'info');
+            }
         });
+    }
+
+    function previewInstrument() {
+        window.open('<?= base_url('admin/bk/pemetaan/instrumen/preview/' . $instrument['id']) ?>', '_blank');
     }
 </script>
 <?= $this->endSection() ?>

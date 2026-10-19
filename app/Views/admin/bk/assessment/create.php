@@ -44,14 +44,18 @@
                                 <option value="Custom">Custom / Lainnya</option>
                             </select>
                         </div>
+                        <?php
+                        $levelCode = $schoolLevelCode ?? (function_exists('is_school_sd') && is_school_sd() ? 'SD' : (function_exists('is_school_smp') && is_school_smp() ? 'SMP' : (function_exists('is_school_sma') && is_school_sma() ? 'SMA' : 'All')));
+                        $levelLabel = $schoolLevelLabel ?? ($levelCode === 'SD' ? 'SD / Sederajat' : ($levelCode === 'SMP' ? 'SMP / Sederajat' : ($levelCode === 'SMA' ? 'SMA / SMK / Sederajat' : 'Semua Jenjang')));
+                        ?>
                         <div class="mb-3">
                             <label class="form-label">Jenjang Sasaran</label>
-                            <select class="form-select" name="target_level">
-                                <option value="All">Semua Jenjang</option>
-                                <option value="SD">SD/Sederajat</option>
-                                <option value="SMP">SMP/Sederajat</option>
-                                <option value="SMA">SMA/SMK/Sederajat</option>
-                            </select>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-primary"><i class="bi bi-mortarboard-fill"></i></span>
+                                <input type="text" class="form-control bg-light" value="<?= esc($levelLabel) ?>" readonly>
+                            </div>
+                            <input type="hidden" name="target_level" value="<?= esc($levelCode) ?>">
+                            <small class="text-muted d-block mt-1"><i class="bi bi-check-circle-fill text-success me-1"></i>Otomatis disesuaikan dengan setelan jenjang sekolah.</small>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Format Skala Default</label>

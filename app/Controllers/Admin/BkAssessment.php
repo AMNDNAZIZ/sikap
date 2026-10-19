@@ -33,9 +33,24 @@ class BkAssessment extends BaseController
 
     public function createInstrument()
     {
+        $schoolLevelCode = 'All';
+        $schoolLevelLabel = 'Semua Jenjang';
+        if (function_exists('is_school_sd') && is_school_sd()) {
+            $schoolLevelCode = 'SD';
+            $schoolLevelLabel = 'SD / Sederajat';
+        } elseif (function_exists('is_school_smp') && is_school_smp()) {
+            $schoolLevelCode = 'SMP';
+            $schoolLevelLabel = 'SMP / Sederajat';
+        } elseif (function_exists('is_school_sma') && is_school_sma()) {
+            $schoolLevelCode = 'SMA';
+            $schoolLevelLabel = 'SMA / SMK / Sederajat';
+        }
+
         $data = [
-            'title' => 'Buat Instrumen Asesmen Baru',
-            'active_menu' => 'bk',
+            'title'            => 'Buat Instrumen Asesmen Baru',
+            'active_menu'      => 'bk',
+            'schoolLevelCode'  => $schoolLevelCode,
+            'schoolLevelLabel' => $schoolLevelLabel,
         ];
         return view('admin/bk/assessment/create', $data);
     }
@@ -44,12 +59,25 @@ class BkAssessment extends BaseController
     {
         $title = $this->request->getPost('title');
         
+        $targetLevel = $this->request->getPost('target_level');
+        if (empty($targetLevel)) {
+            if (function_exists('is_school_sd') && is_school_sd()) {
+                $targetLevel = 'SD';
+            } elseif (function_exists('is_school_smp') && is_school_smp()) {
+                $targetLevel = 'SMP';
+            } elseif (function_exists('is_school_sma') && is_school_sma()) {
+                $targetLevel = 'SMA';
+            } else {
+                $targetLevel = 'All';
+            }
+        }
+
         $data = [
             'title'              => $title,
             'description'        => $this->request->getPost('description'),
             'assessment_type'    => $this->request->getPost('assessment_type'),
-            'academic_year_id'   => session('academic_year_id') ?? 1,
-            'target_level'       => $this->request->getPost('target_level'),
+            'academic_year_id'   => $this->getActiveAcademicYearId(),
+            'target_level'       => $targetLevel,
             'purpose'            => $this->request->getPost('purpose'),
             'default_scale_type' => $this->request->getPost('default_scale_type') ?? 'likert',
             'status'             => 'draft',
@@ -118,10 +146,33 @@ class BkAssessment extends BaseController
     // Question CRUD
     public function storeQuestion()
     {
+        $questionText = trim($this->request->getPost('question_text') ?? '');
+        $instrumentId = (int)$this->request->getPost('instrument_id');
+        $domainId     = $this->request->getPost('domain_id') ?: null;
+
+        if (empty($questionText)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Teks pertanyaan tidak boleh kosong']);
+        }
+
+        // Cegah duplikasi pertanyaan akibat double-click/double-submit
+        $existing = $this->questionModel
+            ->where('instrument_id', $instrumentId)
+            ->where('domain_id', $domainId)
+            ->where('question_text', $questionText)
+            ->first();
+
+        if ($existing) {
+            return $this->response->setJSON([
+                'status'  => 'success',
+                'id'      => $existing['id'],
+                'message' => 'Pertanyaan sudah tersimpan (duplikasi dicegah)'
+            ]);
+        }
+
         $data = [
-            'instrument_id' => $this->request->getPost('instrument_id'),
-            'domain_id'     => $this->request->getPost('domain_id') ?: null,
-            'question_text' => $this->request->getPost('question_text'),
+            'instrument_id' => $instrumentId,
+            'domain_id'     => $domainId,
+            'question_text' => $questionText,
             'question_type' => $this->request->getPost('question_type') ?? 'scale',
             'is_reverse'    => $this->request->getPost('is_reverse') ?? 0,
             'sort_order'    => $this->request->getPost('sort_order') ?? 0,
@@ -150,6 +201,16 @@ class BkAssessment extends BaseController
         $this->instrumentModel->update($instrument_id, ['total_questions' => $total]);
     }
 
+    private function getActiveAcademicYearId(): int
+    {
+        $sessionYearId = session('academic_year_id');
+        if (!empty($sessionYearId)) {
+            return (int)$sessionYearId;
+        }
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+        return (int)($activeYear['id'] ?? 1);
+    }
+
     // --- PENUGASAN (ASSIGNMENTS) ---
 
     public function assignments()
@@ -159,12 +220,13 @@ class BkAssessment extends BaseController
         $data = [
             'title'       => 'Penugasan Asesmen BK',
             'active_menu' => 'bk',
-            'assignments' => $assignmentModel->select('bk_assignments.*, bk_instruments.title as instrument_title')
+            'assignments' => $assignmentModel->select('bk_assignments.*, bk_instruments.title as instrument_title, classes.name as class_name')
                                              ->join('bk_instruments', 'bk_instruments.id = bk_assignments.instrument_id')
+                                             ->join('classes', 'classes.id = bk_assignments.target_id', 'left')
                                              ->orderBy('bk_assignments.created_at', 'DESC')
                                              ->findAll(),
             'instruments' => $this->instrumentModel->where('status', 'published')->findAll(),
-            'classes'     => (new \App\Models\ClassModel())->where('is_active', 1)->findAll()
+            'classes'     => (new \App\Models\ClassModel())->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll()
         ];
         
         return view('admin/bk/assessment/assignments', $data);
@@ -175,20 +237,57 @@ class BkAssessment extends BaseController
         $assignmentModel = new \App\Models\BkAssignmentModel();
         
         $instrument_id = $this->request->getPost('instrument_id');
-        $target_type   = $this->request->getPost('target_type');
-        $target_id     = $this->request->getPost('target_id'); // e.g. class_id
-        $academic_year_id = session('academic_year_id') ?? 1;
+        $target_type   = $this->request->getPost('target_type') ?: 'class';
+        $academic_year_id = $this->getActiveAcademicYearId();
+
+        // Mendukung pemilihan banyak kelas (target_ids array) atau single target_id
+        $target_ids = $this->request->getPost('target_ids');
+        if (!is_array($target_ids)) {
+            $singleTarget = $this->request->getPost('target_id');
+            $target_ids = $singleTarget ? [$singleTarget] : [];
+        }
+        $target_ids = array_values(array_filter(array_map('intval', $target_ids)));
+
+        if ($target_type === 'class' && empty($target_ids)) {
+            return redirect()->back()->withInput()->with('error', 'Silakan pilih minimal satu kelas sasaran penugasan.');
+        }
+
+        $classNames = [];
+        $notesData = [];
+        $primaryClassId = null;
+        if ($target_type === 'class') {
+            $classModel = new \App\Models\ClassModel();
+            $classes = $classModel->whereIn('id', $target_ids)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll();
+            $classNames = array_column($classes, 'name');
+            $primaryClassId = $target_ids[0] ?? null;
+
+            $notesData = [
+                'class_ids'   => $target_ids,
+                'class_names' => $classNames,
+            ];
+        }
+
+        $instrument = $this->instrumentModel->find($instrument_id);
+        $title = trim($this->request->getPost('title') ?? '');
+        if (empty($title)) {
+            if ($target_type === 'class' && !empty($classNames)) {
+                $title = ($instrument['title'] ?? 'Asesmen BK') . ' - ' . implode(', ', $classNames);
+            } else {
+                $title = $instrument['title'] ?? 'Asesmen BK';
+            }
+        }
 
         $assignmentData = [
             'instrument_id'    => $instrument_id,
-            'title'            => $this->request->getPost('title') ?: $this->instrumentModel->find($instrument_id)['title'],
+            'title'            => $title,
             'target_type'      => $target_type,
-            'target_id'        => $target_type === 'class' ? $target_id : null,
+            'target_id'        => $primaryClassId,
             'academic_year_id' => $academic_year_id,
             'start_date'       => $this->request->getPost('start_date'),
             'end_date'         => $this->request->getPost('end_date'),
             'status'           => 'active',
             'assigned_by'      => session('user_id'),
+            'notes'            => !empty($notesData) ? json_encode($notesData) : null,
         ];
         
         $assignment_id = $assignmentModel->insert($assignmentData);
@@ -202,7 +301,7 @@ class BkAssessment extends BaseController
                       ->where('sr.status', 'aktif');
                       
         if ($target_type === 'class') {
-            $builder->where('sr.class_id', $target_id);
+            $builder->whereIn('sr.class_id', $target_ids);
         }
 
         $students = $builder->get()->getResultArray();
@@ -220,7 +319,11 @@ class BkAssessment extends BaseController
             $assignmentStudentModel->insertBatch($insertData);
         }
 
-        return redirect()->to('admin/bk/pemetaan/penugasan')->with('success', 'Penugasan berhasil dibuat dan didistribusikan ke ' . count($insertData) . ' siswa.');
+        $targetMsg = $target_type === 'class' 
+            ? count($target_ids) . ' kelas (' . implode(', ', $classNames) . ')' 
+            : 'semua siswa';
+
+        return redirect()->to('admin/bk/pemetaan/penugasan')->with('success', 'Penugasan berhasil dibuat untuk ' . $targetMsg . ' dan didistribusikan ke ' . count($insertData) . ' siswa.');
     }
 
     // --- AJAX RESULT DETAIL ---
@@ -232,7 +335,7 @@ class BkAssessment extends BaseController
         $result = $db->table('bk_student_results bsr')
             ->select('bsr.*, s.name as student_name, s.nisn, cl.name as class_name, bi.title')
             ->join('students s', 's.id = bsr.student_id')
-            ->join('student_records sr', 'sr.student_id = s.id AND sr.status = \'aktif\' AND sr.academic_year_id = ' . (int)(session('academic_year_id') ?? 1))
+            ->join('student_records sr', 'sr.student_id = s.id AND sr.status = \'aktif\' AND sr.academic_year_id = ' . $this->getActiveAcademicYearId())
             ->join('classes cl', 'cl.id = sr.class_id', 'left')
             ->join('bk_instruments bi', 'bi.id = bsr.instrument_id')
             ->where('bsr.id', $result_id)
@@ -262,7 +365,7 @@ class BkAssessment extends BaseController
     {
         $instrument_id = $this->request->getPost('instrument_id');
         $class_id = $this->request->getPost('class_id');
-        $academic_year_id = session('academic_year_id') ?? 1;
+        $academic_year_id = $this->getActiveAcademicYearId();
 
         $db = \Config\Database::connect();
         
@@ -434,7 +537,37 @@ class BkAssessment extends BaseController
     
     public function previewInstrument($id)
     {
-        return redirect()->back()->with('error', 'Fitur preview belum diimplementasikan.');
+        $instrument = $this->instrumentModel->find($id);
+        if (!$instrument) {
+            return redirect()->back()->with('error', 'Instrumen tidak ditemukan.');
+        }
+
+        $domains = $this->domainModel->where('instrument_id', $id)->orderBy('sort_order', 'ASC')->findAll();
+        $scales  = $this->scaleModel->where('instrument_id', $id)->orderBy('sort_order', 'ASC')->findAll();
+        $questions = $this->questionModel->where('instrument_id', $id)->where('is_active', 1)->orderBy('sort_order', 'ASC')->findAll();
+        $interpretations = $this->interpretationModel->where('instrument_id', $id)->findAll();
+
+        // Default scale jika belum disetting (standard 4-skala Likert/AKPD)
+        if (empty($scales)) {
+            $scales = [
+                ['scale_value' => 4, 'scale_label' => 'Sangat Sesuai / Sangat Membutuhkan'],
+                ['scale_value' => 3, 'scale_label' => 'Sesuai / Membutuhkan'],
+                ['scale_value' => 2, 'scale_label' => 'Kurang Sesuai / Kurang Membutuhkan'],
+                ['scale_value' => 1, 'scale_label' => 'Tidak Sesuai / Tidak Membutuhkan'],
+            ];
+        }
+
+        $data = [
+            'title'           => 'Preview Instrumen: ' . $instrument['title'],
+            'active_menu'     => 'bk',
+            'instrument'      => $instrument,
+            'domains'         => $domains,
+            'scales'          => $scales,
+            'questions'       => $questions,
+            'interpretations' => $interpretations,
+        ];
+
+        return view('admin/bk/assessment/preview', $data);
     }
     
     public function updateDomain($id)
@@ -462,6 +595,146 @@ class BkAssessment extends BaseController
         return $this->response->setJSON(['status' => 'error', 'message' => 'Belum diimplementasikan']);
     }
     
+    public function updateAssignment($id)
+    {
+        $assignmentModel = new \App\Models\BkAssignmentModel();
+        $assignment = $assignmentModel->find($id);
+        if (!$assignment) {
+            return redirect()->back()->with('error', 'Penugasan tidak ditemukan.');
+        }
+
+        $title = trim($this->request->getPost('title') ?? '');
+        $start_date = $this->request->getPost('start_date');
+        $end_date = $this->request->getPost('end_date');
+        $status = $this->request->getPost('status') ?? $assignment['status'];
+        $target_type = $this->request->getPost('target_type') ?: $assignment['target_type'];
+
+        $updateData = [
+            'title'      => !empty($title) ? $title : $assignment['title'],
+            'start_date' => $start_date,
+            'end_date'   => $end_date,
+            'status'     => $status,
+        ];
+
+        $db = \Config\Database::connect();
+        $academicYearId = (int)($assignment['academic_year_id'] ?: $this->getActiveAcademicYearId());
+
+        // Jika tipe sasaran adalah kelas
+        if ($target_type === 'class') {
+            $target_ids = $this->request->getPost('target_ids');
+            if (!is_array($target_ids)) {
+                $single = $this->request->getPost('target_id');
+                $target_ids = $single ? [$single] : [];
+            }
+            $target_ids = array_values(array_filter(array_map('intval', $target_ids)));
+
+            if (empty($target_ids)) {
+                return redirect()->back()->withInput()->with('error', 'Silakan pilih minimal satu kelas sasaran.');
+            }
+
+            $classModel = new \App\Models\ClassModel();
+            $classes = $classModel->whereIn('id', $target_ids)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll();
+            $classNames = array_column($classes, 'name');
+
+            $updateData['target_type'] = 'class';
+            $updateData['target_id']   = $target_ids[0];
+            $updateData['notes']       = json_encode([
+                'class_ids'   => $target_ids,
+                'class_names' => $classNames,
+            ]);
+
+            // Sinkronisasi siswa: ambil semua siswa di kelas-kelas yang dipilih
+            $students = $db->table('student_records sr')
+                ->select('sr.student_id')
+                ->where('sr.academic_year_id', $academicYearId)
+                ->where('sr.status', 'aktif')
+                ->whereIn('sr.class_id', $target_ids)
+                ->get()->getResultArray();
+
+            $targetStudentIds = array_column($students, 'student_id');
+
+            $existingStudents = $db->table('bk_assignment_students')
+                ->where('assignment_id', $id)
+                ->get()->getResultArray();
+            $existingMap = [];
+            foreach ($existingStudents as $es) {
+                $existingMap[$es['student_id']] = $es;
+            }
+
+            // Tambahkan siswa baru dari kelas yang baru dipilih
+            $newInserts = [];
+            foreach ($targetStudentIds as $sid) {
+                if (!isset($existingMap[$sid])) {
+                    $newInserts[] = [
+                        'assignment_id' => $id,
+                        'student_id'    => $sid,
+                        'status'        => 'ASSIGNED'
+                    ];
+                }
+            }
+            if (!empty($newInserts)) {
+                $db->table('bk_assignment_students')->insertBatch($newInserts);
+            }
+
+            // Hapus siswa yang kelasnya tidak lagi dipilih, HANYA jika status masih ASSIGNED (belum mulai)
+            $toRemove = [];
+            foreach ($existingStudents as $es) {
+                if (!in_array($es['student_id'], $targetStudentIds) && $es['status'] === 'ASSIGNED') {
+                    $toRemove[] = $es['id'];
+                }
+            }
+            if (!empty($toRemove)) {
+                $db->table('bk_assignment_students')->whereIn('id', $toRemove)->delete();
+            }
+        } elseif ($target_type === 'all') {
+            $updateData['target_type'] = 'all';
+            $updateData['target_id']   = null;
+            $updateData['notes']       = null;
+
+            // Sinkronisasi semua siswa di tahun ajaran aktif
+            $allStudents = $db->table('student_records sr')
+                ->select('sr.student_id')
+                ->where('sr.academic_year_id', $academicYearId)
+                ->where('sr.status', 'aktif')
+                ->get()->getResultArray();
+
+            $existingStudents = $db->table('bk_assignment_students')
+                ->where('assignment_id', $id)
+                ->get()->getResultArray();
+            $existingSids = array_column($existingStudents, 'student_id');
+
+            $newInserts = [];
+            foreach ($allStudents as $st) {
+                if (!in_array($st['student_id'], $existingSids)) {
+                    $newInserts[] = [
+                        'assignment_id' => $id,
+                        'student_id'    => $st['student_id'],
+                        'status'        => 'ASSIGNED'
+                    ];
+                }
+            }
+            if (!empty($newInserts)) {
+                $db->table('bk_assignment_students')->insertBatch($newInserts);
+            }
+        }
+
+        $assignmentModel->update($id, $updateData);
+
+        return redirect()->to('admin/bk/pemetaan/penugasan')->with('success', 'Penugasan berhasil diperbarui.');
+    }
+
+    public function deleteAssignment($id)
+    {
+        $assignmentModel = new \App\Models\BkAssignmentModel();
+        $assignment = $assignmentModel->find($id);
+        if (!$assignment) {
+            return redirect()->back()->with('error', 'Penugasan tidak ditemukan.');
+        }
+
+        $assignmentModel->delete($id);
+        return redirect()->to('admin/bk/pemetaan/penugasan')->with('success', 'Penugasan "' . ($assignment['title'] ?? '') . '" berhasil dihapus.');
+    }
+
     public function activateAssignment($id)
     {
         (new \App\Models\BkAssignmentModel())->update($id, ['status' => 'active']);
@@ -476,6 +749,76 @@ class BkAssessment extends BaseController
     
     public function assignmentProgress($id)
     {
-        return redirect()->back()->with('error', 'Fitur lihat progress belum diimplementasikan.');
+        $assignmentModel = new \App\Models\BkAssignmentModel();
+        $db = \Config\Database::connect();
+
+        $assignment = $assignmentModel->select('bk_assignments.*, bk_instruments.title as instrument_title, bk_instruments.assessment_type, bk_instruments.description as instrument_description, classes.name as class_name')
+            ->join('bk_instruments', 'bk_instruments.id = bk_assignments.instrument_id')
+            ->join('classes', 'classes.id = bk_assignments.target_id', 'left')
+            ->where('bk_assignments.id', $id)
+            ->first();
+
+        if (!$assignment) {
+            return redirect()->to('admin/bk/pemetaan/penugasan')->with('error', 'Data penugasan tidak ditemukan.');
+        }
+
+        $academicYearId = (int)($assignment['academic_year_id'] ?: $this->getActiveAcademicYearId());
+
+        // Parse class names jika penugasan mencakup lebih dari satu kelas
+        $targetClassNames = [];
+        if (!empty($assignment['notes'])) {
+            $parsedNotes = json_decode($assignment['notes'], true);
+            if (!empty($parsedNotes['class_names']) && is_array($parsedNotes['class_names'])) {
+                $targetClassNames = $parsedNotes['class_names'];
+            }
+        }
+        if (empty($targetClassNames) && !empty($assignment['class_name'])) {
+            $targetClassNames = [$assignment['class_name']];
+        }
+        $assignment['target_class_names'] = $targetClassNames;
+
+        // Get assigned students with their status and result
+        $students = $db->table('bk_assignment_students bas')
+            ->select('bas.id as assignment_student_id, bas.status as student_status, bas.started_at, bas.completed_at, bas.last_saved_at, s.id as student_id, s.nis, s.nisn, s.name as student_name, s.gender, cl.name as current_class_name, bsr.id as result_id, bsr.total_score, bsr.total_max_score, bsr.percentage, bsr.overall_level')
+            ->join('students s', 's.id = bas.student_id')
+            ->join('student_records sr', 'sr.student_id = s.id AND sr.status = \'aktif\' AND sr.academic_year_id = ' . $academicYearId, 'left')
+            ->join('classes cl', 'cl.id = sr.class_id', 'left')
+            ->join('bk_student_results bsr', 'bsr.assignment_student_id = bas.id', 'left')
+            ->where('bas.assignment_id', $id)
+            ->orderBy('s.name', 'ASC')
+            ->get()->getResultArray();
+
+        // Stats
+        $totalStudents = count($students);
+        $completedCount = 0;
+        $inProgressCount = 0;
+        $assignedCount = 0;
+
+        foreach ($students as $st) {
+            $stStatus = strtoupper($st['student_status'] ?? '');
+            if ($stStatus === 'COMPLETED') {
+                $completedCount++;
+            } elseif ($stStatus === 'IN_PROGRESS') {
+                $inProgressCount++;
+            } else {
+                $assignedCount++;
+            }
+        }
+
+        $completionPercentage = $totalStudents > 0 ? round(($completedCount / $totalStudents) * 100, 1) : 0;
+
+        $data = [
+            'title'                => 'Progress Penugasan: ' . ($assignment['title'] ?? 'Asesmen BK'),
+            'active_menu'          => 'bk',
+            'assignment'           => $assignment,
+            'students'             => $students,
+            'totalStudents'        => $totalStudents,
+            'completedCount'       => $completedCount,
+            'inProgressCount'      => $inProgressCount,
+            'assignedCount'        => $assignedCount,
+            'completionPercentage' => $completionPercentage,
+        ];
+
+        return view('admin/bk/assessment/progress', $data);
     }
 }

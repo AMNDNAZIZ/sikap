@@ -54,19 +54,31 @@
                                             <div class="mb-4 pb-4 border-bottom question-item">
                                                 <p class="fw-bold mb-3"><?= $no++ ?>. <?= esc($q['question_text']) ?></p>
                                                 
-                                                <div class="row">
+                                                <?php 
+                                                $scaleCount = count($scale);
+                                                $colClass = 'col-6 col-md-3';
+                                                if ($scaleCount === 2) {
+                                                    $colClass = 'col-12 col-sm-6';
+                                                } elseif ($scaleCount === 3) {
+                                                    $colClass = 'col-12 col-sm-4';
+                                                } elseif ($scaleCount >= 5) {
+                                                    $colClass = 'col-12 col-sm-6 col-md-4';
+                                                }
+                                                ?>
+                                                <div class="row g-2">
                                                     <?php foreach ($scale as $s): ?>
-                                                        <div class="col-6 col-md-3 mb-2">
+                                                        <div class="<?= $colClass ?> mb-2">
                                                             <div class="form-check form-check-inline w-100 p-0 m-0">
                                                                 <input type="radio" class="btn-check answer-radio" 
                                                                        name="q_<?= $q['id'] ?>" 
                                                                        id="q_<?= $q['id'] ?>_<?= $s['value'] ?>" 
                                                                        value="<?= $s['value'] ?>" 
                                                                        data-qid="<?= $q['id'] ?>"
-                                                                       <?= ($ans && $ans['text_answer'] == $s['value']) ? 'checked' : '' ?>
+                                                                       <?= ($ans !== null && (string)($ans['text_answer'] ?? '') === (string)$s['value']) ? 'checked' : '' ?>
                                                                        required>
-                                                                <label class="btn btn-outline-primary w-100 text-start h-100" for="q_<?= $q['id'] ?>_<?= $s['value'] ?>">
-                                                                    <small><?= esc($s['label']) ?></small>
+                                                                <label class="btn btn-outline-primary w-100 text-start h-100 p-2 d-flex align-items-center gap-2 rounded-2" for="q_<?= $q['id'] ?>_<?= $s['value'] ?>">
+                                                                    <span class="badge bg-light text-primary border"><?= esc($s['value']) ?></span>
+                                                                    <span class="small fw-semibold"><?= esc($s['label']) ?></span>
                                                                 </label>
                                                             </div>
                                                         </div>
