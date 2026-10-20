@@ -934,9 +934,13 @@ function parseAiJson(raw) {
     // 3. Hapus karakter tidak terlihat
     s = s.replace(/[\uFEFF\u200B\u200C\u200D\u00AD]/g, '');
 
-    // 4. Hapus komentar JS-style
-    s = s.replace(/\/\/[^\n\r"]*/g, '');
-    s = s.replace(/\/\*[\s\S]*?\*\//g, '');
+    // 4b. Bersihkan kutipan escaped di dalam konten teks:
+    // Ubah \" atau \\" (kutipan ayat Al-Qur'an, hadits, istilah) menjadi petik tunggal (')
+    // agar tanda kutip internal tidak merusak struktur dan penutupan token JSON
+    s = s.replace(/\\+"/g, "'");
+
+    // 4c. Bersihkan jika masih ada pola kurung siku berpetik
+    s = s.replace(/\\?"\[(.*?)\]\\?"/g, "'[$1]'");
 
     // 5. Hapus trailing comma
     s = s.replace(/,(\s*[\}\]])/g, '$1');

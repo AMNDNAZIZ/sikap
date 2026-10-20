@@ -91,7 +91,14 @@
       max-height: 50px;
       max-width: 140px;
     }
->>>>>>> bbe84885 (Update & sync v2.0.4 - 2026-10-19 13:25)
+    th.teaching-col {
+      background-color: #dbeafe !important;
+      color: #1e3a8a !important;
+      border-bottom: 2px solid #2563eb !important;
+    }
+    td.teaching-col {
+      background-color: #f0f7ff !important;
+    }
   </style>
 </head>
 <body>
@@ -105,6 +112,9 @@
       Bulan: <strong><?= esc($monthNameIndo ?? date('F Y', strtotime($month . '-01'))) ?></strong>
       <?php if (!empty($activeYear['year'])): ?>
         &nbsp;|&nbsp; Tahun Ajaran: <strong><?= esc($activeYear['year']) ?></strong>
+      <?php endif; ?>
+      <?php if (!empty($mapelName)): ?>
+        &nbsp;|&nbsp; Mata Pelajaran: <strong><?= esc($mapelName) ?></strong>
       <?php endif; ?>
     </div>
   </div>
@@ -129,8 +139,15 @@
               }
           }
         ?>
-        <?php foreach ($dates as $idx => $d): ?>
-          <th class="<?= $holidayCols[$idx] ? 'holiday' : '' ?>"><?= date('d', strtotime($d)) ?></th>
+        <?php foreach ($dates as $idx => $d):
+          $isHoli = $holidayCols[$idx];
+          $isTeaching = !empty($isMapelView) && !empty($teachingDates[$d]) && !$isHoli;
+          $thClass = $isHoli ? 'holiday' : ($isTeaching ? 'teaching-col' : '');
+        ?>
+          <th class="<?= $thClass ?>">
+            <?= date('d', strtotime($d)) ?>
+            <?= $isTeaching ? '<br><span style="font-size: 6px; color: #1e3a8a;">*Jadwal</span>' : '' ?>
+          </th>
         <?php endforeach; ?>
         <th style="width: 20px;">H</th>
         <th style="width: 20px;">I</th>
@@ -152,6 +169,7 @@
           <td><?= esc($s['gender']) ?></td>
           <?php foreach ($dates as $idx => $d):
             $isHoliday = $holidayCols[$idx];
+            $isTeaching = !empty($isMapelView) && !empty($teachingDates[$d]) && !$isHoliday;
             $val = $attMap[$s['id']][$d] ?? null;
             $disp = '-';
             $classStatus = '';
@@ -171,8 +189,9 @@
               $classStatus = 'status-H';
               $countH++;
             }
+            $cellClass = $isHoliday ? 'holiday ' : ($isTeaching ? 'teaching-col ' : '');
           ?>
-            <td class="<?= ($isHoliday ? 'holiday ' : '') . $classStatus ?>"><?= $disp ?></td>
+            <td class="<?= $cellClass . $classStatus ?>"><?= $disp ?></td>
           <?php endforeach; ?>
           <td class="status-H"><?= $countH ?></td>
           <td class="status-I"><?= $countI ?></td>
@@ -220,6 +239,9 @@
         <span style="color: #d97706; font-weight: bold;">I</span> = Izin &nbsp;|&nbsp; 
         <span style="color: #dc2626; font-weight: bold;">A</span> = Alpa &nbsp;|&nbsp; 
         <span style="background-color: #ef4444; color: white; padding: 0 3px; border-radius: 2px;">Merah</span> = Libur / Akhir Pekan
+        <?php if (!empty($isMapelView) && !empty($scheduleInfo['teachingDayNames'])): ?>
+          &nbsp;|&nbsp; <span style="background-color: #dbeafe; color: #1e3a8a; padding: 0 3px; border-radius: 2px; font-weight: bold; border: 1px solid #93c5fd;">Biru (*Jadwal)</span> = Hari Mengajar (<?= esc(implode(', ', $scheduleInfo['teachingDayNames'])) ?> &mdash; <?= (int)($scheduleInfo['totalTeachingDays'] ?? 0) ?> Pertemuan)
+        <?php endif; ?>
       </td>
       <td style="border: none; text-align: right; vertical-align: top;">
         Total Siswa: <strong><?= count($students) ?></strong> 
@@ -245,14 +267,14 @@
       </td>
       <td style="width: 50%;">
         <?= esc($titimangsaCity) ?>, <?= esc($titimangsaDate) ?><br>
-        Guru Kelas / Wali Kelas <?= esc($class['name']) ?>
+        <?= esc($signerTitle ?? ('Guru Kelas / Wali Kelas ' . ($class['name'] ?? ''))) ?>
         <div class="ttd-space">
-          <?php if (!empty($waliSigBase64)): ?>
-            <img src="<?= $waliSigBase64 ?>" class="ttd-img" alt="TTD Wali Kelas">
+          <?php if (!empty($signerSigBase64)): ?>
+            <img src="<?= $signerSigBase64 ?>" class="ttd-img" alt="TTD Guru">
           <?php endif; ?>
         </div>
-        <strong><u><?= esc(!empty($waliKelas['name']) ? $waliKelas['name'] : '......................................................') ?></u></strong><br>
-        NIP. <?= esc(!empty($waliKelas['nip']) ? $waliKelas['nip'] : '-') ?>
+        <strong><u><?= esc(!empty($signerTeacher['name']) ? $signerTeacher['name'] : (!empty($waliKelas['name']) ? $waliKelas['name'] : '......................................................')) ?></u></strong><br>
+        NIP. <?= esc(!empty($signerTeacher['nip']) ? $signerTeacher['nip'] : (!empty($waliKelas['nip']) ? $waliKelas['nip'] : '-')) ?>
       </td>
     </tr>
   </table>

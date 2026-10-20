@@ -315,8 +315,22 @@ class Attendance extends BaseController
         }
 
         // =========================
-        // Tentukan view
+        // Tentukan view & Mode Guru Mapel
         // =========================
+        $session = session();
+        $user = $session->get('user') ?? [];
+        $roleId = (int)($user['role_id'] ?? 0);
+        $teacherId = (int)($user['related_id'] ?? 0);
+
+        // Hanya aktif untuk guru yang BUKAN wali kelas dari kelas ini
+        $isWali = (!empty($class['teacher_id']) && (int)$class['teacher_id'] === $teacherId);
+        $isMapelView = ($roleId === 3 && !$isWali);
+
+        $scheduleInfo = null;
+        if ($isMapelView && $teacherId > 0) {
+            $scheduleInfo = $this->getGuruMapelScheduleInfo((int)$classId, $teacherId, (int)($activeYear['id'] ?? 0), $dates);
+        }
+
         if ($jenis === 'bulan') {
             return view('admin/attendance/month_grid', [
                 'title' => 'Absensi Bulanan',
@@ -336,6 +350,9 @@ class Attendance extends BaseController
                 'activeYear' => $activeYear,
                 'studentStats' => $stats,
                 'schoolDays' => $schoolDays,
+                'isMapelView'   => $isMapelView,
+                'scheduleInfo'  => $scheduleInfo,
+                'teachingDates' => $scheduleInfo['teachingDates'] ?? [],
             ]);
         } elseif ($jenis === 'minggu') {
             return view('admin/attendance/week_grid', [
@@ -688,13 +705,6 @@ class Attendance extends BaseController
         $schoolModel = new \App\Models\SchoolModel();
         $school = $schoolModel->getProfile() ?? [];
 
-        // Ambil data wali kelas / guru kelas
-        $waliKelas = null;
-        if (!empty($class['teacher_id'])) {
-            $teacherModel = new \App\Models\TeacherModel();
-            $waliKelas = $teacherModel->find($class['teacher_id']);
-        }
-
         // Format bulan dan titimangsa tanggal Indonesia
         $bulanIndo = [
             1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
@@ -713,7 +723,19 @@ class Attendance extends BaseController
         $monthNameIndo = ($bulanIndo[$monthNum] ?? date('F', strtotime($start))) . ' ' . date('Y', strtotime($start));
 
         $principalSigBase64 = !empty($school['principal_signature']) ? $this->imageToBase64($school['principal_signature']) : '';
-        $waliSigBase64 = !empty($waliKelas['signature']) ? $this->imageToBase64($waliKelas['signature']) : '';
+
+        // Tentukan penandatangan kanan (otomatis mendeteksi jika yang membuka adalah Guru Mapel)
+        $requestedTeacherId = $this->request->getGet('teacher_id') ? (int)$this->request->getGet('teacher_id') : null;
+        $signerData = $this->determineAttendanceSigner($class, $activeYear, $requestedTeacherId);
+
+        $targetTeacherId = (int)($signerData['targetTeacherId'] ?? 0);
+        $isWali = (!empty($class['teacher_id']) && (int)$class['teacher_id'] === $targetTeacherId);
+        $isMapelView = ($targetTeacherId > 0 && !$isWali);
+
+        $scheduleInfo = null;
+        if ($isMapelView && $targetTeacherId > 0) {
+            $scheduleInfo = $this->getGuruMapelScheduleInfo((int)$classId, $targetTeacherId, (int)($activeYear['id'] ?? 0), $dates);
+        }
 
         $data = [
             'class'              => $class,
@@ -725,12 +747,19 @@ class Attendance extends BaseController
             'holidays'           => $holidays,
             'schoolDays'         => $schoolDays,
             'school'             => $school,
-            'waliKelas'          => $waliKelas,
+            'waliKelas'          => $signerData['signerTeacher'],
+            'signerTeacher'      => $signerData['signerTeacher'],
+            'signerTitle'        => $signerData['signerTitle'],
+            'mapelName'          => $signerData['mapelName'],
             'activeYear'         => $activeYear,
             'titimangsaCity'     => $titimangsaCity,
             'titimangsaDate'     => $titimangsaDate,
             'principalSigBase64' => $principalSigBase64,
-            'waliSigBase64'      => $waliSigBase64,
+            'waliSigBase64'      => $signerData['signerSigBase64'],
+            'signerSigBase64'    => $signerData['signerSigBase64'],
+            'isMapelView'        => $isMapelView,
+            'scheduleInfo'       => $scheduleInfo,
+            'teachingDates'      => $scheduleInfo['teachingDates'] ?? [],
         ];
 
         $html = view('admin/attendance/pdf_grid', $data);
@@ -1077,16 +1106,11 @@ class Attendance extends BaseController
         $rekap = $this->generateRekap((int) $classId, $periode);
 
         $schoolModel = new \App\Models\SchoolModel();
-        $school = $schoolModel->getProfile();
-
-        $teacherModel = new \App\Models\TeacherModel();
-        $waliKelas = null;
-        if (!empty($class['teacher_id'])) {
-            $waliKelas = $teacherModel->find($class['teacher_id']);
-        }
+        $school = $schoolModel->getProfile() ?? [];
+        $requestedTeacherId = $this->request->getGet('teacher_id') ? (int)$this->request->getGet('teacher_id') : null;
+        $signerData = $this->determineAttendanceSigner($class, $rekap['activeYear'] ?? [], $requestedTeacherId);
 
         $principalSigBase64 = $this->imageToBase64($school['principal_signature'] ?? '');
-        $waliSigBase64      = $waliKelas ? $this->imageToBase64($waliKelas['signature'] ?? '') : '';
 
         // Format tanggal titimangsa Indonesia
         $bulanIndo = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'];
@@ -1098,9 +1122,13 @@ class Attendance extends BaseController
             'periode'            => $periode,
             'rekapSiswa'         => $rekap['rekapSiswa'],
             'school'             => $school,
-            'waliKelas'          => $waliKelas,
+            'waliKelas'          => $signerData['signerTeacher'],
+            'signerTeacher'      => $signerData['signerTeacher'],
+            'signerTitle'        => $signerData['signerTitle'],
+            'mapelName'          => $signerData['mapelName'],
             'principalSigBase64' => $principalSigBase64,
-            'waliSigBase64'      => $waliSigBase64,
+            'waliSigBase64'      => $signerData['signerSigBase64'],
+            'signerSigBase64'    => $signerData['signerSigBase64'],
             'titimangsaDate'     => $titimangsaDate,
         ]);
 
@@ -1110,7 +1138,7 @@ class Attendance extends BaseController
         if (ob_get_length())
             @ob_end_clean();
 
-        $dompdf = new \Dompdf\Dompdf();
+        $dompdf = new Dompdf();
         $dompdf->loadHtml($html);
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
@@ -1147,7 +1175,7 @@ class Attendance extends BaseController
         // =========================
         // 6. Generate Excel
         // =========================
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
         $sheet->fromArray(['No', 'NIS', 'Nama', 'JK', 'H', 'I', 'S', 'A', '%'], null, 'A1');
@@ -1177,7 +1205,7 @@ class Attendance extends BaseController
         header("Content-Disposition: attachment; filename=\"{$filename}\"");
         header('Cache-Control: max-age=0');
 
-        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer = new Xlsx($spreadsheet);
         $writer->save('php://output');
         exit;
     }
@@ -1441,6 +1469,145 @@ class Attendance extends BaseController
         }
 
         return false;
+    }
+
+    /**
+     * Tentukan penandatangan kanan secara dinamis (Wali Kelas vs Guru Mapel yang sedang login atau diminta)
+     */
+    private function determineAttendanceSigner(array $class, array $activeYear, ?int $requestedTeacherId = null): array
+    {
+        $teacherModel = new \App\Models\TeacherModel();
+        $db = \Config\Database::connect();
+        $activeYearId = (int)($activeYear['id'] ?? 0);
+        $classId = (int)($class['id'] ?? 0);
+
+        // Ambil data wali kelas bawaan dari kelas
+        $waliKelas = null;
+        if (!empty($class['teacher_id'])) {
+            $waliKelas = $teacherModel->find($class['teacher_id']);
+        }
+
+        $session = session();
+        $user = $session->get('user') ?? [];
+        $roleId = (int)($user['role_id'] ?? 0);
+
+        // Target teacher ID: jika guru yang login (role 3), pakai related_id guru tersebut.
+        // Jika Admin/Kepsek, bisa menerima query parameter teacher_id
+        $targetTeacherId = 0;
+        if ($roleId === 3) {
+            $targetTeacherId = (int)($user['related_id'] ?? 0);
+        } elseif (!empty($requestedTeacherId)) {
+            $targetTeacherId = $requestedTeacherId;
+        }
+
+        // Default adalah Wali Kelas
+        $signerTitle = 'Guru Kelas / Wali Kelas ' . ($class['name'] ?? '');
+        $signerTeacher = $waliKelas;
+        $mapelName = '';
+
+        if ($targetTeacherId > 0) {
+            $isWali = (!empty($class['teacher_id']) && (int)$class['teacher_id'] === $targetTeacherId);
+
+            if ($isWali) {
+                $signerTitle = 'Guru Kelas / Wali Kelas ' . ($class['name'] ?? '');
+                $signerTeacher = $waliKelas ?? $teacherModel->find($targetTeacherId);
+            } else {
+                // Guru yang membuka adalah Guru Mapel di kelas ini
+                $currentTeacher = $teacherModel->find($targetTeacherId);
+                if ($currentTeacher) {
+                    $mapelRows = $db->table('teaching_assignments ta')
+                        ->select('s.name as subject_name')
+                        ->join('subjects s', 's.id = ta.subject_id')
+                        ->where('ta.teacher_id', $targetTeacherId)
+                        ->where('ta.class_id', $classId)
+                        ->where('ta.academic_year_id', $activeYearId)
+                        ->get()
+                        ->getResultArray();
+
+                    $subjectNames = array_unique(array_filter(array_column($mapelRows, 'subject_name')));
+                    if (!empty($subjectNames)) {
+                        $mapelName = implode(', ', $subjectNames);
+                    }
+                    // Cukup 'Guru Mata Pelajaran' tanpa nama mapel untuk menghemat tempat (mapel sudah ada di header)
+                    $signerTitle = 'Guru Mata Pelajaran';
+
+                    $signerTeacher = $currentTeacher;
+                }
+            }
+        }
+
+        $signerSigBase64 = !empty($signerTeacher['signature']) ? $this->imageToBase64($signerTeacher['signature']) : '';
+
+        return [
+            'targetTeacherId' => $targetTeacherId,
+            'signerTeacher'   => $signerTeacher,
+            'signerTitle'     => $signerTitle,
+            'signerSigBase64' => $signerSigBase64,
+            'mapelName'       => $mapelName,
+            'waliKelas'       => $signerTeacher,
+            'waliSigBase64'   => $signerSigBase64,
+        ];
+    }
+
+    /**
+     * Ambil data jadwal mengajar guru mapel di kelas tertentu
+     */
+    private function getGuruMapelScheduleInfo(int $classId, int $teacherId, int $activeYearId, array $dates): array
+    {
+        $db = \Config\Database::connect();
+        $schedules = $db->table('schedules s')
+            ->select('s.day_of_week, s.start_time, s.end_time, sub.name as subject_name')
+            ->join('subjects sub', 'sub.id = s.subject_id')
+            ->where('s.class_id', $classId)
+            ->where('s.teacher_id', $teacherId)
+            ->where('s.academic_year_id', $activeYearId)
+            ->orderBy('s.day_of_week', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        $teachingDaysOfWeek = array_values(array_unique(array_map('intval', array_column($schedules, 'day_of_week'))));
+
+        $namaHariIndo = [
+            1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'
+        ];
+        $teachingDayNames = [];
+        foreach ($teachingDaysOfWeek as $dw) {
+            if (isset($namaHariIndo[$dw])) {
+                $teachingDayNames[] = $namaHariIndo[$dw];
+            }
+        }
+
+        $teachingDates = [];
+        $totalTeachingDaysInMonth = 0;
+        foreach ($dates as $d) {
+            $dw = (int)date('N', strtotime($d));
+            $isTeaching = in_array($dw, $teachingDaysOfWeek);
+            $teachingDates[$d] = $isTeaching;
+            if ($isTeaching) {
+                $totalTeachingDaysInMonth++;
+            }
+        }
+
+        $subjectNames = array_values(array_unique(array_column($schedules, 'subject_name')));
+        if (empty($subjectNames)) {
+            $taSubjects = $db->table('teaching_assignments ta')
+                ->select('sub.name as subject_name')
+                ->join('subjects sub', 'sub.id = ta.subject_id')
+                ->where('ta.class_id', $classId)
+                ->where('ta.teacher_id', $teacherId)
+                ->where('ta.academic_year_id', $activeYearId)
+                ->get()->getResultArray();
+            $subjectNames = array_values(array_unique(array_column($taSubjects, 'subject_name')));
+        }
+
+        return [
+            'hasSchedule'        => !empty($teachingDaysOfWeek),
+            'teachingDaysOfWeek' => $teachingDaysOfWeek,
+            'teachingDayNames'   => $teachingDayNames,
+            'teachingDates'      => $teachingDates,
+            'totalTeachingDays'  => $totalTeachingDaysInMonth,
+            'subjectNames'       => $subjectNames,
+        ];
     }
 
     /**

@@ -126,6 +126,7 @@ class Cbt extends BaseController
                 cbt_test_status.religion,
                 qb.code AS bank_code,
                 s.name AS subject_name,
+                s.religion AS subject_religion,
                 en.name AS exam_name,
                 cs.status AS session_status,
                 cs.score AS session_score
@@ -165,10 +166,11 @@ class Cbt extends BaseController
             if (!$classMatch) return false;
 
             // jika mata pelajaran agama, cek agama siswa
-            if (strtolower(trim($t['subject_type'] ?? '')) === 'agama') {
-                $testReligion = strtolower(trim($t['religion'] ?? ''));
-                if ($testReligion !== $studentReligion)
+            $targetRel = cbt_get_test_target_religion($t);
+            if ($targetRel !== '') {
+                if (cbt_normalize_religion($studentReligion) !== $targetRel) {
                     return false;
+                }
             }
 
             // Filter ujian yang aktif hari ini (berdasarkan rentang start & end)
@@ -1066,12 +1068,22 @@ class Cbt extends BaseController
                 return false;
             }
 
-            // Hitung total siswa aktif di kelas-kelas yang ikut ujian ini
-            $totalStudents = (int) $db->table('student_records sr')
+            // Hitung total siswa aktif di kelas-kelas yang ikut ujian ini (filter agama jika mapel agama)
+            $targetReligion = cbt_get_test_target_religion($test);
+            $studentQuery = $db->table('student_records sr')
                 ->join('classes c', 'c.id = sr.class_id')
+                ->join('students st', 'st.id = sr.student_id')
                 ->whereIn('c.name', $classCodes)
-                ->where('sr.status', 'aktif')
-                ->countAllResults();
+                ->where('sr.status', 'aktif');
+
+            if ($targetReligion !== '') {
+                $allStudents = $studentQuery->select('st.religion')->get()->getResultArray();
+                $totalStudents = count(array_filter($allStudents, function ($s) use ($targetReligion) {
+                    return cbt_normalize_religion($s['religion'] ?? '') === $targetReligion;
+                }));
+            } else {
+                $totalStudents = (int) $studentQuery->countAllResults();
+            }
 
             if ($totalStudents === 0) {
                 return false;
@@ -1864,7 +1876,7 @@ class Cbt extends BaseController
         $cacheKey = 'cbt_test_info_' . $testId;
         return cache_remember($cacheKey, 300, function () use ($db, $testId) {
             return $db->table('cbt_test_status ts')
-                ->select('ts.*, qb.code AS bank_code, s.name AS subject_name, en.name AS exam_name')
+                ->select('ts.*, qb.code AS bank_code, s.name AS subject_name, s.religion AS subject_religion, en.name AS exam_name')
                 ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'left')
                 ->join('subjects s', 's.id = qb.subject_id', 'left')
                 ->join('cbt_exam_names en', 'en.id = ts.exam_name_id', 'left')
@@ -1949,9 +1961,9 @@ class Cbt extends BaseController
         }
 
         // Check religion for agama subjects
-        if (strtolower(trim($test['subject_type'] ?? '')) === 'agama') {
-            $testReligion = strtolower(trim($test['religion'] ?? ''));
-            if ($testReligion !== $studentReligion) {
+        $targetReligion = cbt_get_test_target_religion($test);
+        if ($targetReligion !== '') {
+            if (cbt_normalize_religion($studentReligion) !== $targetReligion) {
                 return ['valid' => false, 'message' => 'Ujian ini hanya untuk siswa dengan agama tertentu.'];
             }
         }
