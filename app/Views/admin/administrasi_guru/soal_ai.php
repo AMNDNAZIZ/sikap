@@ -312,18 +312,42 @@ document.getElementById('btn-generate')?.addEventListener('click', async functio
 
     try {
         const res = await fetch('<?= base_url("admin/administrasi-guru/soal-ai/generate") ?>', { method: 'POST', body });
-        const data = await res.json();
+        
+        let data;
+        const text = await res.text();
+        try {
+            data = JSON.parse(text);
+        } catch (_) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-stars me-1"></i> Generate Soal (API)';
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal Generate Soal',
+                html: 'Server mengembalikan respons tidak terduga.<br><small>Status HTTP: ' + res.status + '</small>',
+            });
+            return;
+        }
+
         if (data.csrf) csrfHash = data.csrf;
 
-        if (data.success) {
+        if (data.success && Array.isArray(data.soal)) {
             generatedSoal = data.soal;
             generatedTipe = 'multi';
             renderHasil(data.soal);
         } else {
-            alert('Gagal: ' + (data.error || 'Unknown error'));
+            const errMsg = data.error || data.message || (data.messages && data.messages.error) || 'Gagal generate soal.';
+            Swal.fire({
+                icon: 'warning',
+                title: 'Gagal Generate',
+                text: errMsg,
+            });
         }
     } catch (e) {
-        alert('Error: ' + e.message);
+        Swal.fire({
+            icon: 'error',
+            title: 'Terjadi Kesalahan',
+            text: 'Gagal terhubung ke server: ' + e.message,
+        });
     }
 
     btn.disabled = false;
@@ -373,9 +397,17 @@ function renderHasil(soal) {
 
     container.innerHTML = soal.map((s, i) => {
         let html = `<div class="list-group-item">
-            <div class="d-flex justify-content-between align-items-start mb-1">
-                <div class="fw-bold" style="flex:1">${i+1}. <span class="math-content">${renderMath(s.question)}</span></div>
-                <span class="badge bg-secondary ms-2 flex-shrink-0">${tipeLabel[s.type] || s.type}</span>
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div class="fw-bold me-2" style="flex:1">${i+1}. <span class="math-content">${renderMath(s.question)}</span></div>
+                <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                    <span class="badge bg-secondary me-1">${tipeLabel[s.type] || s.type}</span>
+                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" onclick="editSoalItem(${i})" title="Edit Soal & Opsi">
+                        <i class="bi bi-pencil-square me-1"></i>Edit
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="hapusSoalItem(${i})" title="Hapus Soal">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
             </div>`;
 
         if (s.options) {
@@ -417,6 +449,81 @@ function renderHasil(soal) {
 
     document.getElementById('btn-save').disabled = false;
 }
+
+function escAttr(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+window.hapusSoalItem = function(index) {
+    if (!confirm(`Hapus butir soal nomor ${index + 1}?`)) return;
+    generatedSoal.splice(index, 1);
+    if (generatedSoal.length === 0) {
+        document.getElementById('hasil-wrapper').classList.add('d-none');
+        document.getElementById('btn-save').disabled = true;
+    } else {
+        renderHasil(generatedSoal);
+    }
+};
+
+window.editSoalItem = function(index) {
+    const s = generatedSoal[index];
+    if (!s) return;
+    
+    document.getElementById('editSoalIndex').value = index;
+    document.getElementById('editSoalQuestion').value = s.question || '';
+    document.getElementById('editSoalAnswer').value = s.answer || '';
+    
+    const optContainer = document.getElementById('editSoalOptionsContainer');
+    optContainer.innerHTML = '';
+    
+    if (s.options && typeof s.options === 'object') {
+        document.getElementById('editSoalOptionsWrapper').classList.remove('d-none');
+        for (const [key, val] of Object.entries(s.options)) {
+            const div = document.createElement('div');
+            div.className = 'mb-2';
+            div.innerHTML = `
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text fw-bold" style="width:40px;">${key}</span>
+                    <input type="text" class="form-control edit-opt-val" data-key="${key}" value="${escAttr(val)}">
+                </div>
+            `;
+            optContainer.appendChild(div);
+        }
+    } else {
+        document.getElementById('editSoalOptionsWrapper').classList.add('d-none');
+    }
+    
+    const editModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditSoal'));
+    editModal.show();
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('btnSaveEditSoal')?.addEventListener('click', function() {
+        const index = parseInt(document.getElementById('editSoalIndex').value);
+        if (isNaN(index) || !generatedSoal[index]) return;
+        
+        generatedSoal[index].question = document.getElementById('editSoalQuestion').value.trim();
+        generatedSoal[index].answer = document.getElementById('editSoalAnswer').value.trim();
+        
+        const optInputs = document.querySelectorAll('.edit-opt-val');
+        if (optInputs.length > 0) {
+            generatedSoal[index].options = {};
+            optInputs.forEach(inp => {
+                const k = inp.getAttribute('data-key');
+                generatedSoal[index].options[k] = inp.value.trim();
+            });
+        }
+        
+        bootstrap.Modal.getInstance(document.getElementById('modalEditSoal'))?.hide();
+        renderHasil(generatedSoal);
+    });
+});
 
 // Save to bank
 document.getElementById('btn-save')?.addEventListener('click', async function() {
@@ -535,10 +642,25 @@ document.getElementById('btn-manual-prompt')?.addEventListener('click', async fu
 
     try {
         const res = await fetch('<?= base_url("admin/administrasi-guru/soal-ai/get-prompt") ?>', { method: 'POST', body });
-        const data = await res.json();
+        
+        let data;
+        const text = await res.text();
+        try {
+            data = JSON.parse(text);
+        } catch (_) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-clipboard me-1"></i> Generate Manual (Copy Prompt)';
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal Menyiapkan Prompt',
+                html: 'Server mengembalikan respons tidak terduga.<br><small>Status HTTP: ' + res.status + '</small>',
+            });
+            return;
+        }
+
         if (data.csrf) csrfHash = data.csrf;
 
-        if (data.success) {
+        if (data.success && data.prompt) {
             document.getElementById('soalPromptText').value = data.prompt;
             document.getElementById('soalPasteStep').style.display = 'none';
             document.getElementById('soalPromptStep').style.display = 'block';
@@ -546,10 +668,19 @@ document.getElementById('btn-manual-prompt')?.addEventListener('click', async fu
             soalManualModalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
             soalManualModalInstance.show();
         } else {
-            alert('Error: ' + (data.error || 'Unknown'));
+            const errMsg = data.error || data.message || (data.messages && data.messages.error) || 'Gagal menyiapkan prompt soal.';
+            Swal.fire({
+                icon: 'warning',
+                title: 'Perhatian',
+                text: errMsg,
+            });
         }
     } catch (e) {
-        alert('Error: ' + e.message);
+        Swal.fire({
+            icon: 'error',
+            title: 'Terjadi Kesalahan',
+            text: 'Gagal terhubung ke server: ' + e.message,
+        });
     }
 
     btn.disabled = false;
@@ -596,6 +727,40 @@ document.getElementById('btn-manual-prompt')?.addEventListener('click', async fu
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Edit Butir Soal -->
+<div class="modal fade" id="modalEditSoal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white py-2">
+                <h6 class="modal-title"><i class="bi bi-pencil-square me-1"></i> Edit Butir Soal & Pilihan Jawaban</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editSoalIndex">
+                <div class="mb-3">
+                    <label class="form-label fw-bold small">Teks Pertanyaan / Stimulus:</label>
+                    <textarea id="editSoalQuestion" class="form-control" rows="4"></textarea>
+                </div>
+                <div class="mb-3" id="editSoalOptionsWrapper">
+                    <label class="form-label fw-bold small">Pilihan Jawaban / Opsi:</label>
+                    <div id="editSoalOptionsContainer"></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold small">Kunci Jawaban:</label>
+                    <input type="text" id="editSoalAnswer" class="form-control form-control-sm" placeholder="Contoh: A atau A,C atau B,S,B,S">
+                    <small class="text-muted">Untuk PG: huruf (A/B/C/D/E). Untuk PGK: A,C. Untuk B/S: B,S,B,S. Untuk Esai: uraian jawaban.</small>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="button" id="btnSaveEditSoal" class="btn btn-primary btn-sm">
+                    <i class="bi bi-check-lg me-1"></i> Simpan Perubahan
+                </button>
             </div>
         </div>
     </div>

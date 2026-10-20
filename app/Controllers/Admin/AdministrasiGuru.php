@@ -1009,6 +1009,50 @@ class AdministrasiGuru extends BaseController
     }
 
     /**
+     * Hapus satu Tujuan Pembelajaran (TP) dari ATP
+     */
+    public function atpDeleteTp($id)
+    {
+        $user = session()->get('user');
+        if ($user['role_id'] == 2) {
+            return redirect()->back()->with('error', 'Kepala Sekolah tidak memiliki akses untuk menghapus data.');
+        }
+
+        $tp = $this->tpModel->find($id);
+        if ($tp) {
+            $atpId = $tp['atp_id'] ?? null;
+            if ($user['role_id'] == 3 && $atpId) {
+                $atp = $this->atpModel->find($atpId);
+                if ($atp) {
+                    $isOwner = $this->db->table('teaching_assignments')
+                        ->where('teacher_id', $user['related_id'])
+                        ->where('class_id', $atp['class_id'])
+                        ->where('subject_id', $atp['subject_id'])
+                        ->countAllResults();
+                    if (!$isOwner) {
+                        return redirect()->back()->with('error', 'Anda tidak memiliki akses untuk menghapus TP ini.');
+                    }
+                }
+            }
+
+            $this->tpModel->delete($id);
+
+            // Jika TP yang dihapus adalah tp_id utama di header ATP, update ke TP lain jika ada
+            if ($atpId) {
+                $atp = $this->atpModel->find($atpId);
+                if ($atp && (int)($atp['tp_id'] ?? 0) === (int)$id) {
+                    $nextTp = $this->tpModel->where('atp_id', $atpId)->first();
+                    $this->atpModel->update($atpId, ['tp_id' => $nextTp['id'] ?? 0]);
+                }
+            }
+
+            return redirect()->back()->with('success', 'Tujuan Pembelajaran (TP) berhasil dihapus.');
+        }
+
+        return redirect()->back()->with('error', 'Tujuan Pembelajaran tidak ditemukan.');
+    }
+
+    /**
      * Salin semua ATP dari kelas sumber ke kelas tujuan (deep copy).
      * ATP baru disimpan permanen dengan class_id kelas tujuan.
      * Data asli tidak terpengaruh sama sekali.
@@ -3273,105 +3317,16 @@ class AdministrasiGuru extends BaseController
             }
         }
 
-        // Build soal request per tipe
-        $soalRequest = '';
-        // SD/SMP: PGK tetap 4 opsi (A-D), SMA: 5 opsi (A-E)
-        $pgkOpsiCount = ($school['level'] == 3) ? 5 : 4;
-        $pgkOpsiLabel = ($pgkOpsiCount == 5) ? '5 opsi: A,B,C,D,E' : '4 opsi: A,B,C,D';
-
-        foreach ($tipeList as $t) {
-            $label = match($t['tipe']) {
-                'pg' => 'Pilihan Ganda (4 opsi: A,B,C,D — pilih 1 jawaban benar)',
-                'pg_kompleks' => "Pilihan Ganda Kompleks ({$pgkOpsiLabel}, bisa lebih dari 1 jawaban benar)",
-                'benar_salah' => 'Benar/Salah (1 stimulus + 4 PERNYATAAN yang masing-masing dinilai Benar atau Salah secara INDEPENDEN)',
-                'esai' => 'Esai/Uraian singkat',
-                default => $t['tipe']
-            };
-            $soalRequest .= "- {$t['jumlah']} soal tipe {$label}\n";
-        }
-
-        $jenjang = ($school['level'] == 1) ? 'SD' : (($school['level'] == 2) ? 'SMP' : 'SMA');
-        $kelasLevel = (int)($classInfo['level'] ?? 7);
-
-        // Label jenis asesmen untuk prompt
-        $jenisLabel = ($jenisAsesmen === 'sumatif')
-            ? "SUMATIF SEMESTER {$semester} (mencakup seluruh materi semester)"
-            : "FORMATIF (fokus pada satu materi spesifik)";
-
-        // Tentukan karakteristik soal berdasarkan jenjang dan level kelas
-        $karakteristikLevel = '';
-        if ($jenjang === 'SD') {
-            if ($kelasLevel <= 3) {
-                $karakteristikLevel = "Kelas rendah (1-3 SD): gunakan kalimat sederhana, konkret, dekat kehidupan sehari-hari anak.";
-            } else {
-                $karakteristikLevel = "Kelas tinggi (4-6 SD): boleh abstrak ringan, hubungkan dengan pengalaman nyata, mulai penalaran sederhana.";
-            }
-        } elseif ($jenjang === 'SMP') {
-            if ($kelasLevel <= 7) {
-                $karakteristikLevel = "Kelas 7 SMP: transisi dari SD, mulai analisis sederhana, kontekstual dengan kehidupan remaja awal.";
-            } elseif ($kelasLevel == 8) {
-                $karakteristikLevel = "Kelas 8 SMP: penalaran lebih dalam, bisa bandingkan konsep, analisis teks/data sederhana.";
-            } else {
-                $karakteristikLevel = "Kelas 9 SMP: persiapan ujian akhir, penalaran tinggi, evaluasi, dan sintesis antar konsep.";
-            }
-        } else {
-            $karakteristikLevel = "Jenjang SMA: penalaran tinggi, analisis mendalam, evaluasi kritis, dan kreativitas berpikir.";
-        }
-
-        $prompt = "Kamu adalah pembuat soal ujian profesional berpengalaman untuk jenjang {$jenjang}.\n"
-            . "Buatkan soal ujian BERKUALITAS TINGGI dengan komposisi:\n{$soalRequest}\n"
-            . "JENIS ASESMEN: {$jenisLabel}\n\n"
-            . "KONTEKS PEMBELAJARAN:\n"
-            . "- Jenjang: {$jenjang}\n"
-            . "- Kelas: " . ($classInfo['name'] ?? '-') . " (Level {$kelasLevel})\n"
-            . "- Mata Pelajaran: " . ($subject['name'] ?? '-') . "\n"
-            . "- Materi/Lingkup:\n" . $materiList . "\n"
-            . "- Karakteristik: {$karakteristikLevel}\n"
-            . (!empty($tpDeskripsi) ? "- Tujuan Pembelajaran:\n{$tpDeskripsi}\n" : '')
-            . "\nPANDUAN KUALITAS SOAL (WAJIB DIPATUHI):\n"
-            . "1. DISTRIBUSI LEVEL KOGNITIF (Taksonomi Bloom Revisi):\n"
-            . "   - 20% soal C1-C2 (Mengingat & Memahami): definisi, fakta, konsep dasar\n"
-            . "   - 30% soal C3 (Menerapkan): aplikasi konsep dalam situasi baru\n"
-            . "   - 50% soal C4-C6 (HOTS - Menganalisis, Mengevaluasi, Mencipta): analisis data/teks, membandingkan, menyimpulkan, menilai argumen\n"
-            . "2. SOAL HOTS harus mengandung STIMULUS (teks bacaan, data, tabel, situasi, kasus) yang harus dianalisis siswa sebelum menjawab.\n"
-            . "3. Untuk mapel BAHASA (Indonesia/Inggris/Daerah):\n"
-            . "   - WAJIB sertakan WACANA/TEKS BACAAN yang relevan sebelum soal (dalam field 'question')\n"
-            . "   - Format: tuliskan wacana dulu dengan label 'Bacalah teks berikut!' lalu soalnya\n"
-            . "   - Teks harus sesuai panjang dan kompleksitas level kelas\n"
-            . "   - PENTING (Khusus Ujian Digital / CBT): Soal akan diacak oleh sistem. Setiap soal HARUS MANDIRI. DILARANG membuat satu teks bacaan/stimulus yang digunakan untuk beberapa soal sekaligus (misal 'Untuk soal nomor 1-3'). Jika ada beberapa soal yang merujuk pada teks/stimulus yang sama, tulis ulang (copy) teks/stimulus tersebut secara utuh ke dalam field 'question' di MASING-MASING nomor soal tersebut.\n"
-            . "4. Untuk soal yang IDEALNYA memerlukan GAMBAR/ILUSTRASI:\n"
-            . "   - Sertakan deskripsi dalam kurung siku: [Gambar: deskripsi gambar yang diperlukan]\n"
-            . "   - Contoh: [Gambar: Peta Indonesia dengan panah menunjukkan arah angin muson barat]\n"
-            . "5. DISTRAKTOR (opsi salah) harus MASUK AKAL dan homogen — jangan opsi yang jelas salah\n"
-            . "6. Soal TIDAK BOLEH mengandung petunjuk jawabannya di soal lain\n"
-            . "7. Stem soal harus JELAS dan tidak ambigu\n"
-            . "8. Hindari soal yang jawabannya 'semua benar' atau 'tidak ada yang benar'\n\n"
-            . "FORMAT OUTPUT WAJIB JSON ARRAY (tanpa markdown, tanpa backtick):\n"
-            . "Setiap item memiliki field: type, question, options (jika PG/PGK), answer\n"
-            . 'PENULISAN MATEMATIKA: Gunakan notasi LaTeX untuk semua simbol matematika.' . "\n"
-            . '- Inline: $...$ atau \(...\) — contoh: $\frac{1}{2}$, $\sqrt{x}$, $x^2$' . "\n"
-            . '- Display: $$...$$ — contoh: $$\frac{a}{b} + \frac{c}{d}$$' . "\n"
-            . "- Pecahan: \\frac{pembilang}{penyebut} — contoh: \\frac{3}{4}\n"
-            . "- Akar: \\sqrt{x} atau \\sqrt[n]{x}\n"
-            . "- Pangkat: x^{2} atau x^{n}\n"
-            . "- Contoh soal: \"Hitunglah nilai $\\frac{3}{4} + \\frac{1}{2}$\"\n"
-            . "Contoh:\n"
-            . '[{"type":"pg","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"},'
-            . '{"type":"pg_kompleks","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."' . ($pgkOpsiCount == 5 ? ',"E":"..."' : '') . '},"answer":"A,C"},'
-            . '{"type":"benar_salah","question":"Pernyataan utama/stimulus soal","options":{"A":"pernyataan 1","B":"pernyataan 2","C":"pernyataan 3","D":"pernyataan 4"},"answer":"B,S,B,S"},'
-            . '{"type":"esai","question":"...","answer":"kunci jawaban lengkap"}]' . "\n\n"
-            . "ATURAN TAMBAHAN:\n"
-            . "- Untuk tipe benar_salah: question=stimulus utama, options=4 pernyataan (A-D), answer=status B atau S per opsi dipisah koma (contoh: 'B,S,B,B')\n"
-            . "- PENTING SOAL BS: Opsi A-D adalah PERNYATAAN BERBEDA yang masing-masing dinilai Benar/Salah secara INDEPENDEN. INI BUKAN pilihan ganda! Setiap pernyataan harus berdiri sendiri dan bisa dinilai kebenarannya. Campurkan pernyataan benar dan salah (jangan semua benar atau semua salah).\n"
-            . "- Contoh BS BENAR: question='Perhatikan pernyataan tentang Pancasila berikut!', options: A='Pancasila terdiri dari 5 sila' (B), B='Sila pertama tentang kemanusiaan' (S), C='Pancasila adalah dasar negara' (B), D='Pancasila ditetapkan tanggal 1 Juni 1945' (S)\n"
-            . "- Kelompokkan berurutan: PG dulu, lalu PGK, BS, terakhir Esai\n"
-            . "- Untuk Esai: kunci jawaban harus lengkap (rubrik/poin yang diharapkan)\n"
-            . "- Untuk BS: pernyataan harus spesifik, bukan opini\n"
-            . ($jenisAsesmen === 'sumatif'
-                ? "- SUMATIF: soal harus MERATA mencakup SEMUA materi yang tercantum, jangan fokus 1 materi saja\n"
-                  . "- SUMATIF: soal boleh menghubungkan antar-materi (integrasi konsep)\n"
-                : "- FORMATIF: soal fokus pada materi spesifik yang dipilih, eksplorasi mendalam\n")
-            . "- KEMBALIKAN HANYA JSON ARRAY MURNI, tanpa backtick, tanpa markdown";
+        $prompt = $this->buildSoalAiPrompt(
+            $school ?? [],
+            $classInfo ?? [],
+            $subject ?? [],
+            $materiList,
+            $tpDeskripsi,
+            $tipeList,
+            $jenisAsesmen,
+            $semester
+        );
 
         // Call AI
         $response = null;
@@ -3421,7 +3376,12 @@ class AdministrasiGuru extends BaseController
         } else {
             $geminiModels = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
             $headers = ['Content-Type: application/json'];
-            $payload = json_encode(["contents" => [["parts" => [["text" => $prompt]]]]]);
+            $payload = json_encode([
+                "contents" => [["parts" => [["text" => $prompt]]]],
+                "generationConfig" => [
+                    "temperature" => 0.7,
+                ]
+            ]);
 
             foreach ($geminiModels as $gModel) {
                 $url = "https://generativelanguage.googleapis.com/v1beta/models/{$gModel}:generateContent?key=" . $apiKey;
@@ -3501,103 +3461,232 @@ class AdministrasiGuru extends BaseController
      */
     public function getSoalPrompt()
     {
-        $user = session()->get('user');
-        if (!in_array($user['role_id'], [1, 3])) {
-            return $this->response->setJSON(['success' => false, 'error' => 'Akses ditolak.']);
-        }
-
-        $atpId = $this->request->getPost('atp_id');
-        $subjectId = $this->request->getPost('subject_id');
-        $classId = $this->request->getPost('class_id');
-        $tipeListJson = $this->request->getPost('tipe_list');
-        $selectedTps = $this->request->getPost('tp_ids');
-        $jenisAsesmen = $this->request->getPost('jenis_asesmen') ?? 'formatif';
-        $atpIds = $this->request->getPost('atp_ids');
-        $semester = $this->request->getPost('semester');
-
-        $tipeList = json_decode($tipeListJson, true);
-        if (empty($tipeList)) {
-            return $this->response->setJSON(['success' => false, 'error' => 'Pilih minimal satu tipe soal.']);
-        }
-
-        // Load data
-        $materiList = '';
-        if ($jenisAsesmen === 'sumatif' && !empty($atpIds)) {
-            $atps = $this->atpModel->whereIn('id', $atpIds)->findAll();
-            foreach ($atps as $a) {
-                $materiList .= "- " . $a['lingkup_materi'] . "\n";
+        try {
+            $user = session()->get('user');
+            if (empty($user) || !in_array($user['role_id'] ?? null, [1, 3])) {
+                return $this->response->setJSON(['success' => false, 'error' => 'Akses ditolak atau sesi login telah berakhir.']);
             }
-        } else {
-            $atp = $this->atpModel->find($atpId);
-            if (!$atp) {
-                return $this->response->setJSON(['success' => false, 'error' => 'ATP tidak ditemukan.']);
-            }
-            $materiList = $atp['lingkup_materi'] ?? '-';
-        }
 
-        $subject = $this->subjectModel->find($subjectId);
-        $school = $this->db->table('school_profile')->get()->getRowArray();
-        $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+            $atpId = $this->request->getPost('atp_id');
+            $subjectId = $this->request->getPost('subject_id');
+            $classId = $this->request->getPost('class_id');
+            $tipeListJson = $this->request->getPost('tipe_list');
+            $selectedTps = $this->request->getPost('tp_ids');
+            $jenisAsesmen = $this->request->getPost('jenis_asesmen') ?? 'formatif';
+            $atpIds = $this->request->getPost('atp_ids');
+            $semester = $this->request->getPost('semester');
 
-        $tpDeskripsi = '';
-        if (!empty($selectedTps)) {
-            $tps = $this->db->table('tujuan_pembelajaran')
-                ->whereIn('id', $selectedTps)->get()->getResultArray();
-            foreach ($tps as $tp) {
-                $tpDeskripsi .= "- " . ($tp['kode_tp'] ? $tp['kode_tp'] . ': ' : '') . $tp['deskripsi'] . "\n";
+            $tipeList = json_decode($tipeListJson, true);
+            if (empty($tipeList)) {
+                return $this->response->setJSON(['success' => false, 'error' => 'Pilih minimal satu tipe soal.']);
             }
+
+            // Load data
+            $materiList = '';
+            if ($jenisAsesmen === 'sumatif' && !empty($atpIds)) {
+                $atps = $this->atpModel->whereIn('id', (array) $atpIds)->findAll();
+                foreach ($atps as $a) {
+                    $materiList .= "- " . ($a['lingkup_materi'] ?? '-') . "\n";
+                }
+            } else {
+                $atp = $this->atpModel->find($atpId);
+                if (!$atp) {
+                    return $this->response->setJSON(['success' => false, 'error' => 'Materi ATP tidak ditemukan. Silakan pilih materi terlebih dahulu.']);
+                }
+                $materiList = $atp['lingkup_materi'] ?? '-';
+            }
+
+            $subject = $this->subjectModel->find($subjectId) ?? [];
+            $school = $this->db->table('school_profile')->get()->getRowArray() ?? [];
+            $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray() ?? [];
+
+            $tpDeskripsi = '';
+            if (!empty($selectedTps)) {
+                $tps = $this->db->table('tujuan_pembelajaran')
+                    ->whereIn('id', (array) $selectedTps)->get()->getResultArray();
+                foreach ($tps as $tp) {
+                    $tpDeskripsi .= "- " . (!empty($tp['kode_tp']) ? $tp['kode_tp'] . ': ' : '') . ($tp['deskripsi'] ?? '') . "\n";
+                }
+            }
+
+            $prompt = $this->buildSoalAiPrompt(
+                $school,
+                $classInfo,
+                $subject,
+                (string) $materiList,
+                (string) $tpDeskripsi,
+                $tipeList,
+                (string) $jenisAsesmen,
+                $semester
+            );
+
+            return $this->response->setJSON([
+                'success' => true,
+                'prompt'  => $prompt,
+                'csrf'    => csrf_hash(),
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', '[getSoalPrompt] Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            return $this->response->setJSON([
+                'success' => false,
+                'error'   => 'Terjadi kesalahan sistem: ' . $e->getMessage(),
+                'csrf'    => csrf_hash(),
+            ]);
         }
+    }
+
+    /**
+     * Membangun prompt profesional berstandar nasional untuk AI
+     * Menegakkan kaidah penulisan butir soal: kesetaraan panjang opsi, distraktor berkualitas & homogen, paralelisme gramatikal, dan pencegahan clue verbal.
+     */
+    private function buildSoalAiPrompt(
+        $school,
+        $classInfo,
+        $subject,
+        string $materiList,
+        string $tpDeskripsi,
+        array $tipeList,
+        string $jenisAsesmen,
+        $semester
+    ): string {
+        $school = is_array($school) ? $school : [];
+        $classInfo = is_array($classInfo) ? $classInfo : [];
+        $subject = is_array($subject) ? $subject : [];
+
+        $schoolLevel = (int)($school['level'] ?? 1);
+        $jenjang = ($schoolLevel == 1) ? 'SD' : (($schoolLevel == 2) ? 'SMP' : 'SMA');
+        $kelasLevel = (int)($classInfo['level'] ?? 7);
+
+        // SD/SMP: 4 opsi (A-D), SMA: 5 opsi (A-E)
+        $opsiCount = ($schoolLevel == 3) ? 5 : 4;
+        $opsiLabel = ($opsiCount == 5) ? '5 opsi: A,B,C,D,E' : '4 opsi: A,B,C,D';
 
         $soalRequest = '';
-        $pgkOpsiCount = ($school['level'] == 3) ? 5 : 4;
-        $pgkOpsiLabel = ($pgkOpsiCount == 5) ? '5 opsi: A,B,C,D,E' : '4 opsi: A,B,C,D';
-
         foreach ($tipeList as $t) {
             $label = match($t['tipe']) {
-                'pg' => 'Pilihan Ganda (4 opsi: A,B,C,D — pilih 1 jawaban benar)',
-                'pg_kompleks' => "Pilihan Ganda Kompleks ({$pgkOpsiLabel}, bisa lebih dari 1 jawaban benar)",
-                'benar_salah' => 'Benar/Salah (1 stimulus + 4 PERNYATAAN independen, masing-masing dinilai B/S)',
+                'pg' => "Pilihan Ganda ({$opsiLabel} — pilih 1 jawaban benar)",
+                'pg_kompleks' => "Pilihan Ganda Kompleks ({$opsiLabel}, bisa lebih dari 1 jawaban benar)",
+                'benar_salah' => 'Benar/Salah (1 stimulus + 4 PERNYATAAN yang masing-masing dinilai Benar atau Salah secara INDEPENDEN)',
                 'esai' => 'Esai/Uraian singkat',
                 default => $t['tipe']
             };
             $soalRequest .= "- {$t['jumlah']} soal tipe {$label}\n";
         }
 
-        $jenjang = ($school['level'] == 1) ? 'SD' : (($school['level'] == 2) ? 'SMP' : 'SMA');
-        $kelasLevel = (int)($classInfo['level'] ?? 7);
         $jenisLabel = ($jenisAsesmen === 'sumatif')
-            ? "SUMATIF SEMESTER {$semester}"
-            : "FORMATIF";
+            ? "SUMATIF SEMESTER {$semester} (mencakup seluruh materi semester)"
+            : "FORMATIF (fokus pada materi spesifik yang dipilih)";
 
-        $prompt = "Buatkan soal ujian {$jenisLabel} untuk:\n"
-            . "- Jenjang: {$jenjang}, Kelas: " . ($classInfo['name'] ?? '-') . "\n"
-            . "- Mapel: " . ($subject['name'] ?? '-') . "\n"
-            . "- Materi:\n" . $materiList . "\n"
-            . (!empty($tpDeskripsi) ? "- Tujuan Pembelajaran:\n{$tpDeskripsi}\n" : '')
-            . "\nKomposisi soal:\n{$soalRequest}\n"
-            . "PANDUAN:\n"
-            . "- 20% soal C1-C2 (Mengingat & Memahami)\n"
-            . "- 30% soal C3 (Menerapkan)\n"
-            . "- 50% soal C4-C6 (HOTS: Menganalisis, Mengevaluasi, Mencipta)\n"
-            . "- Soal HOTS harus ada stimulus (teks/data/kasus)\n"
-            . "- Distraktor harus masuk akal dan homogen\n"
-            . "- PENTING (Khusus Ujian Digital / CBT): Soal akan diacak oleh sistem. Setiap soal HARUS MANDIRI. DILARANG membuat satu teks bacaan/stimulus yang digunakan untuk beberapa soal sekaligus (misal 'Untuk soal nomor 1-3'). Jika ada beberapa soal yang merujuk pada teks/stimulus yang sama, tulis ulang (copy) teks/stimulus tersebut secara utuh ke dalam field 'question' di MASING-MASING nomor soal tersebut.\n\n"
-            . "FORMAT OUTPUT: JSON ARRAY (tanpa markdown/backtick)\n"
-            . "Field per item: type, question, options (jika PG/PGK/BS), answer\n"
-            . 'PENULISAN MATEMATIKA: Gunakan notasi LaTeX — contoh: $\frac{1}{2}$, $\sqrt{x}$, $x^2$, $$\frac{a}{b}$$' . "\n"
-            . "PENTING untuk tipe benar_salah: question=stimulus utama, options={A:'pernyataan 1',B:'pernyataan 2',C:'pernyataan 3',D:'pernyataan 4'}, answer='B,S,B,S' (B=Benar, S=Salah per opsi)\n"
-            . "Soal BS BUKAN pilihan ganda! Setiap opsi adalah PERNYATAAN INDEPENDEN yang dinilai B/S. Campurkan pernyataan benar dan salah.\n"
-            . "Contoh:\n"
-            . '[{"type":"pg","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A"},'
-            . '{"type":"pg_kompleks","question":"Stimulus soal (PGK)","options":{"A":"pernyataan 1","B":"pernyataan 2","C":"pernyataan 3","D":"pernyataan 4"},"answer":"A,C"},'
-            . '{"type":"benar_salah","question":"Stimulus soal (BS)","options":{"A":"pernyataan 1","B":"pernyataan 2","C":"pernyataan 3","D":"pernyataan 4"},"answer":"B,S,B,B"},'
-            . '{"type":"esai","question":"...","answer":"kunci jawaban"}]';
+        $karakteristikLevel = '';
+        if ($jenjang === 'SD') {
+            if ($kelasLevel <= 3) {
+                $karakteristikLevel = "Kelas rendah (1-3 SD): gunakan kalimat sederhana, konkret, dekat kehidupan sehari-hari anak.";
+            } else {
+                $karakteristikLevel = "Kelas tinggi (4-6 SD): boleh abstrak ringan, hubungkan dengan pengalaman nyata, mulai penalaran sederhana.";
+            }
+        } elseif ($jenjang === 'SMP') {
+            if ($kelasLevel <= 7) {
+                $karakteristikLevel = "Kelas 7 SMP: transisi dari SD, mulai analisis sederhana, kontekstual dengan kehidupan remaja awal.";
+            } elseif ($kelasLevel == 8) {
+                $karakteristikLevel = "Kelas 8 SMP: penalaran lebih dalam, bisa bandingkan konsep, analisis teks/data sederhana.";
+            } else {
+                $karakteristikLevel = "Kelas 9 SMP: persiapan ujian akhir, penalaran tinggi, evaluasi, dan sintesis antar konsep.";
+            }
+        } else {
+            $karakteristikLevel = "Jenjang SMA: penalaran tinggi, analisis mendalam, evaluasi kritis, dan kreativitas berpikir.";
+        }
 
-        return $this->response->setJSON([
-            'success' => true,
-            'prompt'  => $prompt,
-            'csrf'    => csrf_hash(),
-        ]);
+        $samplePgOptions = ($opsiCount == 5)
+            ? '{"A":"...","B":"...","C":"...","D":"...","E":"..."}'
+            : '{"A":"...","B":"...","C":"...","D":"..."}';
+
+        $prompt = "Kamu adalah pembuat soal ujian profesional dan pakar evaluasi pendidikan berpengalaman untuk jenjang {$jenjang}.\n"
+            . "Buatkan paket butir soal ujian BERKUALITAS TINGGI, STANDAR NASIONAL, dan BEBAS DARI CLUE JAWABAN dengan rincian:\n{$soalRequest}\n"
+            . "JENIS ASESMEN: {$jenisLabel}\n\n"
+            . "KONTEKS PEMBELAJARAN:\n"
+            . "- Jenjang: {$jenjang}\n"
+            . "- Kelas: " . ($classInfo['name'] ?? '-') . " (Level {$kelasLevel})\n"
+            . "- Mata Pelajaran: " . ($subject['name'] ?? '-') . "\n"
+            . "- Materi/Lingkup:\n" . $materiList . "\n"
+            . "- Karakteristik Siswa: {$karakteristikLevel}\n"
+            . (!empty($tpDeskripsi) ? "- Tujuan Pembelajaran (TP):\n{$tpDeskripsi}\n" : '')
+            . "\n========================================================================\n"
+            . "PANDUAN KUALITAS BUTIR SOAL & KAIDAH PENULISAN OPSI (WAJIB DIPATUHI):\n"
+            . "========================================================================\n"
+            . "1. ATURAN KRUSIAL OPSI JAWABAN & PENGECOH (MENCEGAH TEBAKAN CEPAT SISWA):\n"
+            . "   a. KESETARAAN PANJANG KALIMAT (WAJIB SERAGAM):\n"
+            . "      - Semua pilihan jawaban (A, B, C, D" . ($opsiCount == 5 ? ", E" : "") . ") HARUS memiliki panjang kalimat dan jumlah kata yang RELATIF SAMA (seimbang).\n"
+            . "      - DILARANG KERAS membuat opsi jawaban yang benar jauh lebih panjang, lebih lengkap, lebih rinci, atau lebih ilmiah daripada opsi pengecoh.\n"
+            . "      - Siswa TIDAK BOLEH bisa menebak jawaban hanya dengan melihat opsi mana yang paling panjang atau paling lengkap penjelasannya!\n"
+            . "      - Jika kunci jawaban membutuhkan penjelasan 1 kalimat (misal 10-16 kata), maka SELURUH opsi pengecoh (distraktor) juga HARUS dirancang dengan 10-16 kata dengan bobot yang setara.\n"
+            . "   b. KUALITAS PENGECOH (DISTRAKTOR) HARUS SANGAT MEYAKINKAN & HOMOGEN:\n"
+            . "      - Opsi pengecoh (jawaban salah) HARUS MASUK AKAL (highly plausible), logis, homogen, dan tampak benar bagi siswa yang belum benar-benar paham materi.\n"
+            . "      - Buat pengecoh dari:\n"
+            . "        * Miskonsepsi umum siswa yang sering terjadi pada topik tersebut.\n"
+            . "        * Konsep atau istilah lain yang mirip/relevan tetapi keliru konteks atau keliru syarat.\n"
+            . "        * Kesalahan nalar atau kekeliruan langkah perhitungan yang paling sering dialami siswa.\n"
+            . "      - DILARANG membuat opsi pengecoh yang konyol, absurd, asal-asalan, sepele, atau jelas-jelas salah saat dibaca sekilas.\n"
+            . "   c. PARALELISME / KESELARASAN STRUKTUR TATA BAHASA:\n"
+            . "      - Semua opsi dalam satu butir soal HARUS memiliki struktur gramatikal yang setara/paralel.\n"
+            . "      - Jika opsi A diawali predikat aktif (misal 'Mengidentifikasi...'), maka opsi B, C, D" . ($opsiCount == 5 ? ', E' : '') . " juga WAJIB diawali predikat aktif ('Menganalisis...', 'Membandingkan...', dst).\n"
+            . "      - Jika berupa frasa benda, semua opsi harus frasa benda. Jangan mencampur kalimat utuh dengan frasa gantung.\n"
+            . "   d. HINDARI PETUNJUK VERBAL / CLUE JAWABAN:\n"
+            . "      - DILARANG menggunakan kata absolut pembuat jebakan seperti 'selalu', 'pasti', 'hanya', 'tidak pernah', atau 'semua' pada opsi pengecoh semata-mata agar menjadi salah.\n"
+            . "      - DILARANG mengulang kata teknis khusus dari pertanyaan/stimulus HANYA di opsi jawaban benar sementara pengecoh tidak memakainya (hindari stem-option clue).\n"
+            . "      - Tingkat formalitas, nada bahasa, dan keanggunan kalimat pada seluruh opsi harus setara (jangan buat opsi benar bernada paling bijak/ideal sementara opsi salah bernada negatif/kasar).\n"
+            . "   e. DISTRIBUSI KUNCI JAWABAN MERATA & ACAK:\n"
+            . "      - Sebar kunci jawaban benar secara acak dan seimbang di antara huruf opsi (A, B, C, D" . ($opsiCount == 5 ? ', E' : '') . "). Jangan menumpuk pada huruf tertentu (misal selalu A atau selalu C).\n\n"
+            . "CONTOH KONTRASTIF (PERHATIKAN DENGAN SANGAT TELITI):\n"
+            . "--- CONTOH BURUK / SALAH (DILARANG DIBUAT) ---\n"
+            . "Soal: Apa peranan utama klorofil pada daun dalam fotosintesis?\n"
+            . "A. Memberi warna hijau pada daun. (Terlalu pendek & seadanya)\n"
+            . "B. Tumbuhan tidak memerlukan klorofil. (Absurd & konyol)\n"
+            . "C. Menyerap energi cahaya matahari untuk memecah molekul air dalam reaksi terang guna menghasilkan energi kimia. (KUNCI: Terlalu panjang, 16 kata, sangat ilmiah & rinci!)\n"
+            . "D. Menghangatkan daun saat musim dingin. (Konyol)\n"
+            . "=> Masalah: Siswa langsung tahu kunci jawabannya adalah C dalam sepintas pandang tanpa perlu belajar!\n\n"
+            . "--- CONTOH BAIK / BENAR (WAJIB DIIKUTI) ---\n"
+            . "Soal: Apa peranan utama klorofil pada daun dalam fotosintesis?\n"
+            . "A. Mengikat gas karbon dioksida dari udara bebas untuk diubah langsung menjadi senyawa amilum.\n"
+            . "B. Menyerap energi cahaya matahari untuk memecah molekul air pada tahap reaksi terang fotosintesis. (KUNCI BENAR)\n"
+            . "C. Mengalirkan nutrisi organik hasil fotosintesis dari daun menuju ke seluruh jaringan tanaman.\n"
+            . "D. Mengendalikan penguapan cairan sel melalui pori-pori daun saat intensitas cahaya matahari tinggi.\n"
+            . "=> Hasil: Semua opsi memiliki 13-16 kata, pola kalimat sejajar ('Mengikat...', 'Menyerap...', 'Mengalirkan...', 'Mengendalikan...'), seluruh istilah ilmiah relevan dan homogen, sehingga siswa benar-benar harus berpikir kritis!\n\n"
+            . "2. DISTRIBUSI LEVEL KOGNITIF (Taksonomi Bloom Revisi):\n"
+            . "   - 20% soal C1-C2 (Mengingat & Memahami): fakta, definisi, konsep dasar\n"
+            . "   - 30% soal C3 (Menerapkan): penerapan konsep dalam situasi baru / kontekstual\n"
+            . "   - 50% soal C4-C6 (HOTS - Menganalisis, Mengevaluasi, Mencipta): analisis data/teks, pemecahan masalah, penarikan kesimpulan\n\n"
+            . "3. STIMULUS SOAL HOTS & SOAL MANDIRI:\n"
+            . "   - Soal HOTS wajib menyertakan stimulus (wacana singkat, data, tabel, kasus kehidupan nyata) di awal field 'question'.\n"
+            . "   - PENTING (Ujian CBT Digital): Soal diacak oleh sistem. Setiap butir soal HARUS MANDIRI (self-contained). DILARANG membuat satu stimulus untuk beberapa nomor (misal 'Perhatikan teks berikut untuk soal 1-3'). Bila ada soal merujuk teks yang sama, tulis ulang teks secara utuh di masing-masing nomor soal.\n\n"
+            . "4. UNTUK MAPEL BAHASA (Indonesia/Inggris/Daerah):\n"
+            . "   - Wajib sertakan kutipan teks wacana bacaan yang relevan di field 'question' dengan label 'Bacalah teks berikut!'.\n\n"
+            . "5. UNTUK SOAL YANG MEMBUTUHKAN GAMBAR:\n"
+            . "   - Tulis deskripsinya dalam kurung siku: [Gambar: deskripsi visual yang jelas]\n\n"
+            . "6. ATURAN PENULISAN MATEMATIKA / NOTASI ILMIAH:\n"
+            . "   - Gunakan format LaTeX: $\\frac{a}{b}$, $\\sqrt{x}$, $x^2$, dst.\n\n"
+            . "FORMAT OUTPUT WAJIB JSON ARRAY (tanpa teks pengantar, tanpa backtick, tanpa markdown):\n"
+            . "Setiap item memiliki field:\n"
+            . "- type: 'pg' | 'pg_kompleks' | 'benar_salah' | 'esai'\n"
+            . "- question: teks soal lengkap (beserta stimulus jika ada)\n"
+            . "- options: object opsi jawaban A, B, C, D" . ($opsiCount == 5 ? ", E" : "") . " (untuk tipe pg, pg_kompleks, benar_salah)\n"
+            . "- answer: kunci jawaban\n"
+            . "  * Untuk 'pg': huruf opsi tunggal, contoh: 'B'\n"
+            . "  * Untuk 'pg_kompleks': huruf opsi dipisah koma, contoh: 'A,C'\n"
+            . "  * Untuk 'benar_salah': question=stimulus utama, options={A:'pernyataan 1',B:'pernyataan 2',C:'pernyataan 3',D:'pernyataan 4'}, answer='B,S,B,S' (dinilai B/S independen per pernyataan, campurkan B dan S)\n"
+            . "  * Untuk 'esai': tanpa field options, answer=rubrik/kunci jawaban lengkap\n\n"
+            . "Contoh JSON Array:\n"
+            . "[\n"
+            . "  {\"type\":\"pg\",\"question\":\"...\",\"options\":{$samplePgOptions},\"answer\":\"B\"},\n"
+            . "  {\"type\":\"pg_kompleks\",\"question\":\"...\",\"options\":{$samplePgOptions},\"answer\":\"A,C\"},\n"
+            . "  {\"type\":\"benar_salah\",\"question\":\"Perhatikan pernyataan berikut!\",\"options\":{\"A\":\"pernyataan 1\",\"B\":\"pernyataan 2\",\"C\":\"pernyataan 3\",\"D\":\"pernyataan 4\"},\"answer\":\"B,S,B,S\"},\n"
+            . "  {\"type\":\"esai\",\"question\":\"...\",\"answer\":\"kunci jawaban lengkap\"}\n"
+            . "]\n\n"
+            . ($jenisAsesmen === 'sumatif'
+                ? "- SUMATIF: soal harus MERATA mencakup SEMUA lingkup materi yang tercantum di atas.\n"
+                : "- FORMATIF: soal fokus pada materi yang dipilih secara mendalam.\n")
+            . "- KEMBALIKAN HANYA JSON ARRAY MURNI!";
+
+        return $prompt;
     }
 
     /**

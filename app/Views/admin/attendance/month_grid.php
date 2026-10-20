@@ -459,6 +459,12 @@
         this.appendChild(input);
       }
     });
+
+    const saveBtn = document.getElementById('btn-save');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Menyimpan...';
+    }
   });
 
   // inisialisasi

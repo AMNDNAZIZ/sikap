@@ -2,40 +2,125 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <title>Absensi <?= esc($class['name']) ?> - <?= esc($monthNameIndo ?? $month) ?></title>
   <style>
-    body { font-family: DejaVu Sans, sans-serif; font-size: 11px; }
-    h3 { text-align: center; margin-bottom: 10px; }
-    table { border-collapse: collapse; width: 100%; font-size: 10px; }
-    th, td { border: 1px solid #000; padding: 3px; text-align: center; }
-    th { background-color: #f0f0f0; }
-    td.status-H { color: green; }
-    td.status-I, td.status-S { color: orange; }
-    td.status-A { color: red; }
-    tfoot td { font-weight: bold; background-color: #e0e0e0; }
-    .holiday { background-color: #dc3545; color: white; }
-    .signature-section { margin-top: 18px; page-break-inside: avoid; }
-    table.signature-table { width: 100%; border: none !important; font-size: 10px; }
-    table.signature-table td { border: none !important; width: 50%; text-align: center; vertical-align: top; padding: 0 20px; }
-    .signature-space { height: 48px; }
-    .signature-img { max-height: 46px; max-width: 130px; display: block; margin: 0 auto; }
+    body {
+      font-family: DejaVu Sans, sans-serif;
+      font-size: 10px;
+      color: #111;
+      margin: 0;
+      padding: 0;
+    }
+    .header-box {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .header-school {
+      font-size: 13px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+    .header-title {
+      font-size: 11.5px;
+      font-weight: bold;
+      margin-bottom: 3px;
+    }
+    .header-meta {
+      font-size: 9.5px;
+      color: #333;
+    }
+
+    table.data-table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 9px;
+    }
+    table.data-table th, table.data-table td {
+      border: 1px solid #000;
+      padding: 2.5px 1.5px;
+      text-align: center;
+    }
+    table.data-table th {
+      background-color: #f0f0f0;
+      font-weight: bold;
+    }
+    td.status-H { color: #15803d; font-weight: bold; }
+    td.status-I { color: #d97706; font-weight: bold; }
+    td.status-S { color: #2563eb; font-weight: bold; }
+    td.status-A { color: #dc2626; font-weight: bold; }
+    tfoot td {
+      font-weight: bold;
+      background-color: #e5e7eb;
+    }
+    .holiday {
+      background-color: #ef4444;
+      color: #ffffff !important;
+      font-weight: bold;
+    }
+
+    .legend-box {
+      width: 100%;
+      margin-top: 6px;
+      font-size: 8.5px;
+      color: #444;
+      border: none;
+    }
+
+    table.ttd-table {
+      border-collapse: collapse;
+      width: 100%;
+      border: none !important;
+      margin-top: 20px;
+      page-break-inside: avoid;
+      font-size: 10px;
+    }
+    table.ttd-table td {
+      border: none !important;
+      padding: 0;
+      line-height: 1.35;
+      text-align: center;
+      vertical-align: top;
+    }
+    .ttd-space {
+      height: 50px;
+      margin: 4px 0;
+    }
+    .ttd-img {
+      max-height: 50px;
+      max-width: 140px;
+    }
+>>>>>>> bbe84885 (Update & sync v2.0.4 - 2026-10-19 13:25)
   </style>
 </head>
 <body>
-  <h3>Absensi <?= esc($class['name']) ?> Bulan <?= date('F Y', strtotime($month . '-01')) ?></h3>
+  <div class="header-box">
+    <?php if (!empty($school['name'])): ?>
+      <div class="header-school"><?= esc($school['name']) ?></div>
+    <?php endif; ?>
+    <div class="header-title">DAFTAR HADIR SISWA (PRESENSI BULANAN)</div>
+    <div class="header-meta">
+      Kelas: <strong><?= esc($class['name']) ?></strong> &nbsp;|&nbsp; 
+      Bulan: <strong><?= esc($monthNameIndo ?? date('F Y', strtotime($month . '-01'))) ?></strong>
+      <?php if (!empty($activeYear['year'])): ?>
+        &nbsp;|&nbsp; Tahun Ajaran: <strong><?= esc($activeYear['year']) ?></strong>
+      <?php endif; ?>
+    </div>
+  </div>
 
-  <table>
+  <table class="data-table">
     <thead>
       <tr>
-        <th>No</th>
-        <th>NIS</th>
-        <th>Nama Siswa</th>
-        <th>JK</th>
+        <th style="width: 22px;">No</th>
+        <th style="width: 55px;">NIS</th>
+        <th style="text-align: left; padding-left: 4px; min-width: 130px;">Nama Siswa</th>
+        <th style="width: 22px;">JK</th>
         <?php
           $holidayCols = [];
           $totalWorkDays = 0;
           $today = date('Y-m-d');
           foreach ($dates as $idx => $d) {
-              // Gunakan helper is_weekend untuk cek weekend berdasarkan school_days
               $isWeekend = is_weekend($d, $schoolDays);
               $isHoliday = $isWeekend || isset($holidays[$d]);
               $holidayCols[$idx] = $isHoliday;
@@ -47,11 +132,11 @@
         <?php foreach ($dates as $idx => $d): ?>
           <th class="<?= $holidayCols[$idx] ? 'holiday' : '' ?>"><?= date('d', strtotime($d)) ?></th>
         <?php endforeach; ?>
-        <th>H</th>
-        <th>I</th>
-        <th>S</th>
-        <th>A</th>
-        <th>%</th>
+        <th style="width: 20px;">H</th>
+        <th style="width: 20px;">I</th>
+        <th style="width: 20px;">S</th>
+        <th style="width: 20px;">A</th>
+        <th style="width: 35px;">%</th>
       </tr>
     </thead>
     <tbody>
@@ -63,13 +148,13 @@
         <tr>
           <td><?= $i + 1 ?></td>
           <td><?= esc($s['nis'] ?? '-') ?></td>
-          <td style="text-align:left; white-space:nowrap;"><?= esc($s['name']) ?></td>
+          <td style="text-align: left; padding-left: 4px; white-space: nowrap;"><?= esc($s['name']) ?></td>
           <td><?= esc($s['gender']) ?></td>
           <?php foreach ($dates as $idx => $d):
             $isHoliday = $holidayCols[$idx];
             $val = $attMap[$s['id']][$d] ?? null;
             $disp = '-';
-            $class = '';
+            $classStatus = '';
 
             if ($isHoliday) {
               $disp = '-';
@@ -77,18 +162,17 @@
               $disp = '-';
             } elseif ($val) {
               $disp = $val;
-              if ($val === 'H') { $class = 'status-H'; $countH++; }
-              elseif ($val === 'I') { $class = 'status-I'; $countI++; }
-              elseif ($val === 'S') { $class = 'status-S'; $countS++; }
-              elseif ($val === 'A') { $class = 'status-A'; $countA++; }
+              if ($val === 'H') { $classStatus = 'status-H'; $countH++; }
+              elseif ($val === 'I') { $classStatus = 'status-I'; $countI++; }
+              elseif ($val === 'S') { $classStatus = 'status-S'; $countS++; }
+              elseif ($val === 'A') { $classStatus = 'status-A'; $countA++; }
             } else {
-              // default hadir jika hari kerja, tanggal <= hari ini, tidak ada data
               $disp = 'H';
-              $class = 'status-H';
+              $classStatus = 'status-H';
               $countH++;
             }
           ?>
-            <td class="<?= ($isHoliday ? 'holiday ' : '') . $class ?>"><?= $disp ?></td>
+            <td class="<?= ($isHoliday ? 'holiday ' : '') . $classStatus ?>"><?= $disp ?></td>
           <?php endforeach; ?>
           <td class="status-H"><?= $countH ?></td>
           <td class="status-I"><?= $countI ?></td>
@@ -116,7 +200,7 @@
         $percentClass = $totalPossibleAttendances ? round(($totalH / $totalPossibleAttendances) * 100, 1) : 0;
       ?>
       <tr>
-        <td colspan="<?= 4 + count($dates) ?>" style="text-align:right">Total Kelas:</td>
+        <td colspan="<?= 4 + count($dates) ?>" style="text-align: right; padding-right: 8px;">Total Akumulasi Kelas:</td>
         <td class="status-H"><?= $totalH ?></td>
         <td class="status-I"><?= $totalI ?></td>
         <td class="status-S"><?= $totalS ?></td>
@@ -126,41 +210,51 @@
     </tfoot>
   </table>
 
-  <!-- TANDA TANGAN -->
-  <?php
-    $kota = !empty($school['city_regency']) ? $school['city_regency'] : (!empty($school['city']) ? $school['city'] : 'Kota/Kab.');
-    $kepsekNama = !empty($school['headmaster']) ? $school['headmaster'] : 'Kepala Sekolah';
-    $kepsekNip  = !empty($school['principal_nip']) ? $school['principal_nip'] : '-';
-    $waliNama   = !empty($waliKelas['name']) ? $waliKelas['name'] : 'Wali Kelas';
-    $waliNip    = !empty($waliKelas['nip']) ? $waliKelas['nip'] : '-';
-  ?>
-  <div class="signature-section">
-    <table class="signature-table">
-      <tr>
-        <td>
-          Mengetahui,<br>
-          <strong>Kepala Sekolah</strong>
-          <div class="signature-space">
-            <?php if (!empty($principalSigBase64)): ?>
-              <img src="<?= $principalSigBase64 ?>" alt="TTD Kepala Sekolah" class="signature-img">
-            <?php endif; ?>
-          </div>
-          <strong style="text-decoration: underline;"><?= esc($kepsekNama) ?></strong><br>
-          NIP. <?= esc($kepsekNip) ?>
-        </td>
-        <td>
-          <?= esc($kota) ?>, <?= esc($titimangsaDate ?? date('d F Y')) ?><br>
-          <strong>Wali Kelas <?= esc($class['name'] ?? '') ?></strong>
-          <div class="signature-space">
-            <?php if (!empty($waliSigBase64)): ?>
-              <img src="<?= $waliSigBase64 ?>" alt="TTD Wali Kelas" class="signature-img">
-            <?php endif; ?>
-          </div>
-          <strong style="text-decoration: underline;"><?= esc($waliNama) ?></strong><br>
-          NIP. <?= esc($waliNip) ?>
-        </td>
-      </tr>
-    </table>
-  </div>
+  <!-- Keterangan & Ringkasan -->
+  <table class="legend-box" style="width: 100%; border: none;">
+    <tr>
+      <td style="border: none; text-align: left; vertical-align: top;">
+        <strong>Keterangan:</strong> 
+        <span style="color: #15803d; font-weight: bold;">H</span> = Hadir &nbsp;|&nbsp; 
+        <span style="color: #2563eb; font-weight: bold;">S</span> = Sakit &nbsp;|&nbsp; 
+        <span style="color: #d97706; font-weight: bold;">I</span> = Izin &nbsp;|&nbsp; 
+        <span style="color: #dc2626; font-weight: bold;">A</span> = Alpa &nbsp;|&nbsp; 
+        <span style="background-color: #ef4444; color: white; padding: 0 3px; border-radius: 2px;">Merah</span> = Libur / Akhir Pekan
+      </td>
+      <td style="border: none; text-align: right; vertical-align: top;">
+        Total Siswa: <strong><?= count($students) ?></strong> 
+        (L: <?= count(array_filter($students, fn($st) => ($st['gender'] ?? '') === 'L')) ?>, 
+        P: <?= count(array_filter($students, fn($st) => ($st['gender'] ?? '') === 'P')) ?>)
+      </td>
+    </tr>
+  </table>
+
+  <!-- Tanda Tangan Kepala Sekolah & Guru / Wali Kelas -->
+  <table class="ttd-table">
+    <tr>
+      <td style="width: 50%;">
+        Mengetahui,<br>
+        Kepala Sekolah <?= esc($school['name'] ?? '') ?>
+        <div class="ttd-space">
+          <?php if (!empty($principalSigBase64)): ?>
+            <img src="<?= $principalSigBase64 ?>" class="ttd-img" alt="TTD Kepala Sekolah">
+          <?php endif; ?>
+        </div>
+        <strong><u><?= esc(!empty($school['headmaster']) ? $school['headmaster'] : '......................................................') ?></u></strong><br>
+        NIP. <?= esc(!empty($school['principal_nip']) ? $school['principal_nip'] : '-') ?>
+      </td>
+      <td style="width: 50%;">
+        <?= esc($titimangsaCity) ?>, <?= esc($titimangsaDate) ?><br>
+        Guru Kelas / Wali Kelas <?= esc($class['name']) ?>
+        <div class="ttd-space">
+          <?php if (!empty($waliSigBase64)): ?>
+            <img src="<?= $waliSigBase64 ?>" class="ttd-img" alt="TTD Wali Kelas">
+          <?php endif; ?>
+        </div>
+        <strong><u><?= esc(!empty($waliKelas['name']) ? $waliKelas['name'] : '......................................................') ?></u></strong><br>
+        NIP. <?= esc(!empty($waliKelas['nip']) ? $waliKelas['nip'] : '-') ?>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>

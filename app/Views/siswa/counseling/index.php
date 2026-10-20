@@ -23,6 +23,39 @@
     </div>
   <?php endif; ?>
 
+  <!-- Banner Asesmen / Angket BK Ditugaskan -->
+  <?php
+  $counselingDb = \Config\Database::connect();
+  $studentIdForAssess = $student['id'] ?? (session('user')['student_id'] ?? (session('user')['related_id'] ?? 0));
+  $pendingAssessments = $counselingDb->table('bk_assignment_students bas')
+      ->select('bas.id as assignment_student_id, bas.status, bi.title, bi.assessment_type, ba.end_date')
+      ->join('bk_assignments ba', 'ba.id = bas.assignment_id')
+      ->join('bk_instruments bi', 'bi.id = ba.instrument_id')
+      ->where('bas.student_id', $studentIdForAssess)
+      ->where('ba.status', 'active')
+      ->where('bas.status !=', 'COMPLETED')
+      ->where('ba.end_date >=', date('Y-m-d'))
+      ->get()->getResultArray();
+  ?>
+  <?php if (!empty($pendingAssessments)): ?>
+    <div class="alert alert-primary d-flex align-items-center gap-3 mb-3 border-0 shadow-sm">
+      <i class="bi bi-ui-checks-grid fs-2 text-primary flex-shrink-0"></i>
+      <div class="flex-grow-1">
+        <h6 class="fw-bold mb-1">Ada <?= count($pendingAssessments) ?> Asesmen / Angket BK Ditugaskan!</h6>
+        <div class="small text-muted">
+          <?= esc($pendingAssessments[0]['title']) ?> 
+          <?php if (count($pendingAssessments) > 1): ?>
+            dan <?= count($pendingAssessments) - 1 ?> asesmen lainnya
+          <?php endif; ?>
+          (Batas: <?= date('d M Y', strtotime($pendingAssessments[0]['end_date'])) ?>)
+        </div>
+      </div>
+      <a href="<?= base_url('siswa/asesmen') ?>" class="btn btn-primary btn-sm fw-bold text-nowrap px-3 rounded-pill">
+        📝 Buka Asesmen
+      </a>
+    </div>
+  <?php endif; ?>
+
   <!-- Banner Angket Karir -->
   <?php $angketTitle = is_school_sd() ? 'Angket Minat & Bakat' : 'Angket Karir & Bakat'; ?>
   <?php if (empty($careerProfile)): ?>

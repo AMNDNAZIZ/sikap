@@ -103,6 +103,13 @@
       </a>
     </li>
 
+    <!-- Asesmen & Angket BK (AKPD / Kebutuhan) -->
+    <li class="nav-item">
+      <a class="nav-link <?= url_is('siswa/asesmen*') ? 'active' : '' ?>" href="<?= site_url('siswa/asesmen') ?>" title="Asesmen & Angket BK">
+        <i class="bi bi-ui-checks-grid"></i> <span class="label">Asesmen &amp; Angket BK</span>
+      </a>
+    </li>
+
     <!-- Angket Minat & Bakat -->
     <li class="nav-item">
       <a class="nav-link <?= url_is('siswa/counseling/career*') ? 'active' : '' ?>" href="<?= site_url('siswa/counseling/career') ?>" title="Angket Minat & Bakat">

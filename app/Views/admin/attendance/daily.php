@@ -295,6 +295,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Prevent double submission
+    const dailyForm = document.getElementById('daily-form');
+    if (dailyForm) {
+        dailyForm.addEventListener('submit', function() {
+            const btn = this.querySelector('button[type="submit"]');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Menyimpan...';
+            }
+        });
+    }
+
     updateCounts();
 });
 </script>

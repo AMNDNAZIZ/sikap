@@ -219,6 +219,13 @@
       <span class="quick-menu-label">Perpustakaan</span>
     </a>
 
+    <a href="<?= base_url('siswa/asesmen') ?>" class="quick-menu-item">
+      <div class="quick-menu-icon" style="background: #ede9fe; color: #7c3aed;">
+        <i class="bi bi-ui-checks-grid"></i>
+      </div>
+      <span class="quick-menu-label">Asesmen BK</span>
+    </a>
+
     <?php if (is_school_swasta()): ?>
       <a href="<?= base_url('siswa/payment') ?>" class="quick-menu-item">
         <div class="quick-menu-icon" style="background: #f1f5f9; color: #475569;">

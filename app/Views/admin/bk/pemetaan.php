@@ -65,7 +65,32 @@
                                             </td>
                                             <td><?= date('d M Y', strtotime($a['created_at'])) ?></td>
                                             <td class="text-center">
-                                                <a href="<?= base_url('admin/bk/pemetaan/instrumen/edit/' . $a['id']) ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3">Builder</a>
+                                                <div class="d-flex justify-content-center align-items-center gap-1 flex-wrap">
+                                                    <a href="<?= base_url('admin/bk/pemetaan/instrumen/edit/' . $a['id']) ?>" class="btn btn-sm btn-outline-primary rounded-pill px-2" title="Buka Builder Instrumen">
+                                                        <i class="bi bi-gear me-1"></i>Builder
+                                                    </a>
+                                                    <a href="<?= base_url('admin/bk/pemetaan/instrumen/preview/' . $a['id']) ?>" target="_blank" class="btn btn-sm btn-outline-info rounded-pill px-2" title="Preview Tampilan Siswa">
+                                                        <i class="bi bi-eye"></i>
+                                                    </a>
+                                                    <?php if ($a['status'] === 'published') : ?>
+                                                        <form action="<?= base_url('admin/bk/pemetaan/instrumen/unpublish/' . $a['id']) ?>" method="POST" class="d-inline" onsubmit="return confirm('Kembalikan status instrumen \'<?= esc($a['title'], 'js') ?>\' ke Draft (Unpublish)?');">
+                                                            <?= csrf_field() ?>
+                                                            <button type="submit" class="btn btn-sm btn-outline-warning rounded-pill px-2 text-dark" title="Unpublish (Ubah status ke Draft)">
+                                                                <i class="bi bi-arrow-counterclockwise"></i> Unpublish
+                                                            </button>
+                                                        </form>
+                                                    <?php else : ?>
+                                                        <form action="<?= base_url('admin/bk/pemetaan/instrumen/publish/' . $a['id']) ?>" method="POST" class="d-inline" onsubmit="return confirm('Publish instrumen \'<?= esc($a['title'], 'js') ?>\' agar dapat ditugaskan ke siswa?');">
+                                                            <?= csrf_field() ?>
+                                                            <button type="submit" class="btn btn-sm btn-outline-success rounded-pill px-2" title="Publish Instrumen">
+                                                                <i class="bi bi-check2-circle"></i> Publish
+                                                            </button>
+                                                        </form>
+                                                    <?php endif; ?>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2" title="Hapus Instrumen" onclick="confirmDeleteInstrument(<?= $a['id'] ?>, '<?= esc($a['title'], 'js') ?>')">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -378,5 +403,39 @@
             document.getElementById('classAveragesContainer').innerHTML = `<div class="col-12"><div class="alert alert-danger">Terjadi kesalahan pada server.</div></div>`;
         });
     }
+
+    function confirmDeleteInstrument(id, title) {
+        const form = document.getElementById('formDeleteInstrument');
+        form.action = '<?= base_url('admin/bk/pemetaan/instrumen/delete') ?>/' + id;
+        document.getElementById('delete_instrument_text').innerHTML = 'Apakah Anda yakin ingin menghapus instrumen <strong>"' + title + '"</strong>?';
+        new bootstrap.Modal(document.getElementById('modalDeleteInstrument')).show();
+    }
 </script>
+
+<!-- Modal Konfirmasi Hapus Instrumen -->
+<div class="modal fade" id="modalDeleteInstrument" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <form id="formDeleteInstrument" method="POST" action="">
+                <?= csrf_field() ?>
+                <div class="modal-header bg-danger text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Hapus Instrumen
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="mb-2" id="delete_instrument_text">Apakah Anda yakin ingin menghapus instrumen ini?</p>
+                    <div class="alert alert-warning small mb-0">
+                        <i class="bi bi-info-circle me-1"></i> Semua konfigurasi pertanyaan, skala, dan aspek instrumen ini akan ikut dihapus. Jika instrumen sudah memiliki jawaban siswa, penghapusan akan dicegah secara aman.
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4">Ya, Hapus Instrumen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 <?= $this->endSection() ?>

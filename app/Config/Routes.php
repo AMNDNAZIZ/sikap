@@ -289,6 +289,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->get('atp', 'AdministrasiGuru::atp');
         $routes->post('atp/store', 'AdministrasiGuru::atpStore');
         $routes->get('atp/delete/(:num)', 'AdministrasiGuru::atpDelete/$1');
+        $routes->get('atp/delete-tp/(:num)', 'AdministrasiGuru::atpDeleteTp/$1');
         $routes->post('atp/copy-from-source', 'AdministrasiGuru::atpCopyFromSource');
         $routes->get('atp/print/(:num)/(:num)', 'AdministrasiGuru::atpPrint/$1/$2');
         $routes->get('prota-prosem', 'AdministrasiGuru::protaProsem');
@@ -661,6 +662,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('bk/pemetaan/instrumen/update/(:num)', 'BkAssessment::updateInstrument/$1', $auth1237);
     $routes->post('bk/pemetaan/instrumen/delete/(:num)', 'BkAssessment::deleteInstrument/$1', $auth1237);
     $routes->post('bk/pemetaan/instrumen/publish/(:num)', 'BkAssessment::publishInstrument/$1', $auth1237);
+    $routes->post('bk/pemetaan/instrumen/unpublish/(:num)', 'BkAssessment::unpublishInstrument/$1', $auth1237);
     $routes->post('bk/pemetaan/instrumen/duplicate/(:num)', 'BkAssessment::duplicateInstrument/$1', $auth1237);
     $routes->get('bk/pemetaan/instrumen/preview/(:num)', 'BkAssessment::previewInstrument/$1', $auth1237);
     
@@ -688,6 +690,8 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     // 2. Penugasan
     $routes->get('bk/pemetaan/penugasan', 'BkAssessment::assignments', $auth1237);
     $routes->post('bk/pemetaan/penugasan/store', 'BkAssessment::storeAssignment', $auth1237);
+    $routes->post('bk/pemetaan/penugasan/update/(:num)', 'BkAssessment::updateAssignment/$1', $auth1237);
+    $routes->post('bk/pemetaan/penugasan/delete/(:num)', 'BkAssessment::deleteAssignment/$1', $auth1237);
     $routes->post('bk/pemetaan/penugasan/activate/(:num)', 'BkAssessment::activateAssignment/$1', $auth1237);
     $routes->post('bk/pemetaan/penugasan/close/(:num)', 'BkAssessment::closeAssignment/$1', $auth1237);
     $routes->get('bk/pemetaan/penugasan/progress/(:num)', 'BkAssessment::assignmentProgress/$1', $auth1237);

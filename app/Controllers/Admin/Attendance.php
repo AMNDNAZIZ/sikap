@@ -202,11 +202,16 @@ class Attendance extends BaseController
         }
 
         // Ambil absensi dari DB (H tidak disimpan, hanya S/I/A)
-        $attendances = $this->attendanceModel
-            ->where('class_id', $classId)
-            ->where('date >=', date('Y-m-d', $start))
-            ->where('date <=', date('Y-m-d', $end))
-            ->findAll();
+        // Gunakan student_id agar siswa yang pindah kelas tetap terbaca data absensi sebelumnya
+        $studentIds = array_column($students, 'id');
+        $attendances = [];
+        if (!empty($studentIds)) {
+            $attendances = $this->attendanceModel
+                ->whereIn('student_id', $studentIds)
+                ->where('date >=', date('Y-m-d', $start))
+                ->where('date <=', date('Y-m-d', $end))
+                ->findAll();
+        }
 
         $attMap = [];
         foreach ($attendances as $a) {
@@ -421,11 +426,15 @@ class Attendance extends BaseController
             $holidayDesc = 'Di luar periode tahun ajaran';
         }
 
-        // Ambil data absensi untuk tanggal ini
-        $attendances = $this->attendanceModel
-            ->where('class_id', $classId)
-            ->where('date', $date)
-            ->findAll();
+        // Ambil data absensi untuk tanggal ini berdasarkan siswa di kelas
+        $studentIds = array_column($students, 'id');
+        $attendances = [];
+        if (!empty($studentIds)) {
+            $attendances = $this->attendanceModel
+                ->whereIn('student_id', $studentIds)
+                ->where('date', $date)
+                ->findAll();
+        }
 
         $attMap = [];
         foreach ($attendances as $a) {
@@ -473,30 +482,43 @@ class Attendance extends BaseController
 
         foreach ($status as $studentId => $st) {
             // jika H -> hapus record (karena default hadir)
+            // Hapus berdasarkan student_id dan date agar record dari kelas lama/baru sama-sama bersih
             if ($st === 'H') {
                 $this->attendanceModel
-                    ->where('class_id', $classId)
                     ->where('student_id', $studentId)
                     ->where('date', $date)
                     ->delete();
                 continue;
             }
 
+            // Cari data eksisting berdasarkan student_id dan date (sesuai UNIQUE KEY uniq_att)
             $existing = $this->attendanceModel
-                ->where('class_id', $classId)
                 ->where('student_id', $studentId)
                 ->where('date', $date)
                 ->first();
 
             if ($existing) {
-                $this->attendanceModel->update($existing['id'], ['status' => $st]);
-            } else {
-                $this->attendanceModel->insert([
+                // Update status dan pastikan class_id diperbarui ke kelas siswa saat ini
+                $this->attendanceModel->update($existing['id'], [
                     'class_id' => $classId,
-                    'student_id' => $studentId,
-                    'date' => $date,
-                    'status' => $st,
+                    'status'   => $st,
                 ]);
+            } else {
+                try {
+                    $this->attendanceModel->insert([
+                        'class_id'   => $classId,
+                        'student_id' => $studentId,
+                        'date'       => $date,
+                        'status'     => $st,
+                    ]);
+                } catch (\Exception $e) {
+                    // Fallback jika terjadi race condition (double click) sehingga record sudah ada
+                    $this->attendanceModel
+                        ->where('student_id', $studentId)
+                        ->where('date', $date)
+                        ->set(['class_id' => $classId, 'status' => $st])
+                        ->update();
+                }
             }
         }
 
@@ -541,11 +563,15 @@ class Attendance extends BaseController
 
         $students = $this->getStudentsByClass((int) $classId, $activeYear);
 
-        $attendances = $this->attendanceModel
-            ->where('class_id', $classId)
-            ->where('date >=', $start)
-            ->where('date <=', $end)
-            ->findAll();
+        $studentIds = array_column($students, 'id');
+        $attendances = [];
+        if (!empty($studentIds)) {
+            $attendances = $this->attendanceModel
+                ->whereIn('student_id', $studentIds)
+                ->where('date >=', $start)
+                ->where('date <=', $end)
+                ->findAll();
+        }
 
         $attMap = [];
         foreach ($attendances as $a) {
@@ -620,12 +646,16 @@ class Attendance extends BaseController
             $dates[] = date('Y-m-d', $d);
         }
 
-        // ambil absensi (hanya yang tersimpan: biasanya I/S/A)
-        $attendances = $this->attendanceModel
-            ->where('class_id', $classId)
-            ->where('date >=', $start)
-            ->where('date <=', $end)
-            ->findAll();
+        // ambil absensi (hanya yang tersimpan: biasanya I/S/A) berdasarkan siswa
+        $studentIds = array_column($students, 'id');
+        $attendances = [];
+        if (!empty($studentIds)) {
+            $attendances = $this->attendanceModel
+                ->whereIn('student_id', $studentIds)
+                ->where('date >=', $start)
+                ->where('date <=', $end)
+                ->findAll();
+        }
 
         $attMap = [];
         foreach ($attendances as $a) {
@@ -654,26 +684,41 @@ class Attendance extends BaseController
             }
         }
 
-        // Data sekolah & wali kelas untuk tanda tangan
+        // Ambil profil sekolah untuk kepala sekolah & titimangsa
         $schoolModel = new \App\Models\SchoolModel();
-        $school = $schoolModel->getProfile();
+        $school = $schoolModel->getProfile() ?? [];
 
-        $teacherModel = new \App\Models\TeacherModel();
+        // Ambil data wali kelas / guru kelas
         $waliKelas = null;
         if (!empty($class['teacher_id'])) {
+            $teacherModel = new \App\Models\TeacherModel();
             $waliKelas = $teacherModel->find($class['teacher_id']);
         }
 
-        $principalSigBase64 = $this->imageToBase64($school['principal_signature'] ?? '');
-        $waliSigBase64      = $waliKelas ? $this->imageToBase64($waliKelas['signature'] ?? '') : '';
+        // Format bulan dan titimangsa tanggal Indonesia
+        $bulanIndo = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
 
-        // Format tanggal titimangsa Indonesia
-        $bulanIndo = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'];
-        $titimangsaDate = date('j') . ' ' . ($bulanIndo[(int)date('n')] ?? date('F')) . ' ' . date('Y');
+        $titimangsaCity = !empty($school['city_regency']) ? $school['city_regency'] : 'Jakarta';
+
+        $printDate = (date('Y-m') === $month) ? date('Y-m-d') : $end;
+        $pTime = strtotime($printDate);
+        $mNum = (int) date('n', $pTime);
+        $titimangsaDate = date('j', $pTime) . ' ' . ($bulanIndo[$mNum] ?? date('F', $pTime)) . ' ' . date('Y', $pTime);
+
+        $monthNum = (int) date('n', strtotime($start));
+        $monthNameIndo = ($bulanIndo[$monthNum] ?? date('F', strtotime($start))) . ' ' . date('Y', strtotime($start));
+
+        $principalSigBase64 = !empty($school['principal_signature']) ? $this->imageToBase64($school['principal_signature']) : '';
+        $waliSigBase64 = !empty($waliKelas['signature']) ? $this->imageToBase64($waliKelas['signature']) : '';
 
         $data = [
             'class'              => $class,
             'month'              => $month,
+            'monthNameIndo'      => $monthNameIndo,
             'students'           => $students,
             'dates'              => $dates,
             'attMap'             => $attMap,
@@ -681,9 +726,11 @@ class Attendance extends BaseController
             'schoolDays'         => $schoolDays,
             'school'             => $school,
             'waliKelas'          => $waliKelas,
+            'activeYear'         => $activeYear,
+            'titimangsaCity'     => $titimangsaCity,
+            'titimangsaDate'     => $titimangsaDate,
             'principalSigBase64' => $principalSigBase64,
             'waliSigBase64'      => $waliSigBase64,
-            'titimangsaDate'     => $titimangsaDate,
         ];
 
         $html = view('admin/attendance/pdf_grid', $data);
@@ -737,11 +784,15 @@ class Attendance extends BaseController
             $dates[] = date('Y-m-d', $d);
         }
 
-        $attendances = $this->attendanceModel
-            ->where('class_id', $classId)
-            ->where('date >=', $start)
-            ->where('date <=', $end)
-            ->findAll();
+        $studentIds = array_column($students, 'id');
+        $attendances = [];
+        if (!empty($studentIds)) {
+            $attendances = $this->attendanceModel
+                ->whereIn('student_id', $studentIds)
+                ->where('date >=', $start)
+                ->where('date <=', $end)
+                ->findAll();
+        }
 
         $attMap = [];
         foreach ($attendances as $a) {
