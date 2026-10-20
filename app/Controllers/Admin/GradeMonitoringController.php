@@ -364,13 +364,11 @@ class GradeMonitoringController extends BaseController
 
             // Inisialisasi Ringkasan Guru
             if (!isset($teacherSummary[$tid])) {
-                $cleanPhone = $this->formatWhatsAppNumber($row['teacher_phone'] ?? null);
                 $teacherSummary[$tid] = [
                     'id'                 => $tid,
                     'name'               => $row['teacher_name'],
                     'nip'                => $row['teacher_nip'] ?: '-',
                     'phone'              => $row['teacher_phone'],
-                    'whatsapp_phone'     => $cleanPhone,
                     'total_assignments'  => 0,
                     'complete'           => 0,
                     'partial'            => 0,
@@ -406,8 +404,7 @@ class GradeMonitoringController extends BaseController
             if ($rStatus === 'complete') $teacherSummary[$tid]['r_complete']++;
         }
 
-        // Kalkulasi Persentase Guru, Tipe Guru (Guru Kelas vs Guru Bidang Studi), & Pesan WhatsApp
-        $yearName = $activeYear['year'] ?? '-';
+        // Kalkulasi Persentase Guru & Tipe Guru (Guru Kelas vs Guru Bidang Studi)
         foreach ($teacherSummary as $tid => &$ts) {
             $total = $ts['total_assignments'];
 
@@ -432,31 +429,15 @@ class GradeMonitoringController extends BaseController
             $ts['is_guru_kelas'] = $isGuruKelas;
             $ts['unit_label']    = $isGuruKelas ? 'Mapel' : 'Rombel';
             $ts['role_label']    = $isGuruKelas ? 'Guru Kelas' : 'Guru Bidang Studi';
-
-            // Pesan WhatsApp Nudge
-            if (!empty($ts['whatsapp_phone'])) {
-                $waText = $this->buildWhatsAppMessage($ts['name'], $yearName, $semester, [
-                    'total'             => $total,
-                    'unit_label'        => $ts['unit_label'],
-                    'role_label'        => $ts['role_label'],
-                    'formatif_complete' => $ts['f_complete'],
-                    'sumatif_complete'  => $ts['s_complete'],
-                    'rapor_complete'    => $ts['r_complete'],
-                    'progress_pct'      => $ts['progress_pct'],
-                ]);
-                $ts['whatsapp_url'] = 'https://api.whatsapp.com/send?phone=' . $ts['whatsapp_phone'] . '&text=' . rawurlencode($waText);
-            } else {
-                $ts['whatsapp_url'] = null;
-            }
         }
         unset($ts);
 
-        // Urutkan Guru: Progres Terendah di Atas (Agar kepsek mudah melihat siapa yang perlu diingatkan)
+        // Urutkan Guru: Progres Tertinggi di Atas (DESC)
         uasort($teacherSummary, function ($a, $b) {
             if ($a['progress_pct'] === $b['progress_pct']) {
                 return strcmp($a['name'], $b['name']);
             }
-            return ($a['progress_pct'] < $b['progress_pct']) ? -1 : 1;
+            return ($a['progress_pct'] > $b['progress_pct']) ? -1 : 1;
         });
 
         // 7. KPI Metrics Card
@@ -487,50 +468,5 @@ class GradeMonitoringController extends BaseController
         $data['overall_stats']   = $overallStats;
 
         return view('admin/grades/monitoring', $data);
-    }
-
-    /**
-     * Sanitasi format nomor WhatsApp Indonesia ke format internasional 628xxx
-     */
-    protected function formatWhatsAppNumber(?string $phone): ?string
-    {
-        if (!$phone) {
-            return null;
-        }
-
-        // Hapus karakter non-angka
-        $clean = preg_replace('/[^0-9]/', '', $phone);
-        if (empty($clean)) {
-            return null;
-        }
-
-        // Ubah format 08xxx menjadi 628xxx
-        if (str_starts_with($clean, '0')) {
-            $clean = '62' . substr($clean, 1);
-        } elseif (str_starts_with($clean, '8')) {
-            $clean = '62' . $clean;
-        }
-
-        return (strlen($clean) >= 10) ? $clean : null;
-    }
-
-    /**
-     * Susun draft pesan santun & resmi dari Kepala Sekolah untuk pengingat WhatsApp
-     */
-    protected function buildWhatsAppMessage(string $teacherName, string $yearName, int $semester, array $summary): string
-    {
-        $semLabel = $semester === 1 ? 'Ganjil' : 'Genap';
-        $unit     = $summary['unit_label'] ?? 'Rombel';
-
-        $msg  = "Assalamu'alaikum wr. wb. / Yth. Bapak/Ibu {$teacherName},\n\n";
-        $msg .= "Mohon izin mengingatkan dari Kepala Sekolah terkait progres penginputan nilai Semester {$semLabel} TA {$yearName}:\n";
-        $msg .= "• Beban Mengajar: {$summary['total']} {$unit}\n";
-        $msg .= "• Nilai Formatif (ATP): {$summary['formatif_complete']} dari {$summary['total']} {$unit} Selesai\n";
-        $msg .= "• Nilai Sumatif: {$summary['sumatif_complete']} dari {$summary['total']} {$unit} Selesai\n";
-        $msg .= "• Nilai Rapor: {$summary['rapor_complete']} dari {$summary['total']} {$unit} Selesai\n";
-        $msg .= "• Progres Keseluruhan: {$summary['progress_pct']}%\n\n";
-        $msg .= "Mohon kesediaannya untuk mempercepat pelengkapan data nilai sebelum batas akhir pembagian rapor. Terima kasih atas dedikasi dan kerja samanya. 🙏";
-
-        return $msg;
     }
 }

@@ -107,11 +107,11 @@
     <div class="d-flex align-items-center gap-2">
         <div class="btn-group btn-group-sm p-0.5 bg-light border rounded" role="group" aria-label="Pilih Semester">
             <a href="<?= base_url('admin/grades/monitoring?semester=1' . ($filter_teacher ? '&teacher_id='.$filter_teacher : '') . ($filter_class ? '&class_id='.$filter_class : '') . ($filter_subject ? '&subject_id='.$filter_subject : '')) ?>" 
-               class="btn <?= $semester == 1 ? 'btn-white shadow-sm fw-bold text-primary' : 'btn-light text-muted' ?>" style="font-size: 0.8rem;">
+                class="btn <?= $semester == 1 ? 'btn-white shadow-sm fw-bold text-primary' : 'btn-light text-muted' ?>" style="font-size: 0.8rem;">
                 Semester 1 (Ganjil)
             </a>
             <a href="<?= base_url('admin/grades/monitoring?semester=2' . ($filter_teacher ? '&teacher_id='.$filter_teacher : '') . ($filter_class ? '&class_id='.$filter_class : '') . ($filter_subject ? '&subject_id='.$filter_subject : '')) ?>" 
-               class="btn <?= $semester == 2 ? 'btn-white shadow-sm fw-bold text-primary' : 'btn-light text-muted' ?>" style="font-size: 0.8rem;">
+                class="btn <?= $semester == 2 ? 'btn-white shadow-sm fw-bold text-primary' : 'btn-light text-muted' ?>" style="font-size: 0.8rem;">
                 Semester 2 (Genap)
             </a>
         </div>
@@ -328,7 +328,7 @@ $pctT = $totTeach > 0 ? round(($kpi['complete_teachers'] / $totTeach) * 100) : 0
     </div>
 </div>
 
-<!-- ══ 3. RINGKASAN PER GURU AKTIF (TEACHER PROGRESS & WHATSAPP NUDGE) ══ -->
+<!-- ══ 3. RINGKASAN PER GURU AKTIF (TEACHER PROGRESS) ══ -->
 <?php if (!empty($teacher_summary)): ?>
 <div class="card border mb-4 shadow-none">
     <div class="card-header bg-white py-3 px-3 d-flex justify-content-between align-items-center">
@@ -336,7 +336,7 @@ $pctT = $totTeach > 0 ? round(($kpi['complete_teachers'] / $totTeach) * 100) : 0
             <h6 class="m-0 font-weight-bold text-dark">
                 <i class="bi bi-people-fill text-primary me-1"></i> Ringkasan Progres Guru Aktif
             </h6>
-            <span class="text-muted text-xs">Diurutkan dari progres terendah untuk mempermudah pemantauan &amp; pengingat Kepala Sekolah</span>
+            <span class="text-muted text-xs">Diurutkan dari capaian progres tertinggi ke terendah (DESC)</span>
         </div>
         <span class="badge bg-light text-dark border tabular-nums"><?= count($teacher_summary) ?> Guru Aktif</span>
     </div>
@@ -353,7 +353,7 @@ $pctT = $totTeach > 0 ? round(($kpi['complete_teachers'] / $totTeach) * 100) : 0
                         <th width="100" class="text-center">Rapor</th>
                         <th width="160">Progres Total</th>
                         <th width="115" class="text-center">Status</th>
-                        <th width="110" class="text-center">Aksi Kepsek</th>
+                        <th width="80" class="text-center">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -411,24 +411,12 @@ $pctT = $totTeach > 0 ? round(($kpi['complete_teachers'] / $totTeach) * 100) : 0
                             <?php endif; ?>
                         </td>
                         <td class="text-center">
-                            <div class="d-inline-flex gap-1">
-                                <?php if ($pct < 100 && !empty($ts['whatsapp_url'])): ?>
-                                    <a href="<?= $ts['whatsapp_url'] ?>" target="_blank" class="btn btn-xs btn-outline-success px-2 py-1" title="Kirim Pengingat WhatsApp Resmi" style="font-size: 0.75rem;">
-                                        <i class="bi bi-whatsapp me-1"></i> Colek
-                                    </a>
-                                <?php elseif ($pct >= 100): ?>
-                                    <span class="badge bg-light text-success border" style="font-size: 0.72rem;">Selesai</span>
-                                <?php else: ?>
-                                    <button class="btn btn-xs btn-light text-muted border px-2 py-1" disabled title="No HP belum terdaftar" style="font-size: 0.75rem;">
-                                        <i class="bi bi-whatsapp"></i>
-                                    </button>
-                                <?php endif; ?>
-
-                                <!-- Quick filter button -->
-                                <a href="<?= base_url('admin/grades/monitoring?semester=' . $semester . '&teacher_id=' . $tid) ?>#monitoringGrid" class="btn btn-xs btn-light border px-2 py-1 text-muted" title="Lihat daftar plotting guru ini" style="font-size: 0.75rem;">
-                                    <i class="bi bi-search"></i>
-                                </a>
-                            </div>
+                            <a href="<?= base_url('admin/grades/monitoring?semester=' . $semester . '&teacher_id=' . $tid) ?>#monitoringGrid" 
+                               class="btn btn-xs btn-outline-primary px-2.5 py-1" 
+                               title="Lihat rincian plotting guru ini" 
+                               style="font-size: 0.75rem;">
+                                <i class="bi bi-search me-1"></i> Detail
+                            </a>
                         </td>
                     </tr>
                     <?php endforeach; ?>
