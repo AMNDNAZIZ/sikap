@@ -172,6 +172,7 @@
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/assessments*') ? 'active' : '' ?>" href="<?= base_url('admin/assessments') ?>"><i class="bi bi-pencil-square me-1"></i> <span class="label">Input Nilai</span></a></li>
           <li><a class="nav-link <?= url_is('admin/erapor*') ? 'active' : '' ?>" href="<?= base_url('admin/erapor') ?>"><i class="bi bi-clipboard-data me-1"></i> <span class="label">Nilai Erapor</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/grades/monitoring*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/monitoring') ?>"><i class="bi bi-bar-chart-steps me-1"></i> <span class="label">Monitoring Nilai Guru</span></a></li>
           <li><a class="nav-link <?= url_is('admin/grades/rekap*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/rekap') ?>"><i class="bi bi-table me-1"></i> <span class="label">Rekap Nilai Kelas</span></a></li>
           <li><a class="nav-link <?= url_is('admin/grades') && !url_is('admin/grades/tracking*') && !url_is('admin/grades/rekap*') ? 'active' : '' ?>" href="<?= base_url('admin/grades') ?>"><i class="bi bi-file-earmark-bar-graph me-1"></i> <span class="label">Laporan Rapor</span></a></li>
           <li><a class="nav-link <?= url_is('admin/grades/tracking*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/tracking') ?>"><i class="bi bi-activity me-1"></i> <span class="label">Tracking Nilai</span></a></li>
