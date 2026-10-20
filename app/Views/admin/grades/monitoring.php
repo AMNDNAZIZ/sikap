@@ -196,7 +196,7 @@ $pctT = $totTeach > 0 ? round(($kpi['complete_teachers'] / $totTeach) * 100) : 0
         <div class="card border h-100 shadow-none">
             <div class="card-header bg-white py-2.5 px-3 border-bottom">
                 <h6 class="m-0 font-weight-bold text-dark" style="font-size: 0.85rem;">
-                    <i class="bi bi-pie-chart-fill text-success me-1"></i> Nilai Formatif (TP)
+                    <i class="bi bi-pie-chart-fill text-success me-1"></i> Nilai Formatif (ATP)
                 </h6>
             </div>
             <div class="card-body d-flex flex-column align-items-center justify-content-center p-3">
@@ -347,12 +347,12 @@ $pctT = $totTeach > 0 ? round(($kpi['complete_teachers'] / $totTeach) * 100) : 0
                     <tr>
                         <th width="40" class="text-center">No</th>
                         <th>Nama Guru</th>
-                        <th width="90" class="text-center">Plotting</th>
+                        <th width="115" class="text-center">Beban Mengajar</th>
                         <th width="100" class="text-center">Formatif</th>
                         <th width="100" class="text-center">Sumatif</th>
                         <th width="100" class="text-center">Rapor</th>
                         <th width="160">Progres Total</th>
-                        <th width="110" class="text-center">Status</th>
+                        <th width="115" class="text-center">Status</th>
                         <th width="110" class="text-center">Aksi Kepsek</th>
                     </tr>
                 </thead>
@@ -374,7 +374,10 @@ $pctT = $totTeach > 0 ? round(($kpi['complete_teachers'] / $totTeach) * 100) : 0
                                 <?php endif; ?>
                             </div>
                         </td>
-                        <td class="text-center tabular-nums fw-semibold"><?= $ts['total_assignments'] ?> Rombel</td>
+                        <td class="text-center tabular-nums">
+                            <span class="fw-bold text-dark"><?= $ts['total_assignments'] ?> <?= $ts['unit_label'] ?></span>
+                            <div class="text-xs text-muted"><?= $ts['role_label'] ?></div>
+                        </td>
                         <td class="text-center tabular-nums">
                             <span class="badge <?= $ts['f_complete'] == $ts['total_assignments'] ? 'badge-status-complete' : ($ts['f_complete'] > 0 ? 'badge-status-partial' : 'badge-status-empty') ?> px-2 py-1">
                                 <?= $ts['f_complete'] ?> / <?= $ts['total_assignments'] ?>
@@ -401,7 +404,7 @@ $pctT = $totTeach > 0 ? round(($kpi['complete_teachers'] / $totTeach) * 100) : 0
                         <td class="text-center">
                             <?php if ($pct >= 100): ?>
                                 <span class="badge badge-status-complete">✅ Tuntas</span>
-                            <?php elseif ($ts['empty'] === $ts['total_assignments']): ?>
+                            <?php elseif ($pct === 0): ?>
                                 <span class="badge badge-status-empty">❌ Belum Mulai</span>
                             <?php else: ?>
                                 <span class="badge badge-status-partial">🔄 Sedang Input</span>
@@ -514,7 +517,7 @@ $pctT = $totTeach > 0 ? round(($kpi['complete_teachers'] / $totTeach) * 100) : 0
                 <h6 class="mb-1 fw-bold text-dark" style="font-size: 0.85rem;">Standar Kriteria Kelengkapan Penginputan Nilai</h6>
                 <div class="row g-2 text-muted" style="font-size: 0.8rem;">
                     <div class="col-md-4">
-                        <strong class="text-dark">Nilai Formatif:</strong> Dinyatakan <strong>Selesai</strong> jika materi ATP telah terisi di semester ini dan &ge; 90% siswa aktif telah dinilai.
+                        <strong class="text-dark">Nilai Formatif (ATP):</strong> Dinyatakan <strong>Selesai</strong> jika materi ATP telah terisi di semester ini dan &ge; 90% siswa aktif telah dinilai.
                     </div>
                     <div class="col-md-4">
                         <strong class="text-dark">Nilai Sumatif:</strong> Dinyatakan <strong>Selesai</strong> jika asesmen sumatif (Tulis, Lisan, Projek, STS, SAS) telah terisi untuk &ge; 90% siswa.
@@ -548,7 +551,7 @@ $pctT = $totTeach > 0 ? round(($kpi['complete_teachers'] / $totTeach) * 100) : 0
                         <th>Guru Pengampu</th>
                         <th width="100" class="text-center">Kelas</th>
                         <th>Mata Pelajaran</th>
-                        <th width="190">Formatif (TP)</th>
+                        <th width="190">Formatif (ATP)</th>
                         <th width="170">Sumatif</th>
                         <th width="180">Nilai Rapor</th>
                         <th width="100" class="text-center">Status</th>
