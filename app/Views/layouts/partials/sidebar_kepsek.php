@@ -14,7 +14,7 @@
     </li>
 
     <?php
-    $inSupervisi  = url_is('admin/administrasi-guru*') || url_is('admin/teachers*') || url_is('admin/teachingassignments*') || url_is('admin/teaching-journal*') || url_is('admin/schedules*') || url_is('admin/teacher-attendance*');
+    $inSupervisi  = url_is('admin/administrasi-guru*') || url_is('admin/grades/monitoring*') || url_is('admin/teachers*') || url_is('admin/teachingassignments*') || url_is('admin/teaching-journal*') || url_is('admin/schedules*') || url_is('admin/teacher-attendance*');
     $inKesiswaan  = url_is('admin/students*') || url_is('admin/classes*') || url_is('admin/attendance*') || url_is('admin/grades*') || url_is('admin/erapor*') || url_is('admin/cbt*') || url_is('admin/kokurikuler*') || url_is('admin/bk*') || url_is('admin/student-map*') || url_is('admin/alumni*') || url_is('admin/student-mutation*');
     $inLearning   = url_is('admin/materials*') || url_is('admin/tugas*') || url_is('learning*') || url_is('kalender*') || url_is('admin/ebook*');
     $inTataUsaha  = url_is('admin/tata-usaha*') || url_is('admin/surat-masuk*') || url_is('admin/surat-keluar*') || url_is('admin/agenda-surat*') || url_is('admin/buku-tamu*');
@@ -36,6 +36,7 @@
       <div class="collapse <?= $inSupervisi ? 'show' : '' ?>" id="menuSupervisi">
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/monitoring*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/monitoring') ?>"><i class="bi bi-graph-up-arrow me-1"></i> <span class="label">Monitoring Adm Guru</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/grades/monitoring*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/monitoring') ?>"><i class="bi bi-bar-chart-steps me-1"></i> <span class="label">Monitoring Nilai Guru</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru') && !url_is('admin/administrasi-guru/monitoring*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru') ?>"><i class="bi bi-journal-bookmark me-1"></i> <span class="label">Kurikulum &amp; Modul Ajar</span></a></li>
           <li><a class="nav-link <?= url_is('admin/teaching-journal*') ? 'active' : '' ?>" href="<?= base_url('admin/teaching-journal') ?>"><i class="bi bi-journal-check me-1"></i> <span class="label">Jurnal Mengajar Guru</span></a></li>
           <li><a class="nav-link <?= url_is('admin/schedules*') ? 'active' : '' ?>" href="<?= base_url('admin/schedules') ?>"><i class="bi bi-calendar-week me-1"></i> <span class="label">Jadwal Pelajaran</span></a></li>

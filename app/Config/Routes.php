@@ -476,6 +476,9 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('announcements/update/(:num)', 'Announcement::update/$1', $auth123);
     $routes->get('announcements/delete/(:num)', 'Announcement::delete/$1', $auth123);
 
+    // Monitoring Input Nilai Guru (Khusus Admin & Kepala Sekolah)
+    $routes->get('grades/monitoring', 'GradeMonitoringController::index', $auth12);
+
     $routes->get('grades', 'GradesManageController::index', $auth123);
     $routes->get('grades/rekap', 'GradesManageController::rekap', $auth123);
     $routes->get('reports', 'GradesManageController::rekap', $auth123);
