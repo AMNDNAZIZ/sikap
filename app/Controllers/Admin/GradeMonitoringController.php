@@ -205,12 +205,17 @@ class GradeMonitoringController extends BaseController
         }
 
         // 5.5 Rapor: Hitung Jumlah Siswa Aktif yang Memiliki Nilai Akhir Rapor di grades untuk semester berjalan
-        $semesterLabels = [$semester, $semester == 1 ? 'ganjil' : 'genap'];
+        $semesterLabels    = [$semester, $semester == 1 ? 'ganjil' : 'genap'];
+        $gradeFields       = $this->db->getFieldNames('grades');
+        $hasCompetencyDesc = in_array('competency_desc', $gradeFields);
+        
+        $descSql = $hasCompetencyDesc 
+            ? 'COUNT(DISTINCT CASE WHEN (g.competency_desc IS NOT NULL AND g.competency_desc != "") THEN g.student_id END) as desc_count'
+            : '0 as desc_count';
+
         $raporCountsRaw = $this->db->table('grades g')
             ->select('sr.class_id, g.subject_id,
-                      COUNT(DISTINCT CASE WHEN (g.erapor_score IS NOT NULL OR g.report_score IS NOT NULL) THEN g.student_id END) as score_count,
-                      COUNT(DISTINCT CASE WHEN ((g.competency_desc IS NOT NULL AND g.competency_desc != "") 
-                                             OR (g.deskripsi_capaian_tinggi IS NOT NULL AND g.deskripsi_capaian_tinggi != "")) THEN g.student_id END) as desc_count')
+                      COUNT(DISTINCT CASE WHEN (g.erapor_score IS NOT NULL OR g.report_score IS NOT NULL) THEN g.student_id END) as score_count, ' . $descSql)
             ->join('student_records sr', 'sr.student_id = g.student_id')
             ->where('sr.academic_year_id', $activeYearId)
             ->where('sr.status', 'aktif')
@@ -290,7 +295,7 @@ class GradeMonitoringController extends BaseController
 
             // --- C. Status Rapor ---
             if ($totalStudents > 0 && $raporScoreCnt >= $totalStudents) {
-                if ($raporDescCnt >= $totalStudents) {
+                if (!$hasCompetencyDesc || $raporDescCnt >= $totalStudents) {
                     $rStatus   = 'complete';
                     $rInfo     = "Lengkap ({$raporScoreCnt} Siswa)";
                     $rProgress = 1.0;
