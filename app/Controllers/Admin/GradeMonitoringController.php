@@ -78,7 +78,8 @@ class GradeMonitoringController extends BaseController
 
         // 3. Dropdown: HANYA Guru yang AKTIF dan memiliki plotting di Tahun Ajaran Aktif berjalan
         $data['teachers'] = $this->db->table('teachers t')
-            ->select('DISTINCT(t.id), t.name, t.nip, t.phone')
+            ->distinct()
+            ->select('t.id, t.name, t.nip, t.phone')
             ->join('teaching_assignments ta', 'ta.teacher_id = t.id')
             ->join('subjects s', 's.id = ta.subject_id')
             ->where('ta.academic_year_id', $activeYearId)
@@ -92,7 +93,8 @@ class GradeMonitoringController extends BaseController
 
         // Dropdown Mapel Akademik (Non-BK)
         $data['subjects'] = $this->db->table('subjects s')
-            ->select('DISTINCT(s.id), s.name')
+            ->distinct()
+            ->select('s.id, s.name')
             ->join('teaching_assignments ta', 'ta.subject_id = s.id')
             ->where('ta.academic_year_id', $activeYearId)
             ->where('s.is_bk', 0)
@@ -185,8 +187,7 @@ class GradeMonitoringController extends BaseController
         $raporCountsRaw = $this->db->table('grades g')
             ->select('sr.class_id, g.subject_id,
                       COUNT(DISTINCT CASE WHEN (g.erapor_score IS NOT NULL OR g.report_score IS NOT NULL) THEN g.student_id END) as score_count,
-                      COUNT(DISTINCT CASE WHEN ((g.competency_desc IS NOT NULL AND g.competency_desc != "") 
-                                             OR (g.deskripsi_capaian_tinggi IS NOT NULL AND g.deskripsi_capaian_tinggi != "")) THEN g.student_id END) as desc_count')
+                      COUNT(DISTINCT CASE WHEN (g.competency_desc IS NOT NULL AND g.competency_desc != "") THEN g.student_id END) as desc_count')
             ->join('student_records sr', 'sr.student_id = g.student_id')
             ->where('sr.academic_year_id', $activeYearId)
             ->where('sr.status', 'aktif')
