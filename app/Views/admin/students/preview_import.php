@@ -11,27 +11,39 @@
 
 <!-- Summary Cards -->
 <div class="row g-3 mb-3">
-  <div class="col-md-4">
-    <div class="card border-primary bg-primary bg-opacity-10">
+  <div class="col-md-3">
+    <div class="card border-primary bg-primary bg-opacity-10 h-100">
       <div class="card-body py-2 text-center">
         <span class="text-muted small d-block">Total Data Dibaca</span>
         <h3 class="mb-0 text-primary fw-bold"><?= count($students) ?></h3>
+        <small class="text-muted" style="font-size:11px;">Baris Excel valid</small>
       </div>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="card border-success bg-success bg-opacity-10">
+  <div class="col-md-3">
+    <div class="card border-success bg-success bg-opacity-10 h-100">
       <div class="card-body py-2 text-center">
-        <span class="text-muted small d-block">🟢 Data Siswa Baru (Insert)</span>
-        <h3 class="mb-0 text-success fw-bold"><?= $new_count ?></h3>
+        <span class="text-muted small d-block">Status Data Siswa</span>
+        <h4 class="mb-0 text-success fw-bold"><?= $new_count ?> <span class="fs-6 fw-normal text-muted">Baru</span> / <?= $update_count ?> <span class="fs-6 fw-normal text-muted">Ada</span></h4>
+        <small class="text-muted" style="font-size:11px;">Pencocokan NIK/NISN/NIS</small>
       </div>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="card border-warning bg-warning bg-opacity-10">
+  <div class="col-md-3">
+    <div class="card border-warning bg-warning bg-opacity-10 h-100">
       <div class="card-body py-2 text-center">
-        <span class="text-muted small d-block">🟡 Data Cocok Ada di DB (Update)</span>
-        <h3 class="mb-0 text-warning fw-bold"><?= $update_count ?></h3>
+        <span class="text-muted small d-block">Akun Login Siswa</span>
+        <h4 class="mb-0 text-dark fw-bold"><?= $new_student_users_count ?? 0 ?> <span class="fs-6 fw-normal text-muted">Akan Dibuat</span></h4>
+        <small class="text-muted" style="font-size:11px;"><?= (count($students) - ($new_student_users_count ?? 0)) ?> sudah memiliki akun</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-info bg-info bg-opacity-10 h-100">
+      <div class="card-body py-2 text-center">
+        <span class="text-muted small d-block">Akun Login Orang Tua</span>
+        <h4 class="mb-0 text-dark fw-bold"><?= $new_parent_users_count ?? 0 ?> <span class="fs-6 fw-normal text-muted">Akan Dibuat</span></h4>
+        <small class="text-muted" style="font-size:11px;"><?= (count($students) - ($new_parent_users_count ?? 0)) ?> sudah memiliki akun</small>
       </div>
     </div>
   </div>
@@ -93,14 +105,16 @@
         <thead class="table-dark">
           <tr>
             <th width="40" class="text-center"><input type="checkbox" id="check-all" class="form-check-input" checked></th>
-            <th width="100">Status Match</th>
+            <th width="95">Status Data</th>
             <th>NIK</th>
             <th>NISN</th>
             <th>NIS</th>
             <th>Nama Lengkap</th>
             <th>L/P</th>
             <th>Tempat, Tgl Lahir</th>
-            <th>Rombel / Kelas</th>
+            <th>Rombel</th>
+            <th>Akun Siswa</th>
+            <th>Akun Orang Tua</th>
             <th>Data Orang Tua</th>
           </tr>
         </thead>
@@ -136,6 +150,28 @@
                   <?php endif; ?>
                 </td>
                 <td>
+                  <?php if (!empty($s['has_student_account'])): ?>
+                    <span class="badge bg-success" title="Akun login siswa sudah aktif">
+                      <i class="fas fa-check-circle me-1"></i>Ada: <code><?= esc($s['student_username']) ?></code>
+                    </span>
+                  <?php else: ?>
+                    <span class="badge bg-warning text-dark" title="Akun login siswa akan dibuat otomatis">
+                      <i class="fas fa-plus-circle me-1"></i>Akan Dibuat
+                    </span>
+                  <?php endif; ?>
+                </td>
+                <td>
+                  <?php if (!empty($s['has_parent_account'])): ?>
+                    <span class="badge bg-success" title="Akun login orang tua sudah aktif">
+                      <i class="fas fa-check-circle me-1"></i>Ada: <code><?= esc($s['parent_username']) ?></code>
+                    </span>
+                  <?php else: ?>
+                    <span class="badge bg-info text-dark" title="Akun login orang tua akan dibuat otomatis">
+                      <i class="fas fa-plus-circle me-1"></i>Akan Dibuat
+                    </span>
+                  <?php endif; ?>
+                </td>
+                <td>
                   <small class="d-block"><strong>Ayah:</strong> <?= esc($s['father_name'] ?: '-') ?></small>
                   <small class="d-block text-muted"><strong>Ibu:</strong> <?= esc($s['mother_name'] ?: '-') ?></small>
                 </td>
@@ -143,7 +179,7 @@
             <?php endforeach; ?>
           <?php else: ?>
             <tr>
-              <td colspan="10" class="text-center py-4 text-muted">
+              <td colspan="12" class="text-center py-4 text-muted">
                 Tidak ada data siswa ditemukan dari file Excel.
               </td>
             </tr>

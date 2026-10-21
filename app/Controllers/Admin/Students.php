@@ -564,8 +564,27 @@ class Students extends BaseController
             }
 
             // Lakukan Matching pencocokan ke database untuk menentukan status BARU vs UPDATE
+            // serta mendeteksi apakah akun siswa & orang tua sudah ada atau belum
             $newCount = 0;
             $updateCount = 0;
+            $newStudentUsersCount = 0;
+            $newParentUsersCount  = 0;
+
+            // Pre-fetch data users ke memory untuk lookup akun super cepat
+            $allUsers = $this->userModel->select('id, username, role_id, related_id, related_type')->findAll();
+            $usersById = [];
+            $studentUsersByRelatedId = [];
+            $parentUsersByRelatedId  = [];
+
+            foreach ($allUsers as $u) {
+                $usersById[$u['id']] = $u;
+                if ($u['role_id'] == 5 && $u['related_type'] === 'student' && !empty($u['related_id'])) {
+                    $studentUsersByRelatedId[$u['related_id']] = $u;
+                }
+                if ($u['role_id'] == 4 && $u['related_type'] === 'student' && !empty($u['related_id'])) {
+                    $parentUsersByRelatedId[$u['related_id']] = $u;
+                }
+            }
 
             foreach ($parsedStudents as &$s) {
                 $existing = null;
@@ -591,27 +610,62 @@ class Students extends BaseController
                         ->first();
                 }
 
+                $hasStudentAccount = false;
+                $studentUsername   = null;
+                $hasParentAccount  = false;
+                $parentUsername    = null;
+
                 if ($existing) {
                     $s['is_existing'] = true;
                     $s['existing_id'] = $existing['id'];
                     $s['user_id']     = $existing['user_id'] ?? null;
                     $updateCount++;
+
+                    // 1. Cek Akun Siswa (role_id = 5)
+                    if (!empty($existing['user_id']) && isset($usersById[$existing['user_id']]) && $usersById[$existing['user_id']]['role_id'] == 5) {
+                        $hasStudentAccount = true;
+                        $studentUsername   = $usersById[$existing['user_id']]['username'];
+                    } elseif (isset($studentUsersByRelatedId[$existing['id']])) {
+                        $hasStudentAccount = true;
+                        $studentUsername   = $studentUsersByRelatedId[$existing['id']]['username'];
+                        $s['user_id']      = $studentUsersByRelatedId[$existing['id']]['id'];
+                    }
+
+                    // 2. Cek Akun Orang Tua (role_id = 4)
+                    if (isset($parentUsersByRelatedId[$existing['id']])) {
+                        $hasParentAccount = true;
+                        $parentUsername   = $parentUsersByRelatedId[$existing['id']]['username'];
+                    }
                 } else {
                     $s['is_existing'] = false;
                     $s['existing_id'] = null;
                     $s['user_id']     = null;
                     $newCount++;
                 }
+
+                if (!$hasStudentAccount) {
+                    $newStudentUsersCount++;
+                }
+                if (!$hasParentAccount) {
+                    $newParentUsersCount++;
+                }
+
+                $s['has_student_account'] = $hasStudentAccount;
+                $s['student_username']    = $studentUsername;
+                $s['has_parent_account']  = $hasParentAccount;
+                $s['parent_username']     = $parentUsername;
             }
             unset($s);
 
             $data = [
-                'title'        => 'Pratinjau Impor Data Siswa',
-                'import_type'  => $importType,
-                'students'     => $parsedStudents,
-                'new_count'    => $newCount,
-                'update_count' => $updateCount,
-                'classes'      => $this->classModel->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll(),
+                'title'                   => 'Pratinjau Impor Data Siswa',
+                'import_type'             => $importType,
+                'students'                => $parsedStudents,
+                'new_count'               => $newCount,
+                'update_count'            => $updateCount,
+                'new_student_users_count' => $newStudentUsersCount,
+                'new_parent_users_count'  => $newParentUsersCount,
+                'classes'                 => $this->classModel->where('is_active', 1)->orderBy('level', 'ASC')->orderBy('name', 'ASC')->findAll(),
             ];
 
             return view('admin/students/preview_import', $data);
@@ -682,13 +736,15 @@ class Students extends BaseController
             }
         }
 
-        // Pre-fetch semua user (username => user object, related_id => user object)
+        // Pre-fetch semua user (username => user object, related_id => user object, id => user object)
         $allUsers = $this->userModel->findAll();
+        $usersById = [];
         $usersByUsername = [];
         $usersByStudentId = []; // role_id = 5 (Siswa)
         $parentUsersByStudentId = []; // role_id = 4 (Ortu)
 
         foreach ($allUsers as $u) {
+            $usersById[$u['id']] = $u;
             $usersByUsername[strtolower($u['username'])] = $u;
             if ($u['role_id'] == 5 && $u['related_type'] === 'student' && !empty($u['related_id'])) {
                 $usersByStudentId[$u['related_id']] = $u;
@@ -711,10 +767,12 @@ class Students extends BaseController
         $db = \Config\Database::connect();
         $db->transStart();
 
-        $insertedCount = 0;
-        $updatedCount  = 0;
-        $skippedCount  = 0;
-        $successLogs   = [];
+        $insertedCount           = 0;
+        $updatedCount            = 0;
+        $skippedCount            = 0;
+        $createdStudentUserCount = 0;
+        $createdParentUserCount  = 0;
+        $successLogs             = [];
 
         foreach ($selected as $idx) {
             if (!isset($studentsArray[$idx])) continue;
@@ -727,11 +785,6 @@ class Students extends BaseController
             $nis        = trim($d['nis'] ?? '');
             $nik        = trim($d['nik'] ?? '');
             $rombel     = trim($d['rombel'] ?? '');
-
-            if ($isExisting && $syncMode === 'skip') {
-                $skippedCount++;
-                continue;
-            }
 
             // Atribut siswa
             $studentData = [
@@ -769,74 +822,17 @@ class Students extends BaseController
                 'guardian_income'    => $d['guardian_income'] ?? '',
             ];
 
-            // ── PENANGANAN AKUN USER SISWA ──────────────────────────────────
-            $userId = $d['user_id'] ?? null;
-            if ($isExisting && $existingId && isset($existingStudentsMap[$existingId])) {
-                $existingRecord = $existingStudentsMap[$existingId];
-                if (!empty($existingRecord['user_id'])) {
-                    $userId = $existingRecord['user_id'];
-                }
-            }
-            if (!$userId && $isExisting && $existingId && isset($usersByStudentId[$existingId])) {
-                $userId = $usersByStudentId[$existingId]['id'];
-            }
-
-            if ($userId) {
-                $this->userModel->update($userId, ['fullname' => $name]);
-            } else {
-                $usernameBase = !empty($nis) ? $nis : (!empty($nisn) ? $nisn : (!empty($nik) ? $nik : 'siswa_' . rand(1000, 9999)));
-                $username     = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', $usernameBase));
-                $email        = $username . '@siswa.local';
-
-                if (isset($usersByUsername[$username])) {
-                    $checkUser = $usersByUsername[$username];
-                    if ($isExisting && (empty($checkUser['related_id']) || $checkUser['related_id'] == $existingId)) {
-                        $userId = $checkUser['id'];
-                        $this->userModel->update($userId, ['fullname' => $name]);
-                    } else {
-                        $username = $username . '_' . substr(md5($name . rand(100, 999)), 0, 4);
-                        $email    = $username . '@siswa.local';
-                        $defaultPassword = generate_default_password('siswa', $usernameBase);
-
-                        $this->userModel->insert([
-                            'username'             => $username,
-                            'password'             => password_hash($defaultPassword, PASSWORD_BCRYPT),
-                            'fullname'             => $name,
-                            'email'                => $email,
-                            'role_id'              => 5,
-                            'related_type'         => 'student',
-                            'must_change_password' => 1,
-                        ]);
-                        $userId = $this->userModel->getInsertID();
-                        $usersByUsername[$username] = ['id' => $userId, 'username' => $username];
-                    }
-                } else {
-                    $defaultPassword = generate_default_password('siswa', $usernameBase);
-
-                    $this->userModel->insert([
-                        'username'             => $username,
-                        'password'             => password_hash($defaultPassword, PASSWORD_BCRYPT),
-                        'fullname'             => $name,
-                        'email'                => $email,
-                        'role_id'              => 5,
-                        'related_type'         => 'student',
-                        'must_change_password' => 1,
-                    ]);
-                    $userId = $this->userModel->getInsertID();
-                    $usersByUsername[$username] = ['id' => $userId, 'username' => $username];
-                }
-            }
-
-            if ($userId) {
-                $studentData['user_id'] = $userId;
-            }
-
-            // ── EKSEKUSI DATABASE SISWA ──────────────────────────────────────
+            // ── 1. PENANGANAN REKORD DATA SISWA ─────────────────────────────
             $studentId = null;
+            $isNewStudent = false;
 
             if ($isExisting && $existingId) {
                 $studentId = $existingId;
-                if ($syncMode === 'merge') {
+
+                if ($syncMode === 'skip') {
+                    $skippedCount++;
+                    // Tidak mengubah biodata siswa yang ada, namun akun siswa & ortu tetap dicek dan dilengkapi di bawah
+                } elseif ($syncMode === 'merge') {
                     $existingCurrent = $existingStudentsMap[$studentId] ?? null;
                     if (!$existingCurrent) {
                         $existingCurrent = $this->studentModel->find($studentId);
@@ -850,40 +846,126 @@ class Students extends BaseController
                     if (!empty($mergedData)) {
                         $this->studentModel->update($studentId, $mergedData);
                     }
-                } else {
+                    $updatedCount++;
+                } else { // default 'update'
                     $this->studentModel->update($studentId, $studentData);
+                    $updatedCount++;
                 }
-
-                if ($userId) {
-                    $this->userModel->update($userId, ['related_id' => $studentId]);
-                }
-                $updatedCount++;
-                $successLogs[] = "✏️ Diperbarui: $name (NISN: " . ($nisn ?: '-') . ")";
             } else {
                 $this->studentModel->insert($studentData);
                 $studentId = $this->studentModel->getInsertID();
-                if ($userId && $studentId) {
-                    $this->userModel->update($userId, ['related_id' => $studentId]);
-                }
                 $insertedCount++;
-                $successLogs[] = "➕ Ditambahkan: $name (NISN: " . ($nisn ?: '-') . ")";
+                $isNewStudent = true;
             }
 
-            // ── SINKRONISASI AKUN ORANG TUA (IDEMPOTEN VIA MEMORY MAP) ───────────
-            $usernameOrtuKey = !empty($nis) ? $nis : (!empty($nisn) ? $nisn : $studentId);
-            $parentUsername = 'ortu_' . $usernameOrtuKey;
+            if (!$studentId) continue;
 
-            if (isset($parentUsersByStudentId[$studentId])) {
-                $parentUser = $parentUsersByStudentId[$studentId];
-                $this->userModel->update($parentUser['id'], [
-                    'fullname' => 'Orang Tua ' . $name,
-                    'username' => $parentUsername,
+            // ── 2. PENGECEKAN & PEMBUATAN AKUN SISWA (role_id = 5) ───────────
+            $usernameBase = !empty($nis) ? $nis : (!empty($nisn) ? $nisn : (!empty($nik) ? $nik : 'siswa_' . rand(1000, 9999)));
+            $cleanStudentUsername = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', $usernameBase));
+            $studentUserId = null;
+            $studentUserAction = 'none';
+
+            // Cek 1: Cek field user_id di data siswa existing yang valid di database
+            $currentUserId = $d['user_id'] ?? null;
+            if ($isExisting && $existingId && isset($existingStudentsMap[$existingId]['user_id'])) {
+                $currentUserId = $existingStudentsMap[$existingId]['user_id'];
+            }
+            if (!empty($currentUserId) && isset($usersById[$currentUserId]) && $usersById[$currentUserId]['role_id'] == 5) {
+                $studentUserId = $currentUserId;
+            }
+
+            // Cek 2: Cek akun user dengan role_id = 5 dan related_id = studentId
+            if (!$studentUserId && isset($usersByStudentId[$studentId])) {
+                $studentUserId = $usersByStudentId[$studentId]['id'];
+            }
+
+            // Cek 3: Cek akun user dengan username yang cocok (jika belum terikat ke siswa lain)
+            if (!$studentUserId && isset($usersByUsername[$cleanStudentUsername])) {
+                $candidate = $usersByUsername[$cleanStudentUsername];
+                if ($candidate['role_id'] == 5 && (empty($candidate['related_id']) || $candidate['related_id'] == $studentId)) {
+                    $studentUserId = $candidate['id'];
+                }
+            }
+
+            if ($studentUserId) {
+                // Akun siswa SUDAH ADA -> perbarui nama dan pastikan relasi tersambung
+                $this->userModel->update($studentUserId, [
+                    'fullname'     => $name,
+                    'related_id'   => $studentId,
+                    'related_type' => 'student',
                 ]);
+                $studentUserAction = 'updated';
             } else {
-                $defaultPassword = generate_default_password('ortu', $usernameOrtuKey);
+                // Akun siswa BELUM ADA -> Buat baru!
+                $finalStudentUsername = $cleanStudentUsername;
+                if (isset($usersByUsername[$finalStudentUsername])) {
+                    $finalStudentUsername = $cleanStudentUsername . '_' . substr(md5($name . rand(100, 999)), 0, 4);
+                }
+
+                $defaultPassword = generate_default_password('siswa', $usernameBase);
                 $this->userModel->insert([
-                    'username'             => $parentUsername,
+                    'username'             => $finalStudentUsername,
                     'password'             => password_hash($defaultPassword, PASSWORD_BCRYPT),
+                    'fullname'             => $name,
+                    'email'                => $finalStudentUsername . '@siswa.local',
+                    'role_id'              => 5,
+                    'related_id'           => $studentId,
+                    'related_type'         => 'student',
+                    'must_change_password' => 1,
+                ]);
+                $studentUserId = $this->userModel->getInsertID();
+
+                $newUserData = ['id' => $studentUserId, 'username' => $finalStudentUsername, 'role_id' => 5, 'related_id' => $studentId];
+                $usersById[$studentUserId] = $newUserData;
+                $usersByUsername[$finalStudentUsername] = $newUserData;
+                $usersByStudentId[$studentId] = $newUserData;
+
+                $createdStudentUserCount++;
+                $studentUserAction = 'created';
+            }
+
+            // Pastikan tabel students menyimpan user_id yang valid
+            $this->studentModel->update($studentId, ['user_id' => $studentUserId]);
+
+            // ── 3. PENGECEKAN & PEMBUATAN AKUN ORANG TUA (role_id = 4) ────────
+            $usernameOrtuKey = !empty($nis) ? $nis : (!empty($nisn) ? $nisn : $studentId);
+            $cleanParentUsername = 'ortu_' . strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', $usernameOrtuKey));
+            $parentUserId = null;
+            $parentUserAction = 'none';
+
+            // Cek 1: Akun ortu dengan related_id = studentId
+            if (isset($parentUsersByStudentId[$studentId])) {
+                $parentUserId = $parentUsersByStudentId[$studentId]['id'];
+            }
+
+            // Cek 2: Akun ortu dengan username cocok (jika belum terikat ke siswa lain)
+            if (!$parentUserId && isset($usersByUsername[$cleanParentUsername])) {
+                $pCandidate = $usersByUsername[$cleanParentUsername];
+                if ($pCandidate['role_id'] == 4 && (empty($pCandidate['related_id']) || $pCandidate['related_id'] == $studentId)) {
+                    $parentUserId = $pCandidate['id'];
+                }
+            }
+
+            if ($parentUserId) {
+                // Akun orang tua SUDAH ADA -> perbarui nama dan pastikan relasi tersambung
+                $this->userModel->update($parentUserId, [
+                    'fullname'     => 'Orang Tua ' . $name,
+                    'related_id'   => $studentId,
+                    'related_type' => 'student',
+                ]);
+                $parentUserAction = 'updated';
+            } else {
+                // Akun orang tua BELUM ADA -> Buat baru!
+                $finalParentUsername = $cleanParentUsername;
+                if (isset($usersByUsername[$finalParentUsername])) {
+                    $finalParentUsername = $cleanParentUsername . '_' . substr(md5($name . rand(100, 999)), 0, 4);
+                }
+
+                $defaultParentPassword = generate_default_password('ortu', $usernameOrtuKey);
+                $this->userModel->insert([
+                    'username'             => $finalParentUsername,
+                    'password'             => password_hash($defaultParentPassword, PASSWORD_BCRYPT),
                     'fullname'             => 'Orang Tua ' . $name,
                     'email'                => $usernameOrtuKey . '@ortu.local',
                     'role_id'              => 4,
@@ -891,36 +973,63 @@ class Students extends BaseController
                     'related_type'         => 'student',
                     'must_change_password' => 1,
                 ]);
-                $parentUsersByStudentId[$studentId] = ['id' => $this->userModel->getInsertID()];
+                $parentUserId = $this->userModel->getInsertID();
+
+                $newParentData = ['id' => $parentUserId, 'username' => $finalParentUsername, 'role_id' => 4, 'related_id' => $studentId];
+                $usersById[$parentUserId] = $newParentData;
+                $usersByUsername[$finalParentUsername] = $newParentData;
+                $parentUsersByStudentId[$studentId] = $newParentData;
+
+                $createdParentUserCount++;
+                $parentUserAction = 'created';
             }
 
-            // ── PLOTTING KELAS / ROMBEL ──────────────────────────────────────
-            $targetClassId = null;
-            if (!empty($rombel)) {
-                $cleanRombel = strtolower(trim($rombel));
-                $targetClassId = $classMap[$cleanRombel] ?? ($classMap[str_replace('kelas ', '', $cleanRombel)] ?? null);
+            // Catat log detail
+            $logBadges = [];
+            if ($studentUserAction === 'created') {
+                $logBadges[] = "Akun Siswa Dibuat";
             }
-            if (!$targetClassId && !empty($fallbackClassId)) {
-                $targetClassId = $fallbackClassId;
+            if ($parentUserAction === 'created') {
+                $logBadges[] = "Akun Ortu Dibuat";
+            }
+            $logBadgeStr = !empty($logBadges) ? ' (' . implode(', ', $logBadges) . ')' : '';
+
+            if ($isNewStudent) {
+                $successLogs[] = "➕ Siswa Baru: $name (NISN: " . ($nisn ?: '-') . ")$logBadgeStr";
+            } else {
+                $statusDesc = ($syncMode === 'skip') ? 'Dilewati' : 'Diperbarui';
+                $successLogs[] = "✏️ Siswa Terdaftar: $name ($statusDesc)$logBadgeStr";
             }
 
-            if ($targetClassId && $activeYear) {
-                if (isset($existingRecordsMap[$studentId])) {
-                    $existingRecord = $existingRecordsMap[$studentId];
-                    if ($existingRecord['class_id'] != $targetClassId || $existingRecord['status'] !== 'aktif') {
-                        $this->recordModel->update($existingRecord['id'], [
-                            'class_id' => $targetClassId,
-                            'status'   => 'aktif'
+            // ── 4. PLOTTING KELAS / ROMBEL ──────────────────────────────────
+            if ($syncMode !== 'skip') {
+                $targetClassId = null;
+                if (!empty($rombel)) {
+                    $cleanRombel = strtolower(trim($rombel));
+                    $targetClassId = $classMap[$cleanRombel] ?? ($classMap[str_replace('kelas ', '', $cleanRombel)] ?? null);
+                }
+                if (!$targetClassId && !empty($fallbackClassId)) {
+                    $targetClassId = $fallbackClassId;
+                }
+
+                if ($targetClassId && $activeYear) {
+                    if (isset($existingRecordsMap[$studentId])) {
+                        $existingRecord = $existingRecordsMap[$studentId];
+                        if ($existingRecord['class_id'] != $targetClassId || $existingRecord['status'] !== 'aktif') {
+                            $this->recordModel->update($existingRecord['id'], [
+                                'class_id' => $targetClassId,
+                                'status'   => 'aktif'
+                            ]);
+                        }
+                    } else {
+                        $this->recordModel->insert([
+                            'student_id'       => $studentId,
+                            'class_id'         => $targetClassId,
+                            'academic_year_id' => $activeYear['id'],
+                            'status'           => 'aktif'
                         ]);
+                        $existingRecordsMap[$studentId] = ['class_id' => $targetClassId, 'status' => 'aktif'];
                     }
-                } else {
-                    $this->recordModel->insert([
-                        'student_id'       => $studentId,
-                        'class_id'         => $targetClassId,
-                        'academic_year_id' => $activeYear['id'],
-                        'status'           => 'aktif'
-                    ]);
-                    $existingRecordsMap[$studentId] = ['class_id' => $targetClassId, 'status' => 'aktif'];
                 }
             }
         }
@@ -930,10 +1039,9 @@ class Students extends BaseController
 
         $summaryMsg = "Impor Berhasil: $insertedCount siswa baru ditambahkan, $updatedCount data siswa diperbarui";
         if ($skippedCount > 0) {
-            $summaryMsg .= ", $skippedCount siswa dilewati.";
-        } else {
-            $summaryMsg .= ".";
+            $summaryMsg .= ", $skippedCount siswa terdaftar dilewati pembaruan biodatanya";
         }
+        $summaryMsg .= ". Berhasil memastikan/membuat $createdStudentUserCount akun siswa baru dan $createdParentUserCount akun orang tua baru.";
 
         return redirect()->to('/admin/students')
             ->with('success', $summaryMsg)
