@@ -89,6 +89,8 @@ class Grades extends BaseController
             throw new \RuntimeException('Data siswa tidak ditemukan.');
         }
 
+        $classId = (int) ($student['class_id'] ?? 0);
+
         /** --- Tahun ajaran aktif --- */
         $activeYear = $this->db->table('academic_years')->where('is_active', 1)->get()->getRowArray();
         if (!$activeYear) {
@@ -118,241 +120,274 @@ class Grades extends BaseController
 
         $semesters = [1, 2];
 
-        $grades = [];
-        $allFormatifCols = [];
-        $allSumatifCols = [];
-        $hasFinal = false;
+        $grades      = [];
+        $maxFormatif = [];
+        $maxSumatif  = [];
+        $hasFinal    = false;
 
         /** ============================================================
          *  LOOP SETIAP SEMESTER
          *  ============================================================*/
         foreach ($semesters as $semester) {
+            $maxFormatif[$semester] = 0;
+            $maxSumatif[$semester]  = 0;
 
-            /** ------------------------------------------------------------
-             * 1) Bentuk daftar kolom FORMATIF global
-             * ------------------------------------------------------------*/
-            $materials = $this->db->table('subject_materials')
-                ->select('id, subject_id, semester, year_id')
-                ->where('year_id', $activeYear['id'])
-                ->where('semester', $semester)
-                ->orderBy('id')
-                ->get()
-                ->getResultArray();
+            // 1. Ambil semua asesmen formatif yang AKTUAL ADA di database untuk kelas & tahun ajaran & semester ini
+            // (a) Melalui subject_materials
+            $smBuilder = $this->db->table('material_scores ms')
+                ->select('sm.subject_id, ms.material_id, ms.type, sm.title, sm.sort_order')
+                ->distinct()
+                ->join('subject_materials sm', 'sm.id = ms.material_id')
+                ->where('sm.year_id', $activeYear['id'])
+                ->where('sm.semester', $semester)
+                ->where('ms.score IS NOT NULL', null, false);
 
-            // Kelompokkan material per mapel
-            $materialsBySubject = [];
-            $maxMaterials = 0;
+            if ($classId > 0) {
+                $smBuilder->join('student_records sr', 'sr.student_id = ms.student_id AND sr.academic_year_id = ' . (int)$activeYear['id'])
+                          ->where('sr.class_id', $classId);
+            }
+            $smAssessments = $smBuilder->orderBy('sm.subject_id', 'ASC')
+                ->orderBy('sm.sort_order', 'ASC')
+                ->orderBy('sm.id', 'ASC')
+                ->get()->getResultArray();
 
-            foreach ($subjects as $sub) {
-                $sid = $sub['subject_id'];
-                $materialsBySubject[$sid] = array_values(array_filter(
-                    $materials,
-                    fn($m) => $m['subject_id'] == $sid
-                ));
-                $maxMaterials = max($maxMaterials, count($materialsBySubject[$sid]));
+            // (b) Melalui alur_tujuan_pembelajaran (ATP)
+            $atpBuilder = $this->db->table('material_scores ms')
+                ->select('atp.subject_id, ms.material_id, ms.type, atp.lingkup_materi as title, atp.urutan as sort_order')
+                ->distinct()
+                ->join('alur_tujuan_pembelajaran atp', 'atp.id = ms.material_id')
+                ->where('atp.semester', $semester)
+                ->where('ms.score IS NOT NULL', null, false);
+
+            if ($classId > 0) {
+                $atpBuilder->where('atp.class_id', $classId);
+            }
+            $atpAssessments = $atpBuilder->orderBy('atp.subject_id', 'ASC')
+                ->orderBy('atp.urutan', 'ASC')
+                ->orderBy('atp.id', 'ASC')
+                ->get()->getResultArray();
+
+            // Gabungkan asesmen yang ada per mata pelajaran
+            $assessmentsBySub = [];
+            foreach ($smAssessments as $a) {
+                $key = $a['material_id'] . ':' . $a['type'];
+                $assessmentsBySub[$a['subject_id']][$key] = $a;
+            }
+            foreach ($atpAssessments as $a) {
+                $key = $a['material_id'] . ':' . $a['type'];
+                if (!isset($assessmentsBySub[$a['subject_id']][$key])) {
+                    $assessmentsBySub[$a['subject_id']][$key] = $a;
+                }
             }
 
-            /** --- Ambil semua tipe formatif global berdasarkan posisi materi --- */
-            $formatifTypes = [];
-            for ($i = 0; $i < $maxMaterials; $i++) {
-                $foundTypes = [];
+            // 2. Ambil seluruh skor formatif milik siswa ini
+            $studentFormatifScores = $this->db->table('material_scores')
+                ->where('student_id', $student['id'])
+                ->where('score IS NOT NULL', null, false)
+                ->get()->getResultArray();
 
-                foreach ($subjects as $sub) {
-                    $sid = $sub['subject_id'];
-                    if (!isset($materialsBySubject[$sid][$i]))
-                        continue;
+            $scoresMap = [];
+            foreach ($studentFormatifScores as $sc) {
+                $scoresMap[(int)$sc['material_id']][$sc['type']] = $sc;
 
-                    $matId = $materialsBySubject[$sid][$i]['id'];
-                    $types = $this->db->table('material_scores')
-                        ->distinct()
-                        ->select('type')
-                        ->where('material_id', $matId)
-                        ->get()
-                        ->getResultArray();
+                // Pastikan jika ada asesmen milik siswa ini yang belum masuk daftar kelas, tetap masuk
+                $mid   = (int)$sc['material_id'];
+                $mType = $sc['type'];
+                $key   = $mid . ':' . $mType;
 
-                    foreach ($types as $t) {
-                        $foundTypes[$t['type']] = true;
+                $smRow = $this->db->table('subject_materials')
+                    ->where('id', $mid)
+                    ->where('year_id', $activeYear['id'])
+                    ->where('semester', $semester)
+                    ->get()->getRowArray();
+                if ($smRow) {
+                    $subId = $smRow['subject_id'];
+                    if (!isset($assessmentsBySub[$subId][$key])) {
+                        $assessmentsBySub[$subId][$key] = [
+                            'subject_id'  => $subId,
+                            'material_id' => $mid,
+                            'type'        => $mType,
+                            'title'       => $smRow['title'] ?: 'Materi',
+                            'sort_order'  => $smRow['sort_order'],
+                        ];
+                    }
+                } else {
+                    $atpRow = $this->db->table('alur_tujuan_pembelajaran')
+                        ->where('id', $mid)
+                        ->where('semester', $semester)
+                        ->get()->getRowArray();
+                    if ($atpRow) {
+                        $subId = $atpRow['subject_id'];
+                        if (!isset($assessmentsBySub[$subId][$key])) {
+                            $assessmentsBySub[$subId][$key] = [
+                                'subject_id'  => $subId,
+                                'material_id' => $mid,
+                                'type'        => $mType,
+                                'title'       => $atpRow['lingkup_materi'] ?: 'Materi',
+                                'sort_order'  => $atpRow['urutan'],
+                            ];
+                        }
                     }
                 }
-                $formatifTypes[$i] = array_keys($foundTypes);
             }
 
-            /** --- Bentuk metadata kolom formatif --- */
-            $allFormatifCols[$semester] = [];
-            for ($i = 0; $i < $maxMaterials; $i++) {
-                foreach ($formatifTypes[$i] as $type) {
-                    $pos = $i + 1;
-                    $key = "mat:{$pos}:{$type}";
-                    $allFormatifCols[$semester][$key] = [
-                        'label' => "M{$pos} ({$type})",
-                        'tooltip' => "Materi ke-{$pos}"
-                    ];
+            // 3. Ambil asesmen sumatif yang AKTUAL ADA di database
+            $sumBuilder = $this->db->table('summative_scores ss')
+                ->select('ss.subject_id, ss.type')
+                ->distinct()
+                ->where('ss.year_id', $activeYear['id'])
+                ->where('ss.semester', $semester)
+                ->where('ss.score IS NOT NULL', null, false);
+
+            if ($classId > 0) {
+                $sumBuilder->join('student_records sr', 'sr.student_id = ss.student_id AND sr.academic_year_id = ' . (int)$activeYear['id'])
+                           ->where('sr.class_id', $classId);
+            }
+            $sumAssessments = $sumBuilder->orderBy('ss.id', 'ASC')->get()->getResultArray();
+
+            $sumatifBySub = [];
+            foreach ($sumAssessments as $sa) {
+                $sumatifBySub[$sa['subject_id']][$sa['type']] = $sa['type'];
+            }
+
+            // Skor sumatif siswa ini
+            $studentSumatifScores = $this->db->table('summative_scores')
+                ->where('student_id', $student['id'])
+                ->where('year_id', $activeYear['id'])
+                ->where('semester', $semester)
+                ->where('score IS NOT NULL', null, false)
+                ->get()->getResultArray();
+
+            $sumScoresMap = [];
+            foreach ($studentSumatifScores as $ssc) {
+                $sumScoresMap[$ssc['subject_id']][$ssc['type']] = $ssc;
+                if (!isset($sumatifBySub[$ssc['subject_id']][$ssc['type']])) {
+                    $sumatifBySub[$ssc['subject_id']][$ssc['type']] = $ssc['type'];
                 }
             }
 
-            /** ------------------------------------------------------------
-             * 2) SUMATIF — disatukan seluruh mapel, hanya tipe yang berbeda
-             * ------------------------------------------------------------*/
-            $sumTypes = $this->db->table('summative_scores')
-                ->distinct()
-                ->select('type')
+            // 4. Ambil nilai erapor untuk semester ini (prerogatif guru)
+            $semesterLabel = $semester == 1 ? 'ganjil' : 'genap';
+            $eraporScores = $this->db->table('grades')
+                ->select('subject_id, erapor_score')
+                ->where('student_id', $student['id'])
                 ->where('year_id', $activeYear['id'])
-                ->where('semester', $semester)
-                ->get()
-                ->getResultArray();
+                ->where('semester', $semesterLabel)
+                ->where('erapor_score IS NOT NULL', null, false)
+                ->get()->getResultArray();
 
-            $allSumatifCols[$semester] = [];
-            foreach ($sumTypes as $t) {
-                $type = $t['type'];
-                $key = "sum:{$type}";
-
-                $allSumatifCols[$semester][$key] = [
-                    'label' => "Sumatif ({$type})",
-                    'tooltip' => "Semua mapel"
-                ];
+            $eraporBySub = [];
+            foreach ($eraporScores as $row) {
+                $eraporBySub[$row['subject_id']] = $row['erapor_score'];
             }
 
-            /** ------------------------------------------------------------
-             * 3) ISI NILAI PER MAPEL
-             * ------------------------------------------------------------*/
-            foreach ($subjects as $sub) {
+            // 5. Cek nilai final (semester 2 untuk tingkat akhir)
+            $finalScores = [];
+            if ($semester == 2) {
+                $maxLevel = $this->db->table('classes')->selectMax('level')->get()->getRowArray()['level'];
+                if ($student['class_level'] == $maxLevel) {
+                    $hasFinal = true;
+                    $finalRows = $this->db->table('final_exam_scores')
+                        ->select('subject_id, score')
+                        ->where('student_id', $student['id'])
+                        ->where('year_id', $activeYear['id'])
+                        ->get()->getResultArray();
 
-                $sid = $sub['subject_id'];
+                    foreach ($finalRows as $row) {
+                        $finalScores[$row['subject_id']] = $row['score'];
+                    }
+                }
+            }
+
+            // 6. Bentuk baris nilai per mata pelajaran
+            foreach ($subjects as $sub) {
+                $sid   = $sub['subject_id'];
                 $sname = $sub['subject_name'];
 
-                $grades[$semester][$sid] = [
-                    'subject' => $sname,
-                    'formatif' => [],
-                    'sumatif' => [],
-                    'avg_formatif' => null,
-                    'avg_sumatif' => null,
-                    'nilai_akhir' => null,
-                ];
+                $fItems = array_values($assessmentsBySub[$sid] ?? []);
+                $sItems = array_values($sumatifBySub[$sid] ?? []);
 
-                /* FORMATIF */
-                $formatifValues = [];
-
-                for ($i = 0; $i < $maxMaterials; $i++) {
-                    $pos = $i + 1;
-                    if (!isset($materialsBySubject[$sid][$i])) {
-                        foreach ($formatifTypes[$i] as $type) {
-                            $key = "mat:{$pos}:{$type}";
-                            $grades[$semester][$sid]['formatif'][$key] = null;
-                        }
-                        continue;
-                    }
-
-                    $matId = $materialsBySubject[$sid][$i]['id'];
-
-                    foreach ($formatifTypes[$i] as $type) {
-                        $key = "mat:{$pos}:{$type}";
-
-                        $score = $this->db->table('material_scores')
-                            ->select('score')
-                            ->where('material_id', $matId)
-                            ->where('student_id', $student['id'])
-                            ->where('type', $type)
-                            ->get()
-                            ->getRowArray()['score'] ?? null;
-
-                        $grades[$semester][$sid]['formatif'][$key] = $score;
-
-                        if ($score !== null) {
-                            $formatifValues[] = (float) $score;
-                        }
-                    }
+                // Susun nilai formatif berurutan
+                $fList = [];
+                foreach ($fItems as $item) {
+                    $sc = $scoresMap[(int)$item['material_id']][$item['type']] ?? null;
+                    $fList[] = [
+                        'material_id'    => $item['material_id'],
+                        'material_title' => $item['title'] ?: 'Materi',
+                        'type'           => $item['type'],
+                        'score'          => $sc ? $sc['score'] : null,
+                    ];
                 }
 
-                if (!empty($formatifValues)) {
-                    $grades[$semester][$sid]['avg_formatif'] =
-                        round(array_sum($formatifValues) / count($formatifValues), 2);
+                // Susun nilai sumatif berurutan
+                $sList = [];
+                foreach ($sItems as $stype) {
+                    $sc = $sumScoresMap[$sid][$stype] ?? null;
+                    $sList[] = [
+                        'type'  => $stype,
+                        'score' => $sc ? $sc['score'] : null,
+                    ];
                 }
 
-                /* SUMATIF (global type) */
-                $sumatifValues = [];
-
-                foreach ($sumTypes as $t) {
-                    $type = $t['type'];
-                    $key = "sum:{$type}";
-
-                    $score = $this->db->table('summative_scores')
-                        ->select('score')
-                        ->where('student_id', $student['id'])
-                        ->where('subject_id', $sid)
-                        ->where('type', $type)
-                        ->where('year_id', $activeYear['id'])
-                        ->where('semester', $semester)
-                        ->get()
-                        ->getRowArray()['score'] ?? null;
-
-                    $grades[$semester][$sid]['sumatif'][$key] = $score;
-
-                    if ($score !== null) {
-                        $sumatifValues[] = (float) $score;
-                    }
+                // Hitung jumlah penilaian maksimal yang ada
+                if (count($fList) > $maxFormatif[$semester]) {
+                    $maxFormatif[$semester] = count($fList);
+                }
+                if (count($sList) > $maxSumatif[$semester]) {
+                    $maxSumatif[$semester] = count($sList);
                 }
 
-                if (!empty($sumatifValues)) {
-                    $grades[$semester][$sid]['avg_sumatif'] =
-                        round(array_sum($sumatifValues) / count($sumatifValues), 2);
+                // Rata-rata Formatif (hanya dari yang sudah dinilai)
+                $avgFormatif = null;
+                $fScored = array_filter($fList, fn($item) => $item['score'] !== null && $item['score'] !== '');
+                if (!empty($fScored)) {
+                    $fVals = array_map(fn($item) => (float) $item['score'], $fScored);
+                    $avgFormatif = round(array_sum($fVals) / count($fVals), 2);
                 }
 
-                /** Nilai akhir sistem (% formatif + sumatif) */
-                $af = $grades[$semester][$sid]['avg_formatif'];
-                $as = $grades[$semester][$sid]['avg_sumatif'];
+                // Rata-rata Sumatif (hanya dari yang sudah dinilai)
+                $avgSumatif = null;
+                $sScored = array_filter($sList, fn($item) => $item['score'] !== null && $item['score'] !== '');
+                if (!empty($sScored)) {
+                    $sVals = array_map(fn($item) => (float) $item['score'], $sScored);
+                    $avgSumatif = round(array_sum($sVals) / count($sVals), 2);
+                }
 
+                // Nilai akhir sistem (% formatif + sumatif)
                 $nilaiSistem = null;
-                if ($af !== null || $as !== null) {
+                if ($avgFormatif !== null || $avgSumatif !== null) {
                     $fWeight = ($activeYear['formatif_weight'] ?? 60) / 100;
                     $sWeight = ($activeYear['sumatif_weight'] ?? 40) / 100;
-                    $nilaiSistem = round((($af ?? 0) * $fWeight) + (($as ?? 0) * $sWeight), 2);
+                    $nilaiSistem = round((($avgFormatif ?? 0) * $fWeight) + (($avgSumatif ?? 0) * $sWeight), 2);
                 }
 
-                // Cek apakah guru sudah mengisi nilai erapor
-                $semesterLabel = $semester == 1 ? 'ganjil' : 'genap';
-                $eraporRow = $this->db->table('grades')
-                    ->select('erapor_score')
-                    ->where('student_id', $student['id'])
-                    ->where('subject_id', $sid)
-                    ->where('year_id', $activeYear['id'])
-                    ->where('semester', $semesterLabel)
-                    ->where('erapor_score IS NOT NULL', null, false)
-                    ->get()->getRowArray();
-                $erapor = $eraporRow['erapor_score'] ?? null;
+                $erapor = $eraporBySub[$sid] ?? null;
 
-                // Nilai akhir = erapor (prerogratif guru) jika sudah diisi,
-                // fallback ke nilai sistem (% formatif + sumatif)
-                $grades[$semester][$sid]['nilai_akhir']  = $erapor ?? $nilaiSistem;
-                $grades[$semester][$sid]['erapor']       = $erapor;
-                $grades[$semester][$sid]['nilai_sistem']  = $nilaiSistem;
+                $grades[$semester][$sid] = [
+                    'subject'      => $sname,
+                    'formatif'     => $fList,
+                    'sumatif'      => $sList,
+                    'avg_formatif' => $avgFormatif,
+                    'avg_sumatif'  => $avgSumatif,
+                    'nilai_akhir'  => $erapor ?? $nilaiSistem,
+                    'erapor'       => $erapor,
+                    'nilai_sistem' => $nilaiSistem,
+                ];
 
-                /** FINAL (semester 2) */
-                if ($semester == 2) {
-                    $maxLevel = $this->db->table('classes')->selectMax('level')->get()->getRowArray()['level'];
-
-                    if ($student['class_level'] == $maxLevel) {
-                        $hasFinal = true;
-                        $grades[$semester][$sid]['final'] =
-                            $this->db->table('final_exam_scores')
-                                ->select('score')
-                                ->where('student_id', $student['id'])
-                                ->where('subject_id', $sid)
-                                ->where('year_id', $activeYear['id'])
-                                ->get()
-                                ->getRowArray()['score'] ?? null;
-                    }
+                if ($semester == 2 && $hasFinal) {
+                    $grades[$semester][$sid]['final'] = $finalScores[$sid] ?? null;
                 }
             }
         }
 
         return [
-            'student' => $student,
-            'activeYear' => $activeYear,
-            'semesters' => $semesters,
-            'grades' => $grades,
-            'allFormatifCols' => $allFormatifCols,
-            'allSumatifCols' => $allSumatifCols,
-            'hasFinal' => $hasFinal,
+            'student'     => $student,
+            'activeYear'  => $activeYear,
+            'semesters'   => $semesters,
+            'grades'      => $grades,
+            'maxFormatif' => $maxFormatif,
+            'maxSumatif'  => $maxSumatif,
+            'hasFinal'    => $hasFinal,
         ];
     }
 

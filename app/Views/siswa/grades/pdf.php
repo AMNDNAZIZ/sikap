@@ -29,6 +29,10 @@
 ?>
 
 <?php foreach ($showSem as $s): ?>
+<?php
+  $fCount = $maxFormatif[$s] ?? 0;
+  $sCount = $maxSumatif[$s] ?? 0;
+?>
 <h3>DAFTAR NILAI – SEMESTER <?= $s ?></h3>
 
 <table class="info">
@@ -50,19 +54,19 @@
   <thead>
     <tr>
       <th rowspan="2" style="width:30px;">No</th>
-      <th rowspan="2" class="left" style="width:150px;">Mata Pelajaran</th>
+      <th rowspan="2" class="left" style="width:160px;">Mata Pelajaran</th>
 
       <!-- FORMATIF -->
-      <?php if (!empty($allFormatifCols[$s])): ?>
-        <th colspan="<?= count($allFormatifCols[$s]) ?>">Nilai Formatif</th>
+      <?php if ($fCount > 0): ?>
+        <th colspan="<?= $fCount ?>">Nilai Formatif</th>
+        <th rowspan="2">Rerata<br>Formatif</th>
       <?php endif; ?>
-      <th rowspan="2">Rerata<br>Formatif</th>
 
       <!-- SUMATIF -->
-      <?php if (!empty($allSumatifCols[$s])): ?>
-        <th colspan="<?= count($allSumatifCols[$s]) ?>">Nilai Sumatif</th>
+      <?php if ($sCount > 0): ?>
+        <th colspan="<?= $sCount ?>">Nilai Sumatif</th>
+        <th rowspan="2">Rerata<br>Sumatif</th>
       <?php endif; ?>
-      <th rowspan="2">Rerata<br>Sumatif</th>
 
       <th rowspan="2">Nilai<br>Akhir</th>
 
@@ -72,45 +76,47 @@
     </tr>
 
     <tr>
-      <?php if (!empty($allFormatifCols[$s])): ?>
-        <?php foreach ($allFormatifCols[$s] as $meta): ?>
-          <th><?= esc($meta['label']) ?></th>
-        <?php endforeach; ?>
-      <?php endif; ?>
+      <?php for ($i = 1; $i <= $fCount; $i++): ?>
+        <th style="width:28px;"><?= $i ?></th>
+      <?php endfor; ?>
 
-      <?php if (!empty($allSumatifCols[$s])): ?>
-        <?php foreach ($allSumatifCols[$s] as $meta): ?>
-          <th><?= esc($meta['label']) ?></th>
-        <?php endforeach; ?>
-      <?php endif; ?>
+      <?php for ($i = 1; $i <= $sCount; $i++): ?>
+        <th style="width:28px;"><?= $i ?></th>
+      <?php endfor; ?>
     </tr>
   </thead>
 
   <tbody>
-    <?php $no = 1; foreach ($grades[$s] as $row): ?>
+    <?php $no = 1; foreach ($grades[$s] ?? [] as $row): ?>
       <tr>
         <td><?= $no++ ?></td>
         <td class="left"><?= esc($row['subject']) ?></td>
 
         <!-- FORMATIF -->
-        <?php if (!empty($allFormatifCols[$s])): ?>
-          <?php foreach ($allFormatifCols[$s] as $key => $meta): ?>
-            <td><?= esc($row['formatif'][$key] ?? '-') ?></td>
-          <?php endforeach; ?>
-        <?php endif; ?>
+        <?php for ($i = 0; $i < $fCount; $i++): ?>
+          <?php $fItem = $row['formatif'][$i] ?? null; ?>
+          <td>
+            <?= ($fItem !== null && $fItem['score'] !== null && $fItem['score'] !== '') ? (is_numeric($fItem['score']) ? ((float)$fItem['score'] == (int)$fItem['score'] ? (int)$fItem['score'] : number_format((float)$fItem['score'], 1, ',', '.')) : esc($fItem['score'])) : '-' ?>
+          </td>
+        <?php endfor; ?>
 
         <!-- RERATA FORMATIF -->
-        <td><?= $row['avg_formatif'] !== null ? esc($row['avg_formatif']) : '-' ?></td>
-
-        <!-- SUMATIF -->
-        <?php if (!empty($allSumatifCols[$s])): ?>
-          <?php foreach ($allSumatifCols[$s] as $key => $meta): ?>
-            <td><?= esc($row['sumatif'][$key] ?? '-') ?></td>
-          <?php endforeach; ?>
+        <?php if ($fCount > 0): ?>
+          <td><?= $row['avg_formatif'] !== null ? number_format((float)$row['avg_formatif'], 2, ',', '.') : '-' ?></td>
         <?php endif; ?>
 
+        <!-- SUMATIF -->
+        <?php for ($i = 0; $i < $sCount; $i++): ?>
+          <?php $sItem = $row['sumatif'][$i] ?? null; ?>
+          <td>
+            <?= ($sItem !== null && $sItem['score'] !== null && $sItem['score'] !== '') ? (is_numeric($sItem['score']) ? ((float)$sItem['score'] == (int)$sItem['score'] ? (int)$sItem['score'] : number_format((float)$sItem['score'], 1, ',', '.')) : esc($sItem['score'])) : '-' ?>
+          </td>
+        <?php endfor; ?>
+
         <!-- RERATA SUMATIF -->
-        <td><?= $row['avg_sumatif'] !== null ? esc($row['avg_sumatif']) : '-' ?></td>
+        <?php if ($sCount > 0): ?>
+          <td><?= $row['avg_sumatif'] !== null ? number_format((float)$row['avg_sumatif'], 2, ',', '.') : '-' ?></td>
+        <?php endif; ?>
 
         <!-- NILAI AKHIR — erapor jika sudah diisi guru, fallback ke nilai sistem -->
         <td style="text-align:center; font-weight:bold;">
@@ -123,7 +129,7 @@
 
         <!-- FINAL -->
         <?php if ($s == 2 && $hasFinal): ?>
-          <td><?= esc($row['final'] ?? '-') ?></td>
+          <td><?= $row['final'] !== null ? number_format((float)$row['final'], 2, ',', '.') : '-' ?></td>
         <?php endif; ?>
       </tr>
     <?php endforeach; ?>
