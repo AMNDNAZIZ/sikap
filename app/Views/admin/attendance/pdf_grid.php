@@ -91,7 +91,6 @@
       max-height: 50px;
       max-width: 140px;
     }
->>>>>>> bbe84885 (Update & sync v2.0.4 - 2026-10-19 13:25)
   </style>
 </head>
 <body>

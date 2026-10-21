@@ -702,9 +702,9 @@ class Attendance extends BaseController
             9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
         ];
 
-        $titimangsaCity = !empty($school['city_regency']) ? $school['city_regency'] : 'Jakarta';
+        $titimangsaCity = !empty($school['city_regency']) ? $school['city_regency'] : (!empty($school['city']) ? $school['city'] : 'Jakarta');
 
-        $printDate = (date('Y-m') === $month) ? date('Y-m-d') : $end;
+        $printDate = $end;
         $pTime = strtotime($printDate);
         $mNum = (int) date('n', $pTime);
         $titimangsaDate = date('j', $pTime) . ' ' . ($bulanIndo[$mNum] ?? date('F', $pTime)) . ' ' . date('Y', $pTime);
@@ -1088,9 +1088,12 @@ class Attendance extends BaseController
         $principalSigBase64 = $this->imageToBase64($school['principal_signature'] ?? '');
         $waliSigBase64      = $waliKelas ? $this->imageToBase64($waliKelas['signature'] ?? '') : '';
 
-        // Format tanggal titimangsa Indonesia
+        // Format tanggal titimangsa Indonesia (menyesuaikan tanggal terakhir periode / bulan yang dipilih)
         $bulanIndo = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'];
-        $titimangsaDate = date('j') . ' ' . ($bulanIndo[(int)date('n')] ?? date('F')) . ' ' . date('Y');
+        [$startDate, $endDate] = $this->getPeriodeRange($rekap['activeYear'], $periode);
+        $pTime = !empty($endDate) ? strtotime($endDate) : time();
+        $mNum = (int) date('n', $pTime);
+        $titimangsaDate = date('j', $pTime) . ' ' . ($bulanIndo[$mNum] ?? date('F', $pTime)) . ' ' . date('Y', $pTime);
 
         $html = view('admin/attendance/rekap_pdf_template', [
             'class'              => $class,
@@ -1188,11 +1191,18 @@ class Attendance extends BaseController
      */
     private function getPeriodeRange(array $activeYear, string $periode): array
     {
-        $yearStart = date('Y-m-d', strtotime($activeYear['start_date']));
-        $yearEnd = date('Y-m-d', strtotime($activeYear['end_date']));
+        $yearStart = date('Y-m-d', strtotime($activeYear['start_date'] ?? date('Y-07-01')));
+        $yearEnd = date('Y-m-d', strtotime($activeYear['end_date'] ?? date('Y-06-30')));
 
         $startYear = date('Y', strtotime($yearStart));
         $endYear = date('Y', strtotime($yearEnd));
+
+        // Jika periode adalah format bulan YYYY-MM
+        if (preg_match('/^\d{4}-\d{2}$/', $periode)) {
+            $start = $periode . '-01';
+            $end = date('Y-m-t', strtotime($start));
+            return [$start, $end];
+        }
 
         switch ($periode) {
 
@@ -1210,6 +1220,7 @@ class Attendance extends BaseController
 
             case 'tahunan':
             case 'satu_tahun':
+            case 'tahun':
                 $start = $yearStart;
                 $end = $yearEnd;
                 break;
@@ -1228,7 +1239,7 @@ class Attendance extends BaseController
     private function generateRekap(int $classId, string $periode): array
     {
         $today = date('Y-m-d');
-        $activeYear = $this->yearModel->getActiveYear();
+        $activeYear = $this->yearModel->getActiveYear() ?: [];
 
         // ================================
         // Ambil rentang periode mentah
@@ -1238,12 +1249,14 @@ class Attendance extends BaseController
         // ================================
         // Samakan dengan fungsi view()
         // ================================
-        // Clamp ke tahun ajaran aktif
-        if ($startDate < $activeYear['start_date']) {
-            $startDate = $activeYear['start_date'];
-        }
-        if ($endDate > $activeYear['end_date']) {
-            $endDate = $activeYear['end_date'];
+        // Clamp ke tahun ajaran aktif jika bukan periode bulanan
+        if (!preg_match('/^\d{4}-\d{2}$/', $periode)) {
+            if (!empty($activeYear['start_date']) && $startDate < $activeYear['start_date']) {
+                $startDate = $activeYear['start_date'];
+            }
+            if (!empty($activeYear['end_date']) && $endDate > $activeYear['end_date']) {
+                $endDate = $activeYear['end_date'];
+            }
         }
 
         // ================================
@@ -1352,10 +1365,16 @@ class Attendance extends BaseController
 
     private function getRekapDateRange($year, $periode)
     {
-        $yearStart = $year['start_date']; // e.g., '2023-08-01'
-        $yearEnd = $year['end_date'];   // e.g., '2024-07-31'
+        $yearStart = $year['start_date'] ?? date('Y-07-01'); // e.g., '2023-08-01'
+        $yearEnd = $year['end_date'] ?? date('Y-06-30');   // e.g., '2024-07-31'
 
         $startYear = date('Y', strtotime($yearStart)); // e.g., 2023
+
+        if (preg_match('/^\d{4}-\d{2}$/', $periode)) {
+            $start = $periode . '-01';
+            $end = date('Y-m-t', strtotime($start));
+            return [$start, $end];
+        }
 
         if ($periode === 'semester1') {
             // Identik dengan view(): Juli - Desember tahun start

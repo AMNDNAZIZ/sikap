@@ -27,6 +27,12 @@
       Semester 1 (Juli – Desember <?= date('Y', strtotime($activeYear['start_date'])) ?>)
     <?php elseif ($periode === 'semester2'): ?>
       Semester 2 (Januari – Juni <?= date('Y', strtotime($activeYear['end_date'])) ?>)
+    <?php elseif (preg_match('/^\d{4}-\d{2}$/', $periode)): ?>
+      <?php
+        $bulanList = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'];
+        $mNum = (int) date('n', strtotime($periode . '-01'));
+      ?>
+      Bulan <?= ($bulanList[$mNum] ?? date('F', strtotime($periode . '-01'))) . ' ' . date('Y', strtotime($periode . '-01')) ?>
     <?php else: ?>
       Satu Tahun (<?= date('d M Y', strtotime($activeYear['start_date'])) ?> – <?= date('d M Y', strtotime($activeYear['end_date'])) ?>)
     <?php endif; ?>
