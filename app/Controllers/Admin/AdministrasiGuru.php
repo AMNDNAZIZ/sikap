@@ -3445,6 +3445,21 @@ class AdministrasiGuru extends BaseController
             return $this->response->setJSON(['success' => false, 'error' => 'Gagal memproses format JSON dari AI. Coba generate ulang.']);
         }
 
+        foreach ($soalList as &$s) {
+            if (isset($s['question'])) {
+                $s['question'] = str_replace(["\\r\\n", "\\r", "\\n"], ["\r\n", "\r", "\n"], (string)$s['question']);
+            }
+            if (isset($s['options']) && is_array($s['options'])) {
+                foreach ($s['options'] as $ok => $ov) {
+                    $s['options'][$ok] = str_replace(["\\r\\n", "\\r", "\\n"], ["\r\n", "\r", "\n"], (string)$ov);
+                }
+            }
+            if (isset($s['explanation'])) {
+                $s['explanation'] = str_replace(["\\r\\n", "\\r", "\\n"], ["\r\n", "\r", "\n"], (string)$s['explanation']);
+            }
+        }
+        unset($s);
+
         return $this->response->setJSON([
             'success' => true,
             'soal' => $soalList,
@@ -3823,17 +3838,25 @@ class AdministrasiGuru extends BaseController
                 }
             }
 
+            // Normalisasi literal '\n' dan '\r\n' jika masih berbentuk teks literal
+            $cleanQuestionText = str_replace(["\\r\\n", "\\r", "\\n"], ["\r\n", "\r", "\n"], (string)($soal['question'] ?? ''));
+            $qHtml = nl2br(trim($cleanQuestionText), false);
+
             // Build raw_text for editor compatibility
-            $rawText = '<p>' . ($soal['question'] ?? '') . '</p>';
+            $rawText = '<p>' . $qHtml . '</p>';
             if ($tipe === 'benar_salah') {
                 $rawText .= '<p>Tipe: BS</p>';
             } elseif ($tipe === 'pg_kompleks') {
                 $rawText .= '<p>Tipe: PGK</p>';
             }
             
+            $cleanOptions = [];
             if (!empty($soal['options']) && is_array($soal['options'])) {
                 foreach ($soal['options'] as $key => $val) {
-                    $rawText .= '<p>' . strtoupper($key) . '. ' . $val . '</p>';
+                    $cleanVal = str_replace(["\\r\\n", "\\r", "\\n"], ["\r\n", "\r", "\n"], (string) $val);
+                    $optKey = strtoupper(trim((string)$key));
+                    $cleanOptions[$optKey] = $cleanVal;
+                    $rawText .= '<p>' . $optKey . '. ' . nl2br(trim($cleanVal), false) . '</p>';
                 }
             }
             
@@ -3846,14 +3869,14 @@ class AdministrasiGuru extends BaseController
 
             $data = [
                 'bank_id' => $bankId,
-                'question_text' => $soal['question'] ?? '',
+                'question_text' => $cleanQuestionText,
                 'question_type' => $tipe,
                 'score' => ($tipe === 'esai') ? 0 : 1,
-                'option_a' => $soal['options']['A'] ?? null,
-                'option_b' => $soal['options']['B'] ?? null,
-                'option_c' => $soal['options']['C'] ?? null,
-                'option_d' => $soal['options']['D'] ?? null,
-                'option_e' => $soal['options']['E'] ?? null,
+                'option_a' => $cleanOptions['A'] ?? null,
+                'option_b' => $cleanOptions['B'] ?? null,
+                'option_c' => $cleanOptions['C'] ?? null,
+                'option_d' => $cleanOptions['D'] ?? null,
+                'option_e' => $cleanOptions['E'] ?? null,
                 'correct_option' => ($tipe !== 'esai') ? $ans : null,
                 'essay_answer' => ($tipe === 'esai') ? $ans : null,
                 'raw_text' => $rawText,
