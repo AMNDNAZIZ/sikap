@@ -35,8 +35,8 @@
 
     <?php foreach ($semesters as $s): ?>
       <?php
-        $formatifCount = count($allFormatifCols[$s] ?? []);
-        $sumatifCount  = count($allSumatifCols[$s] ?? []);
+        $fCount = $maxFormatif[$s] ?? 0;
+        $sCount = $maxSumatif[$s] ?? 0;
       ?>
 
       <div class="tab-pane fade <?= $s == 1 ? 'show active' : '' ?>" id="sem<?= $s ?>">
@@ -52,54 +52,66 @@
             <thead class="table-light">
 
               <tr>
-                <th rowspan="2">#</th>
-                <th rowspan="2">Mapel</th>
+                <th rowspan="2" class="text-center align-middle" style="width: 40px;">#</th>
+                <th rowspan="2" class="align-middle" style="min-width: 160px;">Mata Pelajaran</th>
 
-                <?php if ($formatifCount): ?>
-                  <th colspan="<?= $formatifCount ?>">Formatif</th>
-                  <th rowspan="2">Rerata F</th>
+                <?php if ($fCount > 0): ?>
+                  <th colspan="<?= $fCount ?>" class="text-center">Formatif</th>
+                  <th rowspan="2" class="text-center align-middle">Rerata F</th>
                 <?php endif; ?>
 
-                <?php if ($sumatifCount): ?>
-                  <th colspan="<?= $sumatifCount ?>">Sumatif</th>
-                  <th rowspan="2">Rerata S</th>
+                <?php if ($sCount > 0): ?>
+                  <th colspan="<?= $sCount ?>" class="text-center">Sumatif</th>
+                  <th rowspan="2" class="text-center align-middle">Rerata S</th>
                 <?php endif; ?>
 
                 <!-- NILAI AKHIR -->
-                <th rowspan="2">Akhir</th>
+                <th rowspan="2" class="text-center align-middle">Akhir</th>
 
                 <?php if ($s == 2 && $hasFinal): ?>
-                  <th rowspan="2">Final</th>
+                  <th rowspan="2" class="text-center align-middle">Final</th>
                 <?php endif; ?>
               </tr>
 
               <tr>
-                <?php foreach ($allFormatifCols[$s] ?? [] as $meta): ?>
-                  <th title="<?= esc($meta['tooltip']) ?>"><?= esc($meta['label']) ?></th>
-                <?php endforeach; ?>
+                <?php for ($i = 1; $i <= $fCount; $i++): ?>
+                  <th class="text-center" style="min-width: 38px;"><?= $i ?></th>
+                <?php endfor; ?>
 
-                <?php foreach ($allSumatifCols[$s] ?? [] as $meta): ?>
-                  <th title="<?= esc($meta['tooltip']) ?>"><?= esc($meta['label']) ?></th>
-                <?php endforeach; ?>
+                <?php for ($i = 1; $i <= $sCount; $i++): ?>
+                  <th class="text-center" style="min-width: 38px;"><?= $i ?></th>
+                <?php endfor; ?>
               </tr>
             </thead>
 
             <!-- ===================== TBODY ======================= -->
             <tbody>
-              <?php $no=1; foreach ($grades[$s] ?? [] as $row): ?>
+              <?php $no = 1; foreach ($grades[$s] ?? [] as $row): ?>
                 <tr>
-                  <td><?= $no++ ?></td>
-                  <td><?= esc($row['subject']) ?></td>
+                  <td class="text-center"><?= $no++ ?></td>
+                  <td class="fw-semibold"><?= esc($row['subject']) ?></td>
 
                   <!-- FORMATIF -->
-                  <?php foreach ($allFormatifCols[$s] ?? [] as $colKey => $meta): ?>
-                    <td class="text-center">
-                      <?= $row['formatif'][$colKey] ?? '-' ?>
+                  <?php for ($i = 0; $i < $fCount; $i++): ?>
+                    <?php
+                      $fItem = $row['formatif'][$i] ?? null;
+                      $fTitle = '';
+                      if ($fItem) {
+                          $typeStr = !empty($fItem['type']) ? ' (' . ucfirst($fItem['type']) . ')' : '';
+                          $fTitle = esc(($fItem['material_title'] ?: 'Materi') . $typeStr);
+                      }
+                    ?>
+                    <td class="text-center" <?= $fTitle ? 'title="' . $fTitle . '"' : '' ?>>
+                      <?php if ($fItem !== null && $fItem['score'] !== null && $fItem['score'] !== ''): ?>
+                        <?= is_numeric($fItem['score']) ? ((float)$fItem['score'] == (int)$fItem['score'] ? (int)$fItem['score'] : number_format((float)$fItem['score'], 1, ',', '.')) : esc($fItem['score']) ?>
+                      <?php else: ?>
+                        <span class="text-muted">-</span>
+                      <?php endif; ?>
                     </td>
-                  <?php endforeach; ?>
+                  <?php endfor; ?>
 
                   <!-- RATA-RATA FORMATIF -->
-                  <?php if ($formatifCount): ?>
+                  <?php if ($fCount > 0): ?>
                     <td class="text-center fw-bold">
                       <?= $row['avg_formatif'] !== null 
                             ? number_format($row['avg_formatif'], 2, ',', '.') 
@@ -108,14 +120,26 @@
                   <?php endif; ?>
 
                   <!-- SUMATIF -->
-                  <?php foreach ($allSumatifCols[$s] ?? [] as $colKey => $meta): ?>
-                    <td class="text-center">
-                      <?= $row['sumatif'][$colKey] ?? '-' ?>
+                  <?php for ($i = 0; $i < $sCount; $i++): ?>
+                    <?php
+                      $sItem = $row['sumatif'][$i] ?? null;
+                      $sTitle = '';
+                      if ($sItem) {
+                          $typeStr = !empty($sItem['type']) ? ' (' . ucfirst($sItem['type']) . ')' : '';
+                          $sTitle = esc('Sumatif' . $typeStr);
+                      }
+                    ?>
+                    <td class="text-center" <?= $sTitle ? 'title="' . $sTitle . '"' : '' ?>>
+                      <?php if ($sItem !== null && $sItem['score'] !== null && $sItem['score'] !== ''): ?>
+                        <?= is_numeric($sItem['score']) ? ((float)$sItem['score'] == (int)$sItem['score'] ? (int)$sItem['score'] : number_format((float)$sItem['score'], 1, ',', '.')) : esc($sItem['score']) ?>
+                      <?php else: ?>
+                        <span class="text-muted">-</span>
+                      <?php endif; ?>
                     </td>
-                  <?php endforeach; ?>
+                  <?php endfor; ?>
 
                   <!-- RATA-RATA SUMATIF -->
-                  <?php if ($sumatifCount): ?>
+                  <?php if ($sCount > 0): ?>
                     <td class="text-center fw-bold">
                       <?= $row['avg_sumatif'] !== null 
                             ? number_format($row['avg_sumatif'], 2, ',', '.') 
@@ -131,14 +155,14 @@
                         <br><small class="text-success" style="font-size:.65rem;font-weight:normal;" title="Nilai Erapor (ditetapkan guru)">★ Erapor</small>
                       <?php endif; ?>
                     <?php else: ?>
-                      -
+                      <span class="text-muted">-</span>
                     <?php endif; ?>
                   </td>
 
                   <!-- FINAL (Semester 2) -->
                   <?php if ($s == 2 && $hasFinal): ?>
                     <td class="text-center">
-                      <?= $row['final'] ?? '-' ?>
+                      <?= $row['final'] !== null ? number_format((float)$row['final'], 2, ',', '.') : '-' ?>
                     </td>
                   <?php endif; ?>
                 </tr>

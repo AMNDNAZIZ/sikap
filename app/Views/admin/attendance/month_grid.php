@@ -39,6 +39,31 @@
     color: #6c757d;
     margin-bottom: 8px;
   }
+
+  th.schedule-teaching-day {
+    background-color: #0d6efd !important;
+    color: #ffffff !important;
+    border-top: 3px solid #ffc107 !important;
+  }
+  th.schedule-teaching-day .date-link {
+    color: #ffffff !important;
+    font-weight: bold !important;
+  }
+  td.cell-teaching-day {
+    background-color: rgba(13, 110, 253, 0.07) !important;
+    font-weight: 600;
+  }
+  .teaching-badge-star {
+    font-size: 7.5px;
+    background: #ffc107;
+    color: #000000;
+    padding: 1px 2px;
+    border-radius: 3px;
+    display: block;
+    margin-top: 1px;
+    font-weight: bold;
+    line-height: 1.1;
+  }
 </style>
 
 <div class="instruction-box">
@@ -105,6 +130,28 @@
   </div>
 </div>
 
+<?php if (!empty($isMapelView)): ?>
+  <div class="alert alert-primary d-flex align-items-center mb-3 py-2 border-start border-4 border-primary shadow-sm">
+    <i class="bi bi-calendar-check-fill me-3 fs-3 text-primary"></i>
+    <div class="flex-grow-1">
+      <div class="fw-bold">
+        Presensi Mode Guru Mata Pelajaran
+        <?php if (!empty($scheduleInfo['subjectNames'])): ?>
+          &mdash; <span class="badge bg-primary text-white"><?= esc(implode(', ', $scheduleInfo['subjectNames'])) ?></span>
+        <?php endif; ?>
+      </div>
+      <small class="text-muted">
+        <?php if (!empty($scheduleInfo['teachingDayNames'])): ?>
+          Jadwal mengajar di kelas ini: <strong><?= esc(implode(', ', $scheduleInfo['teachingDayNames'])) ?></strong>.
+          Kolom tanggal bertanda <span class="badge bg-warning text-dark"><i class="bi bi-star-fill"></i> Jadwal</span> adalah hari pertemuan Anda (Total <strong><?= (int)($scheduleInfo['totalTeachingDays'] ?? 0) ?> hari</strong> bulan ini).
+        <?php else: ?>
+          <em>Belum terdaftar jadwal mingguan untuk kelas ini di modul Jadwal Pelajaran.</em>
+        <?php endif; ?>
+      </small>
+    </div>
+  </div>
+<?php endif; ?>
+
 <h4>Absensi Bulan <?= date('F Y', strtotime($month . '-01')) ?> - <?= esc($class['name']) ?></h4>
 
 <form method="post" action="<?= base_url('admin/attendance/save') ?>" id="attendance-form">
@@ -125,20 +172,29 @@
             // Gunakan helper is_weekend untuk cek weekend berdasarkan school_days
             $isWeekend = is_weekend($d, $schoolDays);
             $isHoliday = $isWeekend || isset($holidays[$d]);
-            $cls = $isHoliday ? 'bg-danger text-white' : 'bg-teal';
-            // Tooltip: keterangan libur
+            $isTeaching = !empty($isMapelView) && !empty($teachingDates[$d]) && !$isHoliday;
+            $cls = $isHoliday ? 'bg-danger text-white' : ($isTeaching ? 'schedule-teaching-day' : 'bg-teal');
+            // Tooltip: keterangan libur / jadwal
             $holidayDesc = '';
             if ($isWeekend) {
                 $holidayDesc = (date('N', strtotime($d)) == 6) ? 'Sabtu' : 'Minggu';
             } elseif (isset($holidays[$d])) {
                 $holidayDesc = $holidays[$d];
+            } elseif ($isTeaching) {
+                $holidayDesc = 'Jadwal Mengajar Anda';
             }
             ?>
             <th class="<?= $cls ?>" data-date="<?= $d ?>"<?= $holidayDesc ? ' title="' . esc($holidayDesc) . '"' : '' ?>>
               <?php if ($d <= $today && !$isHoliday && session()->get('user')['role_id'] != 2): ?>
-                <a href="#" class="date-link" data-date="<?= $d ?>"><?= date('d', strtotime($d)) ?></a>
+                <a href="#" class="date-link" data-date="<?= $d ?>">
+                  <?= date('d', strtotime($d)) ?>
+                  <?= $isTeaching ? '<span class="teaching-badge-star"><i class="bi bi-star-fill"></i> Jadwal</span>' : '' ?>
+                </a>
               <?php else: ?>
-                <span class="disabled text-white"><?= date('d', strtotime($d)) ?></span>
+                <span class="disabled text-white">
+                  <?= date('d', strtotime($d)) ?>
+                  <?= $isTeaching ? '<span class="teaching-badge-star"><i class="bi bi-star-fill"></i> Jadwal</span>' : '' ?>
+                </span>
               <?php endif; ?>
             </th>
           <?php endforeach; ?>
@@ -164,6 +220,8 @@
               // Gunakan helper is_weekend untuk cek weekend berdasarkan school_days
               $isWeekend = is_weekend($d, $schoolDays);
               $isHoliday = $isWeekend || isset($holidays[$d]);
+              $isTeaching = !empty($isMapelView) && !empty($teachingDates[$d]) && !$isHoliday;
+              $cellClass = $isHoliday ? 'bg-danger text-white' : ($isTeaching ? 'cell-teaching-day' : '');
 
               $val = $attMap[$s['id']][$d] ?? null;
 
@@ -184,7 +242,7 @@
               elseif ($val === 'A')
                 $A++;
               ?>
-              <td class="<?= $isHoliday ? 'bg-danger text-white' : '' ?>" data-student="<?= $s['id'] ?>"
+              <td class="<?= $cellClass ?>" data-student="<?= $s['id'] ?>"
                 data-date="<?= $d ?>" data-value="<?= $val ?>">
                 <?php if ($val === '-'): ?>
                   -

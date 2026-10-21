@@ -3440,9 +3440,9 @@ class AdministrasiGuru extends BaseController
         $content = preg_replace('/```(?:json)?(.*?)```/s', '$1', $content);
         $content = trim($content);
 
-        $soalList = json_decode($content, true);
-        if (!is_array($soalList)) {
-            return $this->response->setJSON(['success' => false, 'error' => 'Gagal parse response AI. Coba generate ulang.']);
+        $soalList = $this->parseSoalAiJson($content);
+        if (!is_array($soalList) || empty($soalList)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Gagal memproses format JSON dari AI. Coba generate ulang.']);
         }
 
         return $this->response->setJSON([
@@ -3536,6 +3536,52 @@ class AdministrasiGuru extends BaseController
     }
 
     /**
+     * Parse & bersihkan output JSON dari AI secara komprehensif
+     * Menangani markdown codeblocks, unescaped quotes, trailing comma, placeholder berpetik, dan karakter kontrol.
+     */
+    private function parseSoalAiJson(string $content): ?array
+    {
+        $content = preg_replace('/```(?:json)?([\s\S]*?)```/s', '$1', $content);
+        $content = trim($content);
+
+        // Ambil substring antara [ pertama dan ] terakhir
+        $start = strpos($content, '[');
+        $end = strrpos($content, ']');
+        if ($start !== false && $end !== false && $end > $start) {
+            $content = substr($content, $start, $end - $start + 1);
+        }
+
+        // 1. Coba decode langsung jika sudah valid
+        $decoded = json_decode($content, true);
+        if (is_array($decoded) && !empty($decoded)) {
+            return $decoded;
+        }
+
+        // 2. Pembersihan karakter tak kasat mata
+        $clean = preg_replace('/[\x{FEFF}\x{200B}\x{200C}\x{200D}\x{00AD}]/u', '', $content);
+
+        // 3. Ubah tanda kutip ganda yang di-escape (\" atau \\") di dalam teks menjadi petik tunggal (')
+        // Ini memastikan kutipan ayat, hadits, atau terjemahan tidak merusak delimiter token JSON
+        $clean = preg_replace('/\\\\+"/u', "'", $clean);
+
+        // 4. Bersihkan jika masih ada pola kurung siku berpetik
+        $clean = preg_replace('/\\\\?"\[(.*?)\]\\\\?"/s', "'[$1]'", $clean);
+
+        // 5. Hapus trailing comma sebelum } atau ]
+        $clean = preg_replace('/,\s*([\}\]])/s', '$1', $clean);
+
+        // 6. Normalisasi backslash LaTeX agar tidak merusak decode JSON
+        $clean = preg_replace('/\\\\(?!["\\\\\/bfnrtu]|u[0-9a-fA-F]{4})([a-zA-Z{}_^])/s', '\\\\\\\\$1', $clean);
+
+        $decoded = json_decode($clean, true);
+        if (is_array($decoded) && !empty($decoded)) {
+            return $decoded;
+        }
+
+        return null;
+    }
+
+    /**
      * Membangun prompt profesional berstandar nasional untuk AI
      * Menegakkan kaidah penulisan butir soal: kesetaraan panjang opsi, distraktor berkualitas & homogen, paralelisme gramatikal, dan pencegahan clue verbal.
      */
@@ -3556,6 +3602,13 @@ class AdministrasiGuru extends BaseController
         $schoolLevel = (int)($school['level'] ?? 1);
         $jenjang = ($schoolLevel == 1) ? 'SD' : (($schoolLevel == 2) ? 'SMP' : 'SMA');
         $kelasLevel = (int)($classInfo['level'] ?? 7);
+
+        // Deteksi Mata Pelajaran Pendidikan Agama Islam (PAI) atau keagamaan Islam
+        $subjectName = $subject['name'] ?? '';
+        $isPai = (bool) preg_match('/(islam|pai|al-qur\'?an|qur\'?an|hadis|hadits|fiqih|fikih|akidah|akhlak|tarikh|ski|sejarah kebudayaan islam|agama)/i', $subjectName);
+        if (!$isPai && preg_match('/(al-qur\'?an|qur\'?an|surah|ayat|hadis|hadits|fiqih|fikih|zakat|puasa|shalat|salat|haji|akidah|akhlak|tauhid|tajwid)/i', $materiList)) {
+            $isPai = true;
+        }
 
         // SD/SMP: 4 opsi (A-D), SMA: 5 opsi (A-E)
         $opsiCount = ($schoolLevel == 3) ? 5 : 4;
@@ -3661,10 +3714,25 @@ class AdministrasiGuru extends BaseController
             . "4. UNTUK MAPEL BAHASA (Indonesia/Inggris/Daerah):\n"
             . "   - Wajib sertakan kutipan teks wacana bacaan yang relevan di field 'question' dengan label 'Bacalah teks berikut!'.\n\n"
             . "5. UNTUK SOAL YANG MEMBUTUHKAN GAMBAR:\n"
-            . "   - Tulis deskripsinya dalam kurung siku: [Gambar: deskripsi visual yang jelas]\n\n"
+            . "   - Tulis deskripsinya dalam kurung siku: [Gambar: deskripsi visual yang jelas]\n"
+            . "   - Kurung siku HANYA untuk deskripsi gambar. DILARANG menggunakan kurung siku untuk ayat/hadits (tulis dalil nyata)!\n\n"
             . "6. ATURAN PENULISAN MATEMATIKA / NOTASI ILMIAH:\n"
-            . "   - Gunakan format LaTeX: $\\frac{a}{b}$, $\\sqrt{x}$, $x^2$, dst.\n\n"
+            . '   - Gunakan format LaTeX: $\frac{a}{b}$, $\sqrt{x}$, $x^2$, dst.' . "\n\n"
+            . ($isPai ? (
+                "7. ATURAN KHUSUS MATA PELAJARAN PENDIDIKAN AGAMA ISLAM (PAI) & KEAGAMAAN (WAJIB DIPATUHI):\n"
+                . "   a. WAJIB MENYERTAKAN STIMULUS DALIL RELEVAN (AYAT AL-QUR'AN / HADITS / DALIL NAQLI):\n"
+                . "      - Sebagian besar butir soal (khususnya pemahaman nilai, analisis hukum/fiqih, hukum bacaan tajwid, tafsir makna, dan akhlak) WAJIB diawali kutipan ayat Al-Qur'an atau Hadits Nabi yang relevan dan sahih di awal field 'question'.\n"
+                . "      - TULISKAN TEKS AYAT/HADITS SECARA UTUH DAN NYATA: cantumkan lafadz Arab (dengan harakat jelas) dan/atau terjemahan artinya dalam bahasa Indonesia, beserta rujukan surah dan nomor ayat yang jelas (contoh: QS. Al-Baqarah [2]: 183 atau HR. Bukhari no. 13).\n"
+                . "   b. DILARANG KERAS MENGGUNAKAN PLACEHOLDER '[ayat]' ATAU '[hadits]':\n"
+                . "      - DILARANG HANYA menulis teks placeholder seperti '[ayat]', '[hadits]', '[kutipan ayat]', atau '[dalil]'!\n"
+                . "      - Soal akan langsung tampil di sistem ujian CBT siswa, sehingga teks dalil dan artinya HARUS TERTULIS LENGKAP DAN NYATA agar siswa dapat membaca dan menganalisisnya.\n"
+                . "   c. LARANGAN PENGGUNAAN TANDA PETIK GANDA (\") DALAM TEKS SOAL (AGAR STRUKTUR JSON VALID):\n"
+                . "      - DILARANG KERAS menggunakan tanda petik ganda (\") di dalam teks pertanyaan, kutipan dalil, teks terjemahan, maupun pilihan jawaban!\n"
+                . "      - Selalu gunakan tanda petik tunggal ('...') atau tanda kurung biasa (...) untuk mengutip arti ayat, hadits, atau istilah.\n"
+                . "      - DILARANG mengapit nama surah/ayat dengan kurung siku berpetik ganda seperti \\\"[ayat]\\\" atau \"[ayat]\". Gunakan format biasa: (QS. Al-Baqarah [2]: 183).\n\n"
+            ) : '')
             . "FORMAT OUTPUT WAJIB JSON ARRAY (tanpa teks pengantar, tanpa backtick, tanpa markdown):\n"
+            . "ATURAN TANDA PETIK: Tanda petik ganda (\") HANYA untuk membungkus properti dan nilai JSON. Di dalam teks pertanyaan (question) dan opsi (options), DILARANG menggunakan tanda petik ganda (\"), gunakan tanda petik tunggal (') atau tanda kurung ().\n"
             . "Setiap item memiliki field:\n"
             . "- type: 'pg' | 'pg_kompleks' | 'benar_salah' | 'esai'\n"
             . "- question: teks soal lengkap (beserta stimulus jika ada)\n"

@@ -40,11 +40,11 @@
   }
 
   // Active state detectors
-  $inAdmGuru    = url_is('admin/administrasi-guru*');
+  $inAdmGuru    = url_is('admin/administrasi-guru*') && !url_is('admin/administrasi-guru/soal-ai*');
   $inLearning   = url_is('admin/materials*') || url_is('admin/tugas*') || url_is('admin/quiz*') || url_is('learning*');
   $inKbm        = url_is('admin/attendance*') || url_is('admin/teacher-attendance*') || url_is('admin/teaching-journal*') || url_is('admin/agendas*');
   $inPenilaian  = url_is('admin/assessments*') || url_is('admin/erapor*') || url_is('admin/grades*') || url_is('admin/rapor*') || url_is('admin/rapor-semester*');
-  $inCbt        = url_is('admin/cbt*');
+  $inCbt        = url_is('admin/cbt*') || url_is('admin/administrasi-guru/soal-ai*');
   $inKokuri     = url_is('admin/kokurikuler*');
   $inBimbingan  = url_is('admin/student-notes*') || url_is('admin/bk*') || url_is('admin/counseling-appointment*') || url_is('admin/counseling-summon*') || url_is('admin/student-map*');
   $inKomunikasi = url_is('admin/announcements*') || url_is('admin/chat*') || url_is('admin/staff-chat*');
@@ -88,7 +88,6 @@
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/kktp*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/kktp') ?>"><i class="bi bi-card-checklist me-1"></i> <span class="label">KKTP</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/prota-prosem*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/prota-prosem') ?>"><i class="bi bi-calendar-range me-1"></i> <span class="label">Prota &amp; Prosem</span></a></li>
           <li><a class="nav-link <?= url_is('admin/administrasi-guru/modul-ajar*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/modul-ajar') ?>"><i class="bi bi-journal-text me-1"></i> <span class="label">Modul Ajar</span></a></li>
-          <li><a class="nav-link <?= url_is('admin/administrasi-guru/soal-ai*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/soal-ai') ?>"><i class="bi bi-cpu me-1"></i> <span class="label">Generate Soal AI</span></a></li>
         </ul>
       </div>
     </li>
@@ -176,6 +175,7 @@
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/cbt/examname*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/examname') ?>"><i class="bi bi-card-text me-1"></i> <span class="label">Nama Ujian</span></a></li>
           <li><a class="nav-link <?= url_is('admin/cbt/banksoal*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/banksoal') ?>"><i class="bi bi-folder-check me-1"></i> <span class="label">Bank Soal</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/administrasi-guru/soal-ai*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/soal-ai') ?>"><i class="bi bi-cpu me-1"></i> <span class="label">Generate Soal AI</span></a></li>
           <li><a class="nav-link <?= url_is('admin/cbt/teststatus*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/teststatus') ?>"><i class="bi bi-display me-1"></i> <span class="label">Status &amp; Pengawasan Tes</span></a></li>
           <li><a class="nav-link <?= url_is('admin/cbt/aktivitas*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/aktivitas') ?>"><i class="bi bi-lightning me-1"></i> <span class="label">Aktivitas Ujian</span></a></li>
           <li><a class="nav-link <?= url_is('admin/cbt/convertnilai*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/convertnilai') ?>"><i class="bi bi-calculator me-1"></i> <span class="label">Konversi Nilai</span></a></li>

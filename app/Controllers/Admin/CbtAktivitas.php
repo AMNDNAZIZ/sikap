@@ -1394,11 +1394,14 @@ class CbtAktivitas extends BaseController
         $this->response->setHeader('Pragma', 'no-cache');
         $this->response->setHeader('Expires', '0');
 
+        helper('cbt');
         $db = $this->db;
 
-        $test = $db->table('cbt_test_status')
-            ->select('id, class_codes, bank_id')
-            ->where('id', $testId)
+        $test = $db->table('cbt_test_status ts')
+            ->select('ts.id, ts.class_codes, ts.bank_id, ts.subject_type, ts.religion AS test_religion, s.name AS subject_name, s.religion AS subject_religion')
+            ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'left')
+            ->join('subjects s', 's.id = qb.subject_id', 'left')
+            ->where('ts.id', $testId)
             ->get()
             ->getRowArray();
 
@@ -1411,16 +1414,28 @@ class CbtAktivitas extends BaseController
             return $this->response->setBody('<div class="text-warning">Tidak ada kelas terkait ujian ini.</div>');
         }
 
+        // Deteksi apakah ujian ini khusus untuk mata pelajaran agama tertentu
+        $targetReligion = cbt_get_test_target_religion($test);
+
         // ✅ Ambil siswa berdasarkan student_records (aktif)
         $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
         $activeYearId = $activeYear['id'] ?? 0;
         $students = $db->table('students st')
-            ->select('st.id, st.name AS student_name, c.name AS class_name')
+            ->select('st.id, st.name AS student_name, st.religion, c.name AS class_name')
             ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
             ->join('classes c', 'c.id = sr.class_id', 'left')
             ->whereIn('c.name', $classList)
+            ->orderBy('c.name', 'ASC')
+            ->orderBy('st.name', 'ASC')
             ->get()
             ->getResultArray();
+
+        // Khusus mapel agama: filter hanya siswa yang agamanya sesuai
+        if ($targetReligion !== '') {
+            $students = array_values(array_filter($students, function ($s) use ($targetReligion) {
+                return cbt_normalize_religion($s['religion'] ?? '') === $targetReligion;
+            }));
+        }
 
         $done = $db->table('cbt_sessions')
             ->select('student_id')
@@ -1429,19 +1444,36 @@ class CbtAktivitas extends BaseController
             ->getResultArray();
 
         $doneIds = array_column($done, 'student_id');
-        $notTested = array_filter($students, fn($s) => !in_array($s['id'], $doneIds));
+        $notTested = array_values(array_filter($students, fn($s) => !in_array($s['id'], $doneIds)));
 
-        if (empty($notTested)) {
-            return $this->response->setBody('<div class="text-success">Semua siswa telah mengikuti tes ini 🎉</div>');
+        $religionNotice = '';
+        if ($targetReligion !== '') {
+            $relLabel = ucfirst($targetReligion);
+            $religionNotice = "<div class='alert alert-info py-2 px-3 mb-3 small d-flex align-items-center gap-2'>
+                <i class='fas fa-info-circle fa-lg text-primary'></i>
+                <div>
+                    Khusus Mata Pelajaran <strong>" . esc($test['subject_name'] ?? 'Agama') . "</strong>: 
+                    Hanya menampilkan siswa beragama <strong>{$relLabel}</strong>. Siswa dengan agama berbeda tidak diwajibkan mengikuti ujian ini.
+                </div>
+            </div>";
         }
 
-        $html = "<table class='table table-bordered table-sm align-middle'>
+        if (empty($students)) {
+            return $this->response->setBody($religionNotice . '<div class="alert alert-warning">Tidak ada siswa beragama ' . ucfirst($targetReligion) . ' pada kelas terkait ujian ini.</div>');
+        }
+
+        if (empty($notTested)) {
+            return $this->response->setBody($religionNotice . '<div class="alert alert-success d-flex align-items-center gap-2"><i class="fas fa-check-circle"></i> Semua siswa ' . ($targetReligion !== '' ? 'beragama ' . ucfirst($targetReligion) . ' ' : '') . 'telah mengikuti tes ini 🎉</div>');
+        }
+
+        $html = $religionNotice . "<div class='table-responsive'><table class='table table-bordered table-sm align-middle'>
             <thead class='table-light text-center'>
                 <tr>
                     <th style='width:50px;'>No</th>
                     <th class='text-start'>Nama Siswa</th>
-                    <th style='width:150px;'>Kelas</th>
-                </tr>
+                    <th style='width:140px;'>Kelas</th>" .
+                    ($targetReligion !== '' ? "<th style='width:120px;'>Agama</th>" : "") .
+                "</tr>
             </thead>
             <tbody>";
 
@@ -1450,12 +1482,13 @@ class CbtAktivitas extends BaseController
             $html .= "<tr>
                 <td class='text-center'>{$i}</td>
                 <td class='text-start'>" . esc($row['student_name']) . "</td>
-                <td class='text-center'>" . esc($row['class_name']) . "</td>
-            </tr>";
+                <td class='text-center'>" . esc($row['class_name']) . "</td>" .
+                ($targetReligion !== '' ? "<td class='text-center'><span class='badge bg-light text-dark border'>" . esc($row['religion'] ?: '-') . "</span></td>" : "") .
+            "</tr>";
             $i++;
         }
 
-        $html .= "</tbody></table>";
+        $html .= "</tbody></table></div>";
         return $this->response->setBody($html);
     }
 

@@ -340,3 +340,93 @@ if (!function_exists('update_last_activity_throttled')) {
         }
     }
 }
+
+if (!function_exists('cbt_normalize_religion')) {
+    /**
+     * Normalisasi nama agama untuk pencocokan toleran dan case-insensitive
+     *
+     * @param string|null $religion
+     * @return string
+     */
+    function cbt_normalize_religion(?string $religion): string
+    {
+        $r = strtolower(trim((string)$religion));
+        if ($r === '') return '';
+        if (strpos($r, 'islam') !== false) return 'islam';
+        if (strpos($r, 'kristen') !== false || strpos($r, 'protestan') !== false) return 'kristen';
+        if (strpos($r, 'katolik') !== false || strpos($r, 'katholik') !== false) return 'katolik';
+        if (strpos($r, 'hindu') !== false) return 'hindu';
+        if (strpos($r, 'budha') !== false || strpos($r, 'buddha') !== false) return 'buddha';
+        if (strpos($r, 'konghucu') !== false || strpos($r, 'khonghucu') !== false) return 'konghucu';
+        return $r;
+    }
+}
+
+if (!function_exists('cbt_detect_subject_religion')) {
+    /**
+     * Deteksi agama dari nama mata pelajaran jika kolom religion belum diset
+     *
+     * @param string|null $subjectName
+     * @return string
+     */
+    function cbt_detect_subject_religion(?string $subjectName): string
+    {
+        $name = strtolower(trim((string)$subjectName));
+        if ($name === '') return '';
+
+        if (preg_match('/\b(islam|pai)/i', $name) || strpos($name, 'agama islam') !== false) {
+            return 'islam';
+        }
+        if (preg_match('/\b(kristen|protestan|pak\b|pakdb)/i', $name) || strpos($name, 'agama kristen') !== false) {
+            return 'kristen';
+        }
+        if (preg_match('/\b(katolik|katholik)/i', $name) || strpos($name, 'agama katolik') !== false || strpos($name, 'agama katholik') !== false) {
+            return 'katolik';
+        }
+        if (preg_match('/\bhindu/i', $name) || strpos($name, 'agama hindu') !== false) {
+            return 'hindu';
+        }
+        if (preg_match('/\b(budha|buddha)/i', $name) || strpos($name, 'agama budha') !== false || strpos($name, 'agama buddha') !== false) {
+            return 'buddha';
+        }
+        if (preg_match('/\b(konghucu|khonghucu)/i', $name) || strpos($name, 'agama konghucu') !== false || strpos($name, 'agama khonghucu') !== false) {
+            return 'konghucu';
+        }
+        return '';
+    }
+}
+
+if (!function_exists('cbt_get_test_target_religion')) {
+    /**
+     * Dapatkan target agama untuk ujian CBT dari cbt_test_status, subjects, atau nama mapel
+     *
+     * @param array $test
+     * @return string
+     */
+    function cbt_get_test_target_religion(array $test): string
+    {
+        // 1. Cek dari cbt_test_status.religion jika subject_type = 'agama' (atau jika religion terisi)
+        $testRel = $test['test_religion'] ?? $test['religion'] ?? '';
+        $subjectType = $test['subject_type'] ?? '';
+        if (!empty($testRel) && (empty($subjectType) || strtolower(trim($subjectType)) === 'agama')) {
+            $norm = cbt_normalize_religion($testRel);
+            if ($norm !== '') return $norm;
+        }
+
+        // 2. Cek dari subjects.religion
+        $subjRel = $test['subject_religion'] ?? '';
+        if (!empty($subjRel)) {
+            $norm = cbt_normalize_religion($subjRel);
+            if ($norm !== '') return $norm;
+        }
+
+        // 3. Fallback: deteksi dari nama mata pelajaran
+        $subjName = $test['subject_name'] ?? '';
+        if (!empty($subjName)) {
+            $norm = cbt_detect_subject_religion($subjName);
+            if ($norm !== '') return $norm;
+        }
+
+        return '';
+    }
+}

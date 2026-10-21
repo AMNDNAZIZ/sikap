@@ -95,8 +95,10 @@
     $kota = !empty($school['city_regency']) ? $school['city_regency'] : (!empty($school['city']) ? $school['city'] : 'Kota/Kab.');
     $kepsekNama = !empty($school['headmaster']) ? $school['headmaster'] : 'Kepala Sekolah';
     $kepsekNip  = !empty($school['principal_nip']) ? $school['principal_nip'] : '-';
-    $waliNama   = !empty($waliKelas['name']) ? $waliKelas['name'] : 'Wali Kelas';
-    $waliNip    = !empty($waliKelas['nip']) ? $waliKelas['nip'] : '-';
+    $signerName = !empty($signerTeacher['name']) ? $signerTeacher['name'] : (!empty($waliKelas['name']) ? $waliKelas['name'] : 'Wali Kelas');
+    $signerNip  = !empty($signerTeacher['nip']) ? $signerTeacher['nip'] : (!empty($waliKelas['nip']) ? $waliKelas['nip'] : '-');
+    $signerLabel = !empty($signerTitle) ? $signerTitle : ('Wali Kelas ' . ($class['name'] ?? ''));
+    $sigImg = !empty($signerSigBase64) ? $signerSigBase64 : (!empty($waliSigBase64) ? $waliSigBase64 : '');
   ?>
   <div class="signature-section">
     <table class="signature-table">
@@ -114,14 +116,14 @@
         </td>
         <td>
           <?= esc($kota) ?>, <?= esc($titimangsaDate ?? date('d F Y')) ?><br>
-          <strong>Wali Kelas <?= esc($class['name'] ?? '') ?></strong>
+          <strong><?= esc($signerLabel) ?></strong>
           <div class="signature-space">
-            <?php if (!empty($waliSigBase64)): ?>
-              <img src="<?= $waliSigBase64 ?>" alt="TTD Wali Kelas" class="signature-img">
+            <?php if (!empty($sigImg)): ?>
+              <img src="<?= $sigImg ?>" alt="TTD" class="signature-img">
             <?php endif; ?>
           </div>
-          <strong style="text-decoration: underline;"><?= esc($waliNama) ?></strong><br>
-          NIP. <?= esc($waliNip) ?>
+          <strong style="text-decoration: underline;"><?= esc($signerName) ?></strong><br>
+          NIP. <?= esc($signerNip) ?>
         </td>
       </tr>
     </table>
