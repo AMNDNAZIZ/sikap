@@ -1,6 +1,6 @@
 {
     "version": "2.0.4",
-    "generated": "2026-10-21 06:46:16",
+    "generated": "2026-10-21 10:43:46",
     "last_update": "2026-10-12 00:00",
     "total_files": 1051,
     "files": {
@@ -166,7 +166,7 @@
         "app/Controllers/Siswa/Counseling.php": "b06fe40b61d7e1ce7f7a3aefc0c87a22",
         "app/Controllers/Siswa/Ebook.php": "c082b179ef7861a0413fcd818405b93a",
         "app/Controllers/Siswa/Ekskul.php": "5f793291252129310ed048350ae069c1",
-        "app/Controllers/Siswa/Grades.php": "6ff6a4684bfec8edec0adac2348e044f",
+        "app/Controllers/Siswa/Grades.php": "de37aeb221c937fe4c6e0528a62c1dcf",
         "app/Controllers/Siswa/Location.php": "14ffd024601dbd418dbfb846cf4ed562",
         "app/Controllers/Siswa/Materials.php": "9b0b9ffa1b586b9fc0da4ffe95719465",
         "app/Controllers/Siswa/Payment.php": "8dd5528ae78fdc834b7192b6e49c9809",
@@ -856,8 +856,8 @@
         "app/Views/siswa/ekskul/detail.php": "bc5c36405093d22cd1350f96a51cbec5",
         "app/Views/siswa/ekskul/index.php": "ade0800fe4e4e18d426297e4c7686330",
         "app/Views/siswa/grades.php": "2586a9ca121bb97f7379f29f60207389",
-        "app/Views/siswa/grades/index.php": "259e0e1c2a4e0bf8fd4d55d5092961a6",
-        "app/Views/siswa/grades/pdf.php": "69569a226ae087b56f87c3dac0e36082",
+        "app/Views/siswa/grades/index.php": "41c6c5882d9f7434c8e8f1cf4cc68cba",
+        "app/Views/siswa/grades/pdf.php": "0c76247d168357e29f039e14512d80b8",
         "app/Views/siswa/learning/index.php": "9227ab3beeeb5237e73b30732924ff03",
         "app/Views/siswa/location/index.php": "96b50c8745f00697899c9c56955f48e9",
         "app/Views/siswa/materials/index.php": "e8a8db09b132ffe1c8c17291f78da8ac",
