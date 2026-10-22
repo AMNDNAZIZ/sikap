@@ -160,7 +160,8 @@ class Grades extends BaseController
                 ->where('ms.score IS NOT NULL', null, false);
 
             if ($classId > 0) {
-                $atpBuilder->where('atp.class_id', $classId);
+                $atpBuilder->join('student_records sr', 'sr.student_id = ms.student_id AND sr.academic_year_id = ' . (int)$activeYear['id'])
+                           ->where('sr.class_id', $classId);
             }
             $atpAssessments = $atpBuilder->orderBy('atp.subject_id', 'ASC')
                 ->orderBy('atp.urutan', 'ASC')

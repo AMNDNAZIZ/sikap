@@ -152,9 +152,9 @@
           <li><a class="nav-link <?= url_is('admin/grades*') && !url_is('admin/grades/rekap*') ? 'active' : '' ?>" href="<?= base_url('admin/grades') ?>"><i class="bi bi-file-earmark-bar-graph me-1"></i> <span class="label">Rekap Rapor</span></a></li>
           <?php
             $guruClassId = $guruUser['class_id'] ?? null;
-            if ($guruClassId):
+            if ($guruClassId || $guruIsWali):
           ?>
-          <li><a class="nav-link <?= url_is('admin/grades/rekap*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/rekap?class_id=' . $guruClassId) ?>"><i class="bi bi-table me-1"></i> <span class="label">Rekap Nilai Kelas</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/grades/rekap*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/rekap' . ($guruClassId ? '?class_id=' . $guruClassId : '')) ?>"><i class="bi bi-table me-1"></i> <span class="label">Rekap Nilai Kelas</span></a></li>
           <?php endif; ?>
           <?php if ($guruIsWali): ?>
           <li><a class="nav-link <?= (url_is('admin/rapor*') && !url_is('admin/rapor-semester*')) ? 'active' : '' ?>" href="<?= base_url('admin/rapor') ?>"><i class="bi bi-printer me-1"></i> <span class="label">Rapor PTS (Tengah Sem.)</span></a></li>

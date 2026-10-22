@@ -40,13 +40,25 @@ class GradesManageController extends BaseController
             $activeYear = $db->table('academic_years')->where('is_active', 1)->get()->getRowArray();
             $activeYearId = $activeYear['id'] ?? 0;
 
-            // cek apakah guru ini wali kelas
-            $class = $db->table('classes')
+            // Cek kelas yang diwalikan
+            $waliClasses = $db->table('classes')
                 ->where('teacher_id', $user['teacher_id'])
-                ->get()->getRowArray();
+                ->get()->getResultArray();
 
-            if ($class) {
-                // guru kelas
+            $tas = $db->table('teaching_assignments ta')
+                ->join('classes c', 'c.id = ta.class_id')
+                ->join('subjects s', 's.id = ta.subject_id')
+                ->where('ta.teacher_id', $user['teacher_id'])
+                ->where('ta.academic_year_id', $activeYearId)
+                ->where('s.is_bk', 0)  // Kecualikan mapel BP/BK dari penilaian
+                ->select('c.id as class_id, c.name as class_name, s.id as subject_id, s.name as subject_name')
+                ->get()->getResultArray();
+
+            $distinctClassesInTa = array_unique(array_column($tas, 'class_id'));
+
+            // Jika hanya menjadi wali di 1 kelas dan TIDAK mengajar kelas lain, tampilkan antarmuka homeroom langsung
+            if (count($waliClasses) === 1 && (empty($distinctClassesInTa) || (count($distinctClassesInTa) === 1 && in_array($waliClasses[0]['id'], $distinctClassesInTa)))) {
+                $class = $waliClasses[0];
                 $role = 'homeroom';
                 $subjects = $db->table('teaching_assignments ta')
                     ->join('subjects s', 's.id = ta.subject_id')
@@ -57,17 +69,8 @@ class GradesManageController extends BaseController
                     ->select('s.id, s.name')
                     ->get()->getResultArray();
             } else {
-                // guru mapel
+                // Guru mengajar beberapa kelas (misal guru kelas 1A & 1B atau guru mapel)
                 $role = 'subject_teacher';
-
-                $tas = $db->table('teaching_assignments ta')
-                    ->join('classes c', 'c.id = ta.class_id')
-                    ->join('subjects s', 's.id = ta.subject_id')
-                    ->where('ta.teacher_id', $user['teacher_id'])
-                    ->where('ta.academic_year_id', $activeYearId)
-                    ->where('s.is_bk', 0)  // Kecualikan mapel BP/BK dari penilaian
-                    ->select('c.id as class_id, c.name as class_name, s.id as subject_id, s.name as subject_name')
-                    ->get()->getResultArray();
 
                 foreach ($tas as $row) {
                     $assignments[$row['class_id']]['class'] = [
@@ -182,27 +185,69 @@ class GradesManageController extends BaseController
             ->get()
             ->getResultArray();
 
-        // Materi sesuai semester (Ambil dari ATP)
-        $materials = $db->table('alur_tujuan_pembelajaran atp')
+        // Materi sesuai semester (Ambil dari ATP — dukung se-level jika 1 guru mengajar multi-kelas)
+        $classInfo  = $db->table('classes')->where('id', $classId)->get()->getRowArray();
+        $classLevel = (int) ($classInfo['level'] ?? 0);
+
+        $guruCount = $db->table('teaching_assignments ta')
+            ->distinct()->select('ta.teacher_id')
+            ->join('classes c', 'c.id = ta.class_id')
+            ->where('ta.subject_id', $subjectId)
+            ->where('c.level', $classLevel)
+            ->where('ta.academic_year_id', $academicYearId)
+            ->countAllResults();
+
+        $matBuilder = $db->table('alur_tujuan_pembelajaran atp')
             ->select('atp.id, atp.lingkup_materi as title, atp.semester')
+            ->join('classes c_atp', 'c_atp.id = atp.class_id', 'left')
             ->where('atp.subject_id', $subjectId)
-            ->where('atp.class_id', $classId)
-            ->where('atp.semester', $semester)
+            ->where('atp.semester', $semester);
+
+        if ($guruCount > 1) {
+            $hasOwnAtp = $db->table('alur_tujuan_pembelajaran')
+                ->where('subject_id', $subjectId)
+                ->where('class_id', $classId)
+                ->where('semester', $semester)
+                ->countAllResults() > 0;
+            if ($hasOwnAtp) {
+                $matBuilder->where('atp.class_id', $classId);
+            } else {
+                $matBuilder->where('c_atp.level', $classLevel);
+            }
+        } else {
+            $matBuilder->where('c_atp.level', $classLevel);
+        }
+
+        $materials = $matBuilder
+            ->groupBy('atp.id')
             ->orderBy('atp.urutan', 'ASC')
             ->get()
             ->getResultArray();
 
-        // Nilai formatif
+        // Nilai formatif — filter siswa kelas ini via student_records (bukan membatasi class_id pada ATP)
         $materialScores = $db->table('material_scores ms')
             ->select('ms.student_id, ms.material_id, ms.type, ms.score')
             ->join('alur_tujuan_pembelajaran atp', 'atp.id = ms.material_id')
             ->join('student_records sr', 'sr.student_id = ms.student_id')
             ->where('atp.subject_id', $subjectId)
-            ->where('atp.class_id', $classId)
+            ->where('sr.class_id', $classId)
             ->where('atp.semester', $semester)
             ->where('sr.academic_year_id', $academicYearId)
             ->get()
             ->getResultArray();
+
+        // Pastikan materi yang telah dinilai pada siswa kelas ini selalu masuk dalam daftar materials
+        $existingMatIds = array_column($materials, 'id');
+        $scoredMatIds   = array_unique(array_filter(array_column($materialScores, 'material_id')));
+        $missingMatIds  = array_diff($scoredMatIds, $existingMatIds);
+        if (!empty($missingMatIds)) {
+            $extraMaterials = $db->table('alur_tujuan_pembelajaran atp')
+                ->select('atp.id, atp.lingkup_materi as title, atp.semester')
+                ->whereIn('atp.id', $missingMatIds)
+                ->get()
+                ->getResultArray();
+            $materials = array_merge($materials, $extraMaterials);
+        }
 
         // Nilai sumatif
         $summativeScores = $db->table('summative_scores ss')
@@ -651,22 +696,39 @@ class GradesManageController extends BaseController
             return $this->response->setJSON(['status' => 'error', 'message' => 'Guru tidak ditemukan']);
         }
 
-        // cek apakah wali kelas
-        $class = $db->table('classes')
+        // Cek kelas yang diwalikan
+        $waliClasses = $db->table('classes')
             ->where('teacher_id', $teacher['id'])
-            ->get()->getRowArray();
+            ->get()->getResultArray();
 
-        if ($class) {
-            // wali kelas
-            $query = $db->table('teaching_assignments ta')
+        $query = $db->table('teaching_assignments ta')
+            ->join('classes c', 'c.id = ta.class_id')
+            ->join('subjects s', 's.id = ta.subject_id')
+            ->where('ta.teacher_id', $teacher['id'])
+            ->where('s.is_bk', 0);
+
+        if ($yearId) {
+            $query->where('ta.academic_year_id', $yearId);
+        }
+
+        $assignments = $query->select('c.id as class_id, c.name as class_name, s.id as subject_id, s.name as subject_name')
+            ->get()->getResultArray();
+
+        $distinctClassesInTa = array_unique(array_column($assignments, 'class_id'));
+
+        // Jika hanya menjadi wali di 1 kelas dan TIDAK mengajar kelas lain, tampilkan mode homeroom
+        if (count($waliClasses) === 1 && (empty($distinctClassesInTa) || (count($distinctClassesInTa) === 1 && in_array($waliClasses[0]['id'], $distinctClassesInTa)))) {
+            $class = $waliClasses[0];
+            $qSubjects = $db->table('teaching_assignments ta')
                 ->join('subjects s', 's.id = ta.subject_id')
-                ->where('ta.class_id', $class['id']);
+                ->where('ta.class_id', $class['id'])
+                ->where('s.is_bk', 0);
 
             if ($yearId) {
-                $query->where('ta.academic_year_id', $yearId);
+                $qSubjects->where('ta.academic_year_id', $yearId);
             }
 
-            $subjects = $query->select('s.id, s.name')
+            $subjects = $qSubjects->select('s.id, s.name')
                 ->get()->getResultArray();
 
             return $this->response->setJSON([
@@ -676,19 +738,6 @@ class GradesManageController extends BaseController
                 'subjects' => $subjects
             ]);
         }
-
-        // guru mapel
-        $query = $db->table('teaching_assignments ta')
-            ->join('classes c', 'c.id = ta.class_id')
-            ->join('subjects s', 's.id = ta.subject_id')
-            ->where('ta.teacher_id', $teacher['id']);
-
-        if ($yearId) {
-            $query->where('ta.academic_year_id', $yearId);
-        }
-
-        $assignments = $query->select('c.id as class_id, c.name as class_name, s.id as subject_id, s.name as subject_name')
-            ->get()->getResultArray();
 
         return $this->response->setJSON([
             'status' => 'ok',
@@ -999,7 +1048,6 @@ class GradesManageController extends BaseController
             ->join('alur_tujuan_pembelajaran atp', 'atp.id = ms.material_id')
             ->where('ms.student_id', $studentId)
             ->where('atp.subject_id', $subjectId)
-            ->where('atp.class_id', $classId)
             ->where('atp.semester', $semester)
             ->select('ms.score')
             ->get()->getResultArray();
@@ -1112,18 +1160,33 @@ class GradesManageController extends BaseController
             $classModel = new \App\Models\ClassModel();
             $classes = $classModel->getClassesByAcademicYear((int)$yearId);
         } else {
-            // Guru: hanya kelas yang diwalikan
+            // Guru: kelas yang diwalikan atau diajar
             $teacherId = $user['related_id'] ?? 0;
-            $classes = $db->table('classes')->where('teacher_id', $teacherId)->get()->getResultArray();
+            $waliClasses = $db->table('classes')->where('teacher_id', $teacherId)->get()->getResultArray();
+            $taughtClasses = $db->table('teaching_assignments ta')
+                ->select('c.*')
+                ->join('classes c', 'c.id = ta.class_id')
+                ->where('ta.teacher_id', $teacherId)
+                ->where('ta.academic_year_id', $yearId)
+                ->get()->getResultArray();
 
-            if (empty($classes)) {
-                // Guru bukan wali kelas — tidak punya akses ke rekap
-                return redirect()->to('admin/grades')->with('error', 'Fitur Rekap Nilai Kelas hanya tersedia untuk wali kelas.');
+            $classes = [];
+            $seenClassIds = [];
+            foreach (array_merge($waliClasses, $taughtClasses) as $c) {
+                if (!in_array($c['id'], $seenClassIds)) {
+                    $classes[] = $c;
+                    $seenClassIds[] = $c['id'];
+                }
             }
 
-            // Pastikan class_id yang diminta adalah kelas yang diwalikan guru ini
+            if (empty($classes)) {
+                // Guru bukan wali kelas dan belum ditugaskan mengajar kelas
+                return redirect()->to('admin/grades')->with('error', 'Fitur Rekap Nilai Kelas hanya tersedia untuk wali kelas atau pengajar kelas.');
+            }
+
+            // Pastikan class_id yang diminta adalah kelas yang diwalikan atau diajar guru ini
             if ($classId && !in_array($classId, array_column($classes, 'id'))) {
-                return redirect()->to('admin/grades/rekap')->with('error', 'Anda hanya dapat melihat rekap kelas yang Anda walikan.');
+                return redirect()->to('admin/grades/rekap')->with('error', 'Anda hanya dapat melihat rekap kelas yang Anda walikan atau ampu.');
             }
 
             if (!$classId && !empty($classes)) {
@@ -1407,8 +1470,8 @@ class GradesManageController extends BaseController
                 ->join('alur_tujuan_pembelajaran atp', 'atp.id = ms.material_id')
                 ->whereIn('ms.student_id', $studentIds)
                 ->whereIn('atp.subject_id', $subjectIds)
-                ->where('atp.class_id', $classId)
                 ->where('atp.semester', $semester)
+                ->where('ms.score IS NOT NULL')
                 ->groupBy('ms.student_id, atp.subject_id')
                 ->get()->getResultArray();
             foreach ($fRows as $r) {
