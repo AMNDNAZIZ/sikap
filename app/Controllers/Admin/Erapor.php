@@ -207,8 +207,8 @@ class Erapor extends BaseController
             ->join('alur_tujuan_pembelajaran atp', 'atp.id = ms.material_id')
             ->whereIn('ms.student_id', $studentIds)
             ->where('atp.subject_id', $subjectId)
-            ->where('atp.class_id', $classId)
             ->where('atp.semester', $semester)
+            ->where('ms.score IS NOT NULL')
             ->groupBy('ms.student_id')
             ->get()->getResultArray();
         $formatifAvg = array_column($fRows, 'avg_score', 'student_id');
