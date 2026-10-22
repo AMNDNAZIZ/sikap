@@ -1,8 +1,8 @@
 {
     "version": "2.0.4",
-    "generated": "2026-10-21 14:33:54",
+    "generated": "2026-10-22 08:09:23",
     "last_update": "2026-10-12 00:00",
-    "total_files": 1051,
+    "total_files": 1052,
     "files": {
         "app/.htaccess": "0a949a74edc566be1e1944fbfab681a5",
         "app/Commands/CheckLevel.php": "f8fa76ecd1644a8e469de5fc126217b7",
@@ -801,7 +801,7 @@
         "app/Views/forum/index.php": "4ded2cc629c6ba1c7ffc772693f0e9a4",
         "app/Views/forum/kelas.php": "ab53f0cbc7fd28f1bcfa25cc7c5ef31a",
         "app/Views/forum/show.php": "341180675a5decf5cffce1bfbb79d989",
-        "app/Views/index.php": "6eb30f6411e1a702d7b3a028e7af6ee1",
+        "app/Views/index.php": "cd0aba74b733117ffe48f152a6a66453",
         "app/Views/kalender/index.php": "0705d0592376ae66fd50c6dd821da658",
         "app/Views/layouts/app.php": "86d8e06623841bce5be1dd9d08fce137",
         "app/Views/layouts/cbt.php": "a0df7cc25f613268f0daf252dd599fef",
@@ -907,6 +907,7 @@
         "public/css/styles.css": "d661f5cd31f75cb3def50d8bc0e50460",
         "public/favicon.ico": "b0a102991e7332643ae57365023c00c8",
         "public/img/favicon.ico": "b07d0b5ad41917eb0026a1d835a1e213",
+        "public/img/paskibra_indonesia.jpg": "b08ecd6e3824eb7037d528c6068e7aab",
         "public/index.php": "509fbc924e86e981b08c594124519649",
         "public/js/ckeditor-init.js": "0f79066d72123bbcc89738580f2a7eb2",
         "public/js/emoji-button-3.0.3.min.js": "36e960382dcb6b64cdf0a2e124104473",
