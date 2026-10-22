@@ -185,7 +185,7 @@
 
           <!-- Teks Soal -->
           <div class="question-text mb-3">
-            <?= $q['text'] ?>
+            <?= str_replace(['\\r\\n', '\\n', '\\r'], "\n", $q['text']) ?>
           </div>
 
           <?php if (in_array($q['type'], ['pg', 'pilihan_ganda', 'pg_kompleks', 'pgk'])): ?>
@@ -211,7 +211,7 @@
                 ?>
                 <li class="option-item <?= implode(' ', $classes) ?>">
                   <strong><?= esc($key) ?>.</strong>
-                  <div><?= strip_tags($optText, '<p><img><br><b><i><u><strong><span>') ?></div>
+                  <div><?= strip_tags(str_replace(['\\r\\n', '\\n', '\\r'], "\n", $optText), '<p><img><br><b><i><u><strong><span>') ?></div>
                 </li>
               <?php endforeach; ?>
             </ul>

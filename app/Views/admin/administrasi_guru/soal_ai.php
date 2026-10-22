@@ -198,6 +198,14 @@ function setGenerateButtons(disabled) {
     document.getElementById('btn-generate').disabled = disabled;
     document.getElementById('btn-manual-prompt').disabled = disabled;
 }
+
+function unescapeNewlines(text) {
+    if (text === null || text === undefined) return '';
+    return String(text)
+        .replace(/\\r\\n/g, '\n')
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\n');
+}
 // Data ATP untuk sumatif
 const allAtp = <?= json_encode($atp_list) ?>;
 
@@ -331,6 +339,16 @@ document.getElementById('btn-generate')?.addEventListener('click', async functio
         if (data.csrf) csrfHash = data.csrf;
 
         if (data.success && Array.isArray(data.soal)) {
+            data.soal.forEach(s => {
+                if (s.question) s.question = unescapeNewlines(s.question);
+                if (s.options && typeof s.options === 'object') {
+                    for (const k in s.options) {
+                        s.options[k] = unescapeNewlines(s.options[k]);
+                    }
+                }
+                if (s.answer) s.answer = unescapeNewlines(s.answer);
+                if (s.explanation) s.explanation = unescapeNewlines(s.explanation);
+            });
             generatedSoal = data.soal;
             generatedTipe = 'multi';
             renderHasil(data.soal);
@@ -383,9 +401,18 @@ function renderHasil(soal) {
      * PENTING: JANGAN memecah teks dengan <span> di sekitar LaTeX karena
      * memecah delimiter membuat MathJax gagal ("Math input error").
      */
+    function unescapeNewlines(text) {
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/\\r\\n/g, '\n')
+            .replace(/\\n/g, '\n')
+            .replace(/\\r/g, '\n');
+    }
+
     function renderMath(text) {
         if (text === null || text === undefined) return '';
-        return escHtml(String(text));
+        const cleaned = unescapeNewlines(text);
+        return escHtml(cleaned).replace(/\r?\n/g, '<br>');
     }
 
     function escHtml(s) {
@@ -934,6 +961,12 @@ function parseAiJson(raw) {
     // 3. Hapus karakter tidak terlihat
     s = s.replace(/[\uFEFF\u200B\u200C\u200D\u00AD]/g, '');
 
+    // Coba decode langsung jika output sudah valid JSON
+    try {
+        const direct = JSON.parse(s);
+        if (Array.isArray(direct) && direct.length > 0) return direct;
+    } catch (_) {}
+
     // 4b. Bersihkan kutipan escaped di dalam konten teks:
     // Ubah \" atau \\" (kutipan ayat Al-Qur'an, hadits, istilah) menjadi petik tunggal (')
     // agar tanda kutip internal tidak merusak struktur dan penutupan token JSON
@@ -997,9 +1030,20 @@ function fixLatexBackslashes(str) {
             out += '\\' + next; i++; continue;
         }
 
-        // Huruf escape JSON (n r t b f) — bisa jadi kontrol ATAU awal perintah LaTeX
-        if ('nrtbf'.includes(next)) {
-            // Jika huruf berikutnya juga huruf → perintah LaTeX (\frac, \times, \nu jarang)
+        // Khusus \n: \n di JSON adalah newline control character.
+        // HANYA gandakan jika ini adalah perintah LaTeX spesifik (misal \neq, \notin, \nabla, \nu, \neg)
+        if (next === 'n') {
+            const rest = str.substring(i + 1);
+            if (/^(?:neq|notin|nabla|neg|nu|ne|nearrow|nwarrow)\b/i.test(rest)) {
+                out += '\\\\'; // gandakan backslash untuk perintah LaTeX
+            } else {
+                out += '\\n'; i++; // biarkan sebagai escape newline JSON sah
+            }
+            continue;
+        }
+
+        // Huruf escape JSON (r t b f) — bisa jadi kontrol ATAU awal perintah LaTeX (\frac, \times)
+        if ('rtbf'.includes(next)) {
             if (/[a-zA-Z]/.test(after)) {
                 out += '\\\\'; // gandakan, huruf perintah diproses di iterasi berikut
             } else {
@@ -1058,8 +1102,18 @@ document.getElementById('parseSoalManual').addEventListener('click', function ()
         try {
             const rawArr = parseAiJson(raw);
 
-            // Normalisasi tipe
-            rawArr.forEach(s => { s.type = normalizeSoalType(s.type); });
+            // Normalisasi tipe & bersihkan literal newline yang mungkin tertinggal
+            rawArr.forEach(s => {
+                s.type = normalizeSoalType(s.type);
+                if (s.question) s.question = unescapeNewlines(s.question);
+                if (s.options && typeof s.options === 'object') {
+                    for (const k in s.options) {
+                        s.options[k] = unescapeNewlines(s.options[k]);
+                    }
+                }
+                if (s.answer) s.answer = unescapeNewlines(s.answer);
+                if (s.explanation) s.explanation = unescapeNewlines(s.explanation);
+            });
 
             // Validasi field wajib — tampilkan konfirmasi jika ada masalah
             const errs = validateSoalArr(rawArr);

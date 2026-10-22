@@ -950,7 +950,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                 <?php if ($useRawText): ?>
                   <!-- Content will be cleaned and rendered by JavaScript -->
                 <?php else: ?>
-                  <?= $qText ?: '<div class="alert alert-warning">Konten bacaan tidak tersedia.</div>' ?>
+                  <?= !empty($qText) ? nl2br(str_replace(["\\r\\n", "\\n", "\\r"], "\n", $qText)) : '<div class="alert alert-warning">Konten bacaan tidak tersedia.</div>' ?>
                 <?php endif; ?>
               </div>
             </div>
@@ -993,7 +993,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                         <div class="letter-circle"><?= $letter ?></div>
                       <?php endif; ?>
 
-                      <div class="option-text"><?= $val ?></div>
+                      <div class="option-text"><?= nl2br(str_replace(["\\r\\n", "\\n", "\\r"], "\n", $val)) ?></div>
                     </label>
                     <?php $i++; endforeach; ?>
 
@@ -1016,7 +1016,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                           $ansValue = $savedBS[$rowIdx] ?? '';
                           ?>
                           <tr>
-                            <td class="ps-3 small"><?= $opts[$letter] ?></td>
+                            <td class="ps-3 small"><?= nl2br(str_replace(["\\r\\n", "\\n", "\\r"], "\n", $opts[$letter])) ?></td>
                             <td class="text-center"><input type="radio" name="bs_<?= $qid ?>_<?= $letter ?>" value="B"
                                 class="inp-bs" data-qid="<?= $qid ?>" data-row="<?= $rowIdx ?>" <?= $ansValue === 'B' ? 'checked' : '' ?>></td>
                             <td class="text-center"><input type="radio" name="bs_<?= $qid ?>_<?= $letter ?>" value="S"
@@ -1559,7 +1559,11 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
     // Function to clean raw text (same as admin detail view)
     function cleanRawText(html) {
+      if (!html) return '';
       let out = html;
+
+      // 0. Normalisasi literal \n dan \r\n jika tersimpan sebagai teks literal
+      out = out.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\\r/g, '\n');
 
       // 1. Simpan tag img dulu dengan placeholder
       const imgTags = [];

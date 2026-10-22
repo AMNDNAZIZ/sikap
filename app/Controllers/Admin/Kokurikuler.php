@@ -590,7 +590,14 @@ class Kokurikuler extends BaseController
                 'Authorization: Bearer ' . $apiKey,
                 'Content-Type: application/json'
             ];
-            $groqModels = ['openai/gpt-oss-120b', 'llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
+            // Model rekomendasi resmi Groq (Llama 3.3 70B sudah didekomisi per 16 Agustus 2026)
+            $groqModels = [
+                'openai/gpt-oss-120b',
+                'qwen/qwen3.6-27b',
+                'openai/gpt-oss-20b',
+                'qwen-2.5-32b',
+                'llama-3.1-8b-instant'
+            ];
 
             foreach ($groqModels as $model) {
                 $payload = json_encode([
@@ -599,7 +606,8 @@ class Kokurikuler extends BaseController
                         ["role" => "user", "content" => $prompt]
                     ],
                     "temperature" => 0.7,
-                    "max_tokens" => 8192
+                    "max_tokens" => 8192,
+                    "reasoning_format" => "parsed"
                 ]);
 
                 $attempt = 0;
@@ -634,7 +642,7 @@ class Kokurikuler extends BaseController
             }
         } else {
             // Gemini (dengan fallback model)
-            $geminiModels = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
+            $geminiModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
             $headers = ['Content-Type: application/json'];
             $payload = json_encode([
                 "contents" => [
@@ -707,8 +715,16 @@ class Kokurikuler extends BaseController
         $resData = json_decode($response, true);
         if ($aiProvider === 'groq') {
             $content = $resData['choices'][0]['message']['content'] ?? '';
+            $content = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $content);
         } else {
-            $content = $resData['candidates'][0]['content']['parts'][0]['text'] ?? '';
+            $content = '';
+            if (!empty($resData['candidates'][0]['content']['parts'])) {
+                foreach ($resData['candidates'][0]['content']['parts'] as $part) {
+                    if (!empty($part['text'])) {
+                        $content .= $part['text'];
+                    }
+                }
+            }
         }
 
         // Log raw response for debugging

@@ -51,7 +51,7 @@ window.MathJax = {
             <tr>
               <td><?= $i + 1 ?></td>
               <td>
-                <?= strip_tags(substr($q['question_text'], 0, 100)) ?>
+                <?= strip_tags(substr(str_replace(['\\r\\n', '\\n', '\\r', "\r\n", "\r", "\n"], ' ', $q['question_text']), 0, 100)) ?>
                 <?= strlen($q['question_text']) > 100 ? '...' : '' ?>
               </td>
               <td>
@@ -230,8 +230,12 @@ window.MathJax = {
       $('#viewIndex').text(index + 1);
       $('#viewScore').text(q.score);
       function cleanRawText(html) {
+        if (!html) return '';
         let out = html;
         
+        // Normalisasi literal \n dan \r\n jika masih tersimpan sebagai teks literal
+        out = out.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\\r/g, '\n');
+
         // Preserve img tags by temporarily replacing them
         const imgTags = [];
         out = out.replace(/<img[^>]*>/gi, function(match) {
@@ -268,8 +272,21 @@ window.MathJax = {
           out = out.replace(`___IMG_PLACEHOLDER_${index}___`, imgTag);
         });
 
+        // Ganti newline asli yang tersisa menjadi <br> agar baris baru dirender
+        out = out.replace(/\r?\n/g, '<br>');
+
         return out.trim();
       }
+
+      function formatOptionText(text) {
+        if (!text) return '';
+        return String(text)
+          .replace(/\\r\\n/g, '<br>')
+          .replace(/\\n/g, '<br>')
+          .replace(/\\r/g, '<br>')
+          .replace(/\r?\n/g, '<br>');
+      }
+
       let cleanText = cleanRawText(q.text);
       $('#viewText').html(cleanText);
 
@@ -284,7 +301,7 @@ window.MathJax = {
             html += `
             <div class="p-2 mb-2 border rounded d-flex align-items-center ${active}">
               <div class="me-2 fw-bold">${opt}.</div>
-              <div>${parsed[opt]}</div>
+              <div>${formatOptionText(parsed[opt])}</div>
             </div>
           `;
           }
@@ -307,7 +324,7 @@ window.MathJax = {
             const keyVal = keys[idx] || '-';
             html += `
               <tr>
-                <td>${parsed[opt]}</td>
+                <td>${formatOptionText(parsed[opt])}</td>
                 <td class="text-center fw-bold text-primary">${keyVal}</td>
               </tr>
             `;
