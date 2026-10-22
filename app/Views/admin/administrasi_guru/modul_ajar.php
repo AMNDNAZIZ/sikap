@@ -36,15 +36,15 @@
                     <div class="mb-3">
                         <label class="form-label font-weight-bold">Pilih Provider AI:</label>
                         <select name="ai_provider" class="form-select mb-2" id="providerSelect">
-                            <option value="groq" <?= $ai_provider == 'groq' ? 'selected' : '' ?>>Groq (OpenAI GPT-OSS 120B / Llama - Ultra Fast & Kuota Tinggi)</option>
-                            <option value="gemini" <?= $ai_provider == 'gemini' ? 'selected' : '' ?>>Google Gemini (Flash)</option>
+                            <option value="groq" <?= $ai_provider == 'groq' ? 'selected' : '' ?>>Groq (OpenAI GPT-OSS 120B / Qwen3.6 27B - Ultra Fast & Kuota Tinggi)</option>
+                            <option value="gemini" <?= $ai_provider == 'gemini' ? 'selected' : '' ?>>Google Gemini (2.0 Flash / 1.5 Flash)</option>
                         </select>
                         <div id="groqInstructions" class="small text-muted p-2 bg-light rounded <?= $ai_provider != 'groq' ? 'd-none' : '' ?>">
-                            <p class="mb-1"><strong>Groq (Sangat Disarankan):</strong> Didukung mesin OpenAI GPT-OSS 120B dan Llama via Groq LPU, proses generate sangat cepat dan jarang limit.</p>
+                            <p class="mb-1"><strong>Groq (Sangat Disarankan):</strong> Didukung mesin OpenAI GPT-OSS 120B dan Qwen3.6 27B via Groq LPU, proses generate sangat cepat dan jarang limit.</p>
                             <a href="https://console.groq.com/keys" target="_blank" class="btn btn-sm btn-link p-0 text-success">Dapatkan API Key Groq <i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div id="geminiInstructions" class="small text-muted p-2 bg-light rounded <?= $ai_provider != 'gemini' ? 'd-none' : '' ?>">
-                            <p class="mb-1"><strong>Google Gemini:</strong> Gratis via Google AI Studio. Didukung model Gemini 2.5 Flash / 1.5 Flash.</p>
+                            <p class="mb-1"><strong>Google Gemini:</strong> Gratis via Google AI Studio. Didukung model Gemini 2.0 Flash / 1.5 Flash.</p>
                             <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn btn-sm btn-link p-0">Dapatkan API Key Gemini <i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                     </div>

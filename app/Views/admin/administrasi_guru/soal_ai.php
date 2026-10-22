@@ -198,6 +198,14 @@ function setGenerateButtons(disabled) {
     document.getElementById('btn-generate').disabled = disabled;
     document.getElementById('btn-manual-prompt').disabled = disabled;
 }
+
+function unescapeNewlines(text) {
+    if (text === null || text === undefined) return '';
+    return String(text)
+        .replace(/\\r\\n/g, '\n')
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\n');
+}
 // Data ATP untuk sumatif
 const allAtp = <?= json_encode($atp_list) ?>;
 
@@ -952,6 +960,12 @@ function parseAiJson(raw) {
 
     // 3. Hapus karakter tidak terlihat
     s = s.replace(/[\uFEFF\u200B\u200C\u200D\u00AD]/g, '');
+
+    // Coba decode langsung jika output sudah valid JSON
+    try {
+        const direct = JSON.parse(s);
+        if (Array.isArray(direct) && direct.length > 0) return direct;
+    } catch (_) {}
 
     // 4b. Bersihkan kutipan escaped di dalam konten teks:
     // Ubah \" atau \\" (kutipan ayat Al-Qur'an, hadits, istilah) menjadi petik tunggal (')

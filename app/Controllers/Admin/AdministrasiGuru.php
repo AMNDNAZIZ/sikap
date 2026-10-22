@@ -387,7 +387,14 @@ class AdministrasiGuru extends BaseController
         $school = $this->db->table('school_profile')->get()->getRowArray();
         $levelId = $school['level'] ?? 1;
         
-        $data['mapel_master'] = $this->mapelMasterModel->where('jenjang_id', $levelId)->findAll();
+        $data['school_level'] = $levelId;
+        $data['school_level_name'] = match((int)$levelId) {
+            1 => 'SD / Sederajat',
+            2 => 'SMP / Sederajat',
+            3 => 'SMA / Sederajat',
+            default => 'Unknown'
+        };
+        $data['mapel_master'] = $this->mapelMasterModel->where('jenjang_id', $levelId)->orderBy('nama', 'ASC')->findAll();
         
         return view('admin/administrasi_guru/mapping', $data);
     }
@@ -2185,8 +2192,14 @@ class AdministrasiGuru extends BaseController
                 'Authorization: Bearer ' . $apiKey,
                 'Content-Type: application/json'
             ];
-            // Prioritas model: openai/gpt-oss-120b (mesin OpenAI di Groq), lalu llama-3.1-8b-instant, lalu llama-3.3-70b-versatile
-            $groqModels = ['openai/gpt-oss-120b', 'llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
+            // Model rekomendasi resmi Groq (Llama 3.3 70B sudah didekomisi per 16 Agustus 2026)
+            $groqModels = [
+                'openai/gpt-oss-120b',
+                'qwen/qwen3.6-27b',
+                'openai/gpt-oss-20b',
+                'qwen-2.5-32b',
+                'llama-3.1-8b-instant'
+            ];
 
             foreach ($groqModels as $model) {
                 $payload = json_encode([
@@ -2195,7 +2208,8 @@ class AdministrasiGuru extends BaseController
                         ["role" => "user", "content" => $prompt]
                     ],
                     "temperature" => 0.7,
-                    "max_tokens" => 8192
+                    "max_tokens" => 8192,
+                    "reasoning_format" => "parsed"
                 ]);
 
                 $attempt = 0;
@@ -2231,7 +2245,7 @@ class AdministrasiGuru extends BaseController
             }
         } else {
             // Gemini (dengan fallback model)
-            $geminiModels = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
+            $geminiModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
             $headers = ['Content-Type: application/json'];
             $payload = json_encode([
                 "contents" => [
@@ -2299,14 +2313,23 @@ class AdministrasiGuru extends BaseController
         $resData = json_decode($response, true);
         if ($aiProvider === 'groq') {
             $content = $resData['choices'][0]['message']['content'] ?? '';
+            $content = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $content);
+            $blockedReason = $resData['choices'][0]['finish_reason'] ?? 'Unknown';
         } else {
-            $content = $resData['candidates'][0]['content']['parts'][0]['text'] ?? '';
+            $content = '';
+            if (!empty($resData['candidates'][0]['content']['parts'])) {
+                foreach ($resData['candidates'][0]['content']['parts'] as $part) {
+                    if (!empty($part['text'])) {
+                        $content .= $part['text'];
+                    }
+                }
+            }
+            $blockedReason = $resData['candidates'][0]['finishReason'] ?? ($resData['promptFeedback']['blockReason'] ?? 'Unknown');
         }
         $content = preg_replace('/```(?:html)?(.*?)```/s', '$1', $content);
 
         if (empty(trim($content))) {
-            $blockedReason = $resData['candidates'][0]['finishReason'] ?? ($resData['promptFeedback']['blockReason'] ?? 'Unknown');
-            return redirect()->to($redirectUrl)->with('error', "AI tidak mengembalikan teks modul ajar (Status: {$blockedReason}). Silakan coba generate ulang atau gunakan provider Groq.");
+            return redirect()->to($redirectUrl)->with('error', "AI tidak mengembalikan teks modul ajar (Status: {$blockedReason}). Silakan coba generate ulang atau gunakan provider lain.");
         }
 
         // Jalankan auto-healer untuk menyempurnakan setiap pertemuan (terutama pertemuan terakhir)
@@ -3335,13 +3358,22 @@ class AdministrasiGuru extends BaseController
         if ($aiProvider === 'groq') {
             $url = 'https://api.groq.com/openai/v1/chat/completions';
             $headers = ['Authorization: Bearer ' . $apiKey, 'Content-Type: application/json'];
-            $groqModels = ['openai/gpt-oss-120b', 'llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
+            // Model rekomendasi resmi Groq (Llama 3.3 70B sudah didekomisi per 16 Agustus 2026)
+            $groqModels = [
+                'openai/gpt-oss-120b',
+                'qwen/qwen3.6-27b',
+                'openai/gpt-oss-20b',
+                'qwen-2.5-32b',
+                'llama-3.1-8b-instant'
+            ];
 
             foreach ($groqModels as $model) {
                 $payload = json_encode([
                     "model" => $model,
                     "messages" => [["role" => "user", "content" => $prompt]],
-                    "temperature" => 0.7
+                    "temperature" => 0.7,
+                    "max_tokens" => 8192,
+                    "reasoning_format" => "parsed"
                 ]);
 
                 $attempt = 0;
@@ -3353,7 +3385,7 @@ class AdministrasiGuru extends BaseController
                     curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
                     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
                     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-                    curl_setopt($ch, CURLOPT_TIMEOUT, 90);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 120);
                     $response = curl_exec($ch);
                     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
                     curl_close($ch);
@@ -3362,8 +3394,8 @@ class AdministrasiGuru extends BaseController
                         break 2;
                     }
 
-                    if (in_array($httpCode, [400, 404])) {
-                        break;
+                    if (in_array($httpCode, [400, 401, 403, 404])) {
+                        break 2; // Jika API key tidak valid (401/403) atau model salah, tidak perlu retry loop
                     }
 
                     if ($httpCode === 429 || $httpCode === 503) {
@@ -3374,12 +3406,13 @@ class AdministrasiGuru extends BaseController
                 }
             }
         } else {
-            $geminiModels = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
+            $geminiModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
             $headers = ['Content-Type: application/json'];
             $payload = json_encode([
                 "contents" => [["parts" => [["text" => $prompt]]]],
                 "generationConfig" => [
                     "temperature" => 0.7,
+                    "maxOutputTokens" => 8192
                 ]
             ]);
 
@@ -3394,7 +3427,7 @@ class AdministrasiGuru extends BaseController
                     curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
                     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
                     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-                    curl_setopt($ch, CURLOPT_TIMEOUT, 90);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 120);
                     $response = curl_exec($ch);
                     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
                     curl_close($ch);
@@ -3403,8 +3436,8 @@ class AdministrasiGuru extends BaseController
                         break 2;
                     }
 
-                    if (in_array($httpCode, [400, 404])) {
-                        break;
+                    if (in_array($httpCode, [400, 401, 403, 404])) {
+                        break 2;
                     }
 
                     if ($httpCode === 429 || $httpCode === 503) {
@@ -3419,8 +3452,10 @@ class AdministrasiGuru extends BaseController
         if ($httpCode != 200) {
             $errRes = json_decode($response, true);
             $errMsg = $errRes['error']['message'] ?? 'HTTP ' . $httpCode;
-            if ($httpCode == 503) {
-                $errMsg .= " (Server sedang padat. Coba lagi atau gunakan provider Groq).";
+            if ($httpCode == 401 || $httpCode == 403) {
+                $errMsg .= " (API Key tidak valid atau kedaluwarsa. Silakan periksa kembali konfigurasi API Key di menu Modul Ajar).";
+            } elseif ($httpCode == 503) {
+                $errMsg .= " (Server sedang padat. Coba lagi atau gunakan provider lain).";
             }
             return $this->response->setJSON(['success' => false, 'error' => "AI error: {$errMsg}"]);
         }
@@ -3428,12 +3463,21 @@ class AdministrasiGuru extends BaseController
         $resData = json_decode($response, true);
         if ($aiProvider === 'groq') {
             $content = $resData['choices'][0]['message']['content'] ?? '';
+            $content = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $content);
+            $finishReason = $resData['choices'][0]['finish_reason'] ?? 'Empty';
         } else {
-            $content = $resData['candidates'][0]['content']['parts'][0]['text'] ?? '';
+            $content = '';
+            if (!empty($resData['candidates'][0]['content']['parts'])) {
+                foreach ($resData['candidates'][0]['content']['parts'] as $part) {
+                    if (!empty($part['text'])) {
+                        $content .= $part['text'];
+                    }
+                }
+            }
+            $finishReason = $resData['candidates'][0]['finishReason'] ?? ($resData['promptFeedback']['blockReason'] ?? 'Empty');
         }
 
         if (empty(trim($content))) {
-            $finishReason = $resData['candidates'][0]['finishReason'] ?? ($resData['promptFeedback']['blockReason'] ?? 'Empty');
             return $this->response->setJSON(['success' => false, 'error' => "AI tidak menghasilkan konten soal ({$finishReason}). Coba generate ulang."]);
         }
 
