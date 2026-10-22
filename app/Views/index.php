@@ -1235,8 +1235,8 @@
         if (strpos($text, 'musik') !== false || strpos($text, 'band') !== false || strpos($text, 'paduan suara') !== false || strpos($text, 'vokal') !== false) {
           return 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80'; // Musik & vokal
         }
-        if (strpos($text, 'paskibra') !== false) {
-          return 'https://images.unsplash.com/photo-1532375810709-75b1da00537c?auto=format&fit=crop&w=800&q=80'; // Baris-berbaris & bendera
+        if (strpos($text, 'paskibra') !== false || strpos($text, 'paskibraka') !== false || strpos($text, 'baris') !== false || strpos($text, 'bendera') !== false) {
+          return base_url('img/paskibra_indonesia.jpg'); // Bendera Merah Putih Indonesia & Paskibra
         }
         if (strpos($text, 'pmr') !== false || strpos($text, 'uks') !== false || strpos($text, 'palang merah') !== false || strpos($text, 'kesehatan') !== false) {
           return 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=800&q=80'; // PMR & kesehatan
@@ -1274,7 +1274,7 @@
         if (strpos($text, 'musik') !== false || strpos($text, 'band') !== false || strpos($text, 'suara') !== false) return 'bi-music-note-beamed';
         if (strpos($text, 'robot') !== false || strpos($text, 'coding') !== false || strpos($text, 'komputer') !== false) return 'bi-cpu';
         if (strpos($text, 'pmr') !== false || strpos($text, 'uks') !== false) return 'bi-heart-pulse';
-        if (strpos($text, 'paskibra') !== false) return 'bi-flag';
+        if (strpos($text, 'paskibra') !== false || strpos($text, 'paskibraka') !== false || strpos($text, 'bendera') !== false) return 'bi-flag';
         if (strpos($text, 'sains') !== false || strpos($text, 'kir') !== false) return 'bi-lightbulb';
         if (strpos($text, 'rohis') !== false || strpos($text, 'tahfidz') !== false) return 'bi-book';
         if (strpos($text, 'jurnalistik') !== false || strpos($text, 'fotografi') !== false) return 'bi-camera';
