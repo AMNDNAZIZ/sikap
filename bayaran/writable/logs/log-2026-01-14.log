@@ -1,4 +1,0 @@
-ERROR - 2026-01-14 15:06:02 --> Insert pembayaran gagal: {"jumlah_bayar":"The jumlah_bayar field must contain a number greater than 0."}
-ERROR - 2026-01-14 15:06:02 --> Bayar gagal: "Gagal menyimpan pembayaran."
-ERROR - 2026-01-14 15:06:07 --> Insert pembayaran gagal: {"jumlah_bayar":"The jumlah_bayar field must contain a number greater than 0."}
-ERROR - 2026-01-14 15:06:07 --> Bayar gagal: "Gagal menyimpan pembayaran."

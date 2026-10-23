@@ -390,6 +390,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     // Integrasi Pembayaran (Admin Only)
     $routes->get('settings/payment', 'SettingsController::payment', $auth1);
     $routes->post('settings/payment/save', 'SettingsController::savePayment', $auth1);
+    $routes->post('settings/payment/test', 'SettingsController::testPayment', $auth1);
 
     // Cache CBT Settings (Admin Only)
     $routes->get('settings/session', 'SessionSettings::index', $auth1);
