@@ -1,6 +1,6 @@
 {
     "version": "2.0.4",
-    "generated": "2026-10-24 18:42:16",
+    "generated": "2026-10-24 18:50:16",
     "last_update": "2026-10-12 00:00",
     "total_files": 1052,
     "files": {
@@ -523,7 +523,7 @@
         "app/Views/admin/buku_tamu/index.php": "48355a2b8dec9a4506ca9791477c462d",
         "app/Views/admin/buku_tamu/print_qr.php": "fda9da031c77f4c85f323153df4ef2fd",
         "app/Views/admin/cbt/aktivitas/detail.php": "d27403998e2e32aa6b4042fda7dc4b98",
-        "app/Views/admin/cbt/aktivitas/index.php": "c7a804205342efc123fc2fd7218532de",
+        "app/Views/admin/cbt/aktivitas/index.php": "1dabf06420c4adf82ac1986a8388daee",
         "app/Views/admin/cbt/aktivitas/laporan_jawaban.php": "8ef74ee94964ce63e5daba077f56ec12",
         "app/Views/admin/cbt/aktivitas/modal_nilai_esai.php": "3f558ee2324fa5a86f8ad5d2a4f164ac",
         "app/Views/admin/cbt/aktivitas/pdf_laporan_jawaban.php": "50e826d3f719dd73feb18eaefcbcbd6e",
