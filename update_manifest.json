@@ -1,6 +1,6 @@
 {
     "version": "2.0.4",
-    "generated": "2026-10-24 18:50:16",
+    "generated": "2026-10-24 19:28:38",
     "last_update": "2026-10-12 00:00",
     "total_files": 1052,
     "files": {
@@ -532,10 +532,10 @@
         "app/Views/admin/cbt/attendance/pdf.php": "8b37722f550f114eecb3c9ccfc1024d1",
         "app/Views/admin/cbt/attendance/print.php": "97e59620b60d79f82639860f8d52aeee",
         "app/Views/admin/cbt/banksoal/_form_soal.php": "184f0a4a65af0da2181080630621723a",
-        "app/Views/admin/cbt/banksoal/detail.php": "f160a7f4279159f96a2848807985b3d9",
+        "app/Views/admin/cbt/banksoal/detail.php": "fab11dd7368b06b1b7dbe2640395f6c0",
         "app/Views/admin/cbt/banksoal/edit_soal.php": "47849c521de80e652c1c38de63e75d2b",
         "app/Views/admin/cbt/banksoal/form.php": "4260ffe529088c2750317b85c6d8cf21",
-        "app/Views/admin/cbt/banksoal/index.php": "4111267bd5c88635ed165ad5ceb11186",
+        "app/Views/admin/cbt/banksoal/index.php": "9ddc64551cde944ad34aecd452d4030c",
         "app/Views/admin/cbt/banksoal/print.php": "eed62be2c69fa7db3c24aae36192238b",
         "app/Views/admin/cbt/banksoal/tambah_soal.php": "31d7e336692f7b723418bbe50cf7c6c0",
         "app/Views/admin/cbt/convert/index.php": "04fbf43e10a2451f0d8b76a95680f9e2",
