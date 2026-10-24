@@ -1,16 +1,17 @@
-<div class="p-3">
+<div class="p-2 p-md-3">
   <form id="formNilaiEsai">
     <?= csrf_field() ?>
     <input type="hidden" name="test_id" value="<?= esc($test_id) ?>">
     <input type="hidden" name="student_id" value="<?= esc($student_id) ?>">
 
+    <div class="table-responsive">
     <table class="table table-bordered align-middle">
       <thead class="table-warning text-center">
         <tr>
           <th width="5%">No</th>
           <th>Soal Esai</th>
-          <th width="25%">Jawaban Siswa</th>
-          <th width="10%">Nilai</th>
+          <th width="35%">Jawaban Siswa</th>
+          <th width="100">Nilai</th>
         </tr>
       </thead>
       <tbody>
@@ -18,28 +19,31 @@
         $no = 1;
         foreach ($soal as $s): ?>
           <tr>
-            <td class="text-center"><?= $no++ ?></td>
+            <td class="text-center fw-bold"><?= $no++ ?></td>
             <td><?= esc($s['question_text']) ?></td>
-            <td><?= esc($s['answer'] ?? '-') ?></td>
+            <td class="bg-light"><?= esc($s['answer'] ?? '-') ?></td>
             <td class="text-center">
               <input type="number" name="scores[<?= $s['id'] ?>]"
-                class="form-control form-control-sm score-input text-center" min="0" max="100"
-                value="<?= esc($s['score'] ?? '') ?>">
+                class="form-control form-control-sm score-input text-center fw-bold" min="0" max="100"
+                value="<?= esc($s['score'] ?? '') ?>" style="min-width: 70px;">
             </td>
           </tr>
         <?php endforeach; ?>
       </tbody>
     </table>
+    </div>
 
-    <div class="d-flex justify-content-between align-items-center mt-3">
-      <div>
-        <strong>Rata-rata Esai: </strong><span id="rataEsai">0</span><br>
-        <strong>Nilai Akhir (× bobot <?= $bobot_esai ?>%): </strong><span id="nilaiAkhir">0</span>
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mt-3">
+      <div class="p-2 bg-light rounded w-100 w-sm-auto">
+        <strong>Rata-rata Esai: </strong><span id="rataEsai" class="fw-bold text-primary">0</span><br>
+        <strong>Nilai Akhir (× bobot <?= $bobot_esai ?>%): </strong><span id="nilaiAkhir" class="fw-bold text-success">0</span>
       </div>
-      <button type="submit" class="btn btn-success">
-        <i class="bi bi-save"></i> Simpan Semua Nilai
+      <button type="submit" class="btn btn-success w-100 w-sm-auto py-2">
+        <i class="bi bi-save me-1"></i> Simpan Semua Nilai
       </button>
     </div>
+  </form>
+</div>
   </form>
 </div>
 

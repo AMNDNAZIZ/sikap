@@ -2100,5 +2100,86 @@ class CbtAktivitas extends BaseController
             $sheet->getStyle($range)->setConditionalStyles([$conditionalGreen, $conditionalRed]);
         }
     }
+
+    // =========================================================
+    // EXPORT NILAI — untuk diimpor ke ESPATA
+    // Menghasilkan file JSON berisi nilai siswa dari satu ujian.
+    // Kunci pencocokan siswa: NIS (bukan student_id lokal).
+    // =========================================================
+    public function exportNilai($testId)
+    {
+        $testId = (int) $testId;
+        $db     = $this->db;
+
+        // Info ujian
+        $test = $db->table('cbt_test_status ts')
+            ->select('ts.id, ts.bank_id, ts.class_codes, ts.semester,
+                      qb.code AS bank_code,
+                      s.id AS subject_id, s.name AS subject_name, s.code AS subject_code,
+                      en.name AS exam_name')
+            ->join('cbt_question_banks qb', 'qb.id = ts.bank_id',   'left')
+            ->join('subjects s',             's.id = qb.subject_id', 'left')
+            ->join('cbt_exam_names en',      'en.id = ts.exam_name_id', 'left')
+            ->where('ts.id', $testId)
+            ->get()->getRowArray();
+
+        if (!$test) {
+            return $this->response->setStatusCode(404)
+                ->setJSON(['error' => 'Ujian tidak ditemukan.']);
+        }
+
+        // Nilai siswa: ambil sesi terbaru per siswa (MAX id)
+        $subquery = "(SELECT student_id, MAX(id) AS max_id
+                      FROM cbt_sessions WHERE test_id = {$testId}
+                      GROUP BY student_id) latest";
+
+        $rows = $db->table('cbt_sessions cs')
+            ->select('st.nis, st.name AS student_name,
+                      c.name AS class_name,
+                      COALESCE(cs.total_score, cs.score, 0) AS score,
+                      cs.status, cs.finished_at')
+            ->join('students st', 'st.id = cs.student_id', 'left')
+            ->join('classes c',   'c.id = st.class_id',    'left')
+            ->join($subquery,     'cs.id = latest.max_id', 'inner')
+            ->where('cs.test_id', $testId)
+            ->orderBy('c.name', 'ASC')
+            ->orderBy('st.name', 'ASC')
+            ->get()->getResultArray();
+
+        $students = [];
+        foreach ($rows as $r) {
+            $students[] = [
+                'nis'        => $r['nis'],
+                'name'       => $r['student_name'],
+                'class_name' => $r['class_name'],
+                'score'      => round((float)$r['score'], 2),
+                'ikut_ujian' => ($r['status'] === 'finished'),
+                'finished_at'=> $r['finished_at'] ?? null,
+            ];
+        }
+
+        $payload = [
+            'format'        => 'espata_cbt_export_v1',
+            'exported_at'   => date('Y-m-d H:i:s'),
+            'test_id'       => $testId,
+            'bank_code'     => $test['bank_code'],
+            'exam_name'     => $test['exam_name'],
+            'subject_id'    => $test['subject_id'],
+            'subject_name'  => $test['subject_name'],
+            'subject_code'  => $test['subject_code'],
+            'class_codes'   => $test['class_codes'],
+            'semester'      => $test['semester'],
+            'total_students'=> count($students),
+            'students'      => $students,
+        ];
+
+        $filename = 'nilai_cbt_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $test['bank_code'])
+                    . '_' . date('Ymd_His') . '.json';
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/json')
+            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->setBody(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    }
 }
 

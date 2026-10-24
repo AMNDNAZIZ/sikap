@@ -1,11 +1,14 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="container-fluid">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4><?= esc($title) ?></h4>
-    <a href="<?= site_url('admin/cbt/banksoal') ?>" class="btn btn-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i> Kembali
+<div class="container-fluid py-2">
+  <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
+    <div>
+      <h4 class="mb-0 fw-bold"><?= esc($title) ?></h4>
+      <small class="text-muted">Kelola data master bank soal CBT</small>
+    </div>
+    <a href="<?= site_url('admin/cbt/banksoal') ?>" class="btn btn-outline-secondary btn-sm px-3 py-2">
+      <i class="bi bi-arrow-left me-1"></i> Kembali
     </a>
   </div>
 
@@ -65,9 +68,9 @@
           </div>
         </div>
 
-        <div class="text-end">
-          <button type="submit" class="btn btn-primary">
-            <i class="bi bi-save"></i> Simpan Bank Soal
+        <div class="d-flex justify-content-end mt-4">
+          <button type="submit" class="btn btn-primary w-100 w-sm-auto py-2 px-4 shadow-sm">
+            <i class="bi bi-save me-1"></i> Simpan Bank Soal
           </button>
         </div>
 

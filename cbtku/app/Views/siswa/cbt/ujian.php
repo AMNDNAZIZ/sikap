@@ -1,5 +1,10 @@
 <?= $this->extend('layouts/cbt') ?>
-<?php $hideLogout = true; ?>
+<?php 
+$hideLogout = true; 
+$hideNavbar = true;
+$noMainPadding = true;
+$fluidNoPadding = true;
+?>
 <?= $this->section('content') ?>
 
 <?php
@@ -11,27 +16,39 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
 <style>
   :root {
-    --exam-font-size: 1.1rem;
+    --exam-font-size: 1.05rem;
     --primary-blue: #0d6efd;
+    --primary-blue-hover: #0b5ed7;
+    --primary-blue-light: #ebf5ff;
     --danger-red: #dc3545;
     --warning-yellow: #ffc107;
+    --warning-yellow-light: #fff9db;
+    --success-green: #198754;
+    --bg-page: #f8fafc;
+    --card-bg: #ffffff;
+    --text-primary: #1e293b;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
   }
 
   body {
-    background-color: #f8f9fa;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-page);
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
   }
 
   /* 🔒 ANTI-CHEAT: Disable text selection to prevent AI search on mobile */
   .stimulus-text,
   .q-text,
-  .option-text {
+  .option-text,
+  .stimulus-header-bar,
+  .q-header-bar {
     -webkit-user-select: none !important;
     -moz-user-select: none !important;
     -ms-user-select: none !important;
     user-select: none !important;
     -webkit-touch-callout: none !important;
-    /* iOS Safari */
   }
 
   /* Allow selection for input fields only */
@@ -43,7 +60,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     user-select: text !important;
   }
 
-  /* 🛠️ FIX: Make tables responsive and scrollable horizontally */
+  /* 🛠️ Responsive and scrollable tables */
   .stimulus-text table,
   .q-text table,
   .option-text table,
@@ -51,22 +68,17 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     display: block;
     max-width: 100%;
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
   }
 
-  /* Optional: Ensure table cells have padding and borders if missing */
   .stimulus-text table td, .stimulus-text table th,
   .q-text table td, .q-text table th,
   .option-text table td, .option-text table th {
-    padding: 8px;
-    border: 1px solid #dee2e6;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
   }
 
-
-
-  html {}
-
-  /* Ensure scrolling works in fullscreen mode */
+  /* Fullscreen mode support */
   html:fullscreen,
   html:-webkit-full-screen,
   html:-moz-full-screen,
@@ -86,13 +98,11 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   .exam-pc-root {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 16px 20px 100px 20px;
     overflow-y: visible;
-    /* Allow vertical scroll */
     position: relative;
-    /* Establish stacking context */
     z-index: 1;
-    /* Ensure content is above body but below footer */
+    overflow-x: hidden;
   }
 
   /* Ensure exam-pc-root can scroll in fullscreen */
@@ -104,38 +114,98 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     height: auto !important;
   }
 
-  /* Header Section */
+  /* =================================================== */
+  /* HEADER SECTION (DESKTOP & RESPONSIVE BASE)          */
+  /* =================================================== */
   .exam-header {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+  }
+
+  .header-main-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #fff;
-    padding: 15px 25px;
-    border-radius: 15px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    margin-bottom: 20px;
+    padding: 14px 24px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
 
   .q-number-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #333;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #1e293b;
     margin: 0;
+    letter-spacing: -0.3px;
+  }
+
+  .progress-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f1f5f9;
+    padding: 6px 14px;
+    border-radius: 30px;
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  .progress-breadcrumb .current {
+    color: var(--primary-blue);
+    font-size: 1rem;
+  }
+
+  .progress-breadcrumb .separator {
+    color: #94a3b8;
+  }
+
+  .progress-breadcrumb .total {
+    color: #64748b;
+  }
+
+  .progress-bar-mini {
+    width: 80px;
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-left: 6px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-blue), #00c6ff);
+    transition: width 0.3s ease;
+    border-radius: 3px;
   }
 
   .font-zoom-ctrl {
     display: flex;
     align-items: center;
-    gap: 15px;
-    margin-left: 30px;
+    gap: 10px;
+    margin-left: 20px;
+    background: #f8fafc;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
   }
 
   .zoom-btn {
     cursor: pointer;
-    color: #6c757d;
-    transition: 0.2s;
+    color: #64748b;
+    transition: 0.15s;
     user-select: none;
     font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
   }
 
   .zoom-btn:hover {
@@ -143,70 +213,104 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   }
 
   .zoom-btn.active {
-    color: #000;
+    color: #fff;
+    background: var(--primary-blue);
     font-weight: 800;
-    border-bottom: 2px solid #000;
   }
 
   .header-actions {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
   }
 
   .pill-btn {
     border-radius: 50px !important;
-    padding: 8px 25px !important;
+    padding: 8px 20px !important;
     font-weight: 600 !important;
-    display: flex;
+    display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     border: none !important;
+    transition: all 0.2s ease;
   }
 
   .btn-blue {
     background-color: var(--primary-blue);
     color: #fff;
+    box-shadow: 0 2px 6px rgba(13, 110, 253, 0.25);
   }
 
   .btn-blue:hover {
-    background-color: #0b5ed7;
+    background-color: var(--primary-blue-hover);
     color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(13, 110, 253, 0.35);
   }
 
   .timer-pill {
     background: #fff;
-    border: 1px solid #dee2e6;
+    border: 1.5px solid var(--border-color);
     border-radius: 50px;
-    padding: 6px 15px;
-    display: flex;
+    padding: 6px 16px;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    font-family: monospace;
+    gap: 6px;
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
     font-weight: 700;
-    font-size: 1.1rem;
-    min-width: 140px;
+    font-size: 1.05rem;
+    min-width: 130px;
     justify-content: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    transition: all 0.3s ease;
+  }
+
+  .timer-pill.timer-warning {
+    background: #fff9db !important;
+    border-color: #ffc107 !important;
+    color: #b25e00 !important;
+  }
+
+  .timer-pill.timer-danger {
+    background: #ffe3e3 !important;
+    border-color: #dc3545 !important;
+    color: #dc3545 !important;
+    animation: pulse-danger 1.5s infinite;
+  }
+
+  @keyframes pulse-danger {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
+    50% { transform: scale(1.02); box-shadow: 0 0 0 6px rgba(220, 53, 69, 0); }
+  }
+
+  .subject-strip {
+    background: #f8fafc;
+    padding: 6px 24px;
+    border-top: 1px solid #f1f5f9;
+    border-radius: 0 0 16px 16px;
+    font-size: 0.85rem;
   }
 
   /* Auto-Save Indicator */
   .save-status {
     position: fixed;
-    bottom: 100px;
+    bottom: 95px;
     right: 30px;
     background: #fff;
-    padding: 10px 20px;
+    padding: 8px 18px;
     border-radius: 30px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 600;
-    z-index: 1000;
+    z-index: 1050;
     opacity: 0;
     transform: translateY(10px);
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
+    pointer-events: none;
   }
 
   .save-status.show {
@@ -237,224 +341,107 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   }
 
   @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-
-    to {
-      transform: rotate(360deg);
-    }
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 
-  /* Progress Breadcrumb */
-  .progress-breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: #f8f9fa;
-    padding: 8px 20px;
-    border-radius: 30px;
-    font-size: 0.95rem;
-    font-weight: 600;
-  }
-
-  .progress-breadcrumb .current {
-    color: var(--primary-blue);
-    font-size: 1.1rem;
-  }
-
-  .progress-breadcrumb .separator {
-    color: #adb5bd;
-  }
-
-  .progress-breadcrumb .total {
-    color: #6c757d;
-  }
-
-  .progress-bar-mini {
-    width: 100px;
-    height: 6px;
-    background: #e9ecef;
-    border-radius: 3px;
-    overflow: hidden;
-    margin-left: 10px;
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--primary-blue), #667eea);
-    transition: width 0.3s ease;
-    border-radius: 3px;
-  }
-
-  /* Keyboard Shortcut Hints */
-  .keyboard-hints {
-    position: fixed;
-    bottom: 30px;
-    left: 30px;
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 15px 20px;
-    border-radius: 10px;
-    font-size: 0.85rem;
-    z-index: 1000;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
-  }
-
-  .keyboard-hints.show {
-    opacity: 1;
-  }
-
-  .keyboard-hints kbd {
-    background: #495057;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-family: monospace;
-    font-size: 0.8rem;
-    margin: 0 2px;
-  }
-
-  .keyboard-hints .hint-item {
-    margin: 5px 0;
-  }
-
-  /* Two Column Layout */
+  /* Two Column Layout for Desktop */
   .exam-content-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
-    height: calc(100vh - 250px);
+    height: calc(100vh - 240px);
     min-height: 500px;
     position: relative;
-    /* Establish stacking context */
     z-index: 1;
-    /* Ensure grid is above body */
   }
 
-  /* Ensure proper height in fullscreen */
+  /* Fullscreen height */
   :fullscreen .exam-content-grid,
   :-webkit-full-screen .exam-content-grid,
   :-moz-full-screen .exam-content-grid,
   :-ms-fullscreen .exam-content-grid {
-    height: calc(100vh - 200px) !important;
+    height: calc(100vh - 190px) !important;
   }
 
   .stimulus-col,
   .question-col {
     background: #fff;
-    border-radius: 15px;
-    padding: 30px;
+    border-radius: 16px;
+    padding: 24px;
     overflow-y: auto;
     overflow-x: hidden;
     position: relative;
-    border: 1px solid #eee;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
     -webkit-overflow-scrolling: touch;
-    /* Smooth scrolling on iOS */
     z-index: 2;
-    /* Ensure columns are above grid */
   }
 
-  /* Ensure columns can scroll in fullscreen */
-  :fullscreen .stimulus-col,
-  :fullscreen .question-col,
-  :-webkit-full-screen .stimulus-col,
-  :-webkit-full-screen .question-col,
-  :-moz-full-screen .stimulus-col,
-  :-moz-full-screen .question-col,
-  :-ms-fullscreen .stimulus-col,
-  :-ms-fullscreen .question-col {
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-  }
-
-
-  /* Ensure images can be clicked for zoom */
-  .stimulus-text img,
-  .q-text img,
-  .option-text img {
-    pointer-events: auto !important;
-  }
-
-  /* Scrollbar styling */
   .stimulus-col::-webkit-scrollbar,
   .question-col::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
   }
 
   .stimulus-col::-webkit-scrollbar-track,
   .question-col::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 10px;
+    background: #f8fafc;
   }
 
   .stimulus-col::-webkit-scrollbar-thumb,
   .question-col::-webkit-scrollbar-thumb {
-    background: #ccc;
-    border-radius: 10px;
-  }
-
-  .stimulus-col::-webkit-scrollbar-thumb:hover,
-  .question-col::-webkit-scrollbar-thumb:hover {
-    background: #999;
+    background: #cbd5e1;
+    border-radius: 6px;
   }
 
   .stimulus-title {
     text-align: center;
     font-weight: 800;
     font-size: 1.25rem;
-    margin-bottom: 25px;
-    color: #111;
+    margin-bottom: 20px;
+    color: #1e293b;
   }
 
   .stimulus-text,
   .q-text {
     font-size: var(--exam-font-size);
     line-height: 1.7;
-    color: #2c3e50;
+    color: #334155;
   }
 
-  /* Styling untuk gambar dan paragraf dalam soal */
+  /* Images within questions */
   .stimulus-text img,
   .q-text img,
   .option-text img {
     display: block !important;
-    margin: 15px auto !important;
+    margin: 14px auto !important;
     max-width: 100% !important;
     height: auto !important;
-    border-radius: 8px !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-    cursor: pointer !important;
+    border-radius: 10px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+    cursor: zoom-in !important;
     transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    pointer-events: auto !important;
   }
 
   .stimulus-text img:hover,
   .q-text img:hover,
   .option-text img:hover {
-    transform: scale(1.02) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+    transform: scale(1.01) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
   }
 
   .stimulus-text p,
   .q-text p,
   .option-text p {
-    margin-bottom: 1rem !important;
+    margin-bottom: 0.85rem !important;
     line-height: 1.7 !important;
   }
 
-  .stimulus-text br,
-  .q-text br,
-  .option-text br {
-    display: block !important;
-    content: "" !important;
-    margin-bottom: 0.5rem !important;
-  }
-
-  .stimulus-text,
-  .q-text,
-  .option-text {
-    white-space: normal !important;
+  .stimulus-text p:last-child,
+  .q-text p:last-child,
+  .option-text p:last-child {
+    margin-bottom: 0 !important;
   }
 
   .stimulus-text ul,
@@ -463,26 +450,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   .q-text ol,
   .option-text ul,
   .option-text ol {
-    margin-left: 1.5rem !important;
-    margin-bottom: 1rem !important;
-  }
-
-  .stimulus-text table,
-  .q-text table,
-  .option-text table {
-    width: 100% !important;
-    margin-bottom: 1rem !important;
-    border-collapse: collapse !important;
-  }
-
-  .stimulus-text table td,
-  .stimulus-text table th,
-  .q-text table td,
-  .q-text table th,
-  .option-text table td,
-  .option-text table th {
-    border: 1px solid #dee2e6 !important;
-    padding: 0.5rem !important;
+    margin-left: 1.4rem !important;
+    margin-bottom: 0.85rem !important;
   }
 
   /* Question Item Visibility */
@@ -497,40 +466,76 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   /* Options Styling */
   .option-row {
     cursor: pointer;
-    transition: 0.2s;
-    border: 2px solid #f1f3f5;
-    border-radius: 8px;
-    padding: 12px 20px;
+    transition: all 0.15s ease;
+    border: 1.5px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px 18px;
     margin-bottom: 12px;
     display: flex;
     align-items: flex-start;
     font-size: var(--exam-font-size);
+    background: #fff;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .option-row:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+
+  .option-row:active {
+    transform: scale(0.99);
+  }
+
+  .option-row.selected {
+    background: var(--primary-blue-light);
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 1px var(--primary-blue);
   }
 
   .option-text {
     flex: 1;
-    line-height: 1.7;
+    line-height: 1.6;
+    color: #1e293b;
+    word-break: break-word;
   }
 
-  .option-row:hover {
-    background: #f8f9fa;
-    border-color: #dee2e6;
+  .letter-circle {
+    width: 36px;
+    height: 36px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-right: 14px;
+    background: #fff;
+    color: #475569;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
   }
 
-  .option-row.selected {
-    background: #e7f1ff;
+  .option-row.selected .letter-circle {
+    background: var(--primary-blue);
+    color: #fff;
     border-color: var(--primary-blue);
   }
 
   .option-check {
     appearance: none;
-    width: 20px;
-    height: 20px;
-    border: 2px solid #adb5bd;
-    border-radius: 4px;
-    margin-right: 15px;
+    -webkit-appearance: none;
+    width: 22px;
+    height: 22px;
+    border: 2px solid #94a3b8;
+    border-radius: 6px;
+    margin-right: 14px;
     cursor: pointer;
     position: relative;
+    flex-shrink: 0;
+    margin-top: 2px;
+    transition: 0.15s;
   }
 
   .option-check:checked {
@@ -542,12 +547,11 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     content: '✔';
     position: absolute;
     color: white;
-    font-size: 12px;
-    left: 3px;
-    top: -1px;
+    font-size: 13px;
+    left: 4px;
+    top: 0px;
   }
 
-  /* Hide radio but keep checkbox for PGK */
   .q-item[data-type="pg"] .option-check {
     display: none;
   }
@@ -556,38 +560,32 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     border-radius: 50% !important;
   }
 
-  /* Benar-Salah Radio Button Styling */
+  /* Benar-Salah styling */
+  .bs-table-wrap {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1.5px solid var(--border-color);
+  }
+
   .inp-bs {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
     cursor: pointer;
-    transform: scale(1.3);
     accent-color: var(--primary-blue);
   }
 
-  .inp-bs:hover {
-    transform: scale(1.4);
+  /* Essay styling */
+  .inp-essay {
+    font-size: 1rem;
+    line-height: 1.6;
+    border-radius: 12px;
+    border: 1.5px solid var(--border-color);
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
 
-  .letter-circle {
-    width: 35px;
-    height: 35px;
-    border: 2px solid #dee2e6;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    margin-right: 15px;
-    background: #fff;
-    transition: 0.2s;
-    flex-shrink: 0;
-  }
-
-  .option-row.selected .letter-circle {
-    background: var(--primary-blue);
-    color: #fff;
+  .inp-essay:focus {
     border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
   }
 
   /* Footer Section */
@@ -597,22 +595,27 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     left: 0;
     right: 0;
     background: #fff;
-    padding: 20px;
+    padding: 16px 30px;
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 150px;
-    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.05);
+    gap: 40px;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
     z-index: 1000;
   }
 
   .btn-nav {
-    font-size: 1.1rem;
-    text-transform: none;
+    font-size: 1rem;
+    padding: 10px 24px !important;
   }
 
   .btn-prev {
-    background-color: var(--danger-red);
+    background-color: #64748b;
+    color: white;
+  }
+
+  .btn-prev:hover {
+    background-color: #475569;
     color: white;
   }
 
@@ -622,233 +625,54 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   }
 
   .btn-ragu {
-    background-color: var(--warning-yellow);
-    color: #000;
+    background-color: var(--warning-yellow-light);
+    color: #856404;
+    border: 1.5px solid var(--warning-yellow) !important;
     font-weight: 700 !important;
+    transition: all 0.2s ease;
   }
 
-  .btn-nav:hover {
-    opacity: 0.9;
-    color: #fff;
-  }
-
-  .btn-ragu:hover {
-    opacity: 0.9;
-    color: #000;
+  .btn-ragu.btn-ragu-active {
+    background-color: var(--warning-yellow) !important;
+    color: #000 !important;
+    border-color: #d39e00 !important;
+    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.4);
   }
 
   .btn-secondary {
-    background-color: #6c757d !important;
+    background-color: #64748b !important;
     color: #fff !important;
   }
 
   .btn-success {
-    background-color: #198754 !important;
+    background-color: var(--success-green) !important;
     color: #fff !important;
   }
 
-  @media (max-width: 992px) {
-    .exam-pc-root {
-      padding: 10px;
-      padding-bottom: 120px;
-      /* Increased to give more space for footer */
-      position: relative;
-      z-index: 1;
-    }
-
-    .exam-header {
-      flex-direction: column;
-      gap: 15px;
-      padding: 15px;
-      text-align: center;
-      position: relative;
-      z-index: 2;
-    }
-
-    .font-zoom-ctrl {
-      margin-left: 0;
-      justify-content: center;
-      margin-top: 5px;
-    }
-
-    .header-actions {
-      width: 100%;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .pill-btn {
-      padding: 6px 15px !important;
-      font-size: 0.9rem !important;
-    }
-
-    .exam-content-grid {
-      display: flex;
-      flex-direction: column;
-      height: auto;
-      min-height: unset;
-      gap: 15px;
-      margin-bottom: 20px;
-      /* Extra space before footer */
-      position: relative;
-      z-index: 1;
-    }
-
-    .stimulus-col,
-    .question-col {
-      height: auto;
-      max-height: none;
-      overflow-y: visible;
-      padding: 20px;
-      -webkit-overflow-scrolling: touch;
-      z-index: 2;
-      /* Above grid */
-    }
-
-    .exam-footer {
-      gap: 10px;
-      padding: 15px 10px;
-      justify-content: space-around;
-    }
-
-    .btn-nav {
-      font-size: 0.9rem;
-      padding: 8px 15px !important;
-    }
-
-    .q-number-title {
-      font-size: 1.2rem;
-    }
-
-    .timer-pill {
-      min-width: 120px;
-      font-size: 1rem;
-    }
+  /* Modal & Panels */
+  .panel-q-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 1rem;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s ease;
   }
 
-  @media (max-width: 576px) {
-    .font-zoom-ctrl {
-      display: none;
-    }
-
-    .header-actions {
-      gap: 5px;
-    }
-
-    .exam-footer {
-      gap: 10px;
-      padding: 10px;
-      justify-content: space-between;
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      z-index: 999;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-    }
-
-    .exam-pc-root {
-      padding-bottom: 80px;
-      /* Space for the fixed footer */
-    }
-
-    .stimulus-col,
-    .question-col {
-      max-height: none;
-      overflow-y: visible;
-      padding: 15px;
-    }
-
-    .pill-btn span {
-      display: none;
-    }
-
-    /* Hide text labels on mobile */
-
-    .btn-nav,
-    .btn-ragu {
-      flex: 0 0 auto;
-      width: 60px;
-      height: 60px;
-      padding: 0 !important;
-      justify-content: center;
-      border-radius: 50% !important;
-    }
-
-    .btn-ragu input {
-      margin-right: 0 !important;
-    }
-
-    .btn-nav i {
-      font-size: 1.8rem;
-    }
-
-    /* Centering Countdown on Finish Button */
-    #navFinish.btn-secondary {
-      flex-direction: column !important;
-      justify-content: center !important;
-      gap: 0 !important;
-      line-height: 1 !important;
-    }
-
-    #navFinish.btn-secondary .finish-text {
-      display: none !important;
-    }
-
-    #navFinish.btn-secondary .finish-time {
-      display: block !important;
-      font-size: 0.75rem !important;
-      font-weight: 800;
-      margin-top: -3px;
-    }
-
-    #navFinish.btn-secondary i {
-      font-size: 1.4rem !important;
-      margin-bottom: 2px;
-    }
+  .panel-q-btn:active {
+    transform: scale(0.95);
   }
 
-  /* Prevent horizontal scroll */
-  .exam-pc-root {
-    overflow-x: hidden;
+  .panel-q-btn.current-q-btn {
+    box-shadow: 0 0 0 3px #0d6efd, 0 4px 10px rgba(13, 110, 253, 0.3) !important;
   }
 
-  .timer-badge {
-    background: #f1f3f5;
-    border: 1px solid #dee2e6;
-    padding: 6px 16px;
-    border-radius: 30px;
-    font-family: 'Monaco', 'Consolas', monospace;
-    font-size: 1.1rem;
-  }
-
-  /* Better modal z-index management */
-  .modal {
-    z-index: 1060 !important;
-  }
-
-  .modal-backdrop {
-    z-index: 1050 !important;
-  }
-
-  /* 🔹 FIX: Ensure SweetAlert2 is on top of footer (z-index 1000) and everything else */
   .swal2-container {
     z-index: 20000 !important;
-  }
-
-  /* 🔹 FIX: Force strict centering for certain mobile browsers */
-  .swal2-center {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 10px !important;
-  }
-
-  /* 🔹 FIX: Prevent popup from being cut off at bottom */
-  .swal2-popup {
-    margin: auto !important;
   }
 
   /* Fullscreen Overlay Styling */
@@ -858,21 +682,18 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.95);
+    background: rgba(15, 23, 42, 0.95);
     z-index: 9998;
-    /* Below browser UI (9999+) but above content */
-    box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.1);
-    pointer-events: auto;
-    touch-action: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  /* When requesting fullscreen permission, lower z-index to prevent blocking dialog */
   #fsOverlay.requesting-permission {
     z-index: -1 !important;
     pointer-events: none !important;
   }
 
-  /* When overlay is hidden (display:none), disable pointer events completely */
   #fsOverlay[style*='display: none'],
   #fsOverlay[style*='display:none'] {
     pointer-events: none !important;
@@ -880,38 +701,235 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     z-index: -1 !important;
   }
 
-  #fsOverlay .card {
-    transition: 0.3s;
+  /* =================================================== */
+  /* 📱 MOBILE / HP OPTIMIZATIONS (< 992px & < 576px)    */
+  /* =================================================== */
+  @media (max-width: 991.98px) {
+    .exam-pc-root {
+      padding: 0 10px calc(85px + env(safe-area-inset-bottom)) 10px;
+    }
+
+    /* 📌 STICKY HEADER FOR SMARTPHONE */
+    .exam-header {
+      position: sticky;
+      top: 0;
+      z-index: 1020;
+      margin: 0 -10px 14px -10px;
+      border-radius: 0 0 18px 18px;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+      border: none;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .header-main-row {
+      padding: 10px 14px;
+      gap: 8px;
+    }
+
+    .header-left {
+      gap: 8px;
+    }
+
+    .q-number-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .progress-breadcrumb {
+      padding: 4px 10px;
+      font-size: 0.8rem;
+    }
+
+    .progress-bar-mini {
+      display: none;
+    }
+
+    .font-zoom-ctrl {
+      display: none;
+    }
+
+    .header-actions {
+      gap: 6px;
+    }
+
+    .timer-pill {
+      min-width: 95px;
+      font-size: 0.95rem;
+      padding: 5px 10px;
+      gap: 4px;
+    }
+
+    .timer-pill span.timer-label {
+      display: none;
+    }
+
+    .btn-info-soal-btn {
+      display: none;
+    }
+
+    .btn-panel-header {
+      padding: 6px 12px !important;
+      font-size: 0.85rem !important;
+    }
+
+    .subject-strip {
+      padding: 5px 14px;
+      font-size: 0.78rem;
+    }
+
+    /* Content Stack */
+    .exam-content-grid {
+      display: flex;
+      flex-direction: column;
+      height: auto;
+      min-height: unset;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .stimulus-col,
+    .question-col {
+      height: auto;
+      max-height: none;
+      overflow-y: visible;
+      padding: 16px;
+      border-radius: 14px;
+    }
+
+    /* Bottom Navigation Bar for Mobile */
+    .exam-footer {
+      padding: 8px 12px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
+      gap: 8px;
+      justify-content: space-between;
+      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.07);
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .btn-nav,
+    .btn-ragu {
+      flex: 1 1 0;
+      min-width: 0;
+      height: 48px;
+      padding: 0 8px !important;
+      font-size: 0.9rem !important;
+      border-radius: 50px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      white-space: nowrap;
+    }
+
+    .btn-ragu input {
+      margin-right: 4px !important;
+      transform: scale(1.1);
+    }
+
+    /* Auto-save floating indicator on Mobile: reposition to top-right below sticky header */
+    .save-status {
+      top: 65px;
+      right: 14px;
+      bottom: auto;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      border-radius: 20px;
+    }
+
+    /* Input touch adjustments */
+    .inp-essay {
+      font-size: 16px !important;
+      min-height: 120px;
+    }
+
+    .option-row {
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      min-height: 48px;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    }
+
+    .option-row:active {
+      transform: scale(0.99);
+    }
+
+    .letter-circle {
+      width: 32px;
+      height: 32px;
+      font-size: 0.9rem;
+      margin-right: 10px;
+      border-radius: 8px;
+    }
+
+    /* 5-Column Question Grid on Mobile Phones */
+    #panelButtons {
+      grid-template-columns: repeat(5, 1fr) !important;
+      gap: 8px !important;
+    }
+
+    .panel-btn {
+      height: 44px !important;
+      font-size: 0.95rem !important;
+      border-radius: 12px !important;
+      font-weight: 700 !important;
+    }
+
+    #panelModal .modal-dialog {
+      margin: 0.5rem;
+    }
+
+    #panelModal .modal-content {
+      border-radius: 20px !important;
+    }
   }
 
-  #fsOverlay .card:hover {
-    transform: translateY(-5px);
+  @media (max-width: 480px) {
+    .header-main-row {
+      padding: 8px 10px;
+    }
+
+    .q-number-title {
+      font-size: 0.95rem;
+    }
+
+    .timer-pill {
+      min-width: 85px;
+      font-size: 0.88rem;
+      padding: 4px 8px;
+    }
+
+    .btn-nav-label-long {
+      display: none;
+    }
+
+    .btn-nav-label-short {
+      display: inline !important;
+    }
   }
 
-  /* Spacing adjustment for stimulus and question text */
-  .stimulus-text p,
-  .q-text p,
-  .option-text p {
-    margin-bottom: 0.5rem;
-  }
-
-  .stimulus-text p:last-child,
-  .q-text p:last-child,
-  .option-text p:last-child {
-    margin-bottom: 0;
+  @media (min-width: 481px) {
+    .btn-nav-label-short {
+      display: none !important;
+    }
   }
 </style>
 
 <div id="fsOverlay"
-  class="position-fixed top-0 start-0 w-100 h-100 bg-light d-flex flex-column align-items-center justify-content-center"
+  class="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3"
   style="z-index: 9999;">
-  <div class="card text-center p-5 shadow-lg rounded-5 border-0" style="max-width: 450px;">
-    <div class="mb-4">
-      <i class="bi bi-shield-lock-fill text-primary" style="font-size: 5rem;"></i>
+  <div class="card text-center p-4 p-md-5 shadow-lg border-0" style="max-width: 440px; border-radius: 24px; background: #ffffff;">
+    <div class="mb-3">
+      <i class="bi bi-shield-lock-fill text-primary" style="font-size: 4rem;"></i>
     </div>
-    <h3 class="fw-bold mb-3">SakaSalika SafeExam</h3>
-    <p class="text-muted mb-4 fs-5">Ujian ini mewajibkan mode <b>Layar Penuh</b> untuk menjaga integritas keluar dari
-      layar penuh dianggap pelanggaran.</p>
+    <h3 class="fw-bold mb-2 fs-4">SakaSalika SafeExam</h3>
+    <p class="text-muted mb-4 small">Ujian ini mewajibkan mode <b>Layar Penuh</b> untuk menjaga integritas. Keluar dari layar penuh dianggap pelanggaran.</p>
     <button id="startFS" class="btn btn-primary btn-lg w-100 rounded-pill py-3 fw-bold shadow">
       MULAI UJIAN SEKARANG
     </button>
@@ -919,42 +937,69 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 </div>
 
 <div class="exam-pc-root" style="opacity: 0;">
-  <!-- PC HEADER -->
-  <header class="exam-header">
-    <div class="d-flex align-items-center">
-      <h1 class="q-number-title" id="q_display_num">Soal nomor 1</h1>
+  <!-- EXAM HEADER (STICKY ON MOBILE, FLOATING CARD ON PC) -->
+  <header class="exam-header" id="examHeader">
+    <div class="header-main-row">
+      <div class="header-left">
+        <h1 class="q-number-title" id="q_display_num">Soal nomor 1</h1>
 
-      <!-- Progress Breadcrumb -->
-      <div class="progress-breadcrumb ms-3">
-        <span class="current" id="current_num">1</span>
-        <span class="separator">/</span>
-        <span class="total" id="total_num">0</span>
-        <div class="progress-bar-mini">
-          <div class="progress-fill" id="progress_fill" style="width: 0%"></div>
+        <!-- Progress Breadcrumb -->
+        <div class="progress-breadcrumb">
+          <span class="current" id="current_num">1</span>
+          <span class="separator">/</span>
+          <span class="total" id="total_num"><?= count($questions) ?></span>
+          <div class="progress-bar-mini d-none d-lg-block">
+            <div class="progress-fill" id="progress_fill_mini" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Font Zoom Controls (Desktop) -->
+        <div class="font-zoom-ctrl d-none d-lg-flex">
+          <span class="text-muted small me-1">Font:</span>
+          <span class="zoom-btn" data-zoom="0.95rem">A</span>
+          <span class="zoom-btn active" data-zoom="1.05rem">A</span>
+          <span class="zoom-btn" data-zoom="1.2rem">A</span>
         </div>
       </div>
 
-      <div class="font-zoom-ctrl">
-        <span class="text-muted small">Ukuran font soal:</span>
-        <span class="zoom-btn" data-zoom="1rem">A</span>
-        <span class="zoom-btn active" data-zoom="1.1rem">A</span>
-        <span class="zoom-btn" data-zoom="1.3rem">A</span>
+      <div class="header-actions">
+        <!-- Font Zoom Cycle (Mobile) -->
+        <button type="button" class="btn btn-sm btn-light border rounded-pill d-lg-none py-1 px-2" id="btnFontCycle" title="Ubah Ukuran Tulisan">
+          <i class="bi bi-type"></i> <span id="fontCycleLabel" class="small fw-bold">A</span>
+        </button>
+
+        <button class="pill-btn btn-blue d-none d-lg-inline-flex btn-info-soal-btn" id="btn_info_soal_desktop">
+          <i class="bi bi-info-circle"></i> <span>INFORMASI SOAL</span>
+        </button>
+
+        <div class="timer-pill" id="headerTimerPill">
+          <i class="bi bi-clock-fill text-primary me-1"></i>
+          <span id="exam_timer">00:00:00</span>
+        </div>
+
+        <button class="pill-btn btn-blue btn-panel-header" id="navPanel">
+          <i class="bi bi-grid-3x3-gap-fill"></i>
+          <span class="d-none d-sm-inline">Daftar Soal</span>
+          <span class="badge bg-white text-primary rounded-pill ms-1" id="answeredCountBadge">0/<?= count($questions) ?></span>
+        </button>
       </div>
     </div>
 
-    <div class="header-actions">
-      <button class="pill-btn btn-blue" id="btn_info_soal"><i class="bi bi-info-circle"></i> INFORMASI SOAL</button>
-      <div class="timer-pill">
-        <span class="text-muted small me-1">Sisa Waktu :</span>
-        <span id="exam_timer">00:00:00</span>
-      </div>
-      <button class="pill-btn btn-blue" id="navPanel"><i class="bi bi-grid-3x3-gap-fill"></i> Daftar Soal</button>
+    <!-- Progress Bar (Full Width under Header for Mobile) -->
+    <div class="w-100" style="height: 3px; background: #e2e8f0; overflow: hidden;">
+      <div class="progress-fill" id="progress_fill" style="width: 0%; height: 100%;"></div>
+    </div>
+
+    <!-- Subject & Info Sub-Bar -->
+    <div class="subject-strip d-flex justify-content-between align-items-center">
+      <span class="text-truncate fw-semibold text-secondary">
+        <i class="bi bi-journal-bookmark me-1 text-primary"></i><?= esc($test['subject_name'] ?? 'Ujian Utama') ?>
+      </span>
+      <button type="button" class="btn btn-sm btn-link text-muted p-0 text-decoration-none small" id="btn_info_soal">
+        <i class="bi bi-info-circle"></i> Info Ujian
+      </button>
     </div>
   </header>
-
-  <div class="text-end mb-2 pe-3 text-muted small fw-bold">
-    <?= esc($test['subject_name'] ?? 'Ujian Utama') ?>
-  </div>
 
   <!-- CONTENT GRID -->
   <div id="questions-container">
@@ -1030,7 +1075,16 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
           data-type="<?= $type ?>" data-doubtful="<?= $isDoubtful ?>" data-use-raw="<?= $useRawText ? '1' : '0' ?>">
           <div class="exam-content-grid">
             <!-- LEFT COLUMN: STIMULUS/BACAAN -->
-            <div class="stimulus-col">
+            <div class="stimulus-col" id="stimulus_col_<?= $idx ?>">
+              <div class="stimulus-header-bar d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1 rounded-pill small">
+                  <i class="bi bi-book-half me-1"></i> Teks Bacaan / Stimulus
+                </span>
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill small py-0 px-2 btn-jump-to-q d-lg-none" data-target="q_col_<?= $idx ?>">
+                  <i class="bi bi-arrow-down-short"></i> Ke Soal
+                </button>
+              </div>
+
               <?php
               $qTextForRender = $rewriteImageUrls($qText);
               ?>
@@ -1045,7 +1099,16 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             </div>
 
             <!-- RIGHT COLUMN: QUESTION & OPTIONS -->
-            <div class="question-col">
+            <div class="question-col" id="q_col_<?= $idx ?>">
+              <div class="q-header-bar d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom d-lg-none">
+                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-2 py-1 rounded-pill small">
+                  <i class="bi bi-ui-checks me-1"></i> Pilihan Jawaban
+                </span>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill small py-0 px-2 btn-jump-to-stimulus" data-target="stimulus_col_<?= $idx ?>">
+                  <i class="bi bi-arrow-up-short"></i> Ke Bacaan
+                </button>
+              </div>
+
               <div class="q-text mb-4">
                 <?php if ($type === 'pg_kompleks' || $type === 'pgk'): ?>
                   <span class="badge bg-primary rounded-pill me-2">PG Kompleks</span> Klik pada setiap pilihan jawaban yang
@@ -1088,13 +1151,13 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                     <?php $i++; endforeach; ?>
 
                 <?php elseif ($type === 'benar_salah'): ?>
-                  <div class="table-responsive rounded-3 border">
+                  <div class="table-responsive rounded-3 border bs-table-wrap">
                     <table class="table table-hover align-middle mb-0">
                       <thead class="table-light">
                         <tr>
                           <th class="ps-3">Pernyataan</th>
-                          <th width="60" class="text-center">B</th>
-                          <th width="60" class="text-center">S</th>
+                          <th width="70" class="text-center">Benar</th>
+                          <th width="70" class="text-center">Salah</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1106,10 +1169,10 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                           $ansValue = $savedBS[$rowIdx] ?? '';
                           ?>
                           <tr>
-                            <td class="ps-3 small"><?= $opts[$letter] ?></td>
-                            <td class="text-center"><input type="radio" name="bs_<?= $qid ?>_<?= $letter ?>" value="B"
+                            <td class="ps-3 py-2 small fw-medium"><?= $opts[$letter] ?></td>
+                            <td class="text-center py-2"><input type="radio" name="bs_<?= $qid ?>_<?= $letter ?>" value="B"
                                 class="inp-bs" data-qid="<?= $qid ?>" data-row="<?= $rowIdx ?>" <?= $ansValue === 'B' ? 'checked' : '' ?>></td>
-                            <td class="text-center"><input type="radio" name="bs_<?= $qid ?>_<?= $letter ?>" value="S"
+                            <td class="text-center py-2"><input type="radio" name="bs_<?= $qid ?>_<?= $letter ?>" value="S"
                                 class="inp-bs" data-qid="<?= $qid ?>" data-row="<?= $rowIdx ?>" <?= $ansValue === 'S' ? 'checked' : '' ?>></td>
                           </tr>
                         <?php endforeach; ?>
@@ -1118,7 +1181,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                   </div>
 
                 <?php else: // ESSAY ?>
-                  <textarea class="form-control inp-essay p-3" rows="10" data-qid="<?= $qid ?>"
+                  <textarea class="form-control inp-essay p-3" rows="8" data-qid="<?= $qid ?>"
                     placeholder="Ketik jawaban Anda di sini..."><?= esc($saved) ?></textarea>
                 <?php endif; ?>
               </div>
@@ -1129,19 +1192,29 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     <?php endif; ?>
   </div>
 
-  <!-- PC FOOTER -->
+  <!-- EXAM FOOTER -->
   <footer class="exam-footer">
-    <button class="pill-btn btn-nav btn-prev" id="navBack"><i class="bi bi-arrow-left-circle-fill"></i> <span>Soal
-        sebelumnya</span></button>
+    <button class="pill-btn btn-nav btn-prev" id="navBack">
+      <i class="bi bi-chevron-left"></i>
+      <span class="btn-nav-label-long">Sebelumnya</span>
+      <span class="btn-nav-label-short">Prev</span>
+    </button>
 
-    <label class="pill-btn btn-ragu m-0" style="cursor:pointer">
-      <input type="checkbox" id="check_ragu" class="me-2" style="transform: scale(1.2)"> <span>Ragu-ragu</span>
+    <label class="pill-btn btn-ragu m-0" id="label_ragu" style="cursor:pointer">
+      <input type="checkbox" id="check_ragu" class="me-1">
+      <i class="bi bi-flag me-1"></i>
+      <span>Ragu-ragu</span>
     </label>
 
-    <button class="pill-btn btn-nav btn-next" id="navNext"><span>Soal berikutnya</span> <i
-        class="bi bi-arrow-right-circle-fill"></i></button>
-    <button class="pill-btn btn-nav btn-next d-none" id="navFinish"><span>Selesaikan Ujian</span> <i
-        class="bi bi-check-circle-fill"></i></button>
+    <button class="pill-btn btn-nav btn-next" id="navNext">
+      <span class="btn-nav-label-long">Berikutnya</span>
+      <span class="btn-nav-label-short">Lanjut</span>
+      <i class="bi bi-chevron-right"></i>
+    </button>
+    <button class="pill-btn btn-nav btn-next d-none" id="navFinish">
+      <span>Selesaikan Ujian</span>
+      <i class="bi bi-check-circle-fill"></i>
+    </button>
   </footer>
 
   <!-- Auto-Save Indicator -->
@@ -1151,7 +1224,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   </div>
 
   <!-- Keyboard Hints -->
-  <div id="keyboardHints" class="keyboard-hints">
+  <div id="keyboardHints" class="keyboard-hints d-none d-lg-block">
     <div class="hint-item"><kbd>←</kbd> <kbd>→</kbd> Navigasi soal</div>
     <div class="hint-item"><kbd>A</kbd>-<kbd>E</kbd> Pilih jawaban</div>
     <div class="hint-item"><kbd>Space</kbd> Tandai ragu-ragu</div>
@@ -1183,20 +1256,37 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   </div>
 </div>
 
-<!-- PANEL MODAL - PLACED AT ROOT FOR BEST COMPATIBILITY -->
+<!-- PANEL MODAL - ENHANCED FOR MOBILE AND DESKTOP -->
 <div class="modal fade" id="panelModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content shadow-lg border-0" style="border-radius: 25px;">
-      <div class="modal-header border-0 pb-0 pt-4 px-4 text-center d-block">
-        <h4 class="modal-title fw-bold mx-auto">Navigasi Soal</h4>
-        <p class="text-muted small">Klik nomor soal untuk berpindah halaman</p>
-        <button type="button" class="btn-close position-absolute end-0 top-0 m-4" data-bs-dismiss="modal"
-          aria-label="Close"></button>
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+    <div class="modal-content shadow-lg border-0" style="border-radius: 24px;">
+      <div class="modal-header border-0 pb-0 pt-4 px-4 text-center d-block position-relative">
+        <h4 class="modal-title fw-bold mx-auto fs-5 mb-1">Navigasi Nomor Soal</h4>
+        <p class="text-muted small mb-2">Ketuk nomor soal untuk berpindah halaman</p>
+        <button type="button" class="btn-close position-absolute end-0 top-0 m-3" data-bs-dismiss="modal" aria-label="Close"></button>
+
+        <!-- Status Badges / Legend -->
+        <div class="d-flex flex-wrap gap-2 justify-content-center pt-1 pb-2 border-bottom">
+          <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 rounded-pill small">
+            <i class="bi bi-check-circle-fill me-1"></i> Dijawab: <b id="summary_answered">0</b>
+          </span>
+          <span class="badge bg-warning bg-opacity-10 text-warning-emphasis border border-warning border-opacity-25 px-2 py-1 rounded-pill small">
+            <i class="bi bi-flag-fill me-1 text-warning"></i> Ragu-ragu: <b id="summary_doubtful">0</b>
+          </span>
+          <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-2 py-1 rounded-pill small">
+            <i class="bi bi-circle me-1"></i> Belum: <b id="summary_unanswered">0</b>
+          </span>
+        </div>
       </div>
-      <div class="modal-body p-4">
-        <div id="panelButtons" class="d-flex flex-wrap gap-3 justify-content-center pt-2 pb-4">
+      <div class="modal-body p-3 p-md-4">
+        <div id="panelButtons" class="d-grid gap-2 pt-2 pb-3" style="grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));">
           <!-- Dynamic Buttons -->
         </div>
+      </div>
+      <div class="modal-footer border-0 pt-0 pb-3 justify-content-center">
+        <button type="button" class="btn btn-light rounded-pill px-4 small border" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg me-1"></i> Tutup Navigasi
+        </button>
       </div>
     </div>
   </div>
@@ -2681,6 +2771,74 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       };
     });
 
+    // Update Ragu-ragu visual on button
+    const updateRaguVisual = () => {
+      const isChecked = checkRagu ? checkRagu.checked : false;
+      const labelRagu = document.getElementById('label_ragu');
+      if (labelRagu) {
+        labelRagu.classList.toggle('btn-ragu-active', isChecked);
+        const icon = labelRagu.querySelector('i');
+        if (icon) {
+          icon.className = isChecked ? 'bi bi-flag-fill me-1' : 'bi bi-flag me-1';
+        }
+      }
+    };
+
+    // Update Mobile Header info
+    const updateMobileHeader = (idx) => {
+      const activeQ = items[idx];
+      if (!activeQ) return;
+      const type = activeQ.dataset.type || 'pg';
+      const typeMap = {
+        'pg': 'Pilihan Ganda',
+        'pg_kompleks': 'PG Kompleks',
+        'pgk': 'PG Kompleks',
+        'benar_salah': 'Benar/Salah',
+        'esai': 'Esai',
+        'essay': 'Esai'
+      };
+      const badgeType = document.getElementById('badge_q_type');
+      if (badgeType) badgeType.textContent = typeMap[type] || 'Soal';
+    };
+
+    // Update Answer Stats Counter
+    const updateAnswerStats = () => {
+      let answeredCount = 0;
+      let doubtfulCount = 0;
+      items.forEach(item => {
+        const type = item.dataset.type;
+        const isDoubtful = (item.dataset.doubtful == '1');
+        let answered = false;
+        if (type === 'pg' || type === 'pg_kompleks' || type === 'pgk') {
+          answered = !!item.querySelector('.inp-target:checked');
+        } else if (type === 'benar_salah') {
+          const bsRows = item.querySelectorAll('.inp-bs[data-row]');
+          const totalRows = new Set();
+          bsRows.forEach(inp => totalRows.add(inp.dataset.row));
+          const rowCount = totalRows.size;
+          let answeredRows = 0;
+          for (let i = 0; i < rowCount; i++) {
+            if (item.querySelector(`.inp-bs[data-row="${i}"]:checked`)) answeredRows++;
+          }
+          answered = (answeredRows === rowCount && rowCount > 0);
+        } else {
+          const essay = item.querySelector('.inp-essay');
+          answered = (essay && essay.value.trim().length > 0);
+        }
+        if (answered) answeredCount++;
+        if (isDoubtful) doubtfulCount++;
+      });
+
+      const badge = document.getElementById('answeredCountBadge');
+      if (badge) badge.textContent = `${answeredCount}/${items.length}`;
+      const sumAns = document.getElementById('summary_answered');
+      if (sumAns) sumAns.textContent = answeredCount;
+      const sumDoubt = document.getElementById('summary_doubtful');
+      if (sumDoubt) sumDoubt.textContent = doubtfulCount;
+      const sumUnans = document.getElementById('summary_unanswered');
+      if (sumUnans) sumUnans.textContent = items.length - answeredCount;
+    };
+
     const renderActive = (idx) => {
       items.forEach((item, i) => {
         item.classList.toggle('active', i === idx);
@@ -2705,6 +2863,9 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       if (currentItem && checkRagu) {
         checkRagu.checked = (currentItem.dataset.doubtful == '1');
       }
+      updateRaguVisual();
+      updateMobileHeader(idx);
+      updateAnswerStats();
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -2724,7 +2885,6 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             }
           }).catch(() => {});
         }
-        // Jika MathJax ada tapi belum siap sama sekali, skip - tidak ada formula di soal ini
       }
     };
 
@@ -2733,13 +2893,13 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       const currentNum = document.getElementById('current_num');
       const totalNum = document.getElementById('total_num');
       const progressFill = document.getElementById('progress_fill');
+      const progressFillMini = document.getElementById('progress_fill_mini');
 
       if (currentNum) currentNum.textContent = activeIdx + 1;
       if (totalNum) totalNum.textContent = items.length;
-      if (progressFill) {
-        const percentage = ((activeIdx + 1) / items.length) * 100;
-        progressFill.style.width = percentage + '%';
-      }
+      const percentage = ((activeIdx + 1) / items.length) * 100;
+      if (progressFill) progressFill.style.width = percentage + '%';
+      if (progressFillMini) progressFillMini.style.width = percentage + '%';
     };
 
     // Auto-Save Status Indicator
@@ -2872,6 +3032,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
         // Update UI saja
         activeQ.dataset.doubtful = isChecked ? '1' : '0';
+        updateRaguVisual();
+        updateAnswerStats();
 
         // Simpan ke localStorage untuk persistence
         const doubtfulKey = `cbt_doubtful_${TEST_ID}`;
@@ -2908,6 +3070,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
         // Kirim jawaban saja, jangan ubah status ragu-ragu
         commitAnswer(qid, val);
+        updateAnswerStats();
       };
     });
 
@@ -2924,6 +3087,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
         // Kirim jawaban saja, jangan ubah status ragu-ragu
         commitAnswer(qid, bsData.join(','));
+        updateAnswerStats();
       };
     });
 
@@ -2934,6 +3098,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
         // Kirim jawaban saja, jangan ubah status ragu-ragu
         commitAnswer(qid, e.target.value);
+        updateAnswerStats();
       };
     });
 
@@ -2948,6 +3113,18 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         const h = Math.floor(timeRaw / 3600), m = Math.floor((timeRaw % 3600) / 60), s = timeRaw % 60;
         if (timerBox) {
           timerBox.textContent = [h, m, s].map(v => v < 10 ? '0' + v : v).join(':');
+
+          const headerTimerPill = document.getElementById('headerTimerPill');
+          if (headerTimerPill) {
+            if (timeRaw <= 60) {
+              headerTimerPill.classList.remove('timer-warning');
+              headerTimerPill.classList.add('timer-danger');
+            } else if (timeRaw <= 300) {
+              headerTimerPill.classList.add('timer-warning');
+            } else {
+              headerTimerPill.classList.remove('timer-warning', 'timer-danger');
+            }
+          }
 
           // Warning when 5 minutes left
           if (timeRaw === 300 && timeRaw > 0) {
@@ -3076,6 +3253,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     const renderPanel = () => {
       if (!panelButtons) return;
       panelButtons.innerHTML = '';
+      updateAnswerStats();
+
       items.forEach((item, i) => {
         const qid = item.dataset.qid;
         const type = item.dataset.type;
@@ -3120,17 +3299,11 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
           if (answered) answerLabel = '√';
         }
 
-        const btnWrap = document.createElement('div');
-        btnWrap.className = 'position-relative';
-
         const btn = document.createElement('button');
         let bgColor = answered ? 'btn-success' : 'btn-outline-secondary';
         if (isDoubtful) bgColor = 'btn-warning';
 
-        btn.className = `btn ${bgColor} m-1 fw-bold`;
-        btn.style.width = '55px';
-        btn.style.height = '55px';
-        btn.style.borderRadius = '12px';
+        btn.className = `btn ${bgColor} panel-q-btn fw-bold ${i === activeIdx ? 'current-q-btn' : ''}`;
         btn.style.position = 'relative';
         btn.innerText = (i + 1);
 
@@ -3395,10 +3568,69 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     });
 
     renderActive(activeIdx);
+
+    // Info buttons handler (mobile & desktop)
+    const showExamInfo = () => {
+      Swal.fire({
+        title: 'Informasi Ujian',
+        html: `
+          <div class="text-start">
+            <p class="mb-2"><strong>Mata Pelajaran:</strong> <?= esc($test['subject_name'] ?? '-') ?></p>
+            <p class="mb-2"><strong>Nama Ujian:</strong> <?= esc($test['exam_name'] ?? '-') ?></p>
+            <p class="mb-2"><strong>Kode Bank:</strong> <?= esc($test['bank_code'] ?? '-') ?></p>
+            <p class="mb-0"><strong>Total Soal:</strong> <?= count($questions) ?> butir</p>
+          </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Tutup',
+        confirmButtonColor: '#0d6efd'
+      });
+    };
+
     const infoBtn = document.getElementById('btn_info_soal');
-    if (infoBtn) {
-      infoBtn.onclick = () => Swal.fire('Informasi', 'Anda sedang mengerjakan ujian <?= esc($test['subject_name'] ?? $test['exam_name'] ?? 'ini') ?>.', 'info');
+    if (infoBtn) infoBtn.onclick = showExamInfo;
+    const infoBtnDesktop = document.getElementById('btn_info_soal_desktop');
+    if (infoBtnDesktop) infoBtnDesktop.onclick = showExamInfo;
+
+    // Mobile Font Zoom Cycle
+    const btnFontCycle = document.getElementById('btnFontCycle');
+    if (btnFontCycle) {
+      const fontSizes = ['0.95rem', '1.05rem', '1.2rem'];
+      const fontLabels = ['A-', 'A', 'A+'];
+      let currentFontIdx = 1;
+
+      btnFontCycle.onclick = () => {
+        currentFontIdx = (currentFontIdx + 1) % fontSizes.length;
+        document.documentElement.style.setProperty('--exam-font-size', fontSizes[currentFontIdx]);
+        const cycleLabel = document.getElementById('fontCycleLabel');
+        if (cycleLabel) cycleLabel.textContent = fontLabels[currentFontIdx];
+      };
     }
+
+    // Mobile Jump to Questions / Stimulus
+    document.addEventListener('click', function(e) {
+      const jumpQ = e.target.closest('.btn-jump-to-q');
+      if (jumpQ) {
+        const targetId = jumpQ.dataset.target;
+        const targetEl = document.getElementById(targetId);
+        if (targetEl) {
+          const headerHeight = document.getElementById('examHeader') ? document.getElementById('examHeader').offsetHeight : 60;
+          const y = targetEl.getBoundingClientRect().top + window.pageYOffset - headerHeight - 10;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+      }
+
+      const jumpStimulus = e.target.closest('.btn-jump-to-stimulus');
+      if (jumpStimulus) {
+        const targetId = jumpStimulus.dataset.target;
+        const targetEl = document.getElementById(targetId);
+        if (targetEl) {
+          const headerHeight = document.getElementById('examHeader') ? document.getElementById('examHeader').offsetHeight : 60;
+          const y = targetEl.getBoundingClientRect().top + window.pageYOffset - headerHeight - 10;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+      }
+    });
   });
 </script>
 <?= $this->endSection() ?>

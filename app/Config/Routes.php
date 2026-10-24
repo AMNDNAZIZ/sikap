@@ -811,10 +811,14 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('cbt/aktivitas/detail/(:num)', 'CbtAktivitas::detail/$1', $auth123);
     $routes->get('cbt/aktivitas/detail_jawaban/(:num)', 'CbtAktivitas::detail_jawaban/$1', $auth123);
     $routes->post('cbt/aktivitas/forceFinish/(:num)', 'CbtAktivitas::forceFinish/$1', $auth123);
+    $routes->post('cbt/aktivitas/forceFinishMassal/(:num)', 'CbtAktivitas::forceFinishMassal/$1', $auth123);
     $routes->post('cbt/aktivitas/addTime/(:num)', 'CbtAktivitas::addTime/$1', $auth123);
     $routes->post('cbt/aktivitas/resetSession/(:num)', 'CbtAktivitas::resetSession/$1', $auth123);
+    $routes->post('cbt/aktivitas/resetLogin/(:num)', 'CbtAktivitas::resetLogin/$1', $auth123);
+    $routes->post('cbt/aktivitas/resetMassal/(:num)', 'CbtAktivitas::resetMassal/$1', $auth123);
     $routes->get('cbt/aktivitas/belumTes/(:num)', 'CbtAktivitas::belumTes/$1', $auth123);
     $routes->get('cbt/aktivitas/unduhNilai/(:num)', 'CbtAktivitas::unduhNilai/$1', $auth123);
+    $routes->get('cbt/aktivitas/exportNilai/(:num)', 'CbtAktivitas::exportNilai/$1', $auth123);
     $routes->get('cbt/aktivitas/analisis/(:num)', 'CbtAktivitas::analisisSoal/$1', $auth123);
     $routes->get('cbt/aktivitas/analisis/download/(:num)', 'CbtAktivitas::analisisDownload/$1', $auth123);
     $routes->get('cbt/aktivitas/analisisjawaban/download/(:num)', 'CbtAktivitas::downloadAnalisis/$1', $auth123);

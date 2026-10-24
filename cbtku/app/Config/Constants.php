@@ -78,7 +78,7 @@ defined('EXIT_DATABASE')       || define('EXIT_DATABASE', 8);       // database 
 defined('EXIT__AUTO_MIN')      || define('EXIT__AUTO_MIN', 9);      // lowest automatically-assigned error code
 defined('EXIT__AUTO_MAX')      || define('EXIT__AUTO_MAX', 125);    // highest automatically-assigned error code
 defined('APP_VERSION') || define('APP_VERSION', '2.1.5');
-defined('LAST_UPDATE') || define('LAST_UPDATE', '2026-09-24 07:17');
+defined('LAST_UPDATE') || define('LAST_UPDATE', '2026-10-24 12:34');
 
 /*
  |--------------------------------------------------------------------------
@@ -122,4 +122,50 @@ if (!defined('IS_DEVELOPER')) {
     }
 
     define('IS_DEVELOPER', $isDev);
+}
+
+/*
+ |--------------------------------------------------------------------------
+ | Master Developer Machine Flag
+ |--------------------------------------------------------------------------
+ |
+ | Fitur "Generate & Push" dan "Download Patch ZIP" HANYA boleh diakses di
+ | komputer developer ini (SAKAJAYA-PC) dengan GITHUB_TOKEN yang valid di .env.
+ | Komputer client lain (meskipun dipasang di localhost / XAMPP) tidak akan
+ | pernah mengaktifkan flag ini dan akan selalu menampilkan fitur "Cek Update"
+ | sebagaimana pada aplikasi hosting online.
+ |
+ */
+if (!defined('IS_MASTER_DEVELOPER')) {
+    $isMaster = false;
+    if (defined('IS_DEVELOPER') && IS_DEVELOPER === true) {
+        $machineName = strtoupper((string) (getenv('COMPUTERNAME') ?: gethostname() ?: php_uname('n') ?: ''));
+
+        $githubToken = '';
+        if (function_exists('env')) {
+            $githubToken = (string) env('GITHUB_TOKEN', '');
+        }
+        if (empty($githubToken)) {
+            $envFile = defined('ROOTPATH') ? ROOTPATH . '.env' : dirname(__DIR__, 2) . '/.env';
+            if (is_file($envFile)) {
+                $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    if ($line === '' || $line[0] === '#') continue;
+                    if (strpos($line, 'GITHUB_TOKEN') === 0) {
+                        [$k, $v] = array_map('trim', explode('=', $line, 2));
+                        if ($k === 'GITHUB_TOKEN') {
+                            $githubToken = trim($v, " '\t\n\r\0\x0B\"");
+                        }
+                    }
+                }
+            }
+        }
+
+        // HANYA true jika komputer ini adalah SAKAJAYA-PC dan memiliki GITHUB_TOKEN terpasang
+        if ($machineName === 'SAKAJAYA-PC' && !empty($githubToken) && strpos($githubToken, 'ghp_') === 0) {
+            $isMaster = true;
+        }
+    }
+    define('IS_MASTER_DEVELOPER', $isMaster);
 }
