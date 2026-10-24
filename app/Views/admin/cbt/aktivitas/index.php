@@ -716,17 +716,6 @@ foreach ($sessions as $s) {
                         <i class="fas fa-file-excel me-1"></i> Unduh File Excel
                     </button>
                 </form>
-                <hr class="my-3">
-                <div class="text-start">
-                    <p class="text-muted small mb-2">
-                        <i class="bi bi-info-circle me-1 text-primary"></i>
-                        Export nilai ke format JSON untuk diimpor ke <strong>ESPATA</strong> dengan konversi nilai.
-                    </p>
-                    <button type="button" class="btn btn-outline-info w-100 fw-semibold rounded-3"
-                            id="btnExportEspata" onclick="exportUntukEspata()">
-                        <i class="bi bi-box-arrow-up-right me-1"></i> Export JSON untuk ESPATA
-                    </button>
-                </div>
             </div>
         </div>
     </div>
