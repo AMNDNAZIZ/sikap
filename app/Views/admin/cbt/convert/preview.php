@@ -1,24 +1,24 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="container-fluid">
-    <div class="row align-items-center mb-3">
-        <div class="col-md-6">
-            <h5 class="mb-0">Preview Konversi Nilai</h5>
+<div class="container-fluid py-2">
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
+        <div>
+            <h5 class="mb-0 fw-bold">Preview Konversi Nilai</h5>
             <p class="text-muted small mb-0">
-                <?= esc($test['subject_name']) ?> |
-                <?= esc($test['bank_code']) ?> | Kelas:
-                <?= esc($class_name) ?>
+                <?= esc($test['subject_name']) ?> &bull;
+                <span class="font-monospace">[<?= esc($test['bank_code']) ?>]</span> &bull; Kelas:
+                <strong><?= esc($class_name) ?></strong>
             </p>
         </div>
-        <div class="col-md-6 text-end">
-            <a href="<?= site_url('admin/cbt/convertnilai') ?>" class="btn btn-secondary btn-sm">
-                <i class="bi bi-arrow-left"></i> Kembali
+        <div>
+            <a href="<?= site_url('admin/cbt/convertnilai') ?>" class="btn btn-outline-secondary btn-sm px-3 py-2">
+                <i class="bi bi-arrow-left me-1"></i> Kembali
             </a>
         </div>
     </div>
 
-    <div class="row">
+    <div class="row g-3">
         <div class="col-md-8">
             <div class="card shadow-sm mb-3">
                 <div class="card-header bg-white">

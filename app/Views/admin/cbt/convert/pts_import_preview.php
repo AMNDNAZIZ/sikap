@@ -18,7 +18,7 @@
     </div>
   </div>
 
-  <div class="row">
+  <div class="row g-3">
     <div class="col-md-8">
       <div class="card shadow-sm mb-3">
         <div class="card-header bg-white d-flex justify-content-between align-items-center">

@@ -469,6 +469,91 @@
       opacity: 0.2;
     }
   }
+
+  @media (max-width: 576px) {
+    .container.py-5 {
+      padding-top: 1.25rem !important;
+      padding-bottom: 2rem !important;
+    }
+
+    .finish-card {
+      border-radius: 1.5rem;
+    }
+
+    .finish-card-body {
+      padding: 1.5rem 1rem !important;
+    }
+
+    .text-center.mb-5 {
+      margin-bottom: 1.5rem !important;
+    }
+
+    .success-icon-wrapper {
+      width: 68px;
+      height: 68px;
+      font-size: 2.2rem;
+      border-radius: 1.25rem;
+      margin-bottom: 0.75rem !important;
+    }
+
+    .text-gradient {
+      font-size: 1.65rem;
+    }
+
+    .text-muted-modern.px-md-5 {
+      font-size: 0.88rem;
+    }
+
+    .score-showcase {
+      padding: 1rem !important;
+      margin-bottom: 1.5rem !important;
+    }
+
+    .score-circle {
+      width: 95px;
+      height: 95px;
+      border-width: 5px;
+    }
+
+    .score-value {
+      font-size: 1.75rem;
+    }
+
+    .score-label {
+      font-size: 0.6rem;
+    }
+
+    .table-container {
+      margin-bottom: 1.5rem !important;
+    }
+
+    .table-finish thead th {
+      padding: 0.65rem 0.5rem;
+      font-size: 0.7rem;
+    }
+
+    .table-finish td {
+      padding: 0.75rem 0.5rem;
+      font-size: 0.85rem;
+    }
+
+    .total-badge {
+      font-size: 1rem;
+      padding: 0.35rem 0.85rem;
+    }
+
+    .btn-premium {
+      padding: 0.85rem 1.25rem;
+      font-size: 0.95rem;
+      border-radius: 50px;
+    }
+
+    .alert-premium {
+      padding: 1rem;
+      border-radius: 1rem;
+      margin-bottom: 1.5rem !important;
+    }
+  }
 </style>
 
 <!-- Add Animate.css for entrance animations -->

@@ -23,31 +23,31 @@
   </div>
 
   <!-- Ringkasan -->
-  <div class="row g-3 mb-4">
-    <div class="col-sm-3">
-      <div class="card border-0 shadow-sm text-center p-3">
+  <div class="row g-2 g-md-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center p-3 h-100" style="border-radius: 12px;">
         <div class="fs-3 fw-bold text-primary"><?= count($results) ?></div>
-        <div class="small text-muted">Total Siswa di File</div>
+        <div class="small text-muted">Total Siswa</div>
       </div>
     </div>
-    <div class="col-sm-3">
-      <div class="card border-0 shadow-sm text-center p-3">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center p-3 h-100" style="border-radius: 12px;">
         <div class="fs-3 fw-bold text-success"><?= $matchedCount ?></div>
-        <div class="small text-muted">NIS Ditemukan di ESPATA</div>
+        <div class="small text-muted">NIS Ditemukan</div>
       </div>
     </div>
-    <div class="col-sm-3">
-      <div class="card border-0 shadow-sm text-center p-3">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center p-3 h-100" style="border-radius: 12px;">
         <div class="fs-3 fw-bold text-warning"><?= $unmatchedCount ?></div>
-        <div class="small text-muted">NIS Tidak Ditemukan</div>
+        <div class="small text-muted">NIS Tidak Ada</div>
       </div>
     </div>
-    <div class="col-sm-3">
-      <div class="card border-0 shadow-sm text-center p-3">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center p-3 h-100" style="border-radius: 12px;">
         <div class="fs-3 fw-bold text-info">
           <?= $ya == 100 && $yb == 0 ? 'Tanpa' : $yb.'–'.$ya ?>
         </div>
-        <div class="small text-muted">Rentang Konversi</div>
+        <div class="small text-muted">Rentang Nilai</div>
       </div>
     </div>
   </div>

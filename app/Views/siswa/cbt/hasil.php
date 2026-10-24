@@ -2,50 +2,119 @@
 <?= $this->section('content') ?>
 
 <style>
-  .result-summary {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    padding: 1rem;
+  .hasil-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0.5rem 12px 2rem;
+  }
+
+  .hasil-header-box {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+    border: 1px solid #e2e8f0;
+    margin-bottom: 1.25rem;
+  }
+
+  .result-summary-card {
+    background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+    border: 1.5px solid #bfdbfe;
+    border-radius: 18px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .score-big-display {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 10px 24px;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.12);
+    border: 1px solid #dbeafe;
+  }
+
+  .score-number {
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: #0d6efd;
+    line-height: 1;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
     margin-bottom: 1.5rem;
+  }
+
+  .stat-pill {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px 14px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
   }
 
   .question-card {
     margin-bottom: 1rem;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    overflow: hidden;
+    background: #ffffff;
+  }
+
+  .question-card-header {
+    background: #f8fafc;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 0.95rem;
   }
 
   .question-text {
     white-space: pre-line;
-    line-height: 1.4;
+    line-height: 1.6;
+    color: #1e293b;
+    font-size: 0.98rem;
   }
 
   .question-text p {
-    margin-bottom: 0 !important;
+    margin-bottom: 0.5rem !important;
   }
 
   .question-text img {
     display: block;
-    max-width: 100%;
-    height: auto;
-    margin: 0.5rem 0;
+    max-width: 100% !important;
+    height: auto !important;
+    margin: 0.75rem auto;
+    border-radius: 8px;
   }
 
   .option-list {
     list-style: none;
     padding: 0;
+    margin: 0 0 1rem 0;
   }
 
   .option-item {
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    padding: 8px 12px;
-    margin-bottom: 6px;
-    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    background: #ffffff;
     white-space: pre-line;
-    line-height: 1.3;
+    line-height: 1.4;
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 10px;
+    font-size: 0.92rem;
+    transition: all 0.15s ease;
   }
 
   .option-item p {
@@ -54,126 +123,224 @@
 
   .option-item img {
     display: block;
-    margin: 6px;
+    margin: 8px 0;
     max-width: 100%;
-    height: 160px;
-    /* tinggi seragam */
+    height: auto;
+    max-height: 180px;
     object-fit: contain;
-    /* pertahankan rasio tanpa cropping */
     border-radius: 6px;
-    background: #f8f9fa;
-    /* beri latar abu lembut biar rapi */
+    background: #f8fafc;
     padding: 4px;
     border: 1px solid #dee2e6;
   }
 
   .option-item.correct {
-    background: #d1e7dd;
-    border-color: #0f5132;
+    background: #dcfce7 !important;
+    border-color: #22c55e !important;
+    color: #14532d;
+    font-weight: 500;
   }
 
   .option-item.incorrect {
-    background: #f8d7da;
-    border-color: #842029;
+    background: #fee2e2 !important;
+    border-color: #ef4444 !important;
+    color: #7f1d1d;
   }
 
   .option-item.student-answer {
+    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.4);
     border-color: #0d6efd;
-    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.2);
   }
 
   .essay-answer {
-    background: #fff;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    padding: 10px;
-    min-height: 100px;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px;
+    min-height: 80px;
     white-space: pre-wrap;
+    font-size: 0.95rem;
+    color: #1e293b;
   }
 
   .answer-info {
-    font-size: 0.9rem;
-    margin-top: 6px;
-  }
-
-  .answer-info span {
-    display: inline-block;
-    margin-right: 12px;
+    font-size: 0.88rem;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #e2e8f0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    align-items: center;
   }
 
   .answer-info .correct {
-    color: #0f5132;
-    font-weight: 600;
+    color: #15803d;
+    font-weight: 700;
   }
 
   .answer-info .wrong {
-    color: #842029;
-    font-weight: 600;
+    color: #b91c1c;
+    font-weight: 700;
   }
 
-  @media (max-width: 768px) {
-    .option-item img {
-      height: 120px;
+  .btn-back-cbt {
+    border-radius: 50px;
+    padding: 12px 24px;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 576px) {
+    .hasil-container {
+      padding: 0.25rem 8px 2rem;
+    }
+
+    .hasil-header-box {
+      padding: 1rem;
+      border-radius: 14px;
+      margin-bottom: 0.75rem;
+    }
+
+    .hasil-header-box h4 {
+      font-size: 1.15rem;
+    }
+
+    .result-summary-card {
+      padding: 1rem;
+      border-radius: 14px;
+      margin-bottom: 0.75rem;
+    }
+
+    .score-number {
+      font-size: 2rem;
+    }
+
+    .stats-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 1rem;
+    }
+
+    .stat-pill {
+      padding: 8px 10px;
+      font-size: 0.8rem;
+      border-radius: 10px;
+    }
+
+    .question-card {
+      border-radius: 14px;
+      margin-bottom: 0.75rem;
+    }
+
+    .question-card-header {
+      padding: 8px 12px;
+      font-size: 0.88rem;
+    }
+
+    .question-card .card-body {
+      padding: 12px;
+    }
+
+    .question-text {
+      font-size: 0.9rem;
+    }
+
+    .option-item {
+      padding: 8px 10px;
+      font-size: 0.85rem;
+      border-radius: 10px;
+      gap: 6px;
+    }
+
+    .btn-back-cbt {
+      width: 100%;
     }
   }
 </style>
 
-<div class="container py-4">
-  <div class="mb-4">
-    <h4 class="fw-bold"><?= esc($test['exam_name'] ?? 'Hasil Ujian') ?></h4>
-    <div class="text-muted">
-      <small><?= esc($test['subject_name'] ?? '-') ?> &middot;
-        Bank: <?= esc($test['bank_code'] ?? '-') ?></small>
+<div class="hasil-container">
+  <div class="hasil-header-box">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h4 class="fw-bold mb-1"><?= esc($test['exam_name'] ?? 'Hasil Ujian') ?></h4>
+        <div class="text-muted small">
+          <i class="bi bi-book me-1"></i><?= esc($test['subject_name'] ?? '-') ?> &middot;
+          Kode: <?= esc($test['bank_code'] ?? '-') ?>
+        </div>
+      </div>
+      <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-2 small">
+        <i class="bi bi-person-check me-1"></i> Selesai Dikerjakan
+      </span>
     </div>
   </div>
 
   <!-- Ringkasan Nilai -->
-  <div class="result-summary">
-    <h5 class="mb-2">🎯 Nilai Anda</h5>
-    <div class="fs-4 fw-bold text-primary"><?= esc($score) ?></div>
-    <p class="text-muted mb-1">
-      <strong>Rincian Nilai:</strong><br>
-    <table class="table table-sm table-borderless w-auto text-muted mb-0">
-      <tr>
-        <td>PG</td>
-        <td>: <?= number_format($nilai_pg ?? 0, 2) ?> x <?= $bobot_pg ?? 0 ?>%</td>
-        <td>= <?= number_format(($nilai_pg * $bobot_pg / 100), 2) ?></td>
-      </tr>
-      <tr>
-        <td>PG Kompleks</td>
-        <td>: <?= number_format($nilai_pgk ?? 0, 2) ?> x <?= $bobot_pg_kompleks ?? 0 ?>%</td>
-        <td>= <?= number_format(($nilai_pgk * $bobot_pg_kompleks / 100), 2) ?></td>
-      </tr>
-      <tr>
-        <td>Benar/Salah</td>
-        <td>: <?= number_format($nilai_bs ?? 0, 2) ?> x <?= $bobot_bs ?? 0 ?>%</td>
-        <td>= <?= number_format(($nilai_bs * $bobot_bs / 100), 2) ?></td>
-      </tr>
-      <tr>
-        <td>Esai</td>
-        <td>: <?= number_format($nilai_esai ?? 0, 2) ?> x <?= $bobot_esai ?? 0 ?>%</td>
-        <td>= <?= number_format(($nilai_esai * $bobot_esai / 100), 2) ?></td>
-      </tr>
-    </table>
-    <hr class="my-1" style="width: 250px;">
-    <strong>Total Akhir: <?= esc($score) ?></strong>
-    </p>
-    <p class="text-muted small mb-0">
-      * Nilai esai mungkin belum final jika belum dinilai manual oleh guru.
-    </p>
+  <div class="result-summary-card">
+    <div class="row align-items-center">
+      <div class="col-md-7 mb-3 mb-md-0">
+        <h6 class="fw-bold text-dark mb-2">🎯 Rincian Akumulasi Nilai:</h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-borderless w-auto text-secondary small mb-0">
+            <tr>
+              <td class="fw-medium">Pilihan Ganda</td>
+              <td>: <?= number_format($nilai_pg ?? 0, 2) ?> &times; <?= $bobot_pg ?? 0 ?>%</td>
+              <td class="fw-bold text-dark">= <?= number_format(($nilai_pg * $bobot_pg / 100), 2) ?></td>
+            </tr>
+            <tr>
+              <td class="fw-medium">PG Kompleks</td>
+              <td>: <?= number_format($nilai_pgk ?? 0, 2) ?> &times; <?= $bobot_pg_kompleks ?? 0 ?>%</td>
+              <td class="fw-bold text-dark">= <?= number_format(($nilai_pgk * $bobot_pg_kompleks / 100), 2) ?></td>
+            </tr>
+            <tr>
+              <td class="fw-medium">Benar / Salah</td>
+              <td>: <?= number_format($nilai_bs ?? 0, 2) ?> &times; <?= $bobot_bs ?? 0 ?>%</td>
+              <td class="fw-bold text-dark">= <?= number_format(($nilai_bs * $bobot_bs / 100), 2) ?></td>
+            </tr>
+            <tr>
+              <td class="fw-medium">Esai / Uraian</td>
+              <td>: <?= number_format($nilai_esai ?? 0, 2) ?> &times; <?= $bobot_esai ?? 0 ?>%</td>
+              <td class="fw-bold text-dark">= <?= number_format(($nilai_esai * $bobot_esai / 100), 2) ?></td>
+            </tr>
+          </table>
+        </div>
+        <p class="text-muted small mt-2 mb-0" style="font-size: 0.78rem;">
+          * Nilai esai mungkin belum final bila ada penilaian manual oleh guru.
+        </p>
+      </div>
+
+      <div class="col-md-5 text-center">
+        <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 1px;">Skor Akhir</div>
+        <div class="score-big-display">
+          <span class="score-number"><?= esc($score) ?></span>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="mb-4">
-    <div><strong>Pilihan Ganda:</strong> Benar <?= $correct_pg ?>/<?= $total_pg ?></div>
-    <div><strong>PG Kompleks:</strong> Terkumpul <?= number_format($correct_pgk, 2) ?> poin dari
-      <?= $total_pg_kompleks ?> soal
+  <!-- Statistik Jawaban -->
+  <div class="stats-grid">
+    <div class="stat-pill">
+      <div class="text-muted small">Pilihan Ganda</div>
+      <div class="fw-bold text-dark">Benar <?= $correct_pg ?> / <?= $total_pg ?></div>
     </div>
-    <div><strong>Benar/Salah:</strong> Terkumpul <?= number_format($correct_bs, 2) ?> poin dari <?= $total_bs ?> soal
+    <div class="stat-pill">
+      <div class="text-muted small">PG Kompleks</div>
+      <div class="fw-bold text-dark"><?= number_format($correct_pgk, 2) ?> poin <small class="text-muted">(<?= $total_pg_kompleks ?> soal)</small></div>
     </div>
-    <div><strong>Esai:</strong> <?= $total_esai ?> soal</div>
+    <div class="stat-pill">
+      <div class="text-muted small">Benar / Salah</div>
+      <div class="fw-bold text-dark"><?= number_format($correct_bs, 2) ?> poin <small class="text-muted">(<?= $total_bs ?> soal)</small></div>
+    </div>
+    <div class="stat-pill">
+      <div class="text-muted small">Esai / Uraian</div>
+      <div class="fw-bold text-dark"><?= $total_esai ?> Soal</div>
+    </div>
   </div>
 
-  <h5 class="mb-3">📘 Rincian Soal</h5>
+  <h5 class="fw-bold mb-3 fs-6 text-secondary">
+    <i class="bi bi-card-checklist me-1 text-primary"></i> Rincian Pembahasan & Jawaban
+  </h5>
 
   <?php if (!empty($details)): ?>
     <?php foreach ($details as $no => $q): ?>
@@ -325,9 +492,9 @@
     <div class="alert alert-warning">Tidak ada data soal untuk ditampilkan.</div>
   <?php endif; ?>
 
-  <div class="mt-4 text-end">
-    <a href="<?= site_url('siswa/cbt') ?>" class="btn btn-secondary">
-      <i class="bi bi-arrow-left"></i> Kembali ke Daftar Ujian
+  <div class="mt-4 text-center text-md-end">
+    <a href="<?= site_url('siswa/cbt') ?>" class="btn btn-secondary btn-back-cbt shadow-sm">
+      <i class="bi bi-arrow-left me-1"></i> Kembali ke Daftar Ujian
     </a>
   </div>
 </div>

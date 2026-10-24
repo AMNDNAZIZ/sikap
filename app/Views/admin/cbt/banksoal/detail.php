@@ -15,28 +15,103 @@ window.MathJax = {
 </script>
 <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.min.js"></script>
 
+<style>
+  .cbt-header-responsive {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 1.25rem;
+  }
+
+  .btn-group-cbt {
+    display: inline-flex;
+    flex-wrap: nowrap;
+  }
+
+  @media (max-width: 768px) {
+    .container-fluid {
+      padding-left: 10px !important;
+      padding-right: 10px !important;
+    }
+
+    .cbt-header-responsive {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
+
+    .cbt-header-responsive .btn-group {
+      width: 100%;
+    }
+
+    .cbt-header-responsive .btn {
+      flex: 1;
+    }
+
+    .btn-group-cbt {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      gap: 3px !important;
+    }
+
+    .btn-group-cbt .btn {
+      border-radius: 6px !important;
+      min-width: 34px !important;
+      height: 34px !important;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+
+    .table-responsive {
+      border-radius: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #tableQuestions {
+      font-size: 0.84rem;
+    }
+
+    #tableQuestions th, #tableQuestions td {
+      padding: 8px 10px;
+    }
+
+    .modal-dialog {
+      margin: 0.5rem;
+      max-width: calc(100% - 1rem) !important;
+    }
+
+    .modal-content {
+      border-radius: 18px !important;
+    }
+  }
+</style>
+
 <div class="container-fluid">
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="cbt-header-responsive">
     <div>
-      <h4 class="mb-0">Rincian Bank Soal</h4>
+      <h4 class="mb-0 fw-bold"><i class="bi bi-file-earmark-text text-primary me-1"></i> Rincian Bank Soal</h4>
       <small class="text-muted">
-        <?= esc($bank['code']) ?> â€” <?= esc($bank['subject_name'] ?? '-') ?> â€” Level <?= esc($bank['level']) ?>
+        <?= esc($bank['code']) ?> &bull; <?= esc($bank['subject_name'] ?? '-') ?> &bull; Level <?= esc($bank['level']) ?>
       </small>
     </div>
 
     <div class="btn-group">
-      <a href="<?= site_url('admin/cbt/banksoal/tambah_soal/' . $bank['id']) ?>" class="btn btn-success">
-        <i class="bi bi-plus-circle"></i> Tambah Soal
+      <a href="<?= site_url('admin/cbt/banksoal/tambah_soal/' . $bank['id']) ?>" class="btn btn-success rounded-pill px-3 py-2 fw-semibold shadow-sm">
+        <i class="bi bi-plus-circle me-1"></i> Tambah Soal
       </a>
-      <a href="<?= site_url('admin/cbt/banksoal') ?>" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Kembali
+      <a href="<?= site_url('admin/cbt/banksoal') ?>" class="btn btn-outline-secondary rounded-pill px-3 py-2 ms-2">
+        <i class="bi bi-arrow-left me-1"></i> Kembali
       </a>
     </div>
   </div>
 
-  <div class="card shadow-sm">
-    <div class="card-body table-responsive">
-      <table id="tableQuestions" class="table table-striped align-middle w-100">
+  <div class="card shadow-sm border-0 rounded-3">
+    <div class="card-body table-responsive p-2 p-md-3">
+      <table id="tableQuestions" class="table table-striped align-middle w-100 mb-0">
         <thead class="table-light">
           <tr>
             <th width="5%">No</th>
@@ -68,7 +143,7 @@ window.MathJax = {
               </td>
               <td><?= esc($q['score']) ?></td>
               <td>
-                <div class="btn-group">
+                <div class="btn-group btn-group-cbt">
                   <button class="btn btn-outline-info btn-sm btn-view-question" data-index="<?= $i ?>"
                     data-id="<?= $q['id'] ?>" data-text="<?= htmlspecialchars($q['raw_text']) ?>"
                     data-plain="<?= htmlspecialchars($q['question_text']) ?>" data-type="<?= $q['question_type'] ?>"

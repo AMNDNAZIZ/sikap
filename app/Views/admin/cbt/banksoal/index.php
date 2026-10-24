@@ -1,28 +1,110 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
+<style>
+  .cbt-header-responsive {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 1.25rem;
+  }
+
+  .cbt-header-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn-group-bank {
+    display: inline-flex;
+    flex-wrap: nowrap;
+  }
+
+  @media (max-width: 768px) {
+    .container-fluid {
+      padding-left: 10px !important;
+      padding-right: 10px !important;
+    }
+
+    .cbt-header-responsive {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
+
+    .cbt-header-actions {
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .cbt-header-actions .btn {
+      width: 100%;
+    }
+
+    .btn-group-bank {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      gap: 3px !important;
+    }
+
+    .btn-group-bank .btn {
+      border-radius: 6px !important;
+      min-width: 34px !important;
+      height: 34px !important;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+
+    .table-responsive {
+      border-radius: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #datatable {
+      font-size: 0.84rem;
+    }
+
+    #datatable th, #datatable td {
+      padding: 8px 10px;
+      white-space: nowrap;
+    }
+
+    .card-footer button {
+      width: 100%;
+    }
+
+    .modal-dialog {
+      margin: 0.5rem;
+      max-width: calc(100% - 1rem) !important;
+    }
+  }
+</style>
+
 <div class="container-fluid">
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="cbt-header-responsive">
     <div>
-      <h4 class="mb-0">Daftar Bank Soal</h4>
-      <small class="text-muted">Halaman ini digunakan untuk membuat, mengedit, menghapus soal dalam kumpulan
-        bank.</small>
+      <h4 class="mb-0 fw-bold"><i class="bi bi-folder2-open text-primary me-1"></i> Daftar Bank Soal</h4>
+      <small class="text-muted">Halaman ini digunakan untuk membuat, mengedit, menghapus soal dalam kumpulan bank.</small>
     </div>
-    <div class="d-flex gap-2">
-      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalRestoreBank">
-        <i class="bi bi-upload"></i> Restore Bank Soal
+    <div class="cbt-header-actions">
+      <button class="btn btn-primary rounded-pill px-3 py-2 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalRestoreBank">
+        <i class="bi bi-upload me-1"></i> Restore Bank Soal
       </button>
-      <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalAddBank">
-        <i class="bi bi-plus-circle"></i> Tambah Bank Soal
+      <button class="btn btn-success rounded-pill px-3 py-2 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAddBank">
+        <i class="bi bi-plus-circle me-1"></i> Tambah Bank Soal
       </button>
     </div>
   </div>
 
   <form method="post" action="<?= site_url('admin/cbt/banksoal/bulkDelete') ?>">
     <?= csrf_field() ?>
-    <div class="card shadow-sm">
-      <div class="card-body table-responsive">
-        <table id="datatable" class="table table-striped align-middle w-100">
+    <div class="card shadow-sm border-0 rounded-3">
+      <div class="card-body table-responsive p-2 p-md-3">
+        <table id="datatable" class="table table-striped align-middle w-100 mb-0">
           <thead class="table-light">
             <tr>
               <th><input type="checkbox" id="checkAll"></th>
@@ -61,7 +143,7 @@
                   <?php endif; ?>
                 </td>
                 <td>
-                  <div class="btn-group">
+                  <div class="btn-group btn-group-bank">
                     <button type="button" class="btn btn-outline-warning btn-sm btn-edit-bank"
                       data-id="<?= $bank['id'] ?>" data-code="<?= esc($bank['code']) ?>"
                       data-subject="<?= esc($bank['subject_id']) ?>" data-option="<?= esc($bank['option_count']) ?>"

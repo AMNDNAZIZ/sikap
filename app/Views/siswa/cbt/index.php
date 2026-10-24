@@ -402,52 +402,57 @@
     }
 
     .school-header {
-      flex-direction: column;
-      text-align: center;
+      flex-direction: row;
+      align-items: center;
+      text-align: left;
       gap: 1rem;
     }
 
     .school-logo {
-      width: 60px;
-      height: 60px;
+      width: 54px;
+      height: 54px;
     }
 
     .school-info h4 {
-      font-size: 1.2rem;
+      font-size: 1.15rem;
     }
 
     .student-info-card {
-      padding: 1.5rem;
+      padding: 1.25rem;
     }
 
     .info-grid {
-      grid-template-columns: 1fr;
-      gap: 1rem;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+
+    .info-grid .info-item:first-child {
+      grid-column: span 2;
     }
 
     .info-item {
-      padding: 0.75rem;
+      padding: 0.65rem 0.85rem;
     }
 
     .info-icon {
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       font-size: 1rem;
     }
 
     .section-title {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.5rem;
-      margin-bottom: 1.5rem;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
     }
 
     .section-title h4 {
-      font-size: 1.25rem;
+      font-size: 1.2rem;
     }
 
     .exam-card-header {
-      padding: 1.25rem;
+      padding: 1.15rem;
     }
 
     .exam-title {
@@ -455,12 +460,12 @@
     }
 
     .exam-card-body {
-      padding: 1.25rem;
+      padding: 1.15rem;
     }
 
     .token-display h3 {
-      font-size: 1.5rem;
-      letter-spacing: 2px;
+      font-size: 1.4rem;
+      letter-spacing: 3px;
     }
   }
 
@@ -468,56 +473,97 @@
   @media (max-width: 576px) {
     .page-header {
       padding: 1rem;
-      border-radius: 15px;
+      border-radius: 16px;
+      margin-bottom: 1.25rem;
+    }
+
+    .school-header {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
     }
 
     .school-logo {
-      width: 50px;
-      height: 50px;
+      width: 44px;
+      height: 44px;
+      padding: 6px;
+      border-radius: 10px;
     }
 
     .school-info h4 {
-      font-size: 1rem;
+      font-size: 1.05rem;
+      line-height: 1.2;
     }
 
     .school-info p {
-      font-size: 0.85rem;
+      font-size: 0.78rem;
     }
 
     .student-info-card {
-      padding: 1rem;
+      padding: 0.85rem;
+      border-radius: 14px;
+    }
+
+    .student-info-card h5 {
+      font-size: 0.95rem;
+      margin-bottom: 0.5rem !important;
+    }
+
+    .info-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .info-grid .info-item-full {
+      grid-column: span 2;
     }
 
     .info-item {
-      padding: 0.6rem;
-      gap: 0.75rem;
+      padding: 0.5rem 0.65rem;
+      gap: 0.5rem;
+      border-radius: 10px;
     }
 
     .info-icon {
-      width: 35px;
-      height: 35px;
-      font-size: 0.9rem;
+      width: 30px;
+      height: 30px;
+      font-size: 0.85rem;
+      border-radius: 8px;
     }
 
     .info-label {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
+      margin-bottom: 0.1rem;
     }
 
     .info-value {
-      font-size: 0.9rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    .section-title {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
     }
 
     .section-title h4 {
-      font-size: 1.1rem;
+      font-size: 1.05rem;
     }
 
     .section-title .badge {
-      padding: 0.4rem 0.8rem;
-      font-size: 0.8rem;
+      padding: 0.35rem 0.7rem;
+      font-size: 0.75rem;
     }
 
     .exam-card {
-      border-radius: 15px;
+      border-radius: 16px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+      margin-bottom: 1rem;
     }
 
     .exam-card-header {
@@ -525,66 +571,94 @@
     }
 
     .exam-badge {
-      padding: 0.3rem 0.6rem;
-      font-size: 0.75rem;
+      padding: 0.25rem 0.6rem;
+      font-size: 0.72rem;
     }
 
     .exam-title {
-      font-size: 1rem;
+      font-size: 1.05rem;
+      line-height: 1.3;
     }
 
     .exam-subtitle {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
     }
 
     .exam-card-body {
       padding: 1rem;
     }
 
+    .exam-meta {
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
     .meta-item {
-      font-size: 0.85rem;
+      font-size: 0.82rem;
+      gap: 0.5rem;
     }
 
     .meta-icon {
-      width: 30px;
-      height: 30px;
-      font-size: 0.85rem;
+      width: 28px;
+      height: 28px;
+      font-size: 0.8rem;
+      border-radius: 8px;
     }
 
     .status-alert {
-      padding: 0.75rem;
-      font-size: 0.9rem;
+      padding: 0.75rem 0.5rem;
+      font-size: 0.85rem;
+      border-radius: 12px;
     }
 
     .token-section {
-      padding: 0.75rem;
+      padding: 0.5rem 0;
     }
 
     .token-display {
-      padding: 0.75rem;
+      padding: 0.65rem;
+      border-radius: 10px;
     }
 
     .token-display h3 {
       font-size: 1.25rem;
-      letter-spacing: 1px;
+      letter-spacing: 3px;
+    }
+
+    .token-form .form-label {
+      font-size: 0.82rem;
+      margin-bottom: 0.35rem;
     }
 
     .token-form input {
-      padding: 0.6rem 0.8rem;
-      font-size: 1rem;
+      padding: 0.65rem 0.75rem;
+      font-size: 1.15rem !important;
+      text-align: center;
+      letter-spacing: 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+      border-radius: 10px;
     }
 
     .btn-start-exam {
-      padding: 0.6rem 1rem;
+      padding: 0.75rem 1rem;
       font-size: 0.95rem;
+      border-radius: 50px;
+      font-weight: 700;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
     .empty-state {
-      padding: 3rem 1.5rem;
+      padding: 2.5rem 1rem;
+      border-radius: 16px;
     }
 
     .empty-state i {
-      font-size: 3.5rem;
+      font-size: 3rem;
     }
   }
 </style>
@@ -627,12 +701,22 @@ if (!empty($user['related_id'])) {
         </h5>
 
         <div class="info-grid">
+          <div class="info-item info-item-full">
+            <div class="info-icon">
+              <i class="bi bi-person-fill"></i>
+            </div>
+            <div class="info-content">
+              <div class="info-label">Nama Lengkap Siswa</div>
+              <div class="info-value text-primary"><?= strtoupper(esc($student['name'] ?? '-')) ?></div>
+            </div>
+          </div>
+
           <div class="info-item">
             <div class="info-icon">
               <i class="bi bi-hash"></i>
             </div>
             <div class="info-content">
-              <div class="info-label">Nomor Ujian</div>
+              <div class="info-label">No. Ujian</div>
               <div class="info-value"><?= esc($student['username'] ?? $student['nis'] ?? '-') ?></div>
             </div>
           </div>
@@ -649,11 +733,11 @@ if (!empty($user['related_id'])) {
 
           <div class="info-item">
             <div class="info-icon">
-              <i class="bi bi-person"></i>
+              <i class="bi bi-building"></i>
             </div>
             <div class="info-content">
-              <div class="info-label">Nama Lengkap</div>
-              <div class="info-value"><?= strtoupper(esc($student['name'] ?? '-')) ?></div>
+              <div class="info-label">Kelas</div>
+              <div class="info-value"><?= esc($student['class_name'] ?? '-') ?></div>
             </div>
           </div>
 
@@ -662,18 +746,8 @@ if (!empty($user['related_id'])) {
               <i class="bi bi-gender-ambiguous"></i>
             </div>
             <div class="info-content">
-              <div class="info-label">Jenis Kelamin</div>
+              <div class="info-label">Gender</div>
               <div class="info-value"><?= ($student['gender'] ?? 'L') == 'L' ? 'Laki-laki' : 'Perempuan' ?></div>
-            </div>
-          </div>
-
-          <div class="info-item">
-            <div class="info-icon">
-              <i class="bi bi-building"></i>
-            </div>
-            <div class="info-content">
-              <div class="info-label">Kelas</div>
-              <div class="info-value"><?= esc($student['class_name'] ?? '-') ?></div>
             </div>
           </div>
         </div>

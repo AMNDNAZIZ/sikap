@@ -253,6 +253,56 @@
         color: #495057 !important;
         margin-bottom: 0.5rem !important;
     }
+
+    @media (max-width: 768px) {
+        .container-fluid {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .page-header {
+            padding: 1.25rem 1rem !important;
+            border-radius: 14px !important;
+            margin-top: 0.75rem !important;
+            margin-bottom: 1rem !important;
+        }
+
+        .page-header h1 {
+            font-size: 1.25rem !important;
+        }
+
+        .page-header p {
+            font-size: 0.82rem !important;
+        }
+
+        .modern-card-body {
+            padding: 0.75rem 0.5rem !important;
+        }
+
+        .table-modern thead th,
+        .table-modern tbody td {
+            padding: 8px 6px !important;
+            font-size: 0.82rem !important;
+            white-space: nowrap !important;
+        }
+
+        .badge-modern {
+            padding: 0.3rem 0.6rem !important;
+            font-size: 0.72rem !important;
+        }
+
+        .btn-action {
+            min-width: 32px !important;
+            height: 32px !important;
+            padding: 0 6px !important;
+            font-size: 0.8rem !important;
+        }
+
+        .modal-modern .modal-dialog {
+            margin: 0.5rem !important;
+            max-width: calc(100% - 1rem) !important;
+        }
+    }
 </style>
 
 <div class="container-fluid px-4">

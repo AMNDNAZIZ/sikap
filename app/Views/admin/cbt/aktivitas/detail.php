@@ -217,24 +217,107 @@
   }
 
   @media (max-width: 768px) {
+    .page-header {
+      padding: 1.25rem 1rem !important;
+      border-radius: 14px !important;
+      margin-bottom: 1rem !important;
+    }
+
+    .page-header .icon-wrapper {
+      width: 44px !important;
+      height: 44px !important;
+      font-size: 1.35rem !important;
+      border-radius: 10px !important;
+    }
+
+    .page-header h4 {
+      font-size: 1.25rem !important;
+    }
+
+    .page-header p {
+      font-size: 0.82rem !important;
+    }
+
     .page-header-content {
       flex-direction: column !important;
-      gap: 1rem !important;
+      align-items: stretch !important;
+      gap: 0.85rem !important;
     }
 
     .page-header-actions {
       width: 100% !important;
-      justify-content: stretch !important;
+      display: flex !important;
+      flex-wrap: wrap !important;
+      gap: 6px !important;
     }
 
     .btn-modern {
-      flex: 1 !important;
+      flex: 1 1 auto !important;
       justify-content: center !important;
+      padding: 0.45rem 0.75rem !important;
+      font-size: 0.82rem !important;
+    }
+
+    .info-card {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 6px !important;
+      padding: 12px 14px !important;
+      margin-bottom: 1rem !important;
+    }
+
+    .stats-card {
+      padding: 10px 12px !important;
+      margin-bottom: 1rem !important;
+      gap: 6px !important;
+    }
+
+    .stats-card .badge,
+    .stats-card .btn {
+      font-size: 0.82rem !important;
+      padding: 6px 12px !important;
+    }
+
+    .table-card {
+      padding: 10px 8px !important;
+      border-radius: 14px !important;
+    }
+
+    .table-modern thead th,
+    .table-modern tbody td {
+      padding: 8px 6px !important;
+      font-size: 0.82rem !important;
+      white-space: nowrap !important;
+    }
+
+    .btn-group-student {
+      display: inline-flex !important;
+      gap: 3px !important;
+    }
+
+    .btn-group-student .btn-action {
+      min-width: 32px !important;
+      height: 32px !important;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border-radius: 6px !important;
+      font-size: 0.82rem !important;
+    }
+
+    .modal-dialog {
+      margin: 0.5rem !important;
+      max-width: calc(100% - 1rem) !important;
+    }
+
+    .modal-modern .modal-content {
+      border-radius: 16px !important;
     }
   }
 </style>
 
-<div class="container-fluid px-4 py-4">
+<div class="container-fluid px-2 px-md-4 py-3 py-md-4">
   <!-- Page Header -->
   <div class="page-header">
     <div class="page-header-content">
@@ -370,7 +453,7 @@
                 <?php endif; ?>
               </td>
               <td class="text-center">
-                <div class="btn-group">
+                <div class="btn-group btn-group-student">
                   <?php if ($s['status'] === 'active'): ?>
                     <button class="btn btn-action btn-primary-gradient btn-force-finish" data-id="<?= $s['id'] ?>"
                       title="Selesaikan Ujian">

@@ -1,22 +1,89 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
+<style>
+  .cbt-header-responsive {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 1.25rem;
+  }
+
+  .btn-group-cbt {
+    display: inline-flex;
+    flex-wrap: nowrap;
+  }
+
+  @media (max-width: 768px) {
+    .cbt-header-responsive {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
+
+    .cbt-header-responsive .btn {
+      width: 100%;
+    }
+
+    .btn-group-cbt {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .btn-group-cbt .btn {
+      border-radius: 6px !important;
+      padding: 6px 10px !important;
+      min-width: 36px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .table-responsive {
+      border-radius: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #tableTests {
+      font-size: 0.84rem;
+    }
+
+    #tableTests th, #tableTests td {
+      padding: 8px 10px;
+      white-space: nowrap;
+    }
+
+    .modal-dialog {
+      margin: 0.5rem;
+      max-width: calc(100% - 1rem) !important;
+    }
+
+    .modal-content {
+      border-radius: 18px !important;
+    }
+  }
+</style>
+
 <div class="container-fluid">
   <!-- Header -->
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="cbt-header-responsive">
     <div>
-      <h4 class="mb-0"><i class="bi bi-calendar-check"></i> Pengaturan Ujian</h4>
+      <h4 class="mb-0 fw-bold"><i class="bi bi-calendar-check text-primary me-1"></i> Pengaturan Ujian</h4>
       <small class="text-muted">Kelola jadwal, token, dan status ujian siswa.</small>
     </div>
-    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalAddTest">
-      <i class="bi bi-plus-circle"></i> Tambah Jadwal
+    <button class="btn btn-success rounded-pill px-3 py-2 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAddTest">
+      <i class="bi bi-plus-circle me-1"></i> Tambah Jadwal
     </button>
   </div>
 
   <!-- Table -->
-  <div class="card shadow-sm">
-    <div class="card-body table-responsive">
-      <table id="tableTests" class="table table-striped align-middle w-100">
+  <div class="card shadow-sm border-0 rounded-3">
+    <div class="card-body table-responsive p-2 p-md-3">
+      <table id="tableTests" class="table table-striped align-middle w-100 mb-0">
         <thead class="table-light">
           <tr>
             <th width="5%">No</th>
@@ -50,11 +117,11 @@
               <td><?= esc($test['duration']) ?> menit</td>
               <td><?= $status ?></td>
               <td>
-                <div class="btn-group">
-                  <button class="btn btn-outline-primary btn-sm btn-detail" data-id="<?= $test['id'] ?>">
+                <div class="btn-group btn-group-cbt">
+                  <button class="btn btn-outline-primary btn-sm btn-detail" data-id="<?= $test['id'] ?>" title="Rincian Jadwal">
                     <i class="bi bi-info-circle"></i>
                   </button>
-                  <button class="btn btn-outline-warning btn-sm btn-edit" data-id="<?= $test['id'] ?>">
+                  <button class="btn btn-outline-warning btn-sm btn-edit" data-id="<?= $test['id'] ?>" title="Edit Jadwal">
                     <i class="bi bi-pencil"></i>
                   </button>
                   <a href="<?= site_url('admin/cbt/teststatus/togglePause/' . $test['id']) ?>"
@@ -65,7 +132,7 @@
                     class="btn btn-outline-info btn-sm" title="Tampilkan / Sembunyikan">
                     <?= $visibility ?>
                   </a>
-                  <button class="btn btn-outline-danger btn-sm btn-delete" data-id="<?= $test['id'] ?>">
+                  <button class="btn btn-outline-danger btn-sm btn-delete" data-id="<?= $test['id'] ?>" title="Hapus Jadwal">
                     <i class="bi bi-trash"></i>
                   </button>
                 </div>
