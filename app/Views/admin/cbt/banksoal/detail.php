@@ -90,26 +90,124 @@ window.MathJax = {
   }
 </style>
 
-<div class="container-fluid">
+<div class="container-fluid py-2">
   <div class="cbt-header-responsive">
     <div>
       <h4 class="mb-0 fw-bold"><i class="bi bi-file-earmark-text text-primary me-1"></i> Rincian Bank Soal</h4>
       <small class="text-muted">
-        <?= esc($bank['code']) ?> &bull; <?= esc($bank['subject_name'] ?? '-') ?> &bull; Level <?= esc($bank['level']) ?>
+        <span class="badge bg-primary bg-opacity-10 text-primary font-monospace"><?= esc($bank['code']) ?></span> &bull; 
+        <strong><?= esc($bank['subject_name'] ?? '-') ?></strong> &bull; Level <?= esc($bank['level']) ?>
       </small>
     </div>
 
-    <div class="btn-group">
-      <a href="<?= site_url('admin/cbt/banksoal/tambah_soal/' . $bank['id']) ?>" class="btn btn-success rounded-pill px-3 py-2 fw-semibold shadow-sm">
+    <div class="d-flex gap-2 w-100 w-sm-auto justify-content-end">
+      <a href="<?= site_url('admin/cbt/banksoal/tambah_soal/' . $bank['id']) ?>" class="btn btn-success rounded-pill px-3 py-2 fw-semibold shadow-sm flex-fill flex-sm-grow-0 d-inline-flex align-items-center justify-content-center">
         <i class="bi bi-plus-circle me-1"></i> Tambah Soal
       </a>
-      <a href="<?= site_url('admin/cbt/banksoal') ?>" class="btn btn-outline-secondary rounded-pill px-3 py-2 ms-2">
+      <a href="<?= site_url('admin/cbt/banksoal') ?>" class="btn btn-outline-secondary rounded-pill px-3 py-2 flex-fill flex-sm-grow-0 d-inline-flex align-items-center justify-content-center">
         <i class="bi bi-arrow-left me-1"></i> Kembali
       </a>
     </div>
   </div>
 
-  <div class="card shadow-sm border-0 rounded-3">
+  <!-- 📱 TAMPILAN MOBILE: KARTU SOAL (Hanya tampil di HP / Layar < 768px) -->
+  <div class="d-block d-md-none mb-3">
+    <!-- Search Toolbar Mobile -->
+    <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px;">
+      <div class="input-group">
+        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" id="searchQuestionMobile" class="form-control border-start-0" placeholder="Cari nomor atau isi soal...">
+      </div>
+      <div class="d-flex justify-content-between align-items-center pt-2">
+        <span class="small text-muted">Total: <strong><?= count($questions) ?> Butir Soal</strong></span>
+        <a href="<?= site_url('admin/cbt/banksoal/tambah_soal/' . $bank['id']) ?>" class="btn btn-sm btn-outline-success py-1 px-2 rounded-pill">
+          <i class="bi bi-plus-circle me-1"></i> Tambah
+        </a>
+      </div>
+    </div>
+
+    <div id="mobileQuestionCardsContainer">
+      <?php foreach ($questions as $i => $q): 
+        $previewText = strip_tags($q['question_text']);
+        $previewText = str_replace(['\\r\\n', '\\n', '\\r', "\r\n", "\n", "\r"], ' ', $previewText);
+        $previewSnippet = substr($previewText, 0, 140) . (strlen($previewText) > 140 ? '...' : '');
+
+        $badgeColor = 'bg-primary';
+        $typeName = 'PG';
+        if ($q['question_type'] === 'pg_kompleks') {
+          $badgeColor = 'bg-info text-dark';
+          $typeName = 'PGK';
+        } elseif ($q['question_type'] === 'benar_salah') {
+          $badgeColor = 'bg-warning text-dark';
+          $typeName = 'B/S';
+        } elseif ($q['question_type'] === 'esai' || $q['question_type'] === 'essay') {
+          $badgeColor = 'bg-success';
+          $typeName = 'Esai';
+        }
+      ?>
+        <div class="card border-0 shadow-sm mb-3 question-card-item" style="border-radius: 14px;" data-search="<?= strtolower(esc(($i + 1) . ' ' . $previewText . ' ' . $typeName)) ?>">
+          <div class="card-body p-3">
+            <!-- Top Row: No, Tipe, Skor -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="badge bg-secondary bg-opacity-10 text-secondary border font-monospace px-2 py-1">
+                SOAL NO. <?= $i + 1 ?>
+              </span>
+              <div class="d-flex gap-1 align-items-center">
+                <span class="badge <?= $badgeColor ?> px-2 py-1"><?= $typeName ?></span>
+                <span class="badge bg-light text-dark border px-2 py-1">Skor: <?= esc($q['score']) ?></span>
+              </div>
+            </div>
+
+            <!-- Question Snippet -->
+            <p class="text-dark small mb-3" style="line-height: 1.5;">
+              <?= esc($previewSnippet) ?>
+            </p>
+
+            <!-- Action Buttons Touch Friendly -->
+            <div class="btn-group w-100 shadow-sm" role="group">
+              <button type="button" class="btn btn-outline-primary btn-sm py-2 btn-view-question d-flex align-items-center justify-content-center gap-1"
+                data-index="<?= $i ?>"
+                data-id="<?= $q['id'] ?>" data-text="<?= htmlspecialchars($q['raw_text']) ?>"
+                data-plain="<?= htmlspecialchars($q['question_text']) ?>" data-type="<?= $q['question_type'] ?>"
+                data-score="<?= $q['score'] ?>" data-options="<?= htmlspecialchars(json_encode([
+                    'A' => $q['option_a'],
+                    'B' => $q['option_b'],
+                    'C' => $q['option_c'],
+                    'D' => $q['option_d'],
+                    'E' => $q['option_e'],
+                    'key' => $q['correct_option']
+                  ]), ENT_QUOTES, 'UTF-8') ?>">
+                <i class="bi bi-eye"></i> Lihat
+              </button>
+
+              <a href="<?= site_url('admin/cbt/banksoal/edit_soal/' . $bank['id'] . '/' . $q['id']) ?>"
+                class="btn btn-outline-warning btn-sm py-2 d-flex align-items-center justify-content-center gap-1">
+                <i class="bi bi-pencil"></i> Edit
+              </a>
+
+              <button type="button" class="btn btn-outline-danger btn-sm py-2 btn-delete-question d-flex align-items-center justify-content-center gap-1"
+                data-id="<?= $q['id'] ?>"
+                data-bank-id="<?= $bank['id'] ?>">
+                <i class="bi bi-trash"></i> Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      <?php endforeach; ?>
+      <?php if (empty($questions)): ?>
+        <div class="text-center py-5 text-muted bg-white rounded-3 border">
+          <i class="bi bi-file-earmark-x fs-1 text-secondary mb-2 d-block"></i>
+          <h6>Belum ada butir soal dalam bank ini</h6>
+          <a href="<?= site_url('admin/cbt/banksoal/tambah_soal/' . $bank['id']) ?>" class="btn btn-sm btn-success mt-2">
+            <i class="bi bi-plus-circle me-1"></i> Tambah Soal
+          </a>
+        </div>
+      <?php endif; ?>
+    </div>
+  </div>
+
+  <!-- 💻 TAMPILAN DESKTOP: TABEL SOAL (Hanya tampil di layar >= 768px) -->
+  <div class="card shadow-sm border-0 rounded-3 d-none d-md-block">
     <div class="card-body table-responsive p-2 p-md-3">
       <table id="tableQuestions" class="table table-striped align-middle w-100 mb-0">
         <thead class="table-light">
@@ -511,6 +609,17 @@ window.MathJax = {
               Swal.fire('Error', 'Gagal menghapus soal. Periksa koneksi atau log server.', 'error');
             }
           });
+        }
+      });
+    // Live search mobile question cards
+    $('#searchQuestionMobile').on('input', function () {
+      const term = $(this).val().toLowerCase().trim();
+      $('.question-card-item').each(function () {
+        const text = $(this).data('search') || '';
+        if (text.indexOf(term) !== -1 || term === '') {
+          $(this).show();
+        } else {
+          $(this).hide();
         }
       });
     });

@@ -82,13 +82,39 @@
       max-width: calc(100% - 1rem) !important;
     }
   }
+
+  /* Styling Khusus Kartu Mobile */
+  .bank-card-mobile {
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    padding: 1rem;
+    margin-bottom: 0.85rem;
+    transition: all 0.2s ease;
+  }
+  .bank-card-mobile:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .bank-btn-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.25rem;
+    border-radius: 8px;
+    font-size: 0.68rem;
+    font-weight: 500;
+    gap: 0.2rem;
+    min-height: 48px;
+  }
 </style>
 
-<div class="container-fluid">
+<div class="container-fluid py-2">
   <div class="cbt-header-responsive">
     <div>
       <h4 class="mb-0 fw-bold"><i class="bi bi-folder2-open text-primary me-1"></i> Daftar Bank Soal</h4>
-      <small class="text-muted">Halaman ini digunakan untuk membuat, mengedit, menghapus soal dalam kumpulan bank.</small>
+      <small class="text-muted">Kelola bank soal untuk ujian CBT — buat, edit, dan atur butir soal.</small>
     </div>
     <div class="cbt-header-actions">
       <button class="btn btn-primary rounded-pill px-3 py-2 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalRestoreBank">
@@ -100,9 +126,132 @@
     </div>
   </div>
 
-  <form method="post" action="<?= site_url('admin/cbt/banksoal/bulkDelete') ?>">
+  <form method="post" action="<?= site_url('admin/cbt/banksoal/bulkDelete') ?>" id="formBulkBank">
     <?= csrf_field() ?>
-    <div class="card shadow-sm border-0 rounded-3">
+
+    <!-- 📱 TAMPILAN MOBILE: KARTU BANK SOAL (Hanya tampil di HP / Layar < 768px) -->
+    <div class="d-block d-md-none mb-3">
+      <!-- Search & Check All Toolbar Mobile -->
+      <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 12px;">
+        <div class="input-group mb-2">
+          <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+          <input type="text" id="searchBankMobile" class="form-control border-start-0" placeholder="Cari kode bank atau mapel...">
+        </div>
+        <div class="d-flex justify-content-between align-items-center pt-1">
+          <div class="form-check mb-0">
+            <input type="checkbox" id="checkAllMobile" class="form-check-input" style="width: 18px; height: 18px;">
+            <label class="form-check-label small fw-semibold ms-1" for="checkAllMobile">Pilih Semua</label>
+          </div>
+          <span class="badge bg-primary bg-opacity-10 text-primary px-2 py-1 rounded-pill small">
+            Total: <?= count($banks) ?> Bank
+          </span>
+        </div>
+      </div>
+
+      <div id="mobileBankCardsContainer">
+        <?php foreach ($banks as $i => $bank): ?>
+          <div class="bank-card-mobile bank-card-item" data-search="<?= strtolower(esc($bank['code'] . ' ' . $bank['subject_name'] . ' ' . ($bank['creator_name'] ?? ''))) ?>">
+            <!-- Header Kartu: Checkbox, Kode, Status -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="d-flex align-items-center gap-2">
+                <input type="checkbox" name="ids[]" value="<?= $bank['id'] ?>" class="form-check-input bank-checkbox-item" style="width: 20px; height: 20px;">
+                <span class="badge bg-primary bg-opacity-10 text-primary font-monospace px-2 py-1 border border-primary border-opacity-25" style="font-size: 0.88rem;">
+                  <?= esc($bank['code']) ?>
+                </span>
+              </div>
+              <div>
+                <?php if ($bank['is_active']): ?>
+                  <a href="<?= site_url('admin/cbt/banksoal/toggle/' . $bank['id']) ?>"
+                    class="badge bg-success text-decoration-none py-1 px-2 rounded-pill small">
+                    <i class="bi bi-check-circle me-1"></i> Aktif
+                  </a>
+                <?php else: ?>
+                  <a href="<?= site_url('admin/cbt/banksoal/toggle/' . $bank['id']) ?>"
+                    class="badge bg-secondary text-decoration-none py-1 px-2 rounded-pill small">
+                    <i class="bi bi-dash-circle me-1"></i> Nonaktif
+                  </a>
+                <?php endif; ?>
+              </div>
+            </div>
+
+            <!-- Subject & Creator -->
+            <h6 class="fw-bold mb-1 text-dark"><?= esc($bank['subject_name']) ?></h6>
+            <div class="text-muted small mb-2 d-flex align-items-center gap-1">
+              <i class="bi bi-person text-secondary"></i>
+              <span>Guru: <strong><?= esc($bank['creator_name'] ?? 'Admin') ?></strong></span>
+            </div>
+
+            <!-- Stats Badges -->
+            <div class="d-flex flex-wrap gap-1 mb-3">
+              <span class="badge bg-primary px-2 py-1"><i class="bi bi-file-earmark-text me-1"></i><?= esc($bank['total_questions']) ?> Soal</span>
+              <span class="badge bg-light text-dark border px-2 py-1"><?= esc($bank['option_count']) ?> Opsi</span>
+              <span class="badge bg-light text-dark border px-2 py-1"><?= esc($bank['total_pg']) ?> PG</span>
+              <?php if (!empty($bank['total_pg_kompleks'])): ?>
+                <span class="badge bg-light text-dark border px-2 py-1"><?= esc($bank['total_pg_kompleks']) ?> PGK</span>
+              <?php endif; ?>
+              <?php if (!empty($bank['total_bs'])): ?>
+                <span class="badge bg-light text-dark border px-2 py-1"><?= esc($bank['total_bs']) ?> BS</span>
+              <?php endif; ?>
+              <?php if (!empty($bank['total_esai'])): ?>
+                <span class="badge bg-light text-dark border px-2 py-1"><?= esc($bank['total_esai']) ?> Esai</span>
+              <?php endif; ?>
+            </div>
+
+            <!-- Action Utama: Kelola Soal -->
+            <a href="<?= site_url('admin/cbt/banksoal/detail/' . $bank['id']) ?>" class="btn btn-primary w-100 py-2 fw-semibold mb-2 shadow-sm d-flex align-items-center justify-content-center gap-2" style="border-radius: 10px;">
+              <i class="bi bi-list-check fs-5"></i> Buka &amp; Kelola Soal
+            </a>
+
+            <!-- Grid 5 Aksi Cepat (Mobile Touch Targets) -->
+            <div class="row g-1">
+              <div class="col">
+                <button type="button" class="btn btn-outline-warning w-100 bank-btn-action btn-edit-bank"
+                  data-id="<?= $bank['id'] ?>" data-code="<?= esc($bank['code']) ?>"
+                  data-subject="<?= esc($bank['subject_id']) ?>" data-option="<?= esc($bank['option_count']) ?>"
+                  title="Edit Bank Soal">
+                  <i class="bi bi-pencil fs-6"></i>
+                  <span>Edit</span>
+                </button>
+              </div>
+              <div class="col">
+                <a href="<?= site_url('admin/cbt/banksoal/copy/' . $bank['id']) ?>" class="btn btn-outline-primary w-100 bank-btn-action" title="Salin Bank Soal">
+                  <i class="bi bi-files fs-6"></i>
+                  <span>Salin</span>
+                </a>
+              </div>
+              <div class="col">
+                <a href="<?= site_url('admin/cbt/banksoal/print/' . $bank['id']) ?>" class="btn btn-outline-secondary w-100 bank-btn-action" title="Cetak PDF">
+                  <i class="bi bi-printer fs-6"></i>
+                  <span>Cetak</span>
+                </a>
+              </div>
+              <div class="col">
+                <a href="<?= site_url('admin/cbt/banksoal/backup/' . $bank['id']) ?>" class="btn btn-outline-dark w-100 bank-btn-action" title="Backup Bank Soal">
+                  <i class="bi bi-download fs-6"></i>
+                  <span>Backup</span>
+                </a>
+              </div>
+              <div class="col">
+                <a href="<?= site_url('admin/cbt/banksoal/delete/' . $bank['id']) ?>" class="btn btn-outline-danger w-100 bank-btn-action"
+                  onclick="return confirm('Hapus bank soal ini beserta semua soalnya?')" title="Hapus Bank Soal">
+                  <i class="bi bi-trash fs-6"></i>
+                  <span>Hapus</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        <?php endforeach; ?>
+        <?php if (empty($banks)): ?>
+          <div class="text-center py-5 text-muted bg-white rounded-3 border">
+            <i class="bi bi-folder-x fs-1 text-secondary mb-2 d-block"></i>
+            <h6>Belum ada data bank soal</h6>
+          </div>
+        <?php endif; ?>
+      </div>
+    </div>
+
+    <!-- 💻 TAMPILAN DESKTOP: TABEL DATA TABLE (Hanya tampil di layar >= 768px) -->
+    <div class="card shadow-sm border-0 rounded-3 d-none d-md-block">
       <div class="card-body table-responsive p-2 p-md-3">
         <table id="datatable" class="table table-striped align-middle w-100 mb-0">
           <thead class="table-light">
@@ -120,7 +269,7 @@
           <tbody>
             <?php foreach ($banks as $i => $bank): ?>
               <tr>
-                <td><input type="checkbox" name="ids[]" value="<?= $bank['id'] ?>"></td>
+                <td><input type="checkbox" name="ids[]" value="<?= $bank['id'] ?>" class="bank-checkbox-item"></td>
                 <td><?= $i + 1 ?></td>
                 <td><strong><?= esc($bank['code']) ?></strong></td>
                 <td><?= esc($bank['subject_name']) ?></td>
@@ -172,15 +321,19 @@
         </table>
       </div>
       <div class="card-footer">
-        <?php 
-        // Tampilkan tombol hapus masal untuk semua user (admin dan guru)
-        // Admin bisa hapus semua, guru hanya bisa hapus miliknya (sudah difilter di controller)
-        ?>
         <button type="submit" class="btn btn-danger btn-sm"
           onclick="return confirm('Yakin ingin menghapus bank soal terpilih?')">
           <i class="bi bi-trash"></i> Hapus Terpilih
         </button>
       </div>
+    </div>
+
+    <!-- Tombol Hapus Terpilih untuk Mobile -->
+    <div class="d-block d-md-none mt-2">
+      <button type="submit" class="btn btn-danger w-100 py-2 shadow-sm fw-semibold"
+        onclick="return confirm('Yakin ingin menghapus bank soal terpilih?')">
+        <i class="bi bi-trash me-1"></i> Hapus Bank Soal Terpilih
+      </button>
     </div>
   </form>
 </div>
@@ -321,8 +474,23 @@
       }
     });
 
-    $('#checkAll').on('click', function () {
-      $('input[name="ids[]"]').prop('checked', this.checked);
+    $('#checkAll, #checkAllMobile').on('click', function () {
+      const isChecked = this.checked;
+      $('#checkAll, #checkAllMobile').prop('checked', isChecked);
+      $('input[name="ids[]"]').prop('checked', isChecked);
+    });
+
+    // Live search mobile cards
+    $('#searchBankMobile').on('input', function () {
+      const term = $(this).val().toLowerCase().trim();
+      $('.bank-card-item').each(function () {
+        const text = $(this).data('search') || '';
+        if (text.indexOf(term) !== -1 || term === '') {
+          $(this).show();
+        } else {
+          $(this).hide();
+        }
+      });
     });
 
     // Pastikan semua tombol non-submit
