@@ -167,16 +167,7 @@ window.MathJax = {
             <div class="btn-group w-100 shadow-sm" role="group">
               <button type="button" class="btn btn-outline-primary btn-sm py-2 btn-view-question d-flex align-items-center justify-content-center gap-1"
                 data-index="<?= $i ?>"
-                data-id="<?= $q['id'] ?>" data-text="<?= htmlspecialchars($q['raw_text']) ?>"
-                data-plain="<?= htmlspecialchars($q['question_text']) ?>" data-type="<?= $q['question_type'] ?>"
-                data-score="<?= $q['score'] ?>" data-options="<?= htmlspecialchars(json_encode([
-                    'A' => $q['option_a'],
-                    'B' => $q['option_b'],
-                    'C' => $q['option_c'],
-                    'D' => $q['option_d'],
-                    'E' => $q['option_e'],
-                    'key' => $q['correct_option']
-                  ]), ENT_QUOTES, 'UTF-8') ?>">
+                data-id="<?= $q['id'] ?>">
                 <i class="bi bi-eye"></i> Lihat
               </button>
 
@@ -242,17 +233,8 @@ window.MathJax = {
               <td><?= esc($q['score']) ?></td>
               <td>
                 <div class="btn-group btn-group-cbt">
-                  <button class="btn btn-outline-info btn-sm btn-view-question" data-index="<?= $i ?>"
-                    data-id="<?= $q['id'] ?>" data-text="<?= htmlspecialchars($q['raw_text']) ?>"
-                    data-plain="<?= htmlspecialchars($q['question_text']) ?>" data-type="<?= $q['question_type'] ?>"
-                    data-score="<?= $q['score'] ?>" data-options="<?= htmlspecialchars(json_encode([
-                        'A' => $q['option_a'],
-                        'B' => $q['option_b'],
-                        'C' => $q['option_c'],
-                        'D' => $q['option_d'],
-                        'E' => $q['option_e'],
-                        'key' => $q['correct_option']
-                      ]), ENT_QUOTES, 'UTF-8') ?>">
+                  <button type="button" class="btn btn-outline-info btn-sm btn-view-question" data-index="<?= $i ?>"
+                    data-id="<?= $q['id'] ?>" title="Lihat Soal">
                     <i class="bi bi-eye"></i>
                   </button>
 
@@ -377,19 +359,29 @@ window.MathJax = {
 
 <?= $this->section('scripts') ?>
 
+<?php
+$soalDataList = [];
+foreach ($questions as $idx => $q) {
+  $soalDataList[] = [
+    'id' => (int) $q['id'],
+    'text' => !empty($q['raw_text']) ? (string)$q['raw_text'] : (string)($q['question_text'] ?? ''),
+    'plain' => (string)($q['question_text'] ?? ''),
+    'type' => (string)($q['question_type'] ?? 'pg'),
+    'score' => (string)($q['score'] ?? '0'),
+    'options' => [
+      'A' => $q['option_a'] ?? '',
+      'B' => $q['option_b'] ?? '',
+      'C' => $q['option_c'] ?? '',
+      'D' => $q['option_d'] ?? '',
+      'E' => $q['option_e'] ?? '',
+      'key' => $q['correct_option'] ?? ''
+    ]
+  ];
+}
+?>
 <script>
   $(function () {
-    const soalData = [];
-    $('.btn-view-question').each(function () {
-      soalData.push({
-        id: $(this).data('id'),
-        text: $(this).data('text') || $(this).data('plain') || '',
-        type: $(this).data('type'),
-        score: $(this).data('score'),
-        options: $(this).data('options')
-      });
-    });
-
+    const soalData = <?= json_encode($soalDataList, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
     let currentIndex = 0;
 
     /** ========================
@@ -398,10 +390,11 @@ window.MathJax = {
     function renderQuestion(index) {
       const q = soalData[index];
       if (!q) return;
-      const parsed = typeof q.options === 'string' ? JSON.parse(q.options) : q.options;
+      const parsed = typeof q.options === 'string' ? JSON.parse(q.options) : (q.options || {});
 
       $('#viewIndex').text(index + 1);
       $('#viewScore').text(q.score);
+
       function cleanRawText(html) {
         if (!html) return '';
         let out = html;
@@ -441,8 +434,8 @@ window.MathJax = {
         out = out.replace(/([\s\.,;>\?!]|&nbsp;)(Kunci\s*[:=][\s\S]*)$/i, '$1');
 
         // Restore img tags
-        imgTags.forEach((imgTag, index) => {
-          out = out.replace(`___IMG_PLACEHOLDER_${index}___`, imgTag);
+        imgTags.forEach((imgTag, idx) => {
+          out = out.replace(`___IMG_PLACEHOLDER_${idx}___`, imgTag);
         });
 
         // Ganti newline asli yang tersisa menjadi <br> agar baris baru dirender
@@ -461,14 +454,18 @@ window.MathJax = {
       }
 
       let cleanText = cleanRawText(q.text);
-      $('#viewText').html(cleanText);
-
+      if (!cleanText || cleanText.trim() === '') {
+        cleanText = q.plain || q.text || '';
+      }
+      $('#viewText').html(cleanText || '<em class="text-muted">Tidak ada teks soal.</em>');
 
       let html = '';
       if (q.type === 'pg' || q.type === 'pg_kompleks') {
-        const keys = (parsed.key || '').split(',');
+        const keys = (parsed.key || '').split(',').map(k => k.trim());
+        let hasOptions = false;
         ['A', 'B', 'C', 'D', 'E'].forEach(opt => {
           if (parsed[opt]) {
+            hasOptions = true;
             const isSelected = keys.includes(opt);
             const active = isSelected ? 'bg-primary text-white fw-bold' : '';
             html += `
@@ -479,23 +476,18 @@ window.MathJax = {
           `;
           }
         });
+        if (!hasOptions) {
+          html = `<div class="text-muted fst-italic">Pilihan jawaban belum diatur. Kunci: <strong>${parsed.key || '-'}</strong></div>`;
+        }
       } else if (q.type === 'benar_salah') {
-        const keys = (parsed.key || '').split(',');
-        html = `
-          <div class="table-responsive">
-            <table class="table table-bordered table-sm">
-              <thead class="table-light">
-                <tr>
-                  <th>Pernyataan</th>
-                  <th width="80" class="text-center">Kunci</th>
-                </tr>
-              </thead>
-              <tbody>
-        `;
+        const keys = (parsed.key || '').split(',').map(k => k.trim());
+        let hasOptions = false;
+        let rows = '';
         ['A', 'B', 'C', 'D', 'E'].forEach((opt, idx) => {
           if (parsed[opt]) {
+            hasOptions = true;
             const keyVal = keys[idx] || '-';
-            html += `
+            rows += `
               <tr>
                 <td>${formatOptionText(parsed[opt])}</td>
                 <td class="text-center fw-bold text-primary">${keyVal}</td>
@@ -503,17 +495,32 @@ window.MathJax = {
             `;
           }
         });
-        html += `</tbody></table></div>`;
+        if (hasOptions) {
+          html = `
+            <div class="table-responsive">
+              <table class="table table-bordered table-sm mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Pernyataan</th>
+                    <th width="80" class="text-center">Kunci</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>`;
+        } else {
+          html = `<div class="text-muted fst-italic">Pernyataan belum diatur. Kunci: <strong>${parsed.key || '-'}</strong></div>`;
+        }
       } else {
-        html = `<div class="alert alert-info">Soal Esai - Tidak memiliki opsi jawaban.</div>`;
+        html = `<div class="alert alert-info mb-0">Soal Esai - Tidak memiliki opsi jawaban berganda.</div>`;
       }
 
       $('#optionList').html(html);
       $('#btnEditQuestion').attr('href', "<?= site_url('admin/cbt/banksoal/edit_soal/' . $bank['id']) ?>/" + q.id);
 
       // Tombol navigasi
-      $('#btnPrevQuestion').prop('disabled', index === 0);
-      $('#btnNextQuestion').prop('disabled', index === soalData.length - 1);
+      $('#btnPrevQuestion').prop('disabled', index <= 0);
+      $('#btnNextQuestion').prop('disabled', index >= soalData.length - 1);
 
       // Render LaTeX matematika di teks soal & opsi
       if (window.MathJax && window.MathJax.typesetPromise) {
@@ -526,9 +533,23 @@ window.MathJax = {
      * Tombol Lihat (buka modal)
      * ======================== */
     $(document).on('click', '.btn-view-question', function () {
-      currentIndex = $(this).data('index');
-      renderQuestion(currentIndex);
-      $('#modalViewQuestion').modal('show');
+      const idx = $(this).data('index');
+      if (typeof idx !== 'undefined' && idx !== '') {
+        currentIndex = parseInt(idx, 10);
+      } else {
+        const id = $(this).data('id');
+        currentIndex = soalData.findIndex(item => item.id == id);
+      }
+      if (currentIndex >= 0 && currentIndex < soalData.length) {
+        renderQuestion(currentIndex);
+        const modalEl = document.getElementById('modalViewQuestion');
+        if (window.bootstrap && window.bootstrap.Modal) {
+          const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+          modalInstance.show();
+        } else {
+          $('#modalViewQuestion').modal('show');
+        }
+      }
     });
 
     $('#btnPrevQuestion').on('click', function () {
@@ -544,9 +565,6 @@ window.MathJax = {
         renderQuestion(currentIndex);
       }
     });
-
-    // Setelah set isi soal
-    //$('#viewText').html(question.question_text);
 
     // Rapikan gambar di dalamnya + render ulang MathJax saat modal tampil
     $(document).on('shown.bs.modal', '#modalViewQuestion', function () {
@@ -594,7 +612,7 @@ window.MathJax = {
             data: {
               id: id,
               bank_id: bankId,
-              [csrfName]: csrfHash // ðŸ’‰ penting agar lolos CSRF protection
+              [csrfName]: csrfHash // penting agar lolos CSRF protection
             },
             success: function (res) {
               if (res.success) {
@@ -611,7 +629,11 @@ window.MathJax = {
           });
         }
       });
-    // Live search mobile question cards
+    });
+
+    /** ========================
+     * Live search mobile question cards
+     * ======================== */
     $('#searchQuestionMobile').on('input', function () {
       const term = $(this).val().toLowerCase().trim();
       $('.question-card-item').each(function () {
