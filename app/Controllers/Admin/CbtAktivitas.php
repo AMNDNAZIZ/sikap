@@ -265,15 +265,23 @@ class CbtAktivitas extends BaseController
         $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
         $activeYearId = $activeYear['id'] ?? 0;
 
+        // 🔹 Resolve room column safely (kolom room ada di tabel students, bukan student_records)
+        $roomField = "'' AS room";
+        if ($db->fieldExists('room', 'students')) {
+            $roomField = 'st.room';
+        } elseif ($db->fieldExists('room', 'student_records')) {
+            $roomField = 'sr.room';
+        }
+
         // 🔹 FIX V3: Get all sessions, log them, then filter
         $allSessions = $db->table('cbt_sessions cs')
             ->select('cs.id, cs.test_id, cs.student_id, cs.question_order, cs.option_orders,
                       cs.status, cs.score, cs.essay_score, cs.total_score, cs.started_at, 
                       cs.finished_at, cs.last_activity, cs.extra_time, cs.updated_at, cs.created_at,
-                      st.name AS student_name, st.nis, u.username, c.name AS class_name, sr.room')
+                      st.name AS student_name, st.nis, u.username, c.name AS class_name, ' . $roomField)
             ->join('students st', 'st.id = cs.student_id', 'left')
             ->join('users u', 'u.id = st.user_id', 'left')
-            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . (int)$activeYearId, 'left')
             ->join('classes c', 'c.id = sr.class_id', 'left')
             ->where('cs.test_id', $testId)
             ->orderBy('cs.id', 'DESC') // Latest first
@@ -356,7 +364,7 @@ class CbtAktivitas extends BaseController
         // Hitung sisa waktu per sesi
         $now = time();
         foreach ($sessions as &$s) {
-            $order = json_decode($s['question_order'], true) ?? [];
+            $order = json_decode((string)($s['question_order'] ?? '[]'), true) ?? [];
             $noUserMap = [];
             $i = 1;
             foreach ($order as $qid) {
@@ -536,6 +544,13 @@ class CbtAktivitas extends BaseController
         $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
         $activeYearId = $activeYear['id'] ?? 0;
 
+        $roomField = "'' AS room";
+        if ($db->fieldExists('room', 'students')) {
+            $roomField = 'st.room';
+        } elseif ($db->fieldExists('room', 'student_records')) {
+            $roomField = 'sr.room';
+        }
+
         // 1) Ambil session & test info (termasuk bank_id, bobot, option_orders)
         $session = $db->table('cbt_sessions s')
             ->select('s.id AS session_id, s.student_id, s.test_id, s.question_order, s.option_orders,
@@ -545,11 +560,11 @@ class CbtAktivitas extends BaseController
                       ts.show_pg_count, ts.show_pg_kompleks_count, ts.show_bs_count, ts.show_esai_count,
                       st.name AS student_name, st.nis,
                       u.username,
-                      c.name AS class_name, sr.room')
+                      c.name AS class_name, ' . $roomField)
             ->join('cbt_test_status ts',    'ts.id = s.test_id',                       'left')
             ->join('students st',           'st.id = s.student_id',                    'left')
             ->join('users u',               'u.id = st.user_id',                       'left')
-            ->join('student_records sr',    'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
+            ->join('student_records sr',    'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . (int)$activeYearId, 'left')
             ->join('classes c',             'c.id = sr.class_id',                      'left')
             ->where('s.id', $sessionId)
             ->get()
