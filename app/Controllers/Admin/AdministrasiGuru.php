@@ -627,7 +627,17 @@ class AdministrasiGuru extends BaseController
                         }
                     }
 
-                    $data['tp_list'] = $tpList;
+                    // Deduplikasi TP berdasarkan kode_tp + deskripsi
+                    $uniqueTpList = [];
+                    $seenTp = [];
+                    foreach ($tpList as $tp) {
+                        $key = trim(($tp['kode_tp'] ?? '') . '|' . ($tp['deskripsi'] ?? ''));
+                        if (!isset($seenTp[$key])) {
+                            $seenTp[$key] = true;
+                            $uniqueTpList[] = $tp;
+                        }
+                    }
+                    $data['tp_list'] = $uniqueTpList;
                 }
             }
         } else {
@@ -950,12 +960,13 @@ class AdministrasiGuru extends BaseController
         if ($id) {
             $this->atpModel->update($id, $atpData);
             $atpId = $id;
-            // Hapus elemen lama beserta TP-nya
+            // Hapus elemen lama beserta TP-nya (termasuk legacy TP tanpa atp_elemen_id)
             $oldElemens = $this->atpElemenModel->where('atp_id', $atpId)->findAll();
             foreach ($oldElemens as $oe) {
                 $this->tpModel->where('atp_elemen_id', $oe['id'])->delete();
             }
             $this->atpElemenModel->where('atp_id', $atpId)->delete();
+            $this->tpModel->where('atp_id', $atpId)->delete();
             $msg = 'ATP berhasil diperbarui.';
         } else {
             // Insert dengan tp_id = 0 sementara (akan diupdate setelah TP disimpan)
@@ -4310,12 +4321,31 @@ class AdministrasiGuru extends BaseController
                 }
             }
 
+            // Deduplikasi TP berdasarkan kode_tp + deskripsi
+            $uniqueTpList = [];
+            $seenTp = [];
+            foreach ($tpList as $tp) {
+                $key = trim(($tp['kode_tp'] ?? '') . '|' . ($tp['deskripsi'] ?? ''));
+                if (!isset($seenTp[$key])) {
+                    $seenTp[$key] = true;
+                    $uniqueTpList[] = $tp;
+                }
+            }
+            $tpList = $uniqueTpList;
             $data['available_tps'] = $tpList;
 
             // Auto-generate KKTP untuk TP kelas ini yang belum ada
             if (!$data['readonly'] && !empty($tpList)) {
                 foreach ($tpList as $tp) {
-                    $tpText = trim(($tp['kode_tp'] ? $tp['kode_tp'] . ' - ' : '') . $tp['deskripsi']);
+                    $kode = trim($tp['kode_tp'] ?? '');
+                    $deskripsi = trim($tp['deskripsi'] ?? '');
+                    if ($kode !== '') {
+                        $pattern = '/^(' . preg_quote($kode, '/') . '|TP\s*' . preg_quote($kode, '/') . ')[\s\.\-:\–]*/i';
+                        $cleanDeskripsi = preg_replace($pattern, '', $deskripsi);
+                        $tpText = trim($kode . ' - ' . $cleanDeskripsi);
+                    } else {
+                        $tpText = $deskripsi;
+                    }
 
                     $exists = $kktpModel
                         ->where('subject_id', $subjectId)
@@ -4323,6 +4353,7 @@ class AdministrasiGuru extends BaseController
                         ->groupStart()
                             ->where('tp_id', $tp['id'])
                             ->orWhere('tujuan_pembelajaran', $tpText)
+                            ->orWhere('tujuan_pembelajaran', $deskripsi)
                         ->groupEnd()
                         ->first();
 
@@ -4368,7 +4399,19 @@ class AdministrasiGuru extends BaseController
                 }
             }
 
-            $data['kktp_list'] = $kktpList;
+            // Deduplikasi daftar KKTP berdasarkan teks tujuan_pembelajaran
+            $uniqueKktpList = [];
+            $seenKktp = [];
+            foreach ($kktpList as $k) {
+                // Normalisasi teks untuk perbandingan (abaikan perbedaan kode prefix jika deskripsi sama)
+                $normText = preg_replace('/^(\d+(\.\d+)*\s*[\-\.]\s*)/', '', trim($k['tujuan_pembelajaran']));
+                $normKey = strtolower($normText ?: $k['tujuan_pembelajaran']);
+                if (!isset($seenKktp[$normKey])) {
+                    $seenKktp[$normKey] = true;
+                    $uniqueKktpList[] = $k;
+                }
+            }
+            $data['kktp_list'] = $uniqueKktpList;
         }
 
         return view('admin/administrasi_guru/kktp', $data);
@@ -4464,6 +4507,19 @@ class AdministrasiGuru extends BaseController
                 ? $kktpModel->where('subject_id', $subjectId)->whereIn('class_id', $classIds)->orderBy('id')->findAll()
                 : [];
         }
+
+        // Deduplikasi daftar KKTP agar tidak ada penulisan TP ganda
+        $uniqueKktpList = [];
+        $seenKktp = [];
+        foreach ($kktpList as $k) {
+            $normText = preg_replace('/^(\d+(\.\d+)*\s*[\-\.]\s*)/', '', trim($k['tujuan_pembelajaran']));
+            $normKey = strtolower($normText ?: $k['tujuan_pembelajaran']);
+            if (!isset($seenKktp[$normKey])) {
+                $seenKktp[$normKey] = true;
+                $uniqueKktpList[] = $k;
+            }
+        }
+        $kktpList = $uniqueKktpList;
 
         return view('admin/administrasi_guru/kktp_print', [
             'school'   => $school,
