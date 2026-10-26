@@ -78,6 +78,19 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     border: 1px solid var(--border-color);
   }
 
+  /* 🖼️ Zoomable Exam Images */
+  .stimulus-text img,
+  .q-text img,
+  .option-text img {
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  .stimulus-text img:hover,
+  .q-text img:hover,
+  .option-text img:hover {
+    opacity: 0.9;
+  }
+
   /* Fullscreen mode support */
   html:fullscreen,
   html:-webkit-full-screen,
@@ -649,10 +662,73 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     color: #fff !important;
   }
 
+  .btn-panel {
+    background-color: #ebf5ff;
+    color: var(--primary-blue);
+    border: 1.5px solid #bfdbfe !important;
+    font-weight: 700 !important;
+    transition: all 0.2s ease;
+  }
+
+  .btn-panel:hover {
+    background-color: var(--primary-blue);
+    color: #fff;
+    border-color: var(--primary-blue) !important;
+  }
+
+  .btn-finish {
+    background-color: var(--success-green);
+    color: #fff;
+    border: 1.5px solid var(--success-green) !important;
+    font-weight: 700 !important;
+    transition: all 0.2s ease;
+  }
+
+  .btn-finish:hover {
+    background-color: #157347;
+    color: #fff;
+  }
+
+  /* Animasi hitung mundur kunci tombol selesai */
+  @keyframes lockTicking {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.18); color: #f59e0b; }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes pulseGlowLock {
+    0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+    70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  }
+
+  .btn-finish-locked {
+    background: #475569 !important;
+    color: #f8fafc !important;
+    border: 1.5px solid #64748b !important;
+    cursor: not-allowed !important;
+    animation: pulseGlowLock 2s infinite !important;
+    transition: all 0.3s ease;
+  }
+
+  .btn-finish-locked .lock-icon-anim {
+    display: inline-block;
+    animation: lockTicking 1s infinite ease-in-out;
+  }
+
+  .countdown-badge-anim {
+    background: rgba(0, 0, 0, 0.35);
+    color: #fef08a;
+    padding: 2px 7px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+    font-size: 0.85rem;
+  }
+
   /* Modal & Panels */
   .panel-q-btn {
-    width: 52px;
-    height: 52px;
+    min-height: 48px;
+    width: 100%;
     border-radius: 12px;
     font-weight: 700;
     font-size: 1rem;
@@ -660,7 +736,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
 
   .panel-q-btn:active {
@@ -668,7 +744,11 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   }
 
   .panel-q-btn.current-q-btn {
-    box-shadow: 0 0 0 3px #0d6efd, 0 4px 10px rgba(13, 110, 253, 0.3) !important;
+    box-shadow: 0 0 0 3px #0d6efd, 0 4px 12px rgba(13, 110, 253, 0.4) !important;
+    border-color: #0d6efd !important;
+    font-weight: 800 !important;
+    transform: scale(1.05);
+    z-index: 5;
   }
 
   .swal2-container {
@@ -802,7 +882,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
     /* Bottom Navigation Bar for Mobile */
     .exam-footer {
-      padding: 8px 12px;
+      padding: 8px 10px;
       padding-bottom: max(10px, env(safe-area-inset-bottom));
       gap: 8px;
       justify-content: space-between;
@@ -817,8 +897,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     .btn-ragu {
       flex: 1 1 0;
       min-width: 0;
-      height: 48px;
-      padding: 0 8px !important;
+      height: 46px;
+      padding: 0 4px !important;
       font-size: 0.9rem !important;
       border-radius: 50px !important;
       display: inline-flex !important;
@@ -827,9 +907,29 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       white-space: nowrap;
     }
 
-    .btn-ragu input {
-      margin-right: 4px !important;
-      transform: scale(1.1);
+    /* 📱 KHUSUS TAMPILAN HP: Hilangkan tulisan di navigasi soal bawah */
+    .exam-footer .btn-nav-text,
+    .exam-footer .btn-nav-label-long,
+    .exam-footer .btn-nav-label-short,
+    .exam-footer .finish-btn-label {
+      display: none !important;
+    }
+
+    .exam-footer i {
+      font-size: 1.25rem !important;
+      margin: 0 !important;
+    }
+
+    .exam-footer .btn-ragu input {
+      margin-right: 3px !important;
+      transform: scale(1.15);
+    }
+
+    /* Hitung mundur pada tombol selesai terkunci tetap tampil di HP */
+    .btn-finish-locked .countdown-badge-anim {
+      font-size: 0.78rem !important;
+      padding: 2px 5px !important;
+      margin-left: 2px !important;
     }
 
     /* Auto-save floating indicator on Mobile: reposition to top-right below sticky header */
@@ -874,10 +974,11 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       gap: 8px !important;
     }
 
-    .panel-btn {
+    .panel-q-btn {
       height: 44px !important;
+      min-height: 44px !important;
       font-size: 0.95rem !important;
-      border-radius: 12px !important;
+      border-radius: 10px !important;
       font-weight: 700 !important;
     }
 
@@ -903,20 +1004,6 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       min-width: 85px;
       font-size: 0.88rem;
       padding: 4px 8px;
-    }
-
-    .btn-nav-label-long {
-      display: none;
-    }
-
-    .btn-nav-label-short {
-      display: inline !important;
-    }
-  }
-
-  @media (min-width: 481px) {
-    .btn-nav-label-short {
-      display: none !important;
     }
   }
 </style>
@@ -1048,6 +1135,56 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         }
         return $html;
     };
+
+    /**
+     * Helper: bersihkan raw_text di server-side (PHP) agar langsung siap tampil,
+     * menghilangkan delay JavaScript dan layout shift / loading visual tiba-tiba.
+     */
+    $cleanRawTextPhp = function(string $html): string {
+        if (empty($html)) return '';
+        $out = $html;
+
+        // 1. Simpan tag img dengan placeholder
+        $imgTags = [];
+        $out = preg_replace_callback('/<img[^>]+>/i', function ($m) use (&$imgTags) {
+            $imgTags[] = $m[0];
+            return '[[IMG_' . (count($imgTags) - 1) . ']]';
+        }, $out);
+
+        // 2. Inject newlines di sekitar block tags
+        $blockTags = ['p', 'div', 'li', 'h[1-6]', 'blockquote', 'tr'];
+        foreach ($blockTags as $tag) {
+            $out = preg_replace('/<' . $tag . '[^>]*>/i', "\n$0", $out);
+            $out = preg_replace('/<\/' . $tag . '>/i', "$0\n", $out);
+        }
+
+        // 3. Ganti <br> dengan newline
+        $out = preg_replace('/<br\s*\/?>/i', "\n", $out);
+
+        // 4. Regex opsi & kunci
+        $out = preg_replace('/^(?:<[^>]+>)*[\s\xc2\xa0\x{00a0}]*[\(]?[A-Ea-e]\s*(?:[:.)]|\s+-)\s*.*$/imu', '', $out);
+        $out = preg_replace('/^(?:<[^>]+>)*[\s\xc2\xa0\x{00a0}]*(?:Kunci|Tipe)\s*[\:\=\-]\s*.*$/imu', '', $out);
+        $out = preg_replace('/Tipe\s*:\s*[A-Za-z0-9_]+/i', '', $out);
+        $out = preg_replace('/Kunci\s*:\s*[A-Za-z0-9,\s]+/i', '', $out);
+
+        // 5. Hapus span/font
+        $out = preg_replace('/<\/?(span|font)[^>]*>/i', '', $out);
+
+        // 6. Hapus tag kosong
+        $out = preg_replace('/<(p|div|li)[^>]*>([\s\n\r]|&nbsp;|<br\s*\/?>)*<\/\1>/i', '', $out);
+        $out = preg_replace('/\n\s*\n/', "\n", $out);
+
+        // 7. Kembalikan img
+        foreach ($imgTags as $imgIdx => $tag) {
+            $out = str_replace('[[IMG_' . $imgIdx . ']]', $tag, $out);
+        }
+
+        $out = preg_replace('/>\s*\n/', '>', $out);
+        $out = preg_replace('/\n\s*</', '<', $out);
+        $out = nl2br($out);
+
+        return trim($out);
+    };
     ?>
     <?php if (!empty($questions)): ?>
       <?php foreach ($questions as $idx => $q): ?>
@@ -1087,14 +1224,12 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
               <?php
               $qTextForRender = $rewriteImageUrls($qText);
+              if ($useRawText) {
+                $qTextForRender = $cleanRawTextPhp($qTextForRender);
+              }
               ?>
-              <div class="stimulus-text"
-                data-raw-content="<?= $useRawText ? htmlspecialchars($qTextForRender) : '' ?>">
-                <?php if ($useRawText): ?>
-                  <!-- Content will be cleaned and rendered by JavaScript -->
-                <?php else: ?>
-                  <?= $qTextForRender ?: '<div class="alert alert-warning">Konten bacaan tidak tersedia.</div>' ?>
-                <?php endif; ?>
+              <div class="stimulus-text">
+                <?= $qTextForRender ?: '<div class="alert alert-warning">Konten bacaan tidak tersedia.</div>' ?>
               </div>
             </div>
 
@@ -1194,26 +1329,29 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
   <!-- EXAM FOOTER -->
   <footer class="exam-footer">
-    <button class="pill-btn btn-nav btn-prev" id="navBack">
+    <button type="button" class="pill-btn btn-nav btn-prev" id="navBack" title="Soal Sebelumnya">
       <i class="bi bi-chevron-left"></i>
-      <span class="btn-nav-label-long">Sebelumnya</span>
-      <span class="btn-nav-label-short">Prev</span>
+      <span class="btn-nav-text ms-1">Sebelumnya</span>
     </button>
 
-    <label class="pill-btn btn-ragu m-0" id="label_ragu" style="cursor:pointer">
+    <label class="pill-btn btn-ragu m-0" id="label_ragu" style="cursor:pointer" title="Tandai Ragu-ragu">
       <input type="checkbox" id="check_ragu" class="me-1">
       <i class="bi bi-flag me-1"></i>
-      <span>Ragu-ragu</span>
+      <span class="btn-nav-text">Ragu-ragu</span>
     </label>
 
-    <button class="pill-btn btn-nav btn-next" id="navNext">
-      <span class="btn-nav-label-long">Berikutnya</span>
-      <span class="btn-nav-label-short">Lanjut</span>
+    <button type="button" class="pill-btn btn-nav btn-panel" id="navPanelFooter" title="Lihat Seluruh Soal">
+      <i class="bi bi-grid-3x3-gap-fill me-1"></i>
+      <span class="btn-nav-text">Daftar Soal</span>
+    </button>
+
+    <button type="button" class="pill-btn btn-nav btn-next" id="navNext" title="Soal Berikutnya">
+      <span class="btn-nav-text me-1">Berikutnya</span>
       <i class="bi bi-chevron-right"></i>
     </button>
-    <button class="pill-btn btn-nav btn-next d-none" id="navFinish">
-      <span>Selesaikan Ujian</span>
-      <i class="bi bi-check-circle-fill"></i>
+    <button type="button" class="pill-btn btn-nav btn-finish d-none" id="navFinish" title="Selesaikan Ujian">
+      <i class="bi bi-check2-all me-1"></i>
+      <span class="btn-nav-text finish-btn-label">Selesaikan Ujian</span>
     </button>
   </footer>
 
@@ -1261,20 +1399,23 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
     <div class="modal-content shadow-lg border-0" style="border-radius: 24px;">
       <div class="modal-header border-0 pb-0 pt-4 px-4 text-center d-block position-relative">
-        <h4 class="modal-title fw-bold mx-auto fs-5 mb-1">Navigasi Nomor Soal</h4>
-        <p class="text-muted small mb-2">Ketuk nomor soal untuk berpindah halaman</p>
+        <h4 class="modal-title fw-bold mx-auto fs-5 mb-1"><i class="bi bi-grid-3x3-gap-fill text-primary me-2"></i>Daftar Seluruh Soal</h4>
+        <p class="text-muted small mb-2">Pilih nomor soal untuk langsung melompat ke soal tersebut</p>
         <button type="button" class="btn-close position-absolute end-0 top-0 m-3" data-bs-dismiss="modal" aria-label="Close"></button>
 
         <!-- Status Badges / Legend -->
         <div class="d-flex flex-wrap gap-2 justify-content-center pt-1 pb-2 border-bottom">
-          <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 rounded-pill small">
-            <i class="bi bi-check-circle-fill me-1"></i> Dijawab: <b id="summary_answered">0</b>
+          <span class="badge bg-success text-white px-2 py-1 rounded-pill small">
+            <i class="bi bi-check-circle-fill me-1"></i> Sudah Dijawab: <b id="summary_answered">0</b>
           </span>
-          <span class="badge bg-warning bg-opacity-10 text-warning-emphasis border border-warning border-opacity-25 px-2 py-1 rounded-pill small">
-            <i class="bi bi-flag-fill me-1 text-warning"></i> Ragu-ragu: <b id="summary_doubtful">0</b>
+          <span class="badge bg-warning text-dark px-2 py-1 rounded-pill small">
+            <i class="bi bi-flag-fill me-1"></i> Ragu-ragu: <b id="summary_doubtful">0</b>
           </span>
-          <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-2 py-1 rounded-pill small">
-            <i class="bi bi-circle me-1"></i> Belum: <b id="summary_unanswered">0</b>
+          <span class="badge bg-light text-secondary border px-2 py-1 rounded-pill small">
+            <i class="bi bi-circle me-1"></i> Belum Dijawab: <b id="summary_unanswered">0</b>
+          </span>
+          <span class="badge bg-primary text-white px-2 py-1 rounded-pill small">
+            <i class="bi bi-geo-alt-fill me-1"></i> Soal Aktif: No. <b id="summary_current_num">1</b>
           </span>
         </div>
       </div>
@@ -1308,11 +1449,9 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
     },
     startup: {
+      typeset: false, // 🚀 Matikan auto-typeset seluruh halaman agar buka ujian instan
       pageReady: () => {
-        return MathJax.startup.defaultPageReady().catch((err) => {
-          // Suppress MathJax warnings
-          return Promise.resolve();
-        });
+        return Promise.resolve();
       }
     }
   };
@@ -1431,9 +1570,12 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     setInterval(() => {
       if (isUnloading) return; // Prevent race conditions during redirect
       const currentTab = localStorage.getItem(TAB_KEY);
-      if (currentTab !== TAB_ID) {
-        // This tab is no longer the active one
+      if (currentTab && currentTab !== TAB_ID) {
+        // Another tab is active
         window.location.href = '<?= site_url('siswa/cbt') ?>';
+      } else if (!currentTab) {
+        // Tab key was cleared or dropped (e.g. mobile app backgrounding), re-claim
+        localStorage.setItem(TAB_KEY, TAB_ID);
       }
     }, 2000);
 
@@ -1914,86 +2056,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       });
     }
 
-    // Function to clean raw text (same as admin detail view)
-    function cleanRawText(html) {
-      let out = html;
-
-      // 1. Simpan tag img dulu dengan placeholder
-      const imgTags = [];
-      out = out.replace(/<img[^>]+>/gi, function (match) {
-        imgTags.push(match);
-        return `[[IMG_${imgTags.length - 1}]]`;
-      });
-
-      // 2. Inject newlines di sekitar block tags agar regex line-based (^) bisa bekerja
-      // meskipun opsi berada di dalam tag <p> atau <div> yang berbeda
-      const blockTags = ['p', 'div', 'li', 'h[1-6]', 'blockquote', 'tr'];
-      blockTags.forEach(tag => {
-        const reOpen = new RegExp('<' + tag + '[^>]*>', 'gi');
-        const reClose = new RegExp('</' + tag + '>', 'gi');
-        out = out.replace(reOpen, '\n$&').replace(reClose, '$&\n');
-      });
-
-      // 3. Ganti <br> dengan newline juga
-      out = out.replace(/<br\s*\/?>/gi, '\n');
-
-      // 4. Regex Pembersihan Opsi (TAG-AWARE)
-      // ^(?:<[^>]+>)*  --> Mengizinkan tag HTML pembuka di awal baris (misal <p>)
-      // [\s\xc2\xa0&nbsp;]* --> Mengizinkan spasi/nbsp
-      // [\(]?[A-Ea-e] --> Pola Opsi A-E
-      const optionRegex = /^(?:<[^>]+>)*[\s\xc2\xa0&nbsp;]*[\(]?[A-Ea-e]\s*(?:[:.)]|\s+-)\s*.*$/gim;
-      out = out.replace(optionRegex, '');
-
-      const keyTypeRegex = /^(?:<[^>]+>)*[\s\xc2\xa0&nbsp;]*(?:Kunci|Tipe)\s*[\:\=\-]\s*.*$/gim;
-      out = out.replace(keyTypeRegex, '');
-
-      // 5. Hapus inline Tipe: dan Kunci:
-      out = out.replace(/Tipe\s*:\s*[A-Za-z0-9_]+/gi, '');
-      out = out.replace(/Kunci\s*:\s*[A-Za-z0-9,\s]+/gi, '');
-
-      // 6. Hapus formatting tags only (keep strong, em, u, b, i, s, sub, sup)
-      out = out.replace(/<\/?(span|font)[^>]*>/gi, '');
-
-      // 7. Hapus paragraf/div/li kosong (termasuk yang berisi whitespace atau &nbsp;)
-      out = out.replace(/<(p|div|li)[^>]*>([\s\n\xc2\xa0\r]|&nbsp;|<br\s*\/?>)*<\/\1>/gi, '');
-
-      // 8. Bersihkan whitespace berlebih hasil penghapusan
-      out = out.replace(/\n\s*\n/g, '\n');
-
-      // 9. Kembalikan tag img
-      imgTags.forEach((tag, index) => {
-        out = out.replace(`[[IMG_${index}]]`, tag);
-      });
-
-      // 10. Bersihkan newline yang menempel pada tag blok sebelum konversi ke <br>
-      out = out.replace(/>\s*\n/g, '>');
-      out = out.replace(/\n\s*</g, '<');
-
-      // 11. Terakhir, ganti newline kembali ke <br> agar tampilan tetap terjaga
-      out = out.replace(/\\r\\n/g, '<br>');
-      out = out.replace(/\\n/g, '<br>');
-      out = out.replace(/\\r/g, '');
-      out = out.replace(/\n/g, '<br>');
-
-      return out.trim();
-    }
-
-    // Clean and render raw text for all questions that use raw_text
-    items.forEach(item => {
-      const useRaw = item.dataset.useRaw === '1';
-      if (useRaw) {
-        const stimulusDiv = item.querySelector('.stimulus-text');
-        if (stimulusDiv) {
-          const rawContent = stimulusDiv.dataset.rawContent;
-          if (rawContent) {
-            const cleanedHtml = cleanRawText(rawContent);
-            stimulusDiv.innerHTML = cleanedHtml || '<div class="alert alert-warning">Konten bacaan tidak tersedia.</div>';
-          }
-        }
-      }
-    });
-
-    // Image Zoom Modal Handler
+    // Image Zoom Modal Handler (Event Delegation tanpa klon DOM)
     const imageZoomModal = new bootstrap.Modal(document.getElementById('imageZoomModal'));
     const zoomedImage = document.getElementById('zoomedImage');
     const imageZoomModalElement = document.getElementById('imageZoomModal');
@@ -2007,37 +2070,28 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       });
     }
 
-    // Add click handler to all images in questions
-    const setupImageZoom = () => {
-      document.querySelectorAll('.stimulus-text img, .q-text img, .option-text img').forEach(img => {
-        img.style.cursor = 'pointer';
-        img.title = 'Klik untuk memperbesar';
-
-        // Remove old event listeners by cloning
-        const newImg = img.cloneNode(true);
-        img.parentNode.replaceChild(newImg, img);
-
-        newImg.addEventListener('click', function (e) {
+    // Event delegation efisien: tangani klik zoom gambar tanpa merusak DOM
+    const qContainer = document.getElementById('questions-container');
+    if (qContainer) {
+      qContainer.addEventListener('click', function (e) {
+        const img = e.target.closest('.stimulus-text img, .q-text img, .option-text img');
+        if (img) {
           e.preventDefault();
           e.stopPropagation();
-
-          // Set the zoomed image source
-          zoomedImage.src = this.src;
-          zoomedImage.alt = this.alt || 'Gambar Soal';
-
-          // Show modal
+          if (zoomedImage) {
+            zoomedImage.src = img.src;
+            zoomedImage.alt = img.alt || 'Gambar Soal';
+          }
           imageZoomModal.show();
-        });
+        }
       });
-    };
-
-    // Setup image zoom on page load
-    setupImageZoom();
+    }
 
     const btnBack = document.getElementById('navBack');
     const btnNext = document.getElementById('navNext');
     const btnFinish = document.getElementById('navFinish');
     const btnPanel = document.getElementById('navPanel');
+    const btnPanelFooter = document.getElementById('navPanelFooter');
     const checkRagu = document.getElementById('check_ragu');
     const modalPanel = new bootstrap.Modal(document.getElementById('panelModal'));
     const ANTI_CHEAT = "<?= $test['anti_cheat'] ?? 'tidak' ?>";
@@ -2701,26 +2755,55 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
       console.log('Fullscreen change:', { isFullscreen });
 
-      if (!isFullscreen) {
-        console.log('Exited fullscreen - showing overlay');
-        if (fsOverlay) {
-          fsOverlay.style.setProperty('display', 'flex', 'important');
-          // 🔹 FIX: Reset overlay z-index to make button clickable again
-          fsOverlay.style.zIndex = '9998';
-          fsOverlay.style.pointerEvents = 'auto';
-        }
-        if (root) root.style.opacity = '0';
-
-        // 🔹 FIX: Reset button state to ensure it's clickable
-        if (startFS) {
-          startFS.disabled = false;
-          startFS.style.pointerEvents = 'auto';
-          startFS.style.opacity = '1';
-          console.log('[BUTTON] Button state reset after fullscreen exit');
-        }
-
-        if (ANTI_CHEAT !== 'tidak') reportViolation('Exit Fullscreen');
+      if (isFullscreen) {
+        // Layar penuh aktif: pastikan konten ujian terlihat normal dan overlay tersembunyi
+        if (fsOverlay) fsOverlay.style.setProperty('display', 'none', 'important');
+        if (root) root.style.opacity = '1';
+        return;
       }
+
+      // 🔹 Proteksi HP / Virtual Keyboard:
+      // Pada HP/tablet, memencet input/textarea membuka soft-keyboard
+      // yang dapat memicu event keluar fullscreen sementara. Jangan tampilkan overlay jika user sedang mengetik!
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+        console.log('Fullscreen exit ignored: soft keyboard is open');
+        return;
+      }
+
+      // Berikan debounce 400ms untuk menghindari false-positive saat rotasi atau scroll layar HP
+      setTimeout(() => {
+        if (examFinished) return;
+        const stillFullscreen = document.fullscreenElement ||
+          document.webkitFullscreenElement ||
+          document.mozFullScreenElement ||
+          document.msFullscreenElement;
+
+        const currentActive = document.activeElement;
+        if (currentActive && (currentActive.tagName === 'INPUT' || currentActive.tagName === 'TEXTAREA')) {
+          return;
+        }
+
+        if (!stillFullscreen) {
+          console.log('Exited fullscreen - showing overlay');
+          if (fsOverlay) {
+            fsOverlay.style.setProperty('display', 'flex', 'important');
+            fsOverlay.style.zIndex = '9998';
+            fsOverlay.style.pointerEvents = 'auto';
+          }
+          if (root) root.style.opacity = '0';
+
+          // 🔹 FIX: Reset button state to ensure it's clickable
+          if (startFS) {
+            startFS.disabled = false;
+            startFS.style.pointerEvents = 'auto';
+            startFS.style.opacity = '1';
+            console.log('[BUTTON] Button state reset after fullscreen exit');
+          }
+
+          if (ANTI_CHEAT !== 'tidak') reportViolation('Exit Fullscreen');
+        }
+      }, 400);
     };
 
     // Add event listeners untuk semua browser (skip untuk iOS)
@@ -2744,18 +2827,9 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     // Orientation Change Event - Keep trying to lock to portrait
     if (screen.orientation) {
       screen.orientation.addEventListener('change', () => {
-        console.log('Orientation changed to:', screen.orientation.type);
-
-        // If orientation changed to landscape, try to lock back to portrait
-        if (screen.orientation.type.includes('landscape')) {
-          console.log('Detected landscape, attempting to lock to portrait...');
-
-          if (screen.orientation.lock) {
-            screen.orientation.lock('portrait').then(() => {
-              console.log('Successfully locked back to portrait');
-            }).catch(err => {
-              console.log('Failed to lock to portrait:', err.message);
-            });
+        if (screen.orientation.type && screen.orientation.type.includes('landscape')) {
+          if (screen.orientation.lock && (document.fullscreenElement || document.webkitFullscreenElement)) {
+            screen.orientation.lock('portrait').catch(() => {});
           }
         }
       });
@@ -2837,6 +2911,32 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       if (sumDoubt) sumDoubt.textContent = doubtfulCount;
       const sumUnans = document.getElementById('summary_unanswered');
       if (sumUnans) sumUnans.textContent = items.length - answeredCount;
+      const sumCurr = document.getElementById('summary_current_num');
+      if (sumCurr) sumCurr.textContent = activeIdx + 1;
+    };
+
+    // Finish Button State & Animated Countdown Logic
+    const updateFinishButtonState = () => {
+      if (!btnFinish) return;
+
+      if (LOCK_DURATION > 0 && elapsedSeconds < LOCK_DURATION) {
+        const waitTime = LOCK_DURATION - elapsedSeconds;
+        const wm = Math.floor(waitTime / 60);
+        const ws = waitTime % 60;
+        const waitFormatted = (wm < 10 ? '0' + wm : wm) + ':' + (ws < 10 ? '0' + ws : ws);
+
+        btnFinish.disabled = true;
+        btnFinish.classList.remove('btn-next', 'btn-success');
+        btnFinish.classList.add('btn-secondary', 'btn-finish-locked');
+        btnFinish.innerHTML = `<i class="bi bi-lock-fill lock-icon-anim me-1"></i><span class="btn-nav-text finish-btn-label me-1">Selesai dalam</span><span class="countdown-badge-anim font-monospace fw-bold">${waitFormatted}</span>`;
+        btnFinish.title = `Selesaikan Ujian (Terkunci selama ${waitFormatted} lagi)`;
+      } else {
+        btnFinish.disabled = false;
+        btnFinish.classList.remove('btn-secondary', 'btn-finish-locked', 'btn-next');
+        btnFinish.classList.add('btn-success');
+        btnFinish.innerHTML = `<i class="bi bi-check2-all me-1"></i><span class="btn-nav-text finish-btn-label">Selesaikan Ujian</span>`;
+        btnFinish.title = 'Selesaikan Ujian';
+      }
     };
 
     const renderActive = (idx) => {
@@ -2856,7 +2956,12 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       if (btnBack) btnBack.disabled = (idx === 0);
       const isEnd = (idx === items.length - 1);
       if (btnNext) btnNext.classList.toggle('d-none', isEnd);
-      if (btnFinish) btnFinish.classList.toggle('d-none', !isEnd);
+      if (btnFinish) {
+        btnFinish.classList.toggle('d-none', !isEnd);
+        if (isEnd) {
+          updateFinishButtonState();
+        }
+      }
 
       // Sync Check Ragu-ragu
       const currentItem = items[idx];
@@ -2867,23 +2972,27 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       updateMobileHeader(idx);
       updateAnswerStats();
 
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo(0, 0);
 
-      // Setup image zoom for current question
-      setupImageZoom();
-
-      // Render MathJax untuk formula matematika
-      if (typeof MathJax !== 'undefined') {
-        if (typeof MathJax.typesetPromise === 'function') {
-          // MathJax sudah siap
-          MathJax.typesetPromise().catch(() => {});
-        } else if (MathJax.startup && typeof MathJax.startup.promise !== 'undefined') {
-          // MathJax sedang load, tunggu selesai
-          MathJax.startup.promise.then(() => {
-            if (typeof MathJax.typesetPromise === 'function') {
-              MathJax.typesetPromise().catch(() => {});
-            }
-          }).catch(() => {});
+      // Lazy typesetting MathJax HANYA pada soal aktif jika mengandung LaTeX
+      if (currentItem && !currentItem.dataset.mathTypeset) {
+        const text = currentItem.textContent || '';
+        if (text.includes('$') || text.includes('\\(') || text.includes('\\[') || text.includes('\\begin')) {
+          if (typeof MathJax !== 'undefined' && typeof MathJax.typesetPromise === 'function') {
+            MathJax.typesetPromise([currentItem]).then(() => {
+              currentItem.dataset.mathTypeset = '1';
+            }).catch(() => {});
+          } else if (typeof MathJax !== 'undefined' && MathJax.startup && MathJax.startup.promise) {
+            MathJax.startup.promise.then(() => {
+              if (typeof MathJax.typesetPromise === 'function') {
+                MathJax.typesetPromise([currentItem]).then(() => {
+                  currentItem.dataset.mathTypeset = '1';
+                }).catch(() => {});
+              }
+            }).catch(() => {});
+          }
+        } else {
+          currentItem.dataset.mathTypeset = '1';
         }
       }
     };
@@ -3164,24 +3273,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         }
       }
 
-      // Finish Button Lock Logic
-      if (LOCK_DURATION > 0 && btnFinish) {
-        if (elapsedSeconds < LOCK_DURATION) {
-          const waitTime = LOCK_DURATION - elapsedSeconds;
-          const wm = Math.floor(waitTime / 60), ws = waitTime % 60;
-          const waitText = (wm > 0 ? wm + 'm ' : '') + ws + 's';
-
-          btnFinish.disabled = true;
-          btnFinish.innerHTML = `<i class="bi bi-lock-fill"></i> <span class="finish-text">Selesaikan</span> <span class="finish-time">${waitText}</span>`;
-          btnFinish.classList.remove('btn-next', 'btn-success');
-          btnFinish.classList.add('btn-secondary');
-        } else {
-          btnFinish.disabled = false;
-          btnFinish.innerHTML = `<i class="bi bi-check2-all"></i> <span class="finish-text">Selesaikan Ujian</span>`;
-          btnFinish.classList.remove('btn-secondary', 'btn-next');
-          btnFinish.classList.add('btn-success');
-        }
-      }
+      // Update finish button countdown & state
+      updateFinishButtonState();
 
       elapsedSeconds++;
     };
@@ -3300,8 +3393,9 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         }
 
         const btn = document.createElement('button');
-        let bgColor = answered ? 'btn-success' : 'btn-outline-secondary';
-        if (isDoubtful) bgColor = 'btn-warning';
+        btn.type = 'button';
+        let bgColor = answered ? 'btn-success text-white' : 'btn-outline-secondary';
+        if (isDoubtful) bgColor = 'btn-warning text-dark';
 
         btn.className = `btn ${bgColor} panel-q-btn fw-bold ${i === activeIdx ? 'current-q-btn' : ''}`;
         btn.style.position = 'relative';
@@ -3332,11 +3426,16 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       });
     };
 
+    const openPanelModal = () => {
+      renderPanel();
+      modalPanel.show();
+    };
+
     if (btnPanel) {
-      btnPanel.onclick = () => {
-        renderPanel();
-        modalPanel.show();
-      };
+      btnPanel.onclick = openPanelModal;
+    }
+    if (btnPanelFooter) {
+      btnPanelFooter.onclick = openPanelModal;
     }
 
     if (btnFinish) {
@@ -3523,9 +3622,9 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       }
 
       // Ctrl+P: Open panel
-      if (e.ctrlKey && key === 'P' && btnPanel) {
+      if (e.ctrlKey && key === 'P') {
         e.preventDefault();
-        btnPanel.click();
+        openPanelModal();
       }
 
       // Escape: Close modal
