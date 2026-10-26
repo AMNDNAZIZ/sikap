@@ -1480,11 +1480,10 @@ class AdministrasiGuru extends BaseController
                         $classIdsAtLevel = $this->getClassIdsForDocumentSearch($classLevel, (int)$classId);
                     }
 
-                    // Filter ATP: pakai getTeacherClassFilter (SAMA dgn halaman ATP).
-                    // - single-guru → null → loadAtpWithElemen ambil SEMUA ATP se-level
-                    //   (penting: ATP mungkin dibuat di kelas lain se-level).
-                    // - multi-guru  → array class kelas yg diajar guru → filter per kelas.
-                    $atpClassFilter = $this->getTeacherClassFilter((int)$subjectId, $classLevel, null);
+                    // Filter ATP:
+                    // - multi-guru  → kirim $classId spesifik agar hanya ATP milik kelas yang dipilih yang diambil (tidak bercampur dengan kelas/guru lain).
+                    // - single-guru → getTeacherClassFilter akan return null (se-level), lalu kita lakukan deduplikasi materi agar materi yang sama tidak dobel.
+                    $atpClassFilter = $this->getTeacherClassFilter((int)$subjectId, $classLevel, (int)$classId);
                     $atpResult = $this->loadAtpWithElemen((int)$subjectId, $classLevel, null, $atpClassFilter);
                     $atpList   = $atpResult['list'];
 
@@ -1533,6 +1532,29 @@ class AdministrasiGuru extends BaseController
                         }
                     }
                     unset($atp);
+
+                    // ═══ DEDUPLIKASI UNTUK SINGLE GURU (PENCEGAHAN TAMPILAN DOBEL) ═══
+                    // Jika untuk single guru terdapat lebih dari 1 record ATP dengan lingkup materi & semester yang sama
+                    // (misal guru pernah membuat ATP di 6A dan 6B dengan materi yang sama persis),
+                    // tampilkan hanya 1 baris materi (utamakan record yang punya modul atau class_id cocok).
+                    if (!$isMultiGuru && !empty($atpList)) {
+                        $deduped = [];
+                        foreach ($atpList as $item) {
+                            $materiKey = ($item['semester'] ?? 1) . '_' . strtolower(trim($item['lingkup_materi'] ?? ''));
+                            if (!isset($deduped[$materiKey])) {
+                                $deduped[$materiKey] = $item;
+                            } else {
+                                $existing = $deduped[$materiKey];
+                                // Prioritaskan record yang sudah ada modulnya
+                                if (empty($existing['modul']) && !empty($item['modul'])) {
+                                    $deduped[$materiKey] = $item;
+                                } elseif ((empty($existing['modul']) == empty($item['modul'])) && (int)($item['class_id'] ?? 0) === (int)$classId) {
+                                    $deduped[$materiKey] = $item;
+                                }
+                            }
+                        }
+                        $atpList = array_values($deduped);
+                    }
                     $data['atp_list'] = $atpList;
                     $data['is_multi_guru'] = $isMultiGuru;
                 }
