@@ -809,6 +809,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
 
     $routes->get('cbt/aktivitas', 'CbtAktivitas::aktivitasIndex', $auth123);
     $routes->get('cbt/aktivitas/detail/(:num)', 'CbtAktivitas::detail/$1', $auth123);
+    $routes->get('cbt/aktivitas/pollStatus/(:num)', 'CbtAktivitas::pollStatus/$1', $auth123);
     $routes->get('cbt/aktivitas/detail_jawaban/(:num)', 'CbtAktivitas::detail_jawaban/$1', $auth123);
     $routes->post('cbt/aktivitas/forceFinish/(:num)', 'CbtAktivitas::forceFinish/$1', $auth123);
     $routes->post('cbt/aktivitas/forceFinishMassal/(:num)', 'CbtAktivitas::forceFinishMassal/$1', $auth123);

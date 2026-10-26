@@ -223,6 +223,13 @@ if (empty($availableRooms) && !empty($sessions)) {
     height: 8px;
     border-radius: 50%;
     background-color: #10b981;
+    transition: all 0.2s ease;
+  }
+
+  .refresh-indicator.pulse-refresh {
+    background-color: #3b82f6;
+    box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.45);
+    transform: scale(1.2);
   }
 
   .refresh-indicator.paused {
@@ -861,9 +868,9 @@ if (empty($availableRooms) && !empty($sessions)) {
       <span id="autoRefreshCountdownText">Auto-refresh:</span>
       <select id="autoRefreshSelect" aria-label="Pilih Interval Auto Refresh">
         <option value="0">Nonaktif</option>
-        <option value="15">15 Detik</option>
-        <option value="30" selected>30 Detik</option>
-        <option value="60">60 Detik</option>
+        <option value="30">30 Detik</option>
+        <option value="60" selected>60 Detik</option>
+        <option value="120">2 Menit</option>
       </select>
       <button class="btn btn-link btn-sm p-0 text-muted" id="btnToggleAutoRefresh" title="Jeda/Lanjutkan Auto Refresh">
         <i class="fas fa-pause" id="iconAutoRefreshPause"></i>
@@ -1603,11 +1610,12 @@ if (empty($availableRooms) && !empty($sessions)) {
       return { [name]: value };
     }
 
-    // 7. AUTO-REFRESH CONTROLLER
+    // 7. LIGHTWEIGHT AJAX AUTO-REFRESH CONTROLLER (TANPA FULL PAGE RELOAD)
     let autoRefreshTimer = null;
-    let autoRefreshCountdown = 30;
+    let refreshIntervalSeconds = parseInt($('#autoRefreshSelect').val()) || 60;
+    let autoRefreshCountdown = refreshIntervalSeconds;
     let isAutoRefreshPaused = false;
-    let refreshIntervalSeconds = parseInt($('#autoRefreshSelect').val()) || 30;
+    let isPollingInProgress = false;
 
     function resetCountdown() {
       autoRefreshCountdown = refreshIntervalSeconds;
@@ -1629,6 +1637,102 @@ if (empty($availableRooms) && !empty($sessions)) {
       }
     }
 
+    function pollActivityStatus() {
+      if (isPollingInProgress) return;
+      isPollingInProgress = true;
+
+      // Animasi kedip halus pada indikator menandakan background sync sedang berjalan
+      $('#autoRefreshIndicator').addClass('pulse-refresh');
+
+      $.ajax({
+        url: "<?= site_url('admin/cbt/aktivitas/pollStatus/' . $test['id']) ?>",
+        type: 'GET',
+        dataType: 'json',
+        cache: false,
+        success: function (res) {
+          if (res && res.status === 'success') {
+            // 1. Update KPI Ribbon & Header Counter
+            if (res.kpi) {
+              $('#statValTotal').text(res.kpi.total);
+              $('#statValActive').text(res.kpi.active);
+              $('#statValFinished').text(res.kpi.finished);
+              $('#statValTimeout').text(res.kpi.timeout);
+              $('#countBelum').text(res.kpi.active);
+
+              let violText = res.kpi.violation_count;
+              if (res.kpi.total_violations > 0) {
+                violText += ' <small class="fs-6 fw-normal text-muted">(' + res.kpi.total_violations + 'x)</small>';
+              }
+              $('#statValViolation').html(violText);
+            }
+
+            // 2. Update status tiap siswa di Kartu Mobile & Baris Tabel Desktop
+            if (res.students) {
+              $.each(res.students, function (sessionId, sData) {
+                const card = $('#card-student-' + sessionId);
+                const row = $('tr.row-student[data-id="' + sessionId + '"]');
+
+                if (!card.length && !row.length) return;
+
+                const newStatus = sData.status;
+
+                // Sync data attribute
+                card.attr('data-status', newStatus);
+                card.attr('data-has-violation', sData.violations > 0 ? '1' : '0');
+                row.attr('data-status', newStatus);
+                row.attr('data-has-violation', sData.violations > 0 ? '1' : '0');
+
+                // Update styling container
+                card.removeClass('is-active is-finished is-timeout').addClass('is-' + newStatus);
+                if (sData.violations > 0) {
+                  card.addClass('has-violation');
+                } else {
+                  card.removeClass('has-violation');
+                }
+
+                // Update countdown element jika aktif
+                const cardCountdown = card.find('.student-countdown');
+                const rowCountdown = row.find('.student-countdown');
+
+                if (newStatus === 'finished') {
+                  // Berubah jadi selesai
+                  if (cardCountdown.length) {
+                    cardCountdown.replaceWith('<span class="badge bg-light text-secondary border px-2 py-1" style="font-size: 0.75rem;" title="Ujian Selesai"><i class="fas fa-check-circle me-1 text-success"></i>Selesai</span>');
+                  }
+                  if (rowCountdown.length) {
+                    rowCountdown.replaceWith('<span class="badge bg-light text-secondary border"><i class="fas fa-check-circle me-1 text-success"></i>Selesai</span>');
+                  }
+
+                  // Update skor
+                  card.find('.badge-primary-subtle').html('<i class="fas fa-check-circle me-1"></i>' + sData.score);
+                  row.find('td:eq(9)').html('<strong class="text-success">' + sData.score + '</strong>');
+                  row.find('td:eq(11)').html('<span class="badge bg-primary">Selesai</span>');
+                } else if (newStatus === 'expired') {
+                  if (cardCountdown.length) {
+                    cardCountdown.replaceWith('<span class="badge bg-danger text-white px-2 py-1" style="font-size: 0.75rem;" title="Waktu Habis"><i class="fas fa-hourglass-end me-1"></i>Habis</span>');
+                  }
+                  if (rowCountdown.length) {
+                    rowCountdown.replaceWith('<span class="badge bg-danger">Habis</span>');
+                  }
+                  row.find('td:eq(11)').html('<span class="badge bg-secondary">Habis</span>');
+                } else if (newStatus === 'active') {
+                  // Sinkronkan sisa detik dari server jika aktif
+                  cardCountdown.attr('data-seconds', sData.remaining_seconds);
+                  rowCountdown.attr('data-seconds', sData.remaining_seconds);
+                }
+              });
+            }
+          }
+        },
+        complete: function () {
+          isPollingInProgress = false;
+          setTimeout(function () {
+            $('#autoRefreshIndicator').removeClass('pulse-refresh');
+          }, 800);
+        }
+      });
+    }
+
     function startAutoRefreshLoop() {
       if (autoRefreshTimer) clearInterval(autoRefreshTimer);
       if (refreshIntervalSeconds <= 0) {
@@ -1637,7 +1741,7 @@ if (empty($availableRooms) && !empty($sessions)) {
       }
 
       autoRefreshTimer = setInterval(function () {
-        // Jangan auto-refresh jika proctor sedang berinteraksi aktif:
+        // Jangan polling jika proctor sedang berinteraksi aktif:
         if ($('.swal2-container').length > 0) return;
         if ($('#modalDetailJawaban').hasClass('show')) return;
         if ($('.checkStudent:checked').length > 0) return;
@@ -1646,7 +1750,8 @@ if (empty($availableRooms) && !empty($sessions)) {
 
         autoRefreshCountdown--;
         if (autoRefreshCountdown <= 0) {
-          location.reload();
+          resetCountdown();
+          pollActivityStatus();
         } else {
           updateCountdownDisplay();
         }
