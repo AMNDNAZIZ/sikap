@@ -1062,9 +1062,23 @@ if (empty($availableRooms) && !empty($sessions)) {
               <!-- Status Ringkas & Tombol Dropdown Aksi -->
               <div class="card-main-right">
                 <!-- Sisa Waktu Badge Ringkas -->
-                <span class="badge <?= $status === 'active' && $remMin <= 10 ? 'bg-danger' : 'bg-light text-dark border' ?> px-2 py-1" style="font-size: 0.75rem;" title="Sisa Waktu">
-                  <i class="fas fa-stopwatch me-1 <?= $status === 'active' && $remMin <= 10 ? 'text-white' : 'text-primary' ?>"></i><?= $remMin ?>m
-                </span>
+                <?php if ($status === 'finished'): ?>
+                  <span class="badge bg-light text-secondary border px-2 py-1" style="font-size: 0.75rem;" title="Ujian Selesai">
+                    <i class="fas fa-check-circle me-1 text-success"></i>Selesai
+                  </span>
+                <?php elseif ($status === 'expired'): ?>
+                  <span class="badge bg-danger text-white px-2 py-1" style="font-size: 0.75rem;" title="Waktu Habis">
+                    <i class="fas fa-hourglass-end me-1"></i>Habis
+                  </span>
+                <?php else: ?>
+                  <?php 
+                    $remSec = (int)($s['remaining_seconds'] ?? ($remMin * 60));
+                    $badgeCls = $remSec <= 300 ? 'bg-danger text-white' : ($remSec <= 600 ? 'bg-warning text-dark' : 'bg-light text-dark border');
+                  ?>
+                  <span class="badge <?= $badgeCls ?> px-2 py-1 student-countdown" data-seconds="<?= $remSec ?>" data-status="active" style="font-size: 0.75rem; font-variant-numeric: tabular-nums;" title="Sisa Waktu">
+                    <i class="fas fa-stopwatch me-1 <?= $remSec <= 300 ? 'text-white' : 'text-primary' ?>"></i><span class="timer-display"><?= sprintf('%02d:%02d', floor($remSec / 60), $remSec % 60) ?></span>
+                  </span>
+                <?php endif; ?>
 
                 <!-- Pelanggaran Badge (Hanya tampil jika ada) -->
                 <?php if ($violations > 0): ?>
@@ -1230,9 +1244,21 @@ if (empty($availableRooms) && !empty($sessions)) {
                   </button>
                 </td>
                 <td class="text-center">
-                  <span class="badge <?= $status === 'active' && $remMin <= 10 ? 'bg-danger' : 'bg-info text-dark' ?>">
-                    <?= $remMin ?> Menit
-                  </span>
+                  <?php if ($status === 'finished'): ?>
+                    <span class="badge bg-light text-secondary border">
+                      <i class="fas fa-check-circle me-1 text-success"></i>Selesai
+                    </span>
+                  <?php elseif ($status === 'expired'): ?>
+                    <span class="badge bg-danger">Habis</span>
+                  <?php else: ?>
+                    <?php 
+                      $remSec = (int)($s['remaining_seconds'] ?? ($remMin * 60));
+                      $badgeCls = $remSec <= 300 ? 'bg-danger text-white' : ($remSec <= 600 ? 'bg-warning text-dark' : 'bg-info text-dark');
+                    ?>
+                    <span class="badge <?= $badgeCls ?> student-countdown" data-seconds="<?= $remSec ?>" data-status="active" style="font-variant-numeric: tabular-nums; min-width: 75px;">
+                      <i class="fas fa-stopwatch me-1"></i><span class="timer-display"><?= sprintf('%02d:%02d', floor($remSec / 60), $remSec % 60) ?></span>
+                    </span>
+                  <?php endif; ?>
                 </td>
                 <td class="text-center">
                   <?= $status === 'finished' ? '<strong class="text-success">' . ($s['display_score'] ?? 0) . '</strong>' : '<span class="text-muted">-</span>' ?>
@@ -1311,7 +1337,7 @@ if (empty($availableRooms) && !empty($sessions)) {
 
 <!-- Modal detail jawaban -->
 <div class="modal fade" id="modalDetailJawaban" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content border-0 shadow-lg rounded-4">
       <div class="modal-header bg-primary text-white rounded-top-4">
         <h5 class="modal-title fs-6 fw-bold">
@@ -1320,7 +1346,7 @@ if (empty($availableRooms) && !empty($sessions)) {
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body p-4">
+      <div class="modal-body p-3 p-md-4">
         <div id="detailContent" class="text-center text-muted py-4">
           <i class="fas fa-spinner fa-spin fa-2x mb-3 text-primary"></i>
           <p>Memuat data jawaban...</p>
@@ -1648,14 +1674,75 @@ if (empty($availableRooms) && !empty($sessions)) {
     // 8. DETAIL JAWABAN
     $(document).on('click', '.btn-detail-jawaban', function () {
       const id = $(this).data('id');
-      $('#detailContent').html('<i class="fas fa-spinner fa-spin fa-2x mb-3 text-primary"></i><p>Memuat data jawaban...</p>');
+      $('#detailContent').html('<div class="text-center py-5"><i class="fas fa-spinner fa-spin fa-3x mb-3 text-primary"></i><p class="text-muted fw-semibold">Memuat rincian soal & jawaban siswa...</p></div>');
       $('#modalDetailJawaban').modal('show');
       $.get("<?= site_url('admin/cbt/aktivitas/detail_jawaban/') ?>" + id, function (html) {
         $('#detailContent').html(html);
+        if (window.MathJax && window.MathJax.typesetPromise) {
+          window.MathJax.typesetPromise([document.getElementById('detailContent')]).catch(function(err){
+            console.warn('MathJax typeset error: ', err);
+          });
+        }
       }).fail(() => {
         $('#detailContent').html('<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i> Gagal memuat data jawaban</div>');
       });
     });
+
+    // Navigasi cepat klik nomor soal di modal detail jawaban
+    $(document).on('click', '.modal-nav-q-btn', function (e) {
+      e.preventDefault();
+      const targetId = $(this).data('target');
+      const targetEl = document.getElementById(targetId);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        $(targetEl).addClass('border-primary shadow');
+        setTimeout(() => {
+          $(targetEl).removeClass('border-primary shadow');
+        }, 1500);
+      }
+    });
+
+    // 8b. ANIMASI HITUNG MUNDUR SISA WAKTU SISWA (COUNTDOWN JAVASCRIPT)
+    function startStudentCountdowns() {
+      setInterval(function () {
+        $('.student-countdown[data-status="active"]').each(function () {
+          let el = $(this);
+          let sec = parseInt(el.attr('data-seconds'), 10);
+          if (isNaN(sec)) return;
+
+          if (sec <= 0) {
+            el.find('.timer-display').text('00:00');
+            el.removeClass('bg-info bg-warning bg-info-subtle text-dark text-info-emphasis').addClass('bg-danger text-white');
+            el.attr('data-status', 'expired');
+            return;
+          }
+
+          sec--;
+          el.attr('data-seconds', sec);
+
+          let m = Math.floor(sec / 60);
+          let s = sec % 60;
+          let formattedTime = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+          el.find('.timer-display').text(formattedTime);
+
+          // Update warna & visual peringatan secara dinamis
+          if (sec <= 300) { // <= 5 Menit: Merah (Bahaya)
+            if (!el.hasClass('bg-danger')) {
+              el.removeClass('bg-info bg-warning bg-info-subtle text-dark text-info-emphasis')
+                .addClass('bg-danger text-white');
+              el.find('i').addClass('text-white');
+            }
+          } else if (sec <= 600) { // <= 10 Menit: Kuning (Peringatan)
+            if (!el.hasClass('bg-warning')) {
+              el.removeClass('bg-info bg-danger bg-info-subtle text-white text-info-emphasis')
+                .addClass('bg-warning text-dark');
+              el.find('i').removeClass('text-white');
+            }
+          }
+        });
+      }, 1000);
+    }
+    startStudentCountdowns();
 
     // 9. BUKA BLOKIR LOGIN (RESET SESI PERANGKAT)
     $(document).on('click', '.btn-reset-login', function () {

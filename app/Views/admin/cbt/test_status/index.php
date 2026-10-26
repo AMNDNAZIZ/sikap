@@ -66,6 +66,27 @@
       border-radius: 18px !important;
     }
   }
+
+  /* DataTables styling & pager */
+  .dataTables_wrapper .dataTables_paginate .pagination {
+    margin-top: 0.85rem;
+    margin-bottom: 0.25rem;
+    justify-content: flex-end;
+  }
+  .dataTables_wrapper .dataTables_paginate .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+  }
+  .dataTables_wrapper .dataTables_info {
+    padding-top: 0.85rem;
+    font-size: 0.84rem;
+    color: #64748b;
+  }
+  .dataTables_wrapper .dataTables_length label,
+  .dataTables_wrapper .dataTables_filter label {
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
 </style>
 
 <div class="container-fluid">
@@ -108,12 +129,12 @@
             ?>
             <tr>
               <td><?= $i + 1 ?></td>
-              <td><strong><?= esc($test['bank_code']) ?></strong></td>
+              <td><strong><?= esc(!empty($test['bank_code']) ? $test['bank_code'] : ('Bank #' . $test['bank_id'])) ?></strong></td>
               <td><?= esc($test['subject_name'] ?? '-') ?></td>
               <td><?= esc($test['exam_name'] ?? '-') ?></td>
               <td><?= esc($classNames) ?></td>
-              <td><?= date('d/m/Y H:i', strtotime($test['start_time'])) ?></td>
-              <td><?= date('d/m/Y H:i', strtotime($test['end_time'])) ?></td>
+              <td><?= !empty($test['start_time']) ? date('d/m/Y H:i', strtotime($test['start_time'])) : '-' ?></td>
+              <td><?= !empty($test['end_time']) ? date('d/m/Y H:i', strtotime($test['end_time'])) : '-' ?></td>
               <td><?= esc($test['duration']) ?> menit</td>
               <td><?= $status ?></td>
               <td>
@@ -623,11 +644,44 @@
 <?= $this->section('scripts') ?>
 <script>
   $(function () {
-    // ======================================================
-    // Load Bank Soal dengan Filter Guru / Admin
-    // ======================================================
-    // AJAX Bank Loading removed - handled by PHP Controller
-    // Keeping simple init
+    /* ======================================================
+     * 0️⃣ Inisialisasi DataTable & Pager (20 data per halaman)
+     * ====================================================== */
+    const tableTests = $('#tableTests').DataTable({
+      responsive: true,
+      autoWidth: false,
+      pageLength: 20,
+      lengthMenu: [
+        [10, 20, 50, 100, -1],
+        [10, 20, 50, 100, "Semua"]
+      ],
+      order: [], // Pertahankan urutan awal dari server (start_time DESC)
+      columnDefs: [
+        { orderable: false, targets: [9] } // Kolom Aksi non-sortable
+      ],
+      language: {
+        search: "Cari Jadwal:",
+        searchPlaceholder: "Ketik bank, mapel, kelas...",
+        lengthMenu: "Tampilkan _MENU_ data per halaman",
+        zeroRecords: "Tidak ada data ujian ditemukan",
+        info: "Menampilkan _START_ - _END_ dari _TOTAL_ data ujian",
+        infoEmpty: "Tidak ada data ujian",
+        infoFiltered: "(disaring dari _MAX_ total data)",
+        paginate: {
+          first: '<i class="bi bi-chevron-double-left"></i>',
+          previous: '<i class="bi bi-chevron-left"></i>',
+          next: '<i class="bi bi-chevron-right"></i>',
+          last: '<i class="bi bi-chevron-double-right"></i>'
+        }
+      }
+    });
+
+    // Menjaga nomor urut dinamis saat difilter / diurutkan
+    tableTests.on('order.dt search.dt', function () {
+      tableTests.column(0, { search: 'applied', order: 'applied' }).nodes().each(function (cell, i) {
+        cell.innerHTML = i + 1;
+      });
+    }).draw();
 
 
 

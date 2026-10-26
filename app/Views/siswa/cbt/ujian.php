@@ -907,6 +907,13 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       white-space: nowrap;
     }
 
+    /* Pastikan tombol yang disembunyikan benar-benar tersembunyi dan tidak tampil */
+    .exam-footer .btn-nav.d-none,
+    .exam-footer .btn-finish.d-none,
+    .exam-footer .d-none {
+      display: none !important;
+    }
+
     /* 📱 KHUSUS TAMPILAN HP: Hilangkan tulisan di navigasi soal bawah */
     .exam-footer .btn-nav-text,
     .exam-footer .btn-nav-label-long,
@@ -920,16 +927,39 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       margin: 0 !important;
     }
 
+    /* Checkbox kuning tombol ragu-ragu */
+    .exam-footer .btn-ragu {
+      background-color: #fef3c7 !important;
+      border: 1.5px solid #f59e0b !important;
+      color: #92400e !important;
+    }
     .exam-footer .btn-ragu input {
-      margin-right: 3px !important;
-      transform: scale(1.15);
+      margin-right: 4px !important;
+      transform: scale(1.2);
+      accent-color: #f59e0b;
+      cursor: pointer;
+    }
+    .exam-footer .btn-ragu i {
+      font-size: 1.1rem !important;
+      color: #d97706;
     }
 
-    /* Hitung mundur pada tombol selesai terkunci tetap tampil di HP */
+    /* Hitung mundur pada tombol selesai terkunci tetap tampil di HP di dalam tombol */
     .btn-finish-locked .countdown-badge-anim {
-      font-size: 0.78rem !important;
-      padding: 2px 5px !important;
-      margin-left: 2px !important;
+      font-size: 0.84rem !important;
+      padding: 2px 6px !important;
+      margin-left: 3px !important;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+      color: #fff !important;
+      display: inline-block !important;
+    }
+
+    /* Teks Selesai ringkas di HP */
+    .exam-footer .finish-btn-mobile-label {
+      font-size: 0.85rem !important;
+      margin-left: 4px !important;
+      color: #fff !important;
     }
 
     /* Auto-save floating indicator on Mobile: reposition to top-right below sticky header */
@@ -1349,9 +1379,10 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       <span class="btn-nav-text me-1">Berikutnya</span>
       <i class="bi bi-chevron-right"></i>
     </button>
-    <button type="button" class="pill-btn btn-nav btn-finish d-none" id="navFinish" title="Selesaikan Ujian">
+    <button type="button" class="pill-btn btn-nav btn-finish d-none" id="navFinish" title="Selesaikan Ujian" style="display: none;">
       <i class="bi bi-check2-all me-1"></i>
       <span class="btn-nav-text finish-btn-label">Selesaikan Ujian</span>
+      <span class="finish-btn-mobile-label d-inline d-md-none fw-bold ms-1">Selesai</span>
     </button>
   </footer>
 
@@ -2934,7 +2965,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         btnFinish.disabled = false;
         btnFinish.classList.remove('btn-secondary', 'btn-finish-locked', 'btn-next');
         btnFinish.classList.add('btn-success');
-        btnFinish.innerHTML = `<i class="bi bi-check2-all me-1"></i><span class="btn-nav-text finish-btn-label">Selesaikan Ujian</span>`;
+        btnFinish.innerHTML = `<i class="bi bi-check2-all me-1"></i><span class="btn-nav-text finish-btn-label">Selesaikan Ujian</span><span class="finish-btn-mobile-label d-inline d-md-none fw-bold ms-1">Selesai</span>`;
         btnFinish.title = 'Selesaikan Ujian';
       }
     };
@@ -2955,11 +2986,25 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       // Update Navigation
       if (btnBack) btnBack.disabled = (idx === 0);
       const isEnd = (idx === items.length - 1);
-      if (btnNext) btnNext.classList.toggle('d-none', isEnd);
-      if (btnFinish) {
-        btnFinish.classList.toggle('d-none', !isEnd);
+      
+      // Slot ke-4: Tombol Berikutnya BERUBAH menjadi Tombol Selesai di nomor terakhir
+      if (btnNext) {
         if (isEnd) {
+          btnNext.classList.add('d-none');
+          btnNext.style.setProperty('display', 'none', 'important');
+        } else {
+          btnNext.classList.remove('d-none');
+          btnNext.style.removeProperty('display');
+        }
+      }
+      if (btnFinish) {
+        if (isEnd) {
+          btnFinish.classList.remove('d-none');
+          btnFinish.style.removeProperty('display');
           updateFinishButtonState();
+        } else {
+          btnFinish.classList.add('d-none');
+          btnFinish.style.setProperty('display', 'none', 'important');
         }
       }
 
@@ -3563,19 +3608,24 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
               },
               body: csrfData
             })
-              .then(r => r.json())
-              .then(res => {
+              .then(async r => {
+                const res = await r.json();
+                if (!r.ok || res.error) {
+                  throw new Error(res.error || 'Ujian belum bisa diselesaikan.');
+                }
                 if (res.redirect) return res.redirect;
-                // Even if there's an error, redirect to selesai as fallback
                 return '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>';
               })
-              .catch(() => {
-                // Network error - redirect to selesai as fallback
-                return '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>';
+              .catch((err) => {
+                examFinished = false;
+                btnFinish.disabled = false;
+                updateFinishButtonState();
+                Swal.showValidationMessage(err.message || 'Gagal menyelesaikan ujian.');
+                return false;
               });
           }
         }).then(result => {
-          if (result.isConfirmed && result.value) {
+          if (result && result.isConfirmed && result.value) {
             window.location.href = result.value;
           }
         });
