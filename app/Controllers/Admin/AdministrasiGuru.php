@@ -558,27 +558,76 @@ class AdministrasiGuru extends BaseController
                     $data['tp_list'] = [];
                 } else {
                     $queryCp = $this->cpMasterModel->where('mapel_master_id', $subject['mapel_master_id']);
-                    if ($filters['role_id'] == 3) {
-                        if (!empty($filters['auto_fase'])) {
-                            $queryCp->where('fase', $filters['auto_fase']);
-                        } else {
-                            $assignedPhases = [];
-                            foreach ($filters['classes'] as $c) {
-                                $lvl = (int)$c['level'];
-                                if ($lvl >= 1 && $lvl <= 2) $assignedPhases[] = 'A';
-                                elseif ($lvl >= 3 && $lvl <= 4) $assignedPhases[] = 'B';
-                                elseif ($lvl >= 5 && $lvl <= 6) $assignedPhases[] = 'C';
-                                elseif ($lvl >= 7 && $lvl <= 9) $assignedPhases[] = 'D';
-                                elseif ($lvl == 10) $assignedPhases[] = 'E';
-                                elseif ($lvl >= 11 && $lvl <= 12) $assignedPhases[] = 'F';
-                            }
-                            if (!empty($assignedPhases)) {
-                                $queryCp->whereIn('fase', array_unique($assignedPhases));
-                            }
+                    if (!empty($filters['auto_fase'])) {
+                        $queryCp->where('fase', $filters['auto_fase']);
+                    } elseif ($filters['role_id'] == 3) {
+                        $assignedPhases = [];
+                        foreach ($filters['classes'] as $c) {
+                            $lvl = (int)$c['level'];
+                            if ($lvl >= 1 && $lvl <= 2) $assignedPhases[] = 'A';
+                            elseif ($lvl >= 3 && $lvl <= 4) $assignedPhases[] = 'B';
+                            elseif ($lvl >= 5 && $lvl <= 6) $assignedPhases[] = 'C';
+                            elseif ($lvl >= 7 && $lvl <= 9) $assignedPhases[] = 'D';
+                            elseif ($lvl == 10) $assignedPhases[] = 'E';
+                            elseif ($lvl >= 11 && $lvl <= 12) $assignedPhases[] = 'F';
+                        }
+                        if (!empty($assignedPhases)) {
+                            $queryCp->whereIn('fase', array_unique($assignedPhases));
                         }
                     }
                     $data['cp_list'] = $queryCp->findAll();
-                    $data['tp_list'] = $this->tpModel->where('subject_id', $subjectId)->findAll();
+
+                    // Filter TP berdasarkan kelas yang dipilih
+                    $tpList = [];
+                    if ($classId) {
+                        $classInfo  = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+                        $classLevel = (int)($classInfo['level'] ?? 0);
+                        $className  = $classInfo['name'] ?? '';
+
+                        // 1. Prioritaskan TP yang terhubung ke ATP milik kelas ini secara langsung
+                        $tpList = $this->db->table('tujuan_pembelajaran tp')
+                            ->select('tp.*')
+                            ->join('alur_tujuan_pembelajaran atp', 'atp.id = tp.atp_id')
+                            ->where('tp.subject_id', $subjectId)
+                            ->where('atp.class_id', $classId)
+                            ->groupBy('tp.id')
+                            ->orderBy('tp.elemen', 'ASC')
+                            ->orderBy('tp.kode_tp', 'ASC')
+                            ->get()->getResultArray();
+
+                        // 2. Fallback: TP mandiri yang tersimpan dengan kolom kelas sesuai level / nama kelas
+                        if (empty($tpList) && $classLevel > 0) {
+                            $tpList = $this->db->table('tujuan_pembelajaran tp')
+                                ->select('tp.*')
+                                ->where('tp.subject_id', $subjectId)
+                                ->groupStart()
+                                    ->where('tp.kelas', (string)$classLevel)
+                                    ->orWhere('tp.kelas', $className)
+                                ->groupEnd()
+                                ->groupBy('tp.id')
+                                ->orderBy('tp.elemen', 'ASC')
+                                ->orderBy('tp.kode_tp', 'ASC')
+                                ->get()->getResultArray();
+                        }
+
+                        // 3. Fallback jika single-guru: ambil TP dari kelas lain se-level jika kelas ini belum punya TP
+                        if (empty($tpList) && $classLevel > 0 && !$this->isMultiGuruForLevel((int)$subjectId, $classLevel)) {
+                            $classIdsAtLevel = $this->getClassIdsForDocumentSearch($classLevel, (int)$classId);
+                            if (!empty($classIdsAtLevel)) {
+                                $tpList = $this->db->table('tujuan_pembelajaran tp')
+                                    ->select('tp.*')
+                                    ->join('alur_tujuan_pembelajaran atp', 'atp.id = tp.atp_id')
+                                    ->where('tp.subject_id', $subjectId)
+                                    ->whereIn('atp.class_id', $classIdsAtLevel)
+                                    ->groupBy('tp.id')
+                                    ->orderBy('tp.elemen', 'ASC')
+                                    ->orderBy('tp.kode_tp', 'ASC')
+                                    ->get()->getResultArray();
+                            }
+                        }
+                    }
+
+                    $data['tp_list'] = $tpList;
                 }
             }
         } else {
@@ -4217,36 +4266,64 @@ class AdministrasiGuru extends BaseController
 
             $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
             $classLevel = (int) ($classInfo['level'] ?? 0);
+            $className  = $classInfo['name'] ?? '';
 
             // Cek multi-guru (dengan filter tahun ajaran aktif)
             $isMultiGuru = $this->isMultiGuruForLevel((int)$subjectId, $classLevel);
 
-            // Tentukan class_ids untuk query (single-guru: lintas semua tahun ajaran)
-            if ($isMultiGuru) {
-                $effectiveClassIds = [(int)$classId];
-            } else {
-                $effectiveClassIds = $this->getClassIdsForDocumentSearch($classLevel, (int)$classId);
-            }
-
-            // Ambil semua TP dari ATP yang sudah ada di level ini
+            // 1. Ambil TP yang terhubung ke ATP milik kelas ini secara langsung
             $tpList = $this->db->table('tujuan_pembelajaran tp')
                 ->select('tp.id, tp.kode_tp, tp.deskripsi, tp.lingkup_materi, tp.atp_id')
                 ->join('alur_tujuan_pembelajaran atp', 'atp.id = tp.atp_id')
                 ->where('tp.subject_id', $subjectId)
-                ->whereIn('atp.class_id', $effectiveClassIds)
+                ->where('atp.class_id', $classId)
                 ->groupBy('tp.id')
                 ->orderBy('tp.kode_tp', 'ASC')
                 ->get()->getResultArray();
 
+            // 2. Fallback: TP mandiri dengan kolom kelas sesuai level/nama kelas
+            if (empty($tpList) && $classLevel > 0) {
+                $tpList = $this->db->table('tujuan_pembelajaran tp')
+                    ->select('tp.id, tp.kode_tp, tp.deskripsi, tp.lingkup_materi, tp.atp_id')
+                    ->where('tp.subject_id', $subjectId)
+                    ->groupStart()
+                        ->where('tp.kelas', (string)$classLevel)
+                        ->orWhere('tp.kelas', $className)
+                    ->groupEnd()
+                    ->groupBy('tp.id')
+                    ->orderBy('tp.kode_tp', 'ASC')
+                    ->get()->getResultArray();
+            }
+
+            // 3. Fallback jika single-guru: jika kelas ini belum punya TP, pinjam dari kelas lain se-level
+            if (empty($tpList) && $classLevel > 0 && !$isMultiGuru) {
+                $classIdsAtLevel = $this->getClassIdsForDocumentSearch($classLevel, (int)$classId);
+                if (!empty($classIdsAtLevel)) {
+                    $tpList = $this->db->table('tujuan_pembelajaran tp')
+                        ->select('tp.id, tp.kode_tp, tp.deskripsi, tp.lingkup_materi, tp.atp_id')
+                        ->join('alur_tujuan_pembelajaran atp', 'atp.id = tp.atp_id')
+                        ->where('tp.subject_id', $subjectId)
+                        ->whereIn('atp.class_id', $classIdsAtLevel)
+                        ->groupBy('tp.id')
+                        ->orderBy('tp.kode_tp', 'ASC')
+                        ->get()->getResultArray();
+                }
+            }
+
             $data['available_tps'] = $tpList;
 
-            // Auto-generate KKTP untuk TP yang belum ada
+            // Auto-generate KKTP untuk TP kelas ini yang belum ada
             if (!$data['readonly'] && !empty($tpList)) {
                 foreach ($tpList as $tp) {
+                    $tpText = trim(($tp['kode_tp'] ? $tp['kode_tp'] . ' - ' : '') . $tp['deskripsi']);
+
                     $exists = $kktpModel
                         ->where('subject_id', $subjectId)
-                        ->where('tp_id', $tp['id'])
-                        ->whereIn('class_id', $effectiveClassIds)
+                        ->where('class_id', $classId)
+                        ->groupStart()
+                            ->where('tp_id', $tp['id'])
+                            ->orWhere('tujuan_pembelajaran', $tpText)
+                        ->groupEnd()
                         ->first();
 
                     if (!$exists) {
@@ -4254,7 +4331,7 @@ class AdministrasiGuru extends BaseController
                             'class_id'              => (int)$classId,
                             'subject_id'            => (int)$subjectId,
                             'tp_id'                 => (int)$tp['id'],
-                            'tujuan_pembelajaran'   => $tp['kode_tp'] . ' - ' . $tp['deskripsi'],
+                            'tujuan_pembelajaran'   => $tpText,
                             'kriteria_1_interval'   => '0-40%',
                             'kriteria_1_label'      => 'Belum Tercapai',
                             'kriteria_1_intervensi' => 'Remedial di seluruh bagian',
@@ -4272,12 +4349,26 @@ class AdministrasiGuru extends BaseController
                 }
             }
 
-            // Load KKTP yang sudah ada
-            $data['kktp_list'] = $kktpModel
+            // Load KKTP yang spesifik untuk kelas yang dipilih
+            $kktpList = $kktpModel
                 ->where('subject_id', $subjectId)
-                ->whereIn('class_id', $effectiveClassIds)
+                ->where('class_id', $classId)
                 ->orderBy('id', 'ASC')
                 ->findAll();
+
+            // Jika kelas ini belum punya KKTP dan single-guru, fallback ke kelas lain se-level
+            if (empty($kktpList) && $classLevel > 0 && !$isMultiGuru) {
+                $classIdsAtLevel = $this->getClassIdsForDocumentSearch($classLevel, (int)$classId);
+                if (!empty($classIdsAtLevel)) {
+                    $kktpList = $kktpModel
+                        ->where('subject_id', $subjectId)
+                        ->whereIn('class_id', $classIdsAtLevel)
+                        ->orderBy('id', 'ASC')
+                        ->findAll();
+                }
+            }
+
+            $data['kktp_list'] = $kktpList;
         }
 
         return view('admin/administrasi_guru/kktp', $data);
@@ -4359,13 +4450,12 @@ class AdministrasiGuru extends BaseController
             ->first();
         $teacher = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
 
-        // Ambil KKTP (single guru → lintas kelas se-level)
+        // Ambil KKTP untuk kelas yang dipilih (fallback se-level jika kelas ini belum punya)
         $kktpModel = new \App\Models\KktpModel();
         $isMultiGuru = $this->isMultiGuruForLevel((int)$subjectId, $classLevel);
 
-        if ($isMultiGuru) {
-            $kktpList = $kktpModel->getByClassSubject((int)$classId, (int)$subjectId);
-        } else {
+        $kktpList = $kktpModel->getByClassSubject((int)$classId, (int)$subjectId);
+        if (empty($kktpList) && $classLevel > 0 && !$isMultiGuru) {
             $classIds = array_column(
                 $this->db->table('classes')->select('id')->where('level', $classLevel)->get()->getResultArray(),
                 'id'

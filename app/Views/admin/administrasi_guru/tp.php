@@ -181,7 +181,11 @@
         <div class="mb-3 text-gray-300">
             <i class="bi bi-bullseye" style="font-size: 5rem;"></i>
         </div>
-        <h5 class="text-gray-500">Silakan pilih mata pelajaran untuk mulai menyusun Tujuan Pembelajaran.</h5>
+        <?php if (empty($selected_class)): ?>
+            <h5 class="text-gray-500">Silakan pilih kelas terlebih dahulu untuk melihat Tujuan Pembelajaran.</h5>
+        <?php else: ?>
+            <h5 class="text-gray-500">Silakan pilih mata pelajaran untuk melihat Tujuan Pembelajaran.</h5>
+        <?php endif; ?>
     </div>
 <?php endif; ?> <!-- End of if selected_subject -->
 
