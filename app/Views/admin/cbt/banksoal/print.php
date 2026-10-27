@@ -39,6 +39,34 @@
             padding: 2px 0;
         }
 
+        .section-header {
+            margin-top: 20px;
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            background-color: #f1f5f9;
+            border-left: 4px solid #1e40af;
+            border-top: 1px solid #e2e8f0;
+            border-right: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            page-break-after: avoid;
+        }
+
+        .section-title {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 3px;
+        }
+
+        .section-instruction {
+            font-size: 9.5pt;
+            color: #334155;
+            line-height: 1.4;
+            font-style: italic;
+        }
+
         .question-item {
             margin-bottom: 20px;
             page-break-inside: avoid;
@@ -137,8 +165,138 @@
         </tr>
     </table>
 
+    <?php
+    if (!function_exists('cbt_to_roman')) {
+        function cbt_to_roman($number) {
+            $map = [
+                'M' => 1000, 'CM' => 900, 'D' => 500, 'CD' => 400,
+                'C' => 100, 'XC' => 90, 'L' => 50, 'XL' => 40,
+                'X' => 10, 'IX' => 9, 'V' => 5, 'IV' => 4, 'I' => 1
+            ];
+            $returnValue = '';
+            while ($number > 0) {
+                foreach ($map as $roman => $int) {
+                    if ($number >= $int) {
+                        $number -= $int;
+                        $returnValue .= $roman;
+                        break;
+                    }
+                }
+            }
+            return $returnValue ?: 'I';
+        }
+    }
+
+    $typeTitles = [
+        'pg'          => 'PILIHAN GANDA',
+        'pg_kompleks' => 'PILIHAN GANDA KOMPLEKS',
+        'benar_salah' => 'BENAR / SALAH',
+        'jodohkan'    => 'MENJODOHKAN',
+        'esai'        => 'URAIAN / ESAI',
+    ];
+
+    $extractPetunjuk = function (&$text) {
+        $petunjuk = null;
+        if (preg_match('/<(p|div|blockquote)[^>]*>(?:\s*<(?:strong|b|span)[^>]*>)?\s*(Petunjuk\s+(?:pengerjaan|soal|khusus).*?)<\/\1>/is', $text, $m)) {
+            $petunjuk = trim(strip_tags($m[2]));
+            $text = str_replace($m[0], '', $text);
+        } elseif (preg_match('/<(strong|b)[^>]*>\s*(Petunjuk\s+(?:pengerjaan|soal|khusus).*?)<\/\1>/is', $text, $m)) {
+            $petunjuk = trim(strip_tags($m[2]));
+            $text = str_replace($m[0], '', $text);
+        } elseif (preg_match('/(Petunjuk\s+(?:pengerjaan|soal|khusus)[^<\r\n]+(?:\.[^<\r\n]+)*)/is', $text, $m)) {
+            $petunjuk = trim(strip_tags($m[1]));
+            $text = str_replace($m[0], '', $text);
+        }
+        $text = preg_replace('/(<p[^>]*>\s*(?:&nbsp;|\s)*<\/p>)+$/i', '', trim($text));
+        return $petunjuk;
+    };
+
+    $detectTypeFromText = function ($text, $fallbackType = 'pg') {
+        if (preg_match('/benar\s*(?:atau|\/)?\s*salah/i', $text)) {
+            return 'benar_salah';
+        }
+        if (preg_match('/semua\s+jawaban|lebih\s+dari\s+satu|kompleks/i', $text)) {
+            return 'pg_kompleks';
+        }
+        if (preg_match('/jodoh|pasang/i', $text)) {
+            return 'jodohkan';
+        }
+        if (preg_match('/esai|uraian/i', $text)) {
+            return 'esai';
+        }
+        return $fallbackType;
+    };
+
+    $formatInstruction = function ($rawPetunjuk, $type) {
+        if (!empty($rawPetunjuk)) {
+            $clean = preg_replace('/^Petunjuk\s+(?:pengerjaan\s+)?(?:untuk\s+penyusun\s+soal\s+adalah\s*|soal\s*[:\-–]?\s*|:\s*)/i', '', $rawPetunjuk);
+            $clean = ucfirst(trim($clean));
+            if (!empty($clean)) {
+                return '<strong>Petunjuk:</strong> ' . $clean;
+            }
+        }
+        switch ($type) {
+            case 'pg':
+                return '<strong>Petunjuk:</strong> Pilihlah salah satu jawaban yang paling tepat.';
+            case 'pg_kompleks':
+                return '<strong>Petunjuk:</strong> Pilihlah semua jawaban yang benar pada butir soal berikut (jawaban benar lebih dari satu).';
+            case 'benar_salah':
+                return '<strong>Petunjuk:</strong> Tentukan apakah setiap pernyataan berikut bernilai <strong>Benar (B)</strong> atau <strong>Salah (S)</strong> berdasarkan stimulus.';
+            case 'jodohkan':
+                return '<strong>Petunjuk:</strong> Pasangkanlah pernyataan pada kolom kiri dengan jawaban yang sesuai pada kolom kanan.';
+            case 'esai':
+                return '<strong>Petunjuk:</strong> Jawablah pertanyaan-pertanyaan berikut dengan jelas dan benar.';
+            default:
+                return '';
+        }
+    };
+
+    $processedQuestions = [];
+    $currentSection = null;
+    $sectionIndex = 0;
+
+    foreach ($questions as $i => $q) {
+        $text = $q['question_text_clean'] ?? '';
+        $extracted = $extractPetunjuk($text);
+        $q['question_text_clean'] = $text;
+
+        $effectiveType = $q['question_type'] ?? 'pg';
+        if ($extracted) {
+            $detected = $detectTypeFromText($extracted, $effectiveType);
+            if ($detected !== $effectiveType) {
+                $effectiveType = $detected;
+            }
+        }
+
+        $isSectionChange = false;
+        if ($currentSection === null || $currentSection !== $effectiveType || $extracted !== null) {
+            $isSectionChange = true;
+            $currentSection = $effectiveType;
+            $sectionIndex++;
+        }
+
+        $q['_section_change'] = $isSectionChange;
+        $q['_section_index'] = $sectionIndex;
+        $q['_section_type'] = $effectiveType;
+        $q['_instruction'] = $formatInstruction($extracted, $effectiveType);
+
+        $processedQuestions[] = $q;
+    }
+    ?>
+
     <div class="content">
-        <?php foreach ($questions as $i => $q): ?>
+        <?php foreach ($processedQuestions as $i => $q): ?>
+            <?php if ($q['_section_change']): ?>
+                <div class="section-header">
+                    <div class="section-title">
+                        BAGIAN <?= cbt_to_roman($q['_section_index']) ?>: <?= $typeTitles[$q['_section_type']] ?? strtoupper($q['_section_type']) ?>
+                    </div>
+                    <?php if (!empty($q['_instruction'])): ?>
+                        <div class="section-instruction"><?= $q['_instruction'] ?></div>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+
             <div class="question-item">
                 <div class="question-text">
                     <strong><?= $i + 1 ?>.</strong> <?= $q['question_text_clean'] ?>

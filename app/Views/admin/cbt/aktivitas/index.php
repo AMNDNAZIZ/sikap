@@ -24,6 +24,23 @@ foreach ($sessions as $s) {
         --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
     }
 
+    /* Live Monitoring Badge Animation */
+    .pulse-live {
+        animation: pulseLiveBlink 1.8s infinite ease-in-out;
+    }
+    .live-dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background-color: #ffffff;
+    }
+    @keyframes pulseLiveBlink {
+        0% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.65; transform: scale(1.06); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+
     /* Modern Page Header */
     .page-header {
         background: var(--primary-gradient) !important;
@@ -541,6 +558,7 @@ foreach ($sessions as $s) {
                                 <!-- Unduh Nilai -->
                                 <button type="button" class="btn-sub-action btn-unduh-nilai"
                                     data-id="<?= $s['test_id'] ?>" data-name="<?= esc($s['subject_name']) ?>"
+                                    data-classes="<?= esc($s['class_codes'] ?? '[]') ?>"
                                     title="Unduh Nilai Siswa">
                                     <i class="fas fa-file-download text-success"></i>
                                     <span>Nilai</span>
@@ -636,6 +654,7 @@ foreach ($sessions as $s) {
                                 <td class="text-center">
                                     <button class="btn btn-sm btn-outline-success btn-unduh-nilai"
                                         data-id="<?= $s['test_id'] ?>" data-name="<?= esc($s['subject_name']) ?>"
+                                        data-classes="<?= esc($s['class_codes'] ?? '[]') ?>"
                                         title="Unduh Nilai">
                                         <i class="fas fa-download"></i>
                                     </button>
@@ -648,6 +667,7 @@ foreach ($sessions as $s) {
                                         </a>
                                         <button class="btn btn-sm btn-outline-secondary btn-analisis-download"
                                             data-id="<?= $s['test_id'] ?>" data-name="<?= esc($s['subject_name']) ?>"
+                                            data-classes="<?= esc($s['class_codes'] ?? '[]') ?>"
                                             title="Unduh Analisis">
                                             <i class="fas fa-download"></i>
                                         </button>
@@ -669,19 +689,29 @@ foreach ($sessions as $s) {
 </div>
 
 <!-- Modal Belum Tes -->
-<div class="modal fade" id="modalBelumTes" tabindex="-1">
+<div class="modal fade" id="modalBelumTes" tabindex="-1" data-bs-backdrop="true" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header bg-warning text-dark rounded-top-4">
-                <h5 class="modal-title fs-6 fw-bold">
-                    <i class="fas fa-user-times me-2"></i> Daftar Siswa Belum Tes
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header bg-warning text-dark rounded-top-4 d-flex align-items-center justify-content-between py-3 px-4">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <h5 class="modal-title fs-6 fw-bold mb-0">
+                        <i class="fas fa-user-times me-2"></i> Daftar Siswa Belum Tes
+                    </h5>
+                    <span class="badge bg-danger text-white rounded-pill pulse-live d-inline-flex align-items-center gap-1 px-2 py-1" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                        <span class="live-dot"></span> LIVE
+                    </span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-dark text-white rounded-pill px-3 py-1 shadow-sm" id="btnRefreshBelumTes" title="Segarkan Data Sekarang">
+                        <i class="fas fa-sync-alt me-1" id="iconRefreshBelumTes"></i> <span>Segarkan</span>
+                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
             </div>
-            <div class="modal-body p-4">
+            <div class="modal-body p-4" style="min-height: 250px;">
                 <div id="belumTesContent" class="text-center text-muted py-4">
                     <i class="fas fa-spinner fa-spin fa-2x mb-3 text-warning"></i>
-                    <p>Memuat data siswa belum tes...</p>
+                    <p class="mt-2 mb-0">Memuat data siswa belum tes...</p>
                 </div>
             </div>
         </div>
@@ -908,24 +938,197 @@ foreach ($sessions as $s) {
             }
         }
 
-        // 4. Modal Siswa Belum Tes
+        // 4. Modal Siswa Belum Tes (Realtime Live Polling)
+        let belumTesTimer = null;
+        let currentBelumTesTestId = null;
+        let isBelumTesFetching = false;
+
+        function getBelumTesUrl(testId) {
+            let base = '<?= site_url('admin/cbt/aktivitas/belumTes') ?>';
+            try {
+                // Selaraskan protocol dan host (termasuk port seperti :8080) dengan browser yang aktif
+                const parsed = new URL(base, window.location.href);
+                parsed.protocol = window.location.protocol;
+                parsed.host = window.location.host;
+                return parsed.toString().replace(/\/+$/, '') + '/' + encodeURIComponent(testId);
+            } catch (e) {
+                return base.replace(/\/+$/, '') + '/' + encodeURIComponent(testId);
+            }
+        }
+
+        function fetchBelumTes(testId, isSilent) {
+            if (!testId || isBelumTesFetching) return;
+            isBelumTesFetching = true;
+
+            const $iconRefresh = $('#iconRefreshBelumTes');
+            $iconRefresh.addClass('fa-spin');
+
+            const modalBody = document.querySelector('#modalBelumTes .modal-body');
+            const previousScrollTop = modalBody ? modalBody.scrollTop : 0;
+            const currentSearch = $('#searchBelumTes').val() || '';
+
+            if (!isSilent) {
+                $('#belumTesContent').html('<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x mb-3 text-warning"></i><p class="mt-2 mb-0">Menghubungkan & memuat data terbaru...</p></div>');
+            }
+
+            const requestUrl = getBelumTesUrl(testId);
+
+            $.ajax({
+                url: requestUrl,
+                type: 'GET',
+                data: { _t: Date.now() },
+                cache: false,
+                success: function (html) {
+                    $('#belumTesContent').html(html);
+
+                    if (currentSearch) {
+                        $('#searchBelumTes').val(currentSearch);
+                        applyBelumTesFilter(currentSearch);
+                    }
+
+                    if (isSilent && modalBody) {
+                        modalBody.scrollTop = previousScrollTop;
+                    }
+                },
+                error: function (xhr, status, error) {
+                    if (!isSilent) {
+                        let detail = '';
+                        if (xhr.status === 404) {
+                            detail = 'Data ujian tidak ditemukan (404).';
+                        } else if (xhr.status === 403) {
+                            detail = 'Akses ditolak atau sesi login telah kedaluwarsa (403). Silakan refresh halaman utama.';
+                        } else if (xhr.status === 500) {
+                            detail = 'Terjadi kendala pemrosesan data di server (500).';
+                        } else if (xhr.status === 0) {
+                            detail = 'Gagal tersambung ke server (Koneksi terputus atau beda port: ' + window.location.host + ').';
+                        } else {
+                            detail = 'Status error: ' + (xhr.status || status || 'Gagal tersambung');
+                        }
+
+                        $('#belumTesContent').html(`
+                            <div class="alert alert-danger py-3 shadow-sm rounded-3">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="fas fa-exclamation-triangle text-danger fa-lg"></i>
+                                    <strong class="fs-6">Gagal Memuat Data Siswa Belum Tes</strong>
+                                </div>
+                                <p class="small text-muted mb-3">${detail}</p>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="fetchBelumTes(${testId}, false)">
+                                    <i class="fas fa-sync-alt me-1"></i> Coba Segarkan Lagi
+                                </button>
+                            </div>
+                        `);
+                    }
+                },
+                complete: function () {
+                    isBelumTesFetching = false;
+                    $iconRefresh.removeClass('fa-spin');
+                }
+            });
+        }
+
+        function applyBelumTesFilter(keyword) {
+            const term = (keyword || '').toLowerCase().trim();
+            let matchCount = 0;
+            $('.belum-tes-row').each(function () {
+                const text = $(this).text().toLowerCase();
+                if (!term || text.indexOf(term) !== -1) {
+                    $(this).show();
+                    matchCount++;
+                } else {
+                    $(this).hide();
+                }
+            });
+
+            if (term && matchCount === 0) {
+                $('#noSearchResultRow').show();
+            } else {
+                $('#noSearchResultRow').hide();
+            }
+        }
+
+        $(document).on('input', '#searchBelumTes', function () {
+            applyBelumTesFilter($(this).val());
+        });
+
         $(document).on('click', '.btn-belum-tes', function (e) {
             e.preventDefault();
             const btn = $(this).closest('.btn-belum-tes');
             const id = btn.attr('data-id') || btn.data('id');
             const name = btn.attr('data-name') || btn.data('name') || '';
-            $('#modalBelumTes .modal-title').html('<i class="fas fa-user-times me-2"></i> Belum Tes: ' + name);
-            $('#belumTesContent').html('<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x mb-3 text-warning"></i><p>Memuat data siswa...</p></div>');
-            openModalSafe('modalBelumTes');
 
-            if (id) {
-                $.get('<?= site_url('admin/cbt/aktivitas/belumTes/') ?>' + id, function (html) {
-                    $('#belumTesContent').html(html);
-                }).fail(function (xhr) {
-                    $('#belumTesContent').html('<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i> Gagal memuat data siswa belum tes.</div>');
-                });
+            currentBelumTesTestId = id;
+            $('#modalBelumTes .modal-title').html('<i class="fas fa-user-times me-2"></i> Belum Tes: ' + name);
+
+            openModalSafe('modalBelumTes');
+            fetchBelumTes(id, false);
+
+            if (belumTesTimer) {
+                clearInterval(belumTesTimer);
+            }
+
+            // Realtime polling otomatis setiap 4 detik saat modal terbuka
+            belumTesTimer = setInterval(function () {
+                const $modal = $('#modalBelumTes');
+                if ($modal.hasClass('show') && currentBelumTesTestId) {
+                    fetchBelumTes(currentBelumTesTestId, true);
+                } else {
+                    clearInterval(belumTesTimer);
+                    belumTesTimer = null;
+                }
+            }, 4000);
+        });
+
+        $(document).on('click', '#btnRefreshBelumTes', function (e) {
+            e.preventDefault();
+            if (currentBelumTesTestId) {
+                fetchBelumTes(currentBelumTesTestId, false);
             }
         });
+
+        $('#modalBelumTes').on('hidden.bs.modal', function () {
+            if (belumTesTimer) {
+                clearInterval(belumTesTimer);
+                belumTesTimer = null;
+            }
+            currentBelumTesTestId = null;
+        });
+
+
+        // Helper untuk filter dropdown kelas sesuai peserta ujian
+        function filterClassOptions($select, rawClasses, defaultAllValue) {
+            let classCodes = [];
+            try {
+                classCodes = typeof rawClasses === 'string' ? JSON.parse(rawClasses) : (Array.isArray(rawClasses) ? rawClasses : []);
+            } catch (e) {
+                classCodes = [];
+            }
+
+            $select.find('option').each(function () {
+                const optVal = $(this).val();
+                const optText = $(this).text().trim().toLowerCase();
+                if (!optVal || optVal === defaultAllValue) {
+                    $(this).show();
+                    return;
+                }
+                if (Array.isArray(classCodes) && classCodes.length > 0) {
+                    const match = classCodes.some(c => {
+                        const cStr = String(c).trim().toLowerCase();
+                        return cStr === String(optVal).toLowerCase() || 
+                               cStr === optText || 
+                               optText.includes(cStr) || 
+                               cStr.includes(optText);
+                    });
+                    $(this).toggle(match);
+                } else {
+                    $(this).show();
+                }
+            });
+
+            const visible = $select.find('option:not([value=""]):not([value="' + defaultAllValue + '"]):visible').length;
+            if (visible === 0) {
+                $select.find('option').show();
+            }
+        }
 
         // 5. Modal Unduh Nilai
         $(document).on('click', '.btn-unduh-nilai', function (e) {
@@ -933,8 +1136,11 @@ foreach ($sessions as $s) {
             const btn = $(this).closest('.btn-unduh-nilai');
             const id = btn.attr('data-id') || btn.data('id');
             const name = btn.attr('data-name') || btn.data('name') || '';
+            const rawClasses = btn.attr('data-classes') || btn.data('classes') || '[]';
             $('#nilaiTestId').val(id);
             $('#modalUnduhNilai .modal-title').html('<i class="fas fa-download me-2"></i> Unduh Nilai: ' + name);
+            filterClassOptions($('#classSelect'), rawClasses, 'all');
+            $('#classSelect').val('all');
             openModalSafe('modalUnduhNilai');
         });
 
@@ -957,9 +1163,11 @@ foreach ($sessions as $s) {
             const btn = $(this).closest('.btn-analisis-download');
             const id = btn.attr('data-id') || btn.data('id');
             const name = btn.attr('data-name') || btn.data('name') || '';
+            const rawClasses = btn.attr('data-classes') || btn.data('classes') || '[]';
             $('#modalUnduhAnalisis .modal-title').html('<i class="fas fa-download me-2"></i> Download Analisis: ' + name);
             $('#modalUnduhAnalisis').data('test-id', id);
             $('#analisisClassSection').addClass('d-none');
+            filterClassOptions($('#analisisClassSelect'), rawClasses, null);
             $('#analisisClassSelect').val('');
             openModalSafe('modalUnduhAnalisis');
         });

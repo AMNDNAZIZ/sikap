@@ -114,7 +114,7 @@ class CbtAktivitas extends BaseController
         $now = date('Y-m-d H:i:s');
 
         $query = $this->db->table('cbt_test_status ts')
-            ->select('ts.id AS test_id, qb.code AS test_code, s.name AS subject_name, en.name AS exam_name, ts.start_time, ts.end_time')
+            ->select('ts.id AS test_id, qb.code AS test_code, s.name AS subject_name, en.name AS exam_name, ts.start_time, ts.end_time, ts.class_codes')
             ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'left')
             ->join('subjects s', 's.id = qb.subject_id', 'left')
             ->join('cbt_exam_names en', 'en.id = ts.exam_name_id', 'left');
@@ -1993,61 +1993,129 @@ class CbtAktivitas extends BaseController
     public function belumTes($testId)
     {
         // Paksa browser tidak cache response ini agar selalu menampilkan data terbaru
-        $this->response->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $this->response->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0');
         $this->response->setHeader('Pragma', 'no-cache');
-        $this->response->setHeader('Expires', '0');
+        $this->response->setHeader('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
 
-        helper('cbt');
-        $db = $this->db;
+        try {
+            helper('cbt');
+            $db = $this->db;
+            $testId = (int) $testId;
 
-        $test = $db->table('cbt_test_status ts')
-            ->select('ts.id, ts.class_codes, ts.bank_id, ts.subject_type, ts.religion AS test_religion, s.name AS subject_name, s.religion AS subject_religion')
-            ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'left')
-            ->join('subjects s', 's.id = qb.subject_id', 'left')
-            ->where('ts.id', $testId)
-            ->get()
-            ->getRowArray();
+            $test = $db->table('cbt_test_status ts')
+                ->select('ts.id, ts.class_codes, ts.bank_id, ts.duration, ts.end_time, ts.subject_type, ts.religion AS test_religion, s.name AS subject_name, s.religion AS subject_religion')
+                ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'left')
+                ->join('subjects s', 's.id = qb.subject_id', 'left')
+                ->where('ts.id', $testId)
+                ->get()
+                ->getRowArray();
 
-        if (!$test) {
-            return $this->response->setBody('<div class="text-danger">Tes tidak ditemukan</div>');
-        }
+            if (!$test) {
+                return $this->response->setBody('<div class="alert alert-danger py-3"><i class="fas fa-exclamation-triangle me-2"></i> Ujian dengan ID ini tidak ditemukan di database.</div>');
+            }
 
-        $classList = json_decode($test['class_codes'] ?? '[]', true);
-        if (empty($classList)) {
-            return $this->response->setBody('<div class="text-warning">Tidak ada kelas terkait ujian ini.</div>');
-        }
+            // Sinkronisasi auto-close sesi yang expired jika method tersedia
+            if (method_exists($this, 'autoCloseExpiredSessions')) {
+                $this->autoCloseExpiredSessions(
+                    $testId,
+                    (int) ($test['duration'] ?? 0),
+                    (string) ($test['end_time'] ?? '')
+                );
+            }
 
-        // Deteksi apakah ujian ini khusus untuk mata pelajaran agama tertentu
-        $targetReligion = cbt_get_test_target_religion($test);
+            // Parsing class_codes (fleksibel: json array atau pemisah koma)
+            $rawCodes = $test['class_codes'] ?? '';
+            $classList = [];
+            if (is_string($rawCodes)) {
+                $decoded = json_decode($rawCodes, true);
+                if (is_array($decoded)) {
+                    $classList = $decoded;
+                } elseif (trim($rawCodes) !== '') {
+                    $classList = array_map('trim', explode(',', $rawCodes));
+                }
+            } elseif (is_array($rawCodes)) {
+                $classList = $rawCodes;
+            }
 
-        // ✅ Ambil siswa berdasarkan student_records (aktif)
-        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
-        $activeYearId = $activeYear['id'] ?? 0;
-        $students = $db->table('students st')
-            ->select('st.id, st.name AS student_name, st.religion, c.name AS class_name')
-            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
-            ->join('classes c', 'c.id = sr.class_id', 'left')
-            ->whereIn('c.name', $classList)
-            ->orderBy('c.name', 'ASC')
-            ->orderBy('st.name', 'ASC')
-            ->get()
-            ->getResultArray();
+            $classList = array_values(array_filter(array_map('trim', (array) $classList)));
+            if (empty($classList)) {
+                return $this->response->setBody('<div class="alert alert-warning py-3"><i class="fas fa-info-circle me-2"></i> Tidak ada kelas yang terdaftar untuk ujian ini.</div>');
+            }
 
-        // Khusus mapel agama: filter hanya siswa yang agamanya sesuai
-        if ($targetReligion !== '') {
-            $students = array_values(array_filter($students, function ($s) use ($targetReligion) {
-                return cbt_normalize_religion($s['religion'] ?? '') === $targetReligion;
+            // Deteksi apakah ujian ini khusus untuk mata pelajaran agama tertentu
+            $targetReligion = function_exists('cbt_get_test_target_religion') ? cbt_get_test_target_religion($test) : '';
+
+            // Ambil tahun ajaran aktif
+            $activeYearId = 0;
+            try {
+                $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+                $activeYearId = (int) ($activeYear['id'] ?? 0);
+            } catch (\Throwable $e) {
+                $activeYearId = 0;
+            }
+
+            // Ambil siswa aktif: Gunakan LEFT JOIN tanpa groupBy SQL untuk kompatibilitas MariaDB/MySQL ONLY_FULL_GROUP_BY
+            $studentQuery = $db->table('students st')
+                ->select('st.id, st.name AS student_name, st.nis, st.religion, c.name AS class_name')
+                ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"' . ($activeYearId > 0 ? ' AND sr.academic_year_id = ' . $activeYearId : ''), 'left')
+                ->join('classes c', 'c.id = sr.class_id', 'left')
+                ->whereIn('c.name', $classList)
+                ->orderBy('c.name', 'ASC')
+                ->orderBy('st.name', 'ASC')
+                ->get()
+                ->getResultArray();
+
+            // Deduplikasi siswa di PHP berdasarkan ID
+            $seenStudentIds = [];
+            $students = [];
+            foreach ($studentQuery as $row) {
+                $sid = (int) ($row['id'] ?? 0);
+                if ($sid > 0 && !isset($seenStudentIds[$sid])) {
+                    $seenStudentIds[$sid] = true;
+                    $students[] = $row;
+                }
+            }
+
+            // Khusus mapel agama: filter hanya siswa yang agamanya sesuai
+            if ($targetReligion !== '' && function_exists('cbt_normalize_religion')) {
+                $students = array_values(array_filter($students, function ($s) use ($targetReligion) {
+                    return cbt_normalize_religion($s['religion'] ?? '') === $targetReligion;
+                }));
+            }
+
+            // 1. Ambil student_id yang tercatat di cbt_sessions
+            $doneSessions = $db->table('cbt_sessions')
+                ->select('student_id')
+                ->where('test_id', $testId)
+                ->get()
+                ->getResultArray();
+
+            // 2. Ambil student_id yang tercatat di cbt_answers jika tabel ada
+            $doneAnswers = [];
+            if ($db->tableExists('cbt_answers')) {
+                $doneAnswers = $db->table('cbt_answers')
+                    ->select('student_id')
+                    ->where('test_id', $testId)
+                    ->get()
+                    ->getResultArray();
+            }
+
+            // Normalisasi semua ID yang sudah pernah mengerjakan/mulai ke integer
+            $doneSessionIds = array_map('intval', array_column($doneSessions, 'student_id'));
+            $doneAnswerIds  = array_map('intval', array_column($doneAnswers, 'student_id'));
+            $allDoneIds     = array_unique(array_filter(array_merge($doneSessionIds, $doneAnswerIds)));
+            $doneMap        = array_fill_keys($allDoneIds, true);
+
+            // Siswa yang benar-benar belum tes
+            $notTested = array_values(array_filter($students, function ($s) use ($doneMap) {
+                return !isset($doneMap[(int) $s['id']]);
             }));
-        }
 
-        $done = $db->table('cbt_sessions')
-            ->select('student_id')
-            ->where('test_id', $testId)
-            ->get()
-            ->getResultArray();
-
-        $doneIds = array_column($done, 'student_id');
-        $notTested = array_values(array_filter($students, fn($s) => !in_array($s['id'], $doneIds)));
+            $totalStudents = count($students);
+            $totalNotTested = count($notTested);
+        $totalDone = max(0, $totalStudents - $totalNotTested);
+        $pctDone = $totalStudents > 0 ? round(($totalDone / $totalStudents) * 100, 1) : 0;
+        $syncTime = date('H:i:s');
 
         $religionNotice = '';
         if ($targetReligion !== '') {
@@ -2062,37 +2130,130 @@ class CbtAktivitas extends BaseController
         }
 
         if (empty($students)) {
-            return $this->response->setBody($religionNotice . '<div class="alert alert-warning">Tidak ada siswa beragama ' . ucfirst($targetReligion) . ' pada kelas terkait ujian ini.</div>');
+            return $this->response->setBody($religionNotice . '<div class="alert alert-warning py-3"><i class="fas fa-exclamation-circle me-2"></i> Tidak ada siswa ' . ($targetReligion !== '' ? 'beragama ' . ucfirst($targetReligion) . ' ' : '') . 'pada kelas terkait ujian ini.</div>');
         }
+
+        // Statistik Cards
+        $statsHtml = "
+        <div class='row g-2 mb-3'>
+            <div class='col-sm-4'>
+                <div class='card border-0 bg-light-subtle shadow-sm rounded-3 p-2 text-center'>
+                    <small class='text-muted d-block'>Target Siswa</small>
+                    <span class='fs-5 fw-bold text-dark'><i class='fas fa-users me-1 text-secondary'></i> {$totalStudents}</span>
+                </div>
+            </div>
+            <div class='col-sm-4'>
+                <div class='card border-0 bg-success-subtle shadow-sm rounded-3 p-2 text-center'>
+                    <small class='text-success fw-semibold d-block'>Sudah Ikut Tes</small>
+                    <span class='fs-5 fw-bold text-success'><i class='fas fa-user-check me-1'></i> {$totalDone} <small class='fs-6 fw-normal'>({$pctDone}%)</small></span>
+                </div>
+            </div>
+            <div class='col-sm-4'>
+                <div class='card border-0 " . ($totalNotTested > 0 ? "bg-warning-subtle" : "bg-light-subtle") . " shadow-sm rounded-3 p-2 text-center'>
+                    <small class='" . ($totalNotTested > 0 ? "text-danger" : "text-muted") . " fw-semibold d-block'>Belum Tes</small>
+                    <span class='fs-5 fw-bold " . ($totalNotTested > 0 ? "text-danger" : "text-muted") . "'><i class='fas fa-user-times me-1'></i> {$totalNotTested}</span>
+                </div>
+            </div>
+        </div>
+        <div class='progress mb-3' style='height: 6px;'>
+            <div class='progress-bar bg-success progress-bar-striped progress-bar-animated' role='progressbar' style='width: {$pctDone}%' aria-valuenow='{$pctDone}' aria-valuemin='0' aria-valuemax='100'></div>
+        </div>";
 
         if (empty($notTested)) {
-            return $this->response->setBody($religionNotice . '<div class="alert alert-success d-flex align-items-center gap-2"><i class="fas fa-check-circle"></i> Semua siswa ' . ($targetReligion !== '' ? 'beragama ' . ucfirst($targetReligion) . ' ' : '') . 'telah mengikuti tes ini 🎉</div>');
+            return $this->response->setBody(
+                $religionNotice . $statsHtml .
+                '<div class="alert alert-success d-flex align-items-center gap-3 p-3 shadow-sm rounded-3 mb-0">
+                    <i class="fas fa-check-circle fa-2x text-success"></i>
+                    <div>
+                        <h6 class="fw-bold mb-1">Semua Siswa Telah Mengikuti Tes 🎉</h6>
+                        <small class="text-muted">Seluruh <strong>' . $totalStudents . ' siswa</strong> ' . ($targetReligion !== '' ? 'beragama ' . ucfirst($targetReligion) . ' ' : '') . 'telah mulai atau menyelesaikan ujian ini.</small>
+                    </div>
+                </div>'
+            );
         }
 
-        $html = $religionNotice . "<div class='table-responsive'><table class='table table-bordered table-sm align-middle'>
-            <thead class='table-light text-center'>
-                <tr>
-                    <th style='width:50px;'>No</th>
-                    <th class='text-start'>Nama Siswa</th>
-                    <th style='width:140px;'>Kelas</th>" .
-                    ($targetReligion !== '' ? "<th style='width:120px;'>Agama</th>" : "") .
-                "</tr>
-            </thead>
-            <tbody>";
+        // Toolbar pencarian dan sinkronisasi
+        $toolbarHtml = "
+        <div class='d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2'>
+            <div class='d-flex align-items-center gap-2'>
+                <span class='badge bg-light text-dark border py-1 px-2 small'>
+                    <i class='fas fa-clock text-primary me-1'></i> Sinkron: {$syncTime} WIB
+                </span>
+                <span class='badge bg-warning-subtle text-dark border border-warning-subtle py-1 px-2 small'>
+                    <i class='fas fa-user-times text-danger me-1'></i> {$totalNotTested} Siswa Belum Tes
+                </span>
+            </div>
+            <div style='min-width: 200px; max-width: 280px;' class='flex-grow-1 flex-sm-grow-0'>
+                <div class='input-group input-group-sm'>
+                    <span class='input-group-text bg-light'><i class='fas fa-search text-muted'></i></span>
+                    <input type='text' id='searchBelumTes' class='form-control form-control-sm' placeholder='Cari nama atau kelas...'>
+                </div>
+            </div>
+        </div>";
+
+        $tableHtml = $religionNotice . $statsHtml . $toolbarHtml . "
+        <div class='table-responsive border rounded-3 shadow-sm'>
+            <table class='table table-hover table-striped table-sm align-middle mb-0' id='tableBelumTes'>
+                <thead class='table-light text-center border-bottom'>
+                    <tr>
+                        <th style='width: 45px;' class='py-2'>No</th>
+                        <th class='text-start py-2'>Nama Siswa</th>
+                        <th style='width: 120px;' class='py-2'>Kelas</th>" .
+                        ($targetReligion !== '' ? "<th style='width: 110px;' class='py-2'>Agama</th>" : "") . "
+                        <th style='width: 130px;' class='py-2'>Status</th>
+                    </tr>
+                </thead>
+                <tbody>";
 
         $i = 1;
         foreach ($notTested as $row) {
-            $html .= "<tr>
-                <td class='text-center'>{$i}</td>
-                <td class='text-start'>" . esc($row['student_name']) . "</td>
-                <td class='text-center'>" . esc($row['class_name']) . "</td>" .
-                ($targetReligion !== '' ? "<td class='text-center'><span class='badge bg-light text-dark border'>" . esc($row['religion'] ?: '-') . "</span></td>" : "") .
-            "</tr>";
+            $nisInfo = !empty($row['nis']) ? "<span class='text-muted small ms-1'>(" . esc($row['nis']) . ")</span>" : "";
+            $tableHtml .= "<tr class='belum-tes-row'>
+                <td class='text-center text-muted fw-semibold'>{$i}</td>
+                <td class='text-start'>
+                    <div class='fw-semibold text-dark'>" . esc($row['student_name']) . "</div>
+                    {$nisInfo}
+                </td>
+                <td class='text-center'>
+                    <span class='badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1'>" . esc($row['class_name']) . "</span>
+                </td>" .
+                ($targetReligion !== '' ? "<td class='text-center'><span class='badge bg-light text-dark border px-2 py-1'>" . esc($row['religion'] ?: '-') . "</span></td>" : "") . "
+                <td class='text-center'>
+                    <span class='badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1'>
+                        <i class='fas fa-times-circle me-1'></i> Belum Tes
+                    </span>
+                </td>
+            </tr>";
             $i++;
         }
 
-        $html .= "</tbody></table></div>";
-        return $this->response->setBody($html);
+        $tableHtml .= "
+                <tr id='noSearchResultRow' style='display: none;'>
+                    <td colspan='" . ($targetReligion !== '' ? "5" : "4") . "' class='text-center text-muted py-4'>
+                        <i class='fas fa-search me-1'></i> Tidak ditemukan siswa yang cocok dengan pencarian.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        </div>";
+
+        return $this->response->setBody($tableHtml);
+        } catch (\Throwable $e) {
+            log_message('error', '[CbtAktivitas::belumTes] ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            $errorMsg = esc($e->getMessage());
+            return $this->response->setStatusCode(200)->setBody("
+                <div class='alert alert-danger py-3 shadow-sm'>
+                    <div class='d-flex align-items-center gap-2 mb-2'>
+                        <i class='fas fa-exclamation-triangle fa-lg text-danger'></i>
+                        <strong class='fs-6'>Terjadi Kendala Memuat Data Siswa</strong>
+                    </div>
+                    <p class='small text-muted mb-2'>Pesan sistem: <code>{$errorMsg}</code></p>
+                    <button type='button' class='btn btn-sm btn-outline-danger' onclick='if(typeof fetchBelumTes===\"function\"&&currentBelumTesTestId){fetchBelumTes(currentBelumTesTestId,false);}'>
+                        <i class='fas fa-sync-alt me-1'></i> Coba Muat Ulang
+                    </button>
+                </div>
+            ");
+        }
     }
 
 
@@ -2524,30 +2685,76 @@ class CbtAktivitas extends BaseController
             ->groupBy('student_id')
             ->getCompiledSelect();
             
-        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
-        $activeYearId = $activeYear['id'] ?? 0;
+        $activeYear = class_exists('\App\Models\AcademicYearModel') 
+            ? (new \App\Models\AcademicYearModel())->getActiveYear() 
+            : null;
+        $activeYearId = (int) ($activeYear['id'] ?? 0);
 
-        // 🔹 Ambil sesi siswa — langsung join ke classes
-        $sessions = $this->sessionModel
-            ->select('cs.*, st.name AS student_name, cl.name AS class_name, sr.class_id')
-            ->from('cbt_sessions cs')
-            ->join('students st', 'st.id = cs.student_id', 'left')
-            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
-            ->join('classes cl', 'cl.id = sr.class_id', 'left')
-            ->join("($subquery) latest", 'cs.id = latest.max_id', 'inner')
-            ->where('cs.test_id', $testId);
+        // Cek keberadaan tabel student_records
+        $hasStudentRecords = $this->db->tableExists('student_records');
 
-        if ($mode === 'kelas' && $classId) {
-            $sessions->where('sr.class_id', $classId);
+        // Gunakan $this->db->table() agar tidak terjadi cartesian product (double FROM) pada Model
+        $builder = $this->db->table('cbt_sessions cs');
+
+        if ($hasStudentRecords) {
+            $builder->select('cs.*, st.name AS student_name, COALESCE(cl.name, cl_direct.name) AS class_name, COALESCE(sr.class_id, st.class_id) AS class_id')
+                ->join('students st', 'st.id = cs.student_id', 'left')
+                ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"' . ($activeYearId ? ' AND sr.academic_year_id = ' . $activeYearId : ''), 'left')
+                ->join('classes cl', 'cl.id = sr.class_id', 'left')
+                ->join('classes cl_direct', 'cl_direct.id = st.class_id', 'left');
+        } else {
+            $builder->select('cs.*, st.name AS student_name, cl.name AS class_name, st.class_id')
+                ->join('students st', 'st.id = cs.student_id', 'left')
+                ->join('classes cl', 'cl.id = st.class_id', 'left');
         }
 
-        $sessions = $sessions
+        $builder->join("($subquery) latest", 'cs.id = latest.max_id', 'inner')
+            ->where('cs.test_id', $testId);
+
+        if ($mode === 'kelas' && !empty($classId)) {
+            if ($hasStudentRecords) {
+                if (is_numeric($classId)) {
+                    $builder->groupStart()
+                        ->where('sr.class_id', (int) $classId)
+                        ->orWhere('st.class_id', (int) $classId)
+                        ->orWhere('cl.id', (int) $classId)
+                        ->orWhere('cl_direct.id', (int) $classId)
+                    ->groupEnd();
+                } else {
+                    $builder->groupStart()
+                        ->where('cl.name', $classId)
+                        ->orWhere('cl_direct.name', $classId)
+                    ->groupEnd();
+                }
+            } else {
+                if (is_numeric($classId)) {
+                    $builder->groupStart()
+                        ->where('st.class_id', (int) $classId)
+                        ->orWhere('cl.id', (int) $classId)
+                    ->groupEnd();
+                } else {
+                    $builder->where('cl.name', $classId);
+                }
+            }
+        }
+
+        $sessions = $builder
             ->orderBy('st.name', 'ASC')
             ->get()
             ->getResultArray();
 
         if (!$sessions) {
-            return redirect()->back()->with('error', 'Tidak ada data sesi ditemukan.');
+            if ($mode === 'kelas' && !empty($classId)) {
+                $targetClassName = '';
+                if (is_numeric($classId)) {
+                    $clsRow = $this->db->table('classes')->select('name')->where('id', $classId)->get()->getRowArray();
+                    $targetClassName = $clsRow['name'] ?? "ID {$classId}";
+                } else {
+                    $targetClassName = $classId;
+                }
+                return redirect()->back()->with('error', 'Tidak ada data sesi ujian untuk kelas "' . $targetClassName . '". Pastikan siswa dari kelas tersebut sudah mengerjakan ujian.');
+            }
+            return redirect()->back()->with('error', 'Tidak ada data sesi ditemukan untuk ujian ini.');
         }
 
         // 🔹 Ambil semua soal (PG, PGK, BS, Esai)
