@@ -3491,6 +3491,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         let unanswered = 0;
         let doubtful = 0;
         let incompleteBS = []; // Track incomplete benar-salah questions
+        let unansweredNums = [];
+        let doubtfulNums = [];
 
         items.forEach((item, idx) => {
           const type = item.dataset.type;
@@ -3518,25 +3520,63 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             hasAnswer = (essay && essay.value.trim().length > 0);
           }
 
-          if (isDoubtful) doubtful++;
-          if (!hasAnswer) unanswered++;
+          if (isDoubtful) {
+            doubtful++;
+            doubtfulNums.push(idx + 1);
+          }
+          if (!hasAnswer) {
+            unanswered++;
+            unansweredNums.push(idx + 1);
+          }
         });
 
         if (unanswered > 0 || doubtful > 0) {
-          let warnMsg = "Ujian belum bisa diselesaikan:<br>";
+          let warnMsg = "<div class='text-start'>";
           if (unanswered > 0) {
-            warnMsg += `- Masih ada <b>${unanswered}</b> soal belum dijawab.<br>`;
+            warnMsg += `<div class='mb-2 text-dark fw-bold'><i class='bi bi-exclamation-circle text-danger me-1'></i> Masih ada <b>${unanswered}</b> soal belum dijawab:</div>`;
+            warnMsg += `<div class='d-flex flex-wrap gap-1 justify-content-center mb-3'>`;
+            unansweredNums.forEach(num => {
+              warnMsg += `<button type='button' class='btn btn-danger btn-sm py-1 px-2 fw-bold rounded-2 btn-swal-jump' data-target-num='${num}' title='Buka Soal #${num}'>#${num}</button>`;
+            });
+            warnMsg += `</div>`;
+
             if (incompleteBS.length > 0) {
-              warnMsg += `<br><b>Soal Benar/Salah yang belum lengkap:</b><br>`;
+              warnMsg += `<div class='alert alert-warning py-2 px-3 small mb-2'>
+                <b>Soal Benar/Salah yang belum lengkap:</b><br>`;
               incompleteBS.forEach(q => {
-                warnMsg += `&nbsp;&nbsp;• Soal #${q.num}: ${q.answered}/${q.total} pernyataan dijawab<br>`;
+                warnMsg += `&nbsp;&nbsp;• Soal <b>#${q.num}</b>: baru ${q.answered}/${q.total} baris pernyataan dijawab<br>`;
               });
-              warnMsg += `<br><small class='text-muted'>Semua pernyataan harus dijawab (Benar atau Salah)</small><br>`;
+              warnMsg += `<span class='text-muted' style='font-size:11px;'>Semua baris pernyataan harus dipilih (Benar atau Salah).</span></div>`;
             }
           }
-          if (doubtful > 0) warnMsg += `- Masih ada <b>${doubtful}</b> soal dalam status Ragu-ragu.<br>`;
-          warnMsg += "<br><small class='text-muted'>Silakan selesaikan semua soal terlebih dahulu.</small>";
-          Swal.fire({ title: 'Perhatian!', html: warnMsg, icon: 'warning', confirmButtonText: 'Kembali Ke Soal', confirmButtonColor: '#0d6efd' });
+          if (doubtful > 0) {
+            warnMsg += `<div class='mt-2 mb-2 text-dark fw-bold'><i class='bi bi-flag-fill text-warning me-1'></i> Masih ada <b>${doubtful}</b> soal dalam status Ragu-ragu:</div>`;
+            warnMsg += `<div class='d-flex flex-wrap gap-1 justify-content-center mb-3'>`;
+            doubtfulNums.forEach(num => {
+              warnMsg += `<button type='button' class='btn btn-warning text-dark btn-sm py-1 px-2 fw-bold rounded-2 btn-swal-jump' data-target-num='${num}' title='Buka Soal #${num}'>#${num}</button>`;
+            });
+            warnMsg += `</div>`;
+          }
+          warnMsg += "<div class='small text-muted text-center mt-2'>Klik tombol nomor di atas untuk langsung membuka soal tersebut.</div></div>";
+
+          Swal.fire({
+            title: 'Perhatian!',
+            html: warnMsg,
+            icon: 'warning',
+            confirmButtonText: 'Kembali Ke Soal',
+            confirmButtonColor: '#0d6efd',
+            didOpen: () => {
+              document.querySelectorAll('.btn-swal-jump').forEach(btn => {
+                btn.onclick = () => {
+                  const targetNum = parseInt(btn.dataset.targetNum, 10);
+                  Swal.close();
+                  if (!isNaN(targetNum) && targetNum > 0) {
+                    renderActive(targetNum - 1);
+                  }
+                };
+              });
+            }
+          });
           return;
         }
 
@@ -3594,6 +3634,11 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             // Disable beforeunload warning
             window.onbeforeunload = null;
 
+            // Pastikan antrean offline di-flush jika ada
+            if (typeof flushOfflineQueue === 'function') {
+              flushOfflineQueue(0);
+            }
+
             // Get CSRF token
             const csrfTokenName = '<?= csrf_token() ?>';
             const csrfHash = document.querySelector(`meta[name='${csrfTokenName}']`)?.getAttribute('content') || '<?= csrf_hash() ?>';
@@ -3611,7 +3656,9 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
               .then(async r => {
                 const res = await r.json();
                 if (!r.ok || res.error) {
-                  throw new Error(res.error || 'Ujian belum bisa diselesaikan.');
+                  const errObj = new Error(res.error || 'Ujian belum bisa diselesaikan.');
+                  errObj.details = res.details || {};
+                  throw errObj;
                 }
                 if (res.redirect) return res.redirect;
                 return '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>';
@@ -3620,6 +3667,92 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                 examFinished = false;
                 btnFinish.disabled = false;
                 updateFinishButtonState();
+
+                // Cek apakah server mengirimkan rincian nomor soal yang belum tercatat
+                const details = err.details || {};
+                const unansNums = details.unanswered_numbers || [];
+                const incBsNums = details.incomplete_bs_numbers || [];
+                const allMissingNums = [...new Set([...unansNums, ...incBsNums])].sort((a,b) => a-b);
+
+                if (allMissingNums.length > 0) {
+                  // Otomatis kirim ulang jawaban pada nomor-nomor tersebut jika di tampilan siswa sudah terpilih
+                  allMissingNums.forEach(num => {
+                    const item = items[num - 1];
+                    if (item) {
+                      const qid = item.dataset.qid;
+                      const type = item.dataset.type;
+                      let val = '';
+                      if (type === 'pg_kompleks' || type === 'pgk') {
+                        val = Array.from(item.querySelectorAll('.option-check:checked')).map(i => i.value).join(',');
+                      } else if (type === 'benar_salah') {
+                        const bsRows = item.querySelectorAll('.inp-bs[data-row]');
+                        const totalRows = new Set();
+                        bsRows.forEach(inp => totalRows.add(inp.dataset.row));
+                        const rowCount = totalRows.size;
+                        const arr = [];
+                        for (let i = 0; i < rowCount; i++) {
+                          const picked = item.querySelector(`.inp-bs[data-row="${i}"]:checked`);
+                          arr.push(picked ? picked.value : '');
+                        }
+                        val = arr.join(',');
+                      } else if (type === 'pg') {
+                        const checked = item.querySelector('.option-check:checked');
+                        if (checked) val = checked.value;
+                      } else {
+                        const essay = item.querySelector('.inp-essay');
+                        if (essay) val = essay.value.trim();
+                      }
+                      if (val !== '') {
+                        commitAnswer(qid, val);
+                      }
+                    }
+                  });
+
+                  setTimeout(() => {
+                    let missingHtml = `<div class="text-start">
+                      <div class="alert alert-danger py-2 px-3 small mb-3">
+                        <i class="bi bi-wifi-off me-1"></i> <strong>Koneksi Terganggu Saat Menyimpan:</strong><br>
+                        Pilihan di layar Anda mungkin sudah terisi, tetapi rekaman jawaban untuk <b>${allMissingNums.length}</b> soal berikut belum berhasil masuk ke server:
+                      </div>
+                      <div class="d-flex flex-wrap gap-2 justify-content-center mb-3">`;
+
+                    allMissingNums.forEach(num => {
+                      missingHtml += `<button type="button" class="btn btn-danger btn-sm py-2 px-3 fw-bold rounded-3 btn-jump-missing" data-target-num="${num}">
+                        <i class="bi bi-pencil-square me-1"></i> Periksa Soal #${num}
+                      </button>`;
+                    });
+
+                    missingHtml += `</div>
+                      <p class="small text-muted text-center mb-0">Sistem sedang otomatis mengirimkan ulang jawaban tersebut. Silakan klik nomor soal di atas untuk memeriksa, lalu klik Akhiri Ujian kembali.</p>
+                    </div>`;
+
+                    Swal.fire({
+                      title: 'Jawaban Belum Tercatat di Server!',
+                      html: missingHtml,
+                      icon: 'warning',
+                      confirmButtonText: 'Tutup & Periksa Soal',
+                      confirmButtonColor: '#4f46e5',
+                      didOpen: () => {
+                        document.querySelectorAll('.btn-jump-missing').forEach(btn => {
+                          btn.onclick = () => {
+                            const targetNum = parseInt(btn.dataset.targetNum, 10);
+                            Swal.close();
+                            if (!isNaN(targetNum) && targetNum > 0) {
+                              renderActive(targetNum - 1);
+                              const activeQ = items[targetNum - 1];
+                              if (activeQ) {
+                                activeQ.classList.add('border-warning');
+                                setTimeout(() => activeQ.classList.remove('border-warning'), 2500);
+                              }
+                            }
+                          };
+                        });
+                      }
+                    });
+                  }, 200);
+                  return false;
+                }
+
                 Swal.showValidationMessage(err.message || 'Gagal menyelesaikan ujian.');
                 return false;
               });

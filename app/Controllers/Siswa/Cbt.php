@@ -751,19 +751,60 @@ class Cbt extends BaseController
                 if (!$validation['valid']) {
                     $db->transRollback();
 
-                    $message = 'Ujian belum bisa diselesaikan. ';
+                    // Map question IDs to student's screen question numbers
+                    $questionOrder = json_decode($session['question_order'] ?? '[]', true) ?? [];
+                    if (empty($questionOrder)) {
+                        $qRows = $this->questionModel->where('bank_id', $test['bank_id'])->orderBy('id', 'ASC')->findAll();
+                        $questionOrder = array_column($qRows, 'id');
+                    }
+
+                    $qOrderMap = [];
+                    foreach ($questionOrder as $idx => $qid) {
+                        $qOrderMap[(int)$qid] = $idx + 1; // 1-based nomor soal di layar siswa
+                    }
+
+                    $unansweredNums = [];
                     if (!empty($validation['unanswered'])) {
+                        foreach ($validation['unanswered'] as $qid) {
+                            if (isset($qOrderMap[(int)$qid])) {
+                                $unansweredNums[] = $qOrderMap[(int)$qid];
+                            }
+                        }
+                        sort($unansweredNums);
+                    }
+
+                    $incompleteBsNums = [];
+                    if (!empty($validation['incomplete_bs'])) {
+                        foreach ($validation['incomplete_bs'] as $qid) {
+                            if (isset($qOrderMap[(int)$qid])) {
+                                $incompleteBsNums[] = $qOrderMap[(int)$qid];
+                            }
+                        }
+                        sort($incompleteBsNums);
+                    }
+
+                    $message = 'Ujian belum bisa diselesaikan. ';
+                    if (!empty($unansweredNums)) {
+                        $message .= 'Masih ada ' . count($unansweredNums) . ' soal belum terjawab di server (Nomor: ' . implode(', ', $unansweredNums) . '). ';
+                    } elseif (!empty($validation['unanswered'])) {
                         $message .= 'Masih ada ' . count($validation['unanswered']) . ' soal belum dijawab. ';
                     }
-                    if (!empty($validation['incomplete_bs'])) {
-                        $message .= 'Soal Benar/Salah harus dijawab lengkap (semua pernyataan).';
+
+                    if (!empty($incompleteBsNums)) {
+                        $message .= 'Soal Benar/Salah belum lengkap dijawab (Nomor: ' . implode(', ', $incompleteBsNums) . '). ';
+                    } elseif (!empty($validation['incomplete_bs'])) {
+                        $message .= 'Soal Benar/Salah harus dijawab lengkap (semua pernyataan). ';
                     }
+
+                    $message .= 'Silakan periksa nomor soal tersebut dan pastikan jawaban tersimpan.';
 
                     return $this->respond([
                         'error' => $message,
                         'details' => [
                             'unanswered' => $validation['unanswered'] ?? [],
-                            'incomplete_bs' => $validation['incomplete_bs'] ?? []
+                            'unanswered_numbers' => $unansweredNums,
+                            'incomplete_bs' => $validation['incomplete_bs'] ?? [],
+                            'incomplete_bs_numbers' => $incompleteBsNums
                         ]
                     ], 400);
                 }

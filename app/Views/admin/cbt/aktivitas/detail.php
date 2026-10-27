@@ -802,6 +802,31 @@ if (empty($availableRooms) && !empty($sessions)) {
       padding: 0.65rem 0.75rem;
     }
   }
+
+  /* Modal Detail Jawaban Siswa Styles */
+  #detailContent,
+  #modalDetailJawaban .modal-body,
+  .soal-detail-container,
+  .soal-detail-container .card-body,
+  .soal-detail-container .question-content,
+  .soal-detail-container .options-review-list {
+    text-align: left !important;
+  }
+
+  .live-dot-pulse {
+    width: 8px;
+    height: 8px;
+    background-color: #10b981;
+    border-radius: 50%;
+    display: inline-block;
+    animation: livePulseDot 1.5s infinite;
+  }
+
+  @keyframes livePulseDot {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+    70% { transform: scale(1.15); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  }
 </style>
 
 <div class="w-100">
@@ -1346,17 +1371,30 @@ if (empty($availableRooms) && !empty($sessions)) {
 <div class="modal fade" id="modalDetailJawaban" tabindex="-1">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content border-0 shadow-lg rounded-4">
-      <div class="modal-header bg-primary text-white rounded-top-4">
-        <h5 class="modal-title fs-6 fw-bold">
-          <i class="fas fa-list-alt me-2"></i>
-          Detail Jawaban Siswa
-        </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      <div class="modal-header bg-primary text-white rounded-top-4 py-3 px-3 px-md-4 d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+          <h5 class="modal-title fs-6 fw-bold mb-0">
+            <i class="fas fa-list-alt me-2"></i>
+            Detail Jawaban Siswa
+          </h5>
+          <span id="modalLiveBadge" class="badge bg-success-subtle text-success border border-success d-none align-items-center gap-1 py-1 px-2" style="font-size: 11px;">
+            <span class="live-dot-pulse"></span> LIVE MONITORING
+          </span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span id="modalLiveSyncText" class="text-white-50 small d-none" style="font-size: 11px;"></span>
+          <button type="button" class="btn btn-sm btn-outline-light py-1 px-2 rounded-pill" id="btnRefreshModalDetail" title="Segarkan Data Sekarang">
+            <i class="fas fa-sync-alt" id="iconModalDetailSync"></i> <span class="d-none d-sm-inline ms-1" style="font-size:11px;">Refresh</span>
+          </button>
+          <button type="button" class="btn-close btn-close-white ms-1" data-bs-dismiss="modal"></button>
+        </div>
       </div>
-      <div class="modal-body p-3 p-md-4">
-        <div id="detailContent" class="text-center text-muted py-4">
-          <i class="fas fa-spinner fa-spin fa-2x mb-3 text-primary"></i>
-          <p>Memuat data jawaban...</p>
+      <div class="modal-body p-3 p-md-4 text-start" style="text-align: left;">
+        <div id="detailContent" class="text-start" style="text-align: left;">
+          <div class="text-center text-muted py-5" id="detailInitialLoading">
+            <i class="fas fa-spinner fa-spin fa-3x mb-3 text-primary"></i>
+            <p class="fw-semibold">Memuat data jawaban...</p>
+          </div>
         </div>
       </div>
     </div>
@@ -1776,21 +1814,96 @@ if (empty($availableRooms) && !empty($sessions)) {
 
     startAutoRefreshLoop();
 
-    // 8. DETAIL JAWABAN
-    $(document).on('click', '.btn-detail-jawaban', function () {
-      const id = $(this).data('id');
-      $('#detailContent').html('<div class="text-center py-5"><i class="fas fa-spinner fa-spin fa-3x mb-3 text-primary"></i><p class="text-muted fw-semibold">Memuat rincian soal & jawaban siswa...</p></div>');
-      $('#modalDetailJawaban').modal('show');
-      $.get("<?= site_url('admin/cbt/aktivitas/detail_jawaban/') ?>" + id, function (html) {
+    // 8. DETAIL JAWABAN (LIVE & REAL-TIME)
+    let currentDetailSessionId = null;
+    let detailLiveTimer = null;
+    let isDetailLoading = false;
+
+    function loadDetailJawaban(sessionId, isSilent = false) {
+      if (isDetailLoading || !sessionId) return;
+      isDetailLoading = true;
+      $('#iconModalDetailSync').addClass('fa-spin');
+
+      const modalBody = $('#modalDetailJawaban .modal-body');
+      const savedScroll = modalBody.scrollTop();
+
+      if (!isSilent) {
+        $('#detailContent').html('<div class="text-center py-5"><i class="fas fa-spinner fa-spin fa-3x mb-3 text-primary"></i><p class="text-muted fw-semibold">Memuat rincian soal & jawaban siswa...</p></div>');
+      }
+
+      $.get("<?= site_url('admin/cbt/aktivitas/detail_jawaban/') ?>" + sessionId + '?t=' + Date.now(), function (html) {
         $('#detailContent').html(html);
+
+        if (isSilent) {
+          modalBody.scrollTop(savedScroll);
+        }
+
+        const statusMarker = $('#detailContent').find('#sessionStatusMarker');
+        const sessionStatus = statusMarker.data('session-status');
+
+        if (sessionStatus === 'active') {
+          $('#modalLiveBadge').removeClass('d-none').addClass('d-inline-flex');
+          $('#modalLiveSyncText').removeClass('d-none').text('Live: ' + new Date().toLocaleTimeString());
+        } else {
+          $('#modalLiveBadge').addClass('d-none').removeClass('d-inline-flex');
+          $('#modalLiveSyncText').removeClass('d-none').text('Tersinkron: ' + new Date().toLocaleTimeString());
+        }
+
         if (window.MathJax && window.MathJax.typesetPromise) {
           window.MathJax.typesetPromise([document.getElementById('detailContent')]).catch(function(err){
             console.warn('MathJax typeset error: ', err);
           });
         }
-      }).fail(() => {
-        $('#detailContent').html('<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i> Gagal memuat data jawaban</div>');
+      }).fail(function () {
+        if (!isSilent) {
+          $('#detailContent').html('<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i> Gagal memuat data jawaban</div>');
+        }
+      }).always(function () {
+        isDetailLoading = false;
+        setTimeout(function () {
+          $('#iconModalDetailSync').removeClass('fa-spin');
+        }, 400);
       });
+    }
+
+    function startDetailLiveLoop() {
+      if (detailLiveTimer) clearInterval(detailLiveTimer);
+      detailLiveTimer = setInterval(function () {
+        if (!$('#modalDetailJawaban').hasClass('show') || !currentDetailSessionId) {
+          clearInterval(detailLiveTimer);
+          return;
+        }
+
+        const isFinished = $('#detailContent').find('#sessionStatusMarker').data('session-status') === 'finished';
+        if (isFinished) {
+          clearInterval(detailLiveTimer);
+          return;
+        }
+
+        loadDetailJawaban(currentDetailSessionId, true);
+      }, 4000);
+    }
+
+    $(document).on('click', '.btn-detail-jawaban', function () {
+      currentDetailSessionId = $(this).data('id');
+      $('#modalLiveBadge').addClass('d-none').removeClass('d-inline-flex');
+      $('#modalLiveSyncText').addClass('d-none').text('');
+      $('#modalDetailJawaban').modal('show');
+      loadDetailJawaban(currentDetailSessionId, false);
+      startDetailLiveLoop();
+    });
+
+    $('#btnRefreshModalDetail').on('click', function () {
+      if (currentDetailSessionId) {
+        loadDetailJawaban(currentDetailSessionId, true);
+      }
+    });
+
+    $('#modalDetailJawaban').on('hidden.bs.modal', function () {
+      if (detailLiveTimer) clearInterval(detailLiveTimer);
+      detailLiveTimer = null;
+      currentDetailSessionId = null;
+      isDetailLoading = false;
     });
 
     // Navigasi cepat klik nomor soal di modal detail jawaban
@@ -1798,8 +1911,10 @@ if (empty($availableRooms) && !empty($sessions)) {
       e.preventDefault();
       const targetId = $(this).data('target');
       const targetEl = document.getElementById(targetId);
-      if (targetEl) {
-        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const modalBody = document.querySelector('#modalDetailJawaban .modal-body');
+      if (targetEl && modalBody) {
+        const topPos = targetEl.offsetTop - modalBody.offsetTop;
+        modalBody.scrollTo({ top: Math.max(0, topPos - 12), behavior: 'smooth' });
         $(targetEl).addClass('border-primary shadow');
         setTimeout(() => {
           $(targetEl).removeClass('border-primary shadow');

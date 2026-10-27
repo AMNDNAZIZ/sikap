@@ -740,6 +740,16 @@ class CbtAktivitas extends BaseController
             return $html;
         };
 
+        // Helper membersihkan teks soal dari duplikasi baris opsi/kunci jika ada
+        $cleanQuestionText = function(string $html): string {
+            if (empty($html)) return '';
+            $out = $html;
+            $out = preg_replace('/<p[^>]*>\s*[\(]?[A-Ea-e]\s*[:.)\-]\s*[^<]*<\/p>/i', '', $out);
+            $out = preg_replace('/^[\(]?[A-Ea-e]\s*[:.)\-]\s*[^\n]*$/im', '', $out);
+            $out = preg_replace('/<p[^>]*>\s*Kunci\s*[\:\=\-]\s*[^<]*<\/p>/i', '', $out);
+            return trim($out);
+        };
+
         // Service parser soal
         $questionService = new \App\Services\CbtQuestionService();
 
@@ -772,7 +782,13 @@ class CbtAktivitas extends BaseController
             }
 
             // Ekstrak teks soal
-            $qText = !empty($q['question_text']) ? $q['question_text'] : ($parsed['question'] ?? $q['raw_text'] ?? '');
+            if ($parsed && !empty($parsed['question'])) {
+                $qText = $parsed['question'];
+            } elseif (!empty($q['question_text'])) {
+                $qText = $cleanQuestionText($q['question_text']);
+            } else {
+                $qText = $cleanQuestionText($q['raw_text'] ?? '');
+            }
             $qText = $rewriteImageUrls(trim($qText));
 
             // Ekstrak opsi
@@ -814,10 +830,17 @@ class CbtAktivitas extends BaseController
 
         $answerMap = [];
         $essayScoreMap = [];
+        $latestAnswerTimestamp = !empty($session['updated_at']) ? strtotime($session['updated_at']) : 0;
         foreach ($answerRows as $a) {
             $answerMap[(int)$a['question_id']] = $a['answer'] ?? '';
             if (isset($a['essay_score'])) {
                 $essayScoreMap[(int)$a['question_id']] = $a['essay_score'];
+            }
+            if (!empty($a['updated_at'])) {
+                $t = strtotime($a['updated_at']);
+                if ($t > $latestAnswerTimestamp) {
+                    $latestAnswerTimestamp = $t;
+                }
             }
         }
 
@@ -920,12 +943,44 @@ class CbtAktivitas extends BaseController
             default    => "<span class='badge bg-secondary'>{$session['status']}</span>",
         };
 
-        $nilaiDisplay = $session['total_score'] ?? $session['score'] ?? '-';
-        $updatedAt    = !empty($session['updated_at']) ? date('d/m/Y H:i:s', strtotime($session['updated_at'])) : '-';
+        $nilaiDisplay = $session['total_score'] ?? $session['score'] ?? null;
+        if ($nilaiDisplay === null || $nilaiDisplay === '') {
+            $nilaiDisplay = ($session['status'] === 'active') ? "<span class='text-primary' style='font-size:16px;'>{$totalBenar} Benar</span>" : '-';
+        }
+        $updatedAt = $latestAnswerTimestamp > 0 ? date('d/m/Y H:i:s', $latestAnswerTimestamp) : (!empty($session['started_at']) ? date('d/m/Y H:i:s', strtotime($session['started_at'])) : '-');
 
         // 6) Render HTML Modal
         $html = "
-        <div class='modal-student-info mb-3 p-3 border rounded-3 bg-light shadow-sm'>
+        <div id='sessionStatusMarker' data-session-status='{$session['status']}' class='d-none'></div>";
+
+        // Banner Status Live Sinkronisasi
+        if ($session['status'] === 'active') {
+            $html .= "
+            <div class='alert alert-success bg-success-subtle border-success py-2 px-3 d-flex flex-wrap justify-content-between align-items-center mb-3 rounded-3 text-start' style='text-align:left;'>
+                <div class='d-flex align-items-center gap-2'>
+                    <span class='badge bg-success d-flex align-items-center gap-1'><i class='fas fa-broadcast-tower me-1'></i> LIVE AKTIF</span>
+                    <span class='small fw-semibold text-success-emphasis'>Siswa sedang mengerjakan ujian. Jawaban dan progres diperbarui secara langsung.</span>
+                </div>
+                <div class='small text-muted'>
+                    <span class='me-2'><i class='fas fa-clock me-1 text-success'></i>Aktivitas Terakhir: <strong>{$updatedAt}</strong></span>
+                    <span class='badge bg-white text-secondary border'><i class='fas fa-sync-alt fa-spin me-1'></i>" . date('H:i:s') . "</span>
+                </div>
+            </div>";
+        } elseif ($session['status'] === 'finished') {
+            $html .= "
+            <div class='alert alert-primary bg-primary-subtle border-primary py-2 px-3 d-flex flex-wrap justify-content-between align-items-center mb-3 rounded-3 text-start' style='text-align:left;'>
+                <div class='d-flex align-items-center gap-2'>
+                    <span class='badge bg-primary'><i class='fas fa-check-circle me-1'></i> SELESAI</span>
+                    <span class='small fw-semibold text-primary-emphasis'>Siswa telah menyelesaikan ujian ini.</span>
+                </div>
+                <div class='small text-muted'>
+                    <span>Waktu Selesai: <strong>" . (!empty($session['finished_at']) ? date('d/m/Y H:i:s', strtotime($session['finished_at'])) : $updatedAt) . "</strong></span>
+                </div>
+            </div>";
+        }
+
+        $html .= "
+        <div class='modal-student-info mb-3 p-3 border rounded-3 bg-light shadow-sm text-start' style='text-align:left;'>
             <div class='d-flex flex-wrap justify-content-between align-items-center gap-2'>
                 <div>
                     <h5 class='mb-1 fw-bold text-dark'>{$session['student_name']}</h5>
@@ -933,13 +988,13 @@ class CbtAktivitas extends BaseController
                         <span class='me-2'><i class='fas fa-id-card me-1 text-primary'></i>Username: <strong>{$session['username']}</strong></span>
                         <span class='me-2'><i class='fas fa-hashtag me-1 text-primary'></i>NIS: <strong>{$session['nis']}</strong></span>
                         <span class='me-2'><i class='fas fa-chalkboard-teacher me-1 text-primary'></i>Kelas: <strong>" . esc($session['class_name'] ?? '-') . "</strong></span>
-                        <span><i class='fas fa-door-open me-1 text-primary'></i>Ruang: <strong>" . esc($session['room'] ?? '-') . "</strong></span>
+                        <span class='me-2'><i class='fas fa-door-open me-1 text-primary'></i>Ruang: <strong>" . esc($session['room'] ?? '-') . "</strong></span>
                     </div>
                 </div>
                 <div class='d-flex align-items-center gap-2'>
                     <div>{$statusBadge}</div>
                     <div class='px-3 py-2 bg-white rounded-3 border text-center'>
-                        <span class='small text-muted d-block' style='font-size:10px;'>SKOR NILAI</span>
+                        <span class='small text-muted d-block' style='font-size:10px;'>SKOR / NILAI</span>
                         <h4 class='mb-0 fw-bold text-primary'>{$nilaiDisplay}</h4>
                     </div>
                 </div>
@@ -979,8 +1034,8 @@ class CbtAktivitas extends BaseController
             </div>
         </div>
 
-        <div class='d-flex justify-content-between align-items-center mb-1 small text-muted'>
-            <span>Progres: <strong>{$percentJawab}%</strong> ({$totalJawab}/{$totalSoal})</span>
+        <div class='d-flex justify-content-between align-items-center mb-1 small text-muted text-start' style='text-align:left;'>
+            <span>Progres Pengerjaan: <strong>{$percentJawab}%</strong> ({$totalJawab}/{$totalSoal} soal)</span>
             <span>Akurasi Soal Objektif: <strong>{$percentBenar}%</strong></span>
         </div>
         <div class='progress mb-3' style='height:8px;'>
@@ -988,12 +1043,12 @@ class CbtAktivitas extends BaseController
         </div>
 
         <!-- Grid Navigasi Nomor Soal -->
-        <div class='card mb-4 border shadow-sm'>
-            <div class='card-header bg-light py-2 px-3 d-flex justify-content-between align-items-center'>
+        <div class='card mb-4 border shadow-sm text-start' style='text-align:left;'>
+            <div class='card-header bg-light py-2 px-3 d-flex justify-content-between align-items-center text-start'>
                 <strong class='small text-secondary'><i class='fas fa-th me-1'></i>Navigasi Nomor Soal Siswa:</strong>
-                <span class='text-muted' style='font-size:11px;'>(Klik nomor untuk melompat ke soal)</span>
+                <span class='text-muted' style='font-size:11px;'>(Klik nomor untuk melompat ke rincian soal)</span>
             </div>
-            <div class='card-body p-2'>
+            <div class='card-body p-2 text-start'>
                 <div class='d-flex flex-wrap gap-1 justify-content-start'>";
 
         // Grid kotak nomor soal berwarna sesuai status
@@ -1037,8 +1092,8 @@ class CbtAktivitas extends BaseController
             </div>
         </div>
 
-        <h6 class='fw-bold mb-3 text-dark'><i class='fas fa-list-check me-2 text-primary'></i>Rincian Soal dan Jawaban:</h6>
-        <div class='soal-detail-container'>";
+        <h6 class='fw-bold mb-3 text-dark text-start' style='text-align:left;'><i class='fas fa-list-check me-2 text-primary'></i>Rincian Soal dan Jawaban:</h6>
+        <div class='soal-detail-container text-start' style='text-align:left !important;'>";
 
         // Rincian setiap soal
         foreach ($questionOrder as $idx => $qid) {
@@ -1048,7 +1103,7 @@ class CbtAktivitas extends BaseController
             $q      = $questionMap[$qid] ?? null;
 
             if (!$q) {
-                $html .= "<div class='alert alert-secondary small mb-2' id='soal-card-{$noUser}'>Soal nomor {$noUser} (ID: {$qid}) tidak ditemukan di bank soal.</div>";
+                $html .= "<div class='alert alert-secondary small mb-2 text-start' id='soal-card-{$noUser}'>Soal nomor {$noUser} (ID: {$qid}) tidak ditemukan di bank soal.</div>";
                 continue;
             }
 
@@ -1078,8 +1133,38 @@ class CbtAktivitas extends BaseController
                 default       => "<span class='badge bg-secondary px-2 py-1'><i class='fas fa-minus-circle me-1'></i>Belum Dijawab</span>",
             };
 
-            // Shuffled option mapping catatan jika ada
+            // Shuffled option mapping: susun urutan opsi sesuai urutan yang dilihat siswa di layarnya
             $shuffledOrder = $optionOrders[$qid] ?? [];
+            $displayOpts = [];
+
+            if (!empty($shuffledOrder) && is_array($shuffledOrder)) {
+                $screenIndex = 0;
+                foreach ($shuffledOrder as $bankLetter) {
+                    $bankLetter = strtoupper(trim($bankLetter));
+                    if (isset($opts[$bankLetter])) {
+                        $displayOpts[] = [
+                            'bank_letter'   => $bankLetter,
+                            'screen_letter' => chr(65 + $screenIndex),
+                            'text'          => $opts[$bankLetter],
+                            'is_shuffled'   => true
+                        ];
+                        $screenIndex++;
+                    }
+                }
+            }
+
+            if (empty($displayOpts)) {
+                foreach (['A', 'B', 'C', 'D', 'E'] as $bankLetter) {
+                    if (isset($opts[$bankLetter])) {
+                        $displayOpts[] = [
+                            'bank_letter'   => $bankLetter,
+                            'screen_letter' => $bankLetter,
+                            'text'          => $opts[$bankLetter],
+                            'is_shuffled'   => false
+                        ];
+                    }
+                }
+            }
 
             $cardBorder = match($res) {
                 'correct'   => 'border-success',
@@ -1090,8 +1175,8 @@ class CbtAktivitas extends BaseController
             };
 
             $html .= "
-            <div class='card mb-3 shadow-sm {$cardBorder}' id='soal-card-{$noUser}'>
-                <div class='card-header bg-light d-flex flex-wrap justify-content-between align-items-center py-2 px-3'>
+            <div class='card mb-3 shadow-sm {$cardBorder} text-start' id='soal-card-{$noUser}' style='text-align:left !important;'>
+                <div class='card-header bg-light d-flex flex-wrap justify-content-between align-items-center py-2 px-3 text-start'>
                     <div class='d-flex align-items-center gap-2'>
                         <span class='badge bg-dark rounded-pill px-2 py-1'>Soal {$noUser}</span>
                         <span class='text-muted small'>(No. {$noBank} di Bank Soal)</span>
@@ -1101,20 +1186,23 @@ class CbtAktivitas extends BaseController
                         {$statusBadge}
                     </div>
                 </div>
-                <div class='card-body p-3'>
+                <div class='card-body p-3 text-start' style='text-align:left !important;'>
                     <!-- Teks Pertanyaan -->
-                    <div class='question-content mb-3 text-dark' style='line-height:1.6;'>
+                    <div class='question-content mb-3 text-dark text-start' style='line-height:1.6; text-align:left !important;'>
                         {$qText}
                     </div>";
 
             // Rincian Jawaban sesuai tipe
             if ($type === 'pg') {
-                $html .= "<div class='options-review-list mt-2'>";
-                foreach (['A', 'B', 'C', 'D', 'E'] as $optLetter) {
-                    if (empty($opts[$optLetter])) continue;
+                $html .= "<div class='options-review-list mt-2 text-start' style='text-align:left !important;'>";
+                foreach ($displayOpts as $optItem) {
+                    $bankLetter   = $optItem['bank_letter'];
+                    $screenLetter = $optItem['screen_letter'];
+                    $isShuffled   = $optItem['is_shuffled'];
+                    $optText      = $optItem['text'];
 
-                    $isStudentChoice = ($answered && $studentUpper === $optLetter);
-                    $isCorrectKey    = ($correct === $optLetter);
+                    $isStudentChoice = ($answered && $studentUpper === $bankLetter);
+                    $isCorrectKey    = ($correct === $bankLetter);
 
                     $optClass = 'border-secondary-subtle bg-white';
                     $badgeChoice = '';
@@ -1130,21 +1218,17 @@ class CbtAktivitas extends BaseController
                         $badgeChoice = "<span class='badge bg-success bg-opacity-75 text-white ms-auto'><i class='fas fa-key me-1'></i>Kunci Jawaban</span>";
                     }
 
-                    // Keterangan jika opsi diacak di layar siswa
-                    $screenNote = '';
-                    if (!empty($shuffledOrder)) {
-                        $screenPos = array_search($optLetter, $shuffledOrder);
-                        if ($screenPos !== false) {
-                            $screenLetter = chr(65 + $screenPos);
-                            $screenNote = "<small class='text-muted ms-2' style='font-size:10px;'>(di layar siswa: huruf {$screenLetter})</small>";
-                        }
-                    }
+                    $letterBadge = $isShuffled
+                        ? "<span class='badge bg-primary text-white border px-2 py-1' style='font-size:12px;' title='Huruf di layar siswa: {$screenLetter}'>{$screenLetter}</span><span class='badge bg-light text-secondary border px-1 py-1' style='font-size:10px;' title='Kunci bank soal: {$bankLetter}'>Bank: {$bankLetter}</span>"
+                        : "<span class='badge bg-secondary-subtle text-dark border px-2 py-1' style='font-size:12px;'>{$bankLetter}</span>";
 
                     $html .= "
-                    <div class='p-2 mb-2 border rounded-3 d-flex align-items-start gap-2 {$optClass}'>
-                        <span class='badge bg-secondary-subtle text-dark border px-2 py-1' style='font-size:12px;'>{$optLetter}</span>
-                        <div class='flex-grow-1'>{$opts[$optLetter]} {$screenNote}</div>
-                        {$badgeChoice}
+                    <div class='p-2 mb-2 border rounded-3 d-flex align-items-start gap-2 text-start {$optClass}' style='text-align:left !important;'>
+                        <div class='d-flex align-items-center gap-1 flex-shrink-0 pt-1'>
+                            {$letterBadge}
+                        </div>
+                        <div class='flex-grow-1 text-start' style='text-align:left !important;'>{$optText}</div>
+                        <div class='flex-shrink-0'>{$badgeChoice}</div>
                     </div>";
                 }
                 $html .= "</div>";
@@ -1153,12 +1237,15 @@ class CbtAktivitas extends BaseController
                 $studentKeys = array_filter(array_map('trim', explode(',', $studentUpper)));
                 $correctKeys = array_filter(array_map('trim', explode(',', $correct)));
 
-                $html .= "<div class='options-review-list mt-2'>";
-                foreach (['A', 'B', 'C', 'D', 'E'] as $optLetter) {
-                    if (empty($opts[$optLetter])) continue;
+                $html .= "<div class='options-review-list mt-2 text-start' style='text-align:left !important;'>";
+                foreach ($displayOpts as $optItem) {
+                    $bankLetter   = $optItem['bank_letter'];
+                    $screenLetter = $optItem['screen_letter'];
+                    $isShuffled   = $optItem['is_shuffled'];
+                    $optText      = $optItem['text'];
 
-                    $isStudentChoice = in_array($optLetter, $studentKeys);
-                    $isCorrectKey    = in_array($optLetter, $correctKeys);
+                    $isStudentChoice = in_array($bankLetter, $studentKeys);
+                    $isCorrectKey    = in_array($bankLetter, $correctKeys);
 
                     $optClass = 'border-secondary-subtle bg-white';
                     $badgeChoice = '';
@@ -1174,11 +1261,17 @@ class CbtAktivitas extends BaseController
                         $badgeChoice = "<span class='badge bg-success bg-opacity-75 text-white ms-auto'><i class='fas fa-key me-1'></i>Kunci Jawaban</span>";
                     }
 
+                    $letterBadge = $isShuffled
+                        ? "<span class='badge bg-primary text-white border px-2 py-1' style='font-size:12px;' title='Huruf di layar siswa: {$screenLetter}'>{$screenLetter}</span><span class='badge bg-light text-secondary border px-1 py-1' style='font-size:10px;' title='Kunci bank soal: {$bankLetter}'>Bank: {$bankLetter}</span>"
+                        : "<span class='badge bg-secondary-subtle text-dark border px-2 py-1' style='font-size:12px;'>{$bankLetter}</span>";
+
                     $html .= "
-                    <div class='p-2 mb-2 border rounded-3 d-flex align-items-start gap-2 {$optClass}'>
-                        <span class='badge bg-secondary-subtle text-dark border px-2 py-1' style='font-size:12px;'>{$optLetter}</span>
-                        <div class='flex-grow-1'>{$opts[$optLetter]}</div>
-                        {$badgeChoice}
+                    <div class='p-2 mb-2 border rounded-3 d-flex align-items-start gap-2 text-start {$optClass}' style='text-align:left !important;'>
+                        <div class='d-flex align-items-center gap-1 flex-shrink-0 pt-1'>
+                            {$letterBadge}
+                        </div>
+                        <div class='flex-grow-1 text-start' style='text-align:left !important;'>{$optText}</div>
+                        <div class='flex-shrink-0'>{$badgeChoice}</div>
                     </div>";
                 }
                 $html .= "</div>";
@@ -1188,12 +1281,12 @@ class CbtAktivitas extends BaseController
                 $correctBS = explode(',', $correct);
 
                 $html .= "
-                <div class='table-responsive mt-2'>
-                    <table class='table table-bordered table-sm align-middle mb-0' style='font-size:13px;'>
+                <div class='table-responsive mt-2 text-start'>
+                    <table class='table table-bordered table-sm align-middle mb-0 text-start' style='font-size:13px; text-align:left;'>
                         <thead class='table-light'>
                             <tr>
                                 <th style='width:40px;' class='text-center'>No</th>
-                                <th>Pernyataan</th>
+                                <th class='text-start'>Pernyataan</th>
                                 <th class='text-center' style='width:120px;'>Pilihan Siswa</th>
                                 <th class='text-center' style='width:120px;'>Kunci Jawaban</th>
                                 <th class='text-center' style='width:80px;'>Status</th>
@@ -1229,7 +1322,7 @@ class CbtAktivitas extends BaseController
                     $html .= "
                             <tr class='" . ($isRowCorrect ? 'table-success-subtle' : ($sVal !== '' ? 'table-danger-subtle' : '')) . "'>
                                 <td class='text-center fw-bold'>{$rowLetter}</td>
-                                <td>{$opts[$rowLetter]}</td>
+                                <td class='text-start' style='text-align:left !important;'>{$opts[$rowLetter]}</td>
                                 <td class='text-center'>{$sValDisplay}</td>
                                 <td class='text-center'>{$cValDisplay}</td>
                                 <td class='text-center'>{$rowStatus}</td>
@@ -1252,12 +1345,12 @@ class CbtAktivitas extends BaseController
                     : "<span class='badge bg-warning text-dark px-2 py-1'><i class='fas fa-hourglass me-1'></i>Belum Dikoreksi</span>";
 
                 $html .= "
-                <div class='mt-2'>
+                <div class='mt-2 text-start'>
                     <div class='d-flex justify-content-between align-items-center mb-1'>
                         <span class='small fw-bold text-secondary'><i class='fas fa-file-alt me-1'></i>Jawaban Esai Siswa:</span>
                         {$scoreDisplay}
                     </div>
-                    <div class='p-3 bg-light border rounded-3 text-dark' style='font-size:13.5px;line-height:1.6;'>
+                    <div class='p-3 bg-light border rounded-3 text-dark text-start' style='font-size:13.5px;line-height:1.6; text-align:left !important;'>
                         {$essayText}
                     </div>
                 </div>";

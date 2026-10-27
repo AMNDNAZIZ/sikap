@@ -3853,7 +3853,7 @@ class AdministrasiGuru extends BaseController
             . "   - Soal HOTS wajib menyertakan stimulus (wacana singkat, data, tabel, kasus kehidupan nyata) di awal field 'question'.\n"
             . "   - PENTING (Ujian CBT Digital): Soal diacak oleh sistem. Setiap butir soal HARUS MANDIRI (self-contained). DILARANG membuat satu stimulus untuk beberapa nomor (misal 'Perhatikan teks berikut untuk soal 1-3'). Bila ada soal merujuk teks yang sama, tulis ulang teks secara utuh di masing-masing nomor soal.\n\n"
             . "4. UNTUK MAPEL BAHASA (Indonesia/Inggris/Daerah):\n"
-            . "   - Wajib sertakan kutipan teks wacana bacaan yang relevan di field 'question' dengan label 'Bacalah teks berikut!'.\n\n"
+            . "   - Wajib sertakan kutipan teks wacana bacaan yang relevan di field 'question' dengan label 'Bacalah teks berikut!' kemudian buat baris baru.\n\n"
             . "5. UNTUK SOAL YANG MEMBUTUHKAN GAMBAR:\n"
             . "   - Tulis deskripsinya dalam kurung siku: [Gambar: deskripsi visual yang jelas]\n"
             . "   - Kurung siku HANYA untuk deskripsi gambar. DILARANG menggunakan kurung siku untuk ayat/hadits (tulis dalil nyata)!\n\n"
