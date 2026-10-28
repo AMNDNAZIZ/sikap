@@ -745,6 +745,36 @@ class Cbt extends BaseController
                 }
             }
 
+            // 🔹 BULLETPROOF ANSWER SYNC:
+            // Simpan semua jawaban yang dikirimkan bersama payload submit (JSON / POST) ke DB sebelum validasi.
+            // Ini mencegah jawaban yang sudah diisi di tampilan siswa tapi gagal tersimpan via AJAX/offline queue terlewat.
+            $payload = null;
+            try {
+                $payload = $this->request->getJSON(true);
+            } catch (\Throwable $e) {
+                $payload = null;
+            }
+            if (!$payload) {
+                $payload = $this->request->getPost();
+            }
+
+            $answersInput = $payload['answers'] ?? null;
+            if (!empty($answersInput)) {
+                if (is_string($answersInput)) {
+                    $decoded = json_decode($answersInput, true);
+                    if (is_array($decoded)) {
+                        $answersInput = $decoded;
+                    }
+                }
+                if (is_array($answersInput)) {
+                    $parsedAnswers = $this->parseAnswersPayload($answersInput);
+                    if (!empty($parsedAnswers)) {
+                        $this->answerService->saveBulkAnswers($studentId, $testId, $parsedAnswers);
+                        log_message('info', "[CBT::submit] Auto-synced " . count($parsedAnswers) . " answers during submit for student $studentId test $testId");
+                    }
+                }
+            }
+
             // Validate all questions answered (unless forced)
             if (!$isForced) {
                 $validation = $this->scoringService->validateAllAnswered($studentId, $testId, $test['bank_id']);

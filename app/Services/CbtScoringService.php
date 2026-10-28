@@ -388,7 +388,7 @@ class CbtScoringService extends BaseService
                 if (in_array($type, ['benar_salah', 'bs'])) {
                     // Check if all rows are answered
                     $rows = ['A', 'B', 'C', 'D', 'E'];
-                    $studentArr = explode(',', $studentAnswer);
+                    $studentArr = explode(',', (string) $studentAnswer);
                     
                     $answeredOptions = 0;
                     foreach ($studentArr as $ans) {
@@ -397,21 +397,21 @@ class CbtScoringService extends BaseService
                         }
                     }
 
-                    // Count how many options exist
+                    // Count how many options exist (exclude empty HTML tags)
                     $existingOptions = 0;
                     foreach ($rows as $row) {
                         $col = 'option_' . strtolower($row);
-                        if (!empty($q[$col])) {
+                        if (!empty($q[$col]) && trim(strip_tags((string) $q[$col])) !== '') {
                             $existingOptions++;
                         }
                     }
 
-                    if ($answeredOptions < $existingOptions) {
+                    if ($existingOptions > 0 && $answeredOptions < $existingOptions) {
                         $incompleteBS[] = $qid;
                     }
                 } else {
-                    // Check if answered
-                    if (empty(trim($studentAnswer))) {
+                    // Check if answered (safe against string '0')
+                    if ($studentAnswer === null || trim((string) $studentAnswer) === '') {
                         $unanswered[] = $qid;
                     }
                 }

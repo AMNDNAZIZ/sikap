@@ -39,7 +39,7 @@ class CbtAnswerModel extends Model
         $placeholders = '(' . implode(',', array_fill(0, count($fields), '?')) . ')';
         $valuesSql = implode(',', array_fill(0, count($answers), $placeholders));
         $sql = 'INSERT INTO ' . $this->table . ' (' . implode(',', $fields) . ') VALUES ' . $valuesSql .
-            ' ON DUPLICATE KEY UPDATE answer = VALUES(answer)';
+            ' ON DUPLICATE KEY UPDATE answer = VALUES(answer), updated_at = NOW()';
         $params = [];
         foreach ($answers as $r) {
             foreach ($fields as $f)

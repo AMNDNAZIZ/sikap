@@ -1820,13 +1820,68 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       console.log('[OFFLINE] Answer queued:', qid, answer);
     };
 
+    /**
+     * 🔹 Kumpulkan semua jawaban aktif langsung dari tampilan siswa (DOM)
+     * dan menggabungkan dengan antrean offline lokal jika ada.
+     */
+    const collectAllAnswers = () => {
+      const answers = {};
+      items.forEach(item => {
+        const qid = item.dataset.qid;
+        const type = item.dataset.type;
+        let val = '';
+
+        if (type === 'pg_kompleks' || type === 'pgk') {
+          val = Array.from(item.querySelectorAll('.option-check:checked')).map(i => i.value).join(',');
+        } else if (type === 'benar_salah' || type === 'bs') {
+          const bsRows = item.querySelectorAll('.inp-bs[data-row]');
+          const totalRows = new Set();
+          bsRows.forEach(inp => totalRows.add(inp.dataset.row));
+          const rowCount = totalRows.size;
+          const arr = [];
+          for (let i = 0; i < rowCount; i++) {
+            const picked = item.querySelector(`.inp-bs[data-row="${i}"]:checked`);
+            arr.push(picked ? picked.value : '');
+          }
+          val = arr.join(',');
+        } else if (type === 'pg' || type === 'pilihan_ganda') {
+          const checked = item.querySelector('.inp-target:checked');
+          if (checked) val = checked.value;
+        } else {
+          // Essay
+          const essay = item.querySelector('.inp-essay');
+          if (essay) val = essay.value.trim();
+        }
+
+        if (val !== '') {
+          answers[qid] = val;
+        }
+      });
+
+      // Gabungkan dengan antrean offline jika ada data yang belum ter-render
+      try {
+        const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+        if (Array.isArray(queue)) {
+          queue.forEach(item => {
+            if (item && item.question_id && item.answer !== undefined && answers[item.question_id] === undefined) {
+              answers[item.question_id] = item.answer;
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('[CBT] Gagal membaca offline queue:', e);
+      }
+
+      return answers;
+    };
+
     // Function to flush offline queue when back online
     const flushOfflineQueue = (retryCount) => {
       if (typeof retryCount === 'undefined') retryCount = 0;
       
       const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
 
-      if (queue.length === 0) return;
+      if (queue.length === 0) return Promise.resolve(true);
 
       const MAX_RETRIES = 3;
       const RETRY_DELAY = 5000; // 5 seconds
@@ -1838,7 +1893,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-      fetch('<?= site_url('siswa/cbt/saveAnswersBulk') ?>', {
+      return fetch('<?= site_url('siswa/cbt/saveAnswersBulk') ?>', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2641,12 +2696,14 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
           // Disable beforeunload warning
           window.onbeforeunload = null;
 
+          const allAnswers = (typeof collectAllAnswers === 'function') ? collectAllAnswers() : {};
+
           if (isCheat) {
-            // Force submit immediately via AJAX
+            // Force submit immediately via AJAX with all collected answers
             fetch('<?= site_url('siswa/cbt/submit/' . $test['id']) ?>?forced=1', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-              body: JSON.stringify({ forced: true })
+              body: JSON.stringify({ forced: true, answers: allAnswers })
             })
               .then(r => r.json())
               .then(res => {
@@ -2660,10 +2717,16 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                 }, 2000);
               });
           } else {
-            // Non-cheat (timeout)
-            setTimeout(() => {
-              window.location.href = '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>?timeout=1';
-            }, 2000);
+            // Non-cheat (timeout): kirim semua jawaban terlebih dahulu sebelum redirect
+            fetch('<?= site_url('siswa/cbt/submit/' . $test['id']) ?>?forced=1', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+              body: JSON.stringify({ forced: true, timeout: true, answers: allAnswers })
+            }).finally(() => {
+              setTimeout(() => {
+                window.location.href = '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>?timeout=1';
+              }, 1500);
+            });
           }
         }
       });
@@ -3631,27 +3694,26 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             btnFinish.disabled = true;
             btnFinish.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses...';
 
-            // Disable beforeunload warning
-            window.onbeforeunload = null;
+            // 🔹 BULLETPROOF ANSWER SUBMISSION:
+            // 1. Kumpulkan seluruh jawaban aktif langsung dari tampilan siswa (DOM) & antrean lokal
+            const allAnswers = (typeof collectAllAnswers === 'function') ? collectAllAnswers() : {};
 
-            // Pastikan antrean offline di-flush jika ada
-            if (typeof flushOfflineQueue === 'function') {
-              flushOfflineQueue(0);
-            }
-
-            // Get CSRF token
+            // 2. Ambil CSRF token
             const csrfTokenName = '<?= csrf_token() ?>';
             const csrfHash = document.querySelector(`meta[name='${csrfTokenName}']`)?.getAttribute('content') || '<?= csrf_hash() ?>';
-            const csrfData = new URLSearchParams({ [csrfTokenName]: csrfHash }).toString();
 
-            // AJAX submit first, then redirect (faster - scoring runs on server)
+            // 3. Kirim request submit BESERTA seluruh jawaban terkini siswa (format JSON)
             return fetch('<?= site_url('siswa/cbt/submit/' . $test['id']) ?>', {
               method: 'POST',
               headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-Requested-With': 'XMLHttpRequest'
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfHash
               },
-              body: csrfData
+              body: JSON.stringify({
+                [csrfTokenName]: csrfHash,
+                answers: allAnswers
+              })
             })
               .then(async r => {
                 const res = await r.json();
@@ -3660,6 +3722,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                   errObj.details = res.details || {};
                   throw errObj;
                 }
+                // Hapus antrean offline lokal setelah submit sukses
+                localStorage.removeItem(OFFLINE_QUEUE_KEY);
                 if (res.redirect) return res.redirect;
                 return '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>';
               })

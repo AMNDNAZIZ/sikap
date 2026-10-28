@@ -80,35 +80,6 @@
                                         </div>
                                     </td>
                                 </tr>
-
-                                <!-- Modal Status -->
-                                <div class="modal fade" id="statusModal<?= $row['id'] ?>" tabindex="-1" aria-hidden="true">
-                                    <div class="modal-dialog">
-                                        <form action="<?= base_url('admin/counseling-summon/updateStatus/'.$row['id']) ?>" method="post">
-                                            <?= csrf_field() ?>
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title">Update Status Kehadiran</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    <div class="mb-3">
-                                                        <label class="form-label">Status Kehadiran Ortu/Wali</label>
-                                                        <select name="status" class="form-select">
-                                                            <option value="Pending" <?= $row['status'] == 'Pending' ? 'selected' : '' ?>>Menunggu (Belum Waktunya)</option>
-                                                            <option value="Attended" <?= $row['status'] == 'Attended' ? 'selected' : '' ?>>Hadir (Memenuhi Panggilan)</option>
-                                                            <option value="Ignored" <?= $row['status'] == 'Ignored' ? 'selected' : '' ?>>Tidak Hadir (Mangkir)</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-                                                    <button type="submit" class="btn btn-primary">Simpan</button>
-                                                </div>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
@@ -116,6 +87,37 @@
             </div>
         </div>
     </section>
+
+    <!-- Modal Status -->
+    <?php foreach ($summons as $row) : ?>
+        <div class="modal fade" id="statusModal<?= $row['id'] ?>" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <form action="<?= base_url('admin/counseling-summon/updateStatus/'.$row['id']) ?>" method="post">
+                    <?= csrf_field() ?>
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Update Status Kehadiran</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Status Kehadiran Ortu/Wali</label>
+                                <select name="status" class="form-select">
+                                    <option value="Pending" <?= $row['status'] == 'Pending' ? 'selected' : '' ?>>Menunggu (Belum Waktunya)</option>
+                                    <option value="Attended" <?= $row['status'] == 'Attended' ? 'selected' : '' ?>>Hadir (Memenuhi Panggilan)</option>
+                                    <option value="Ignored" <?= $row['status'] == 'Ignored' ? 'selected' : '' ?>>Tidak Hadir (Mangkir)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                            <button type="submit" class="btn btn-primary">Simpan</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    <?php endforeach; ?>
 </div>
 
 <script>
