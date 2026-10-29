@@ -8,6 +8,7 @@ use App\Models\AcademicYearModel;
 use App\Models\SubjectModel;
 use App\Models\AlurTujuanPembelajaranModel;
 use App\Models\TujuanPembelajaranModel;
+use App\Services\AiContextBuilder;
 
 class Kokurikuler extends BaseController
 {
@@ -19,6 +20,7 @@ class Kokurikuler extends BaseController
     protected $pelaksanaanModel;
     protected $rubrikModel;
     protected $penilaianModel;
+    protected $aiContextBuilder;
 
     public function __construct()
     {
@@ -395,6 +397,23 @@ class Kokurikuler extends BaseController
     }
 
     /**
+     * Helper: Get AiContextBuilder instance
+     */
+    protected function getAiContextBuilder(): AiContextBuilder
+    {
+        return $this->aiContextBuilder ??= new AiContextBuilder();
+    }
+
+    /**
+     * Helper untuk injeksi AiContextBuilder pada pengujian
+     */
+    public function setAiContextBuilder(AiContextBuilder $builder): self
+    {
+        $this->aiContextBuilder = $builder;
+        return $this;
+    }
+
+    /**
      * Generate AI Content
      */
     public function generateAI($id)
@@ -421,8 +440,31 @@ class Kokurikuler extends BaseController
         }
 
         try {
-            // Prepare prompt for AI
-            $prompt = $this->buildAIPrompt($document);
+            $contextBuilder = $this->getAiContextBuilder();
+
+            // Kondisi 3: Cek apakah query sarana/fasilitas mengalami kesalahan teknis (QUERY_ERROR)
+            $facilityCheck = $contextBuilder->getConfirmedFacilities();
+            if (isset($facilityCheck['status']) && $facilityCheck['status'] === 'QUERY_ERROR') {
+                log_message('error', 'Kokurikuler generateAI: QUERY_ERROR saat membaca fasilitas sekolah: ' . ($facilityCheck['error'] ?? ''));
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Gagal menyiapkan konteks AI: Terjadi kesalahan kueri database pada fasilitas sekolah.'
+                ]);
+            }
+
+            // Kondisi 2: Validasi dokumen dan susun konteks faktual via AiContextBuilder
+            $contextResult = $contextBuilder->buildKokurikulerContext($document);
+            if (!$contextResult['success']) {
+                $errorMsg = $contextResult['message'] ?? 'Data dokumen tidak memenuhi syarat validasi konteks AI.';
+                log_message('error', 'Kokurikuler generateAI: Validasi konteks gagal: ' . $errorMsg . ' | Doc ID: ' . $id);
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Gagal memproses dokumen: ' . $errorMsg
+                ]);
+            }
+
+            // Susun prompt berdasarkan konteks faktual terverifikasi
+            $prompt = $this->buildAIPromptFromContext($contextResult['data']);
 
             // Call AI API (sama seperti modul ajar)
             $aiResponse = $this->callAIAPI($prompt);
@@ -459,93 +501,140 @@ class Kokurikuler extends BaseController
 
     /**
      * Build AI Prompt
+     *
+     * @param array $document Data dokumen mentah atau payload konteks terstruktur
+     * @return string
+     * @throws \RuntimeException Jika penyusunan konteks gagal
      */
-    private function buildAIPrompt($document)
+    protected function buildAIPrompt($document)
     {
-        $dimensi = json_decode($document['dimensi_profil'], true);
-        $dimensiText = implode(', ', $dimensi);
-        
-        // Get bentuk kegiatan konkret
-        $bentukKegiatanKonkret = $document['bentuk_kegiatan_konkret'] ?? '';
-        
-        // Get detail kegiatan
-        $kegiatanDetail = '';
-        $jenisKokurikuler = $this->getJenisKokurikuler($document);
-        
-        if ($jenisKokurikuler === 'lintas_disiplin') {
-            $detail = json_decode($document['kegiatan_detail'], true);
-            $kegiatanDetail = "Kegiatan melibatkan kolaborasi lintas disiplin ilmu dari beberapa mata pelajaran.";
-        } elseif ($jenisKokurikuler === '7kaih') {
-            $detail = json_decode($document['kegiatan_detail'], true);
-            if ($detail && isset($detail['items'])) {
-                $kaihItems = array_column($detail['items'], 'kaih');
-                $kegiatanDetail = "Kegiatan 7 KAIH yang dipilih: " . implode(', ', $kaihItems);
-            }
-        } else {
-            $detail = json_decode($document['kegiatan_detail'], true);
-            if ($detail && isset($detail['text'])) {
-                $kegiatanDetail = $detail['text'];
-            } else {
-                $kegiatanDetail = $document['kegiatan_detail'];
-            }
+        // Jika parameter sudah merupakan payload konteks terstruktur dari AiContextBuilder
+        if (isset($document['sekolah']) && isset($document['dokumen']) && isset($document['panduan_anti_halusinasi'])) {
+            return $this->buildAIPromptFromContext($document);
         }
 
-        $prompt = "Anda adalah ahli kurikulum merdeka. Buatkan dokumen rencana kokurikuler dengan detail berikut:\n\n";
-        $prompt .= "INFORMASI DASAR:\n";
-        $prompt .= "- Fase: {$document['fase']}\n";
-        $prompt .= "- Level Kelas: {$document['level_kelas']}\n";
-        $prompt .= "- Jumlah Pertemuan: {$document['jumlah_pertemuan']}\n";
+        $contextBuilder = $this->getAiContextBuilder();
+
+        // Validasi kegagalan teknis query fasilitas (Kondisi 3)
+        $facilityCheck = $contextBuilder->getConfirmedFacilities();
+        if (isset($facilityCheck['status']) && $facilityCheck['status'] === 'QUERY_ERROR') {
+            throw new \RuntimeException('Terjadi kesalahan kueri database pada data fasilitas sekolah.');
+        }
+
+        // Bangun konteks melalui service (Kondisi 1 & 2)
+        $contextResult = $contextBuilder->buildKokurikulerContext($document);
+        if (!$contextResult['success']) {
+            throw new \RuntimeException($contextResult['message'] ?? 'Gagal membangun konteks dokumen Kokurikuler.');
+        }
+
+        return $this->buildAIPromptFromContext($contextResult['data']);
+    }
+
+    /**
+     * Menyusun teks prompt AI Kokurikuler dari konteks faktual terstruktur
+     *
+     * @param array $context Konteks dari AiContextBuilder::buildKokurikulerContext()['data']
+     * @return string
+     */
+    protected function buildAIPromptFromContext(array $context): string
+    {
+        $sekolah = $context['sekolah'] ?? [];
+        $dokumen = $context['dokumen'] ?? [];
+        $profilLulusan = $context['profil_lulusan'] ?? [];
+        $sumberDaya = $context['sumber_daya'] ?? [];
+        $detailKegiatan = $context['detail_kegiatan'] ?? [];
+        $antiHalusinasi = $context['panduan_anti_halusinasi'] ?? [];
+
+        $schoolName = $sekolah['nama'] ?? 'Satuan Pendidikan';
+        $jenjang = $sekolah['jenjang'] ?? 'Fase Kurikulum';
+        $schoolCity = $sekolah['wilayah'] ?? '';
+        $fase = $dokumen['fase'] ?? '-';
+        $levelKelas = $dokumen['level_kelas'] ?? '-';
+        $jumlahPertemuan = max(1, (int)($dokumen['jumlah_pertemuan'] ?? 1));
+        $tema = $dokumen['tema'] ?? '-';
+        $jenisKokurikuler = $dokumen['jenis_kokurikuler'] ?? 'lainnya';
+        $bentukKegiatanKonkret = trim((string)($dokumen['bentuk_kegiatan_konkret'] ?? ''));
+
+        // Dimensi profil lulusan & subdimensi resmi
+        $dimensiList = $profilLulusan['dimensi_list'] ?? [];
+        $dimensiText = !empty($dimensiList) ? implode(', ', $dimensiList) : '-';
+        $subDimSnippets = [];
+        if (!empty($profilLulusan['dimensi_details']) && is_array($profilLulusan['dimensi_details'])) {
+            foreach ($profilLulusan['dimensi_details'] as $dimDetail) {
+                if (!empty($dimDetail['sub_dimensi']) && is_array($dimDetail['sub_dimensi'])) {
+                    $focusSubs = array_slice($dimDetail['sub_dimensi'], 0, 3);
+                    $subDimSnippets[] = $dimDetail['dimensi'] . ' (Fokus: ' . implode('; ', $focusSubs) . ')';
+                }
+            }
+        }
+        if (!empty($subDimSnippets)) {
+            $dimensiText .= "\n  - " . implode("\n  - ", $subDimSnippets);
+        }
+
+        // Kemitraan & Teknologi
+        $kemitraanText = $sumberDaya['kemitraan_text'] ?? 'Internal warga sekolah';
+        $teknologiText = $sumberDaya['teknologi_text'] ?? 'Media fisik konvensional';
+
+        // Konteks Detail Kegiatan
+        $kegiatanDetailText = $detailKegiatan['summary'] ?? '-';
+        if (!empty($detailKegiatan['tp_sasaran']) && is_array($detailKegiatan['tp_sasaran'])) {
+            $kegiatanDetailText .= "\nSasaran Capaian Pembelajaran terkait:\n- " . implode("\n- ", $detailKegiatan['tp_sasaran']);
+        }
+
+        // Fasilitas Sekolah Faktual
+        $fasilitasInfo = !empty($sekolah['has_fasilitas']) && !empty($sekolah['fasilitas'])
+            ? implode(', ', $sekolah['fasilitas'])
+            : 'Fasilitas ruang kelas standar dan area lingkungan sekolah (tidak tercatat fasilitas khusus tambahan)';
+
+        // Susun prompt
+        $prompt = "Anda adalah Perancang Pembelajaran Kokurikuler dan Projek Penguatan Profil Pelajar Kurikulum Merdeka yang berpengalaman, realistis, dan berorientasi pada aksi nyata peserta didik di lapangan.\n\n";
+        $prompt .= "INFORMASI DASAR KEGIATAN:\n";
+        $prompt .= "- Satuan Pendidikan: {$schoolName} ({$jenjang})" . (!empty($schoolCity) ? " di {$schoolCity}" : "") . "\n";
+        $prompt .= "- Fase: {$fase}\n";
+        $prompt .= "- Level Kelas: {$levelKelas}\n";
+        $prompt .= "- Jumlah Pertemuan: {$jumlahPertemuan} pertemuan\n";
         $prompt .= "- Dimensi Profil Lulusan: {$dimensiText}\n";
-        $prompt .= "- Tema: {$document['tema']}\n";
+        $prompt .= "- Tema: {$tema}\n";
         $prompt .= "- Jenis Kokurikuler: {$jenisKokurikuler}\n";
-        
         if (!empty($bentukKegiatanKonkret)) {
             $prompt .= "- Bentuk Kegiatan Konkret: {$bentukKegiatanKonkret}\n";
         }
-        
-        $prompt .= "- Detail Kegiatan: {$kegiatanDetail}\n\n";
+        $prompt .= "- Sarana Sekolah Terverifikasi: {$fasilitasInfo}\n";
+        $prompt .= "- Mitra yang Terlibat: {$kemitraanText}\n";
+        $prompt .= "- Dukungan Media/Teknologi: {$teknologiText}\n";
+        $prompt .= "- Konteks/Detail Kegiatan:\n{$kegiatanDetailText}\n\n";
 
-        $prompt .= "INSTRUKSI:\n";
-        $prompt .= "Hasilkan HANYA JSON (tanpa teks tambahan) dengan struktur berikut:\n\n";
+        $prompt .= "PEDOMAN KETERLAKSANAAN & REALISME LAPANGAN (WAJIB DIPATUHI):\n";
+        $prompt .= "1. KEGIATAN OPERASIONAL & REALISTIS: Setiap pertemuan harus menjabarkan tindakan konkret yang dilakukan siswa, alat/bahan yang dipakai, serta bukti artefak/karya yang dihasilkan.\n";
+        $prompt .= "2. KEPATUHAN SARANA FISIK: " . ($antiHalusinasi['sarana_sekolah'] ?? 'Gunakan sarana yang nyata di sekolah.') . "\n";
+        $prompt .= "3. KEPATUHAN TEKNOLOGI: " . ($antiHalusinasi['teknologi_strict'] ?? 'Gunakan media yang terdaftar.') . "\n";
+        $prompt .= "4. KEPATUHAN KEMITRAAN: " . ($antiHalusinasi['kemitraan_strict'] ?? 'Libatkan mitra yang terdaftar.') . "\n";
+        $prompt .= "5. ALUR PROJEK BERTAHAP: Susun {$jumlahPertemuan} pertemuan dengan alur logis: tahap pengenalan/orientasi masalah -> tahap kontekstualisasi/observasi -> tahap aksi nyata/pembuatan karya -> tahap pameran/refleksi evaluasi.\n";
+        $prompt .= "6. ALTERNATIF KENDALA: Sertakan catatan penyesuaian sederhana jika terjadi kendala sarana, cuaca, atau bahan.\n\n";
+
+        $prompt .= "INSTRUKSI FORMAT RESPON:\n";
+        $prompt .= "Hasilkan HANYA string JSON yang valid (tanpa teks tambahan sebelum/sesudah, tanpa code block markdown ```json).\n";
+        $prompt .= "Struktur JSON WAJIB persis seperti berikut:\n";
         $prompt .= "{\n";
-        
-        // Update instruksi tujuan pembelajaran
         if (!empty($bentukKegiatanKonkret)) {
             $prompt .= '  "tujuan_pembelajaran": "Tujuan pembelajaran yang menggabungkan kompetensi dari dimensi profil dengan konten tema. WAJIB diakhiri dengan kalimat: melalui kegiatan ' . $bentukKegiatanKonkret . '",'."\n";
         } else {
             $prompt .= '  "tujuan_pembelajaran": "Tujuan pembelajaran yang menggabungkan kompetensi dari dimensi profil dengan konten tema",'."\n";
         }
-        
-        $prompt .= '  "praktik_pedagogis": "Deskripsi praktik pedagogis yang mengutamakan pembelajaran kolaboratif, inquiry, project-based learning",'."\n";
-        $prompt .= '  "lingkungan_belajar": "Deskripsi lingkungan belajar yang luas (dalam/luar kelas, komunitas, digital), aman, terbuka, inklusif",'."\n";
+        $prompt .= '  "praktik_pedagogis": "Deskripsi praktik pedagogis kolaboratif, kontekstual, dan berpusat pada keterlibatan aktif siswa",'."\n";
+        $prompt .= '  "lingkungan_belajar": "Deskripsi lingkungan belajar (dalam/luar kelas, lingkungan sekolah) yang aman, inklusif, dan memanfaatkan sarana yang ada",'."\n";
         $prompt .= '  "kegiatan_kokurikuler": ['."\n";
-        
-        // Update instruksi kegiatan per pertemuan
-        for ($i = 1; $i <= $document['jumlah_pertemuan']; $i++) {
-            if (!empty($bentukKegiatanKonkret)) {
-                $prompt .= '    {"pertemuan": '.$i.', "kegiatan": "Judul kegiatan pertemuan '.$i.' yang terkait dengan ' . $bentukKegiatanKonkret . '", "deskripsi": "Deskripsi detail kegiatan yang realistis dan spesifik sesuai dengan bentuk kegiatan ' . $bentukKegiatanKonkret . '"}';
-            } else {
-                $prompt .= '    {"pertemuan": '.$i.', "kegiatan": "Judul kegiatan pertemuan '.$i.'", "deskripsi": "Deskripsi detail kegiatan"}';
-            }
-            
-            if ($i < $document['jumlah_pertemuan']) {
+
+        for ($i = 1; $i <= $jumlahPertemuan; $i++) {
+            $prompt .= '    {"pertemuan": '.$i.', "kegiatan": "Judul kegiatan pertemuan '.$i.'", "deskripsi": "Deskripsi terstruktur mencakup: (1) Tindakan konkret siswa, (2) Alat/bahan yang digunakan, (3) Target hasil/karya pertemuan ini, dan (4) Alternatif jika ada kendala."}';
+            if ($i < $jumlahPertemuan) {
                 $prompt .= ',';
             }
             $prompt .= "\n";
         }
-        
+
         $prompt .= "  ]\n";
-        $prompt .= "}\n\n";
-        
-        if (!empty($bentukKegiatanKonkret)) {
-            $prompt .= "PENTING:\n";
-            $prompt .= "1. Tujuan pembelajaran HARUS diakhiri dengan: 'melalui kegiatan {$bentukKegiatanKonkret}'\n";
-            $prompt .= "2. Setiap rincian kegiatan per pertemuan HARUS realistis dan spesifik sesuai dengan bentuk kegiatan '{$bentukKegiatanKonkret}'\n";
-            $prompt .= "3. Deskripsi kegiatan harus menunjukkan langkah-langkah konkret yang dilakukan siswa dalam '{$bentukKegiatanKonkret}'\n";
-            $prompt .= "4. Kembalikan HANYA JSON yang valid, tanpa penjelasan atau teks tambahan.\n";
-        } else {
-            $prompt .= "PENTING: Kembalikan HANYA JSON yang valid, tanpa penjelasan atau teks tambahan.\n";
-        }
+        $prompt .= "}\n";
 
         return $prompt;
     }
@@ -753,12 +842,41 @@ class Kokurikuler extends BaseController
             ];
         }
 
+        $rawKegiatan = $aiData['kegiatan_kokurikuler'] ?? [];
+        if (!is_array($rawKegiatan)) {
+            $rawKegiatan = [];
+        }
+        $normalizedKegiatan = [];
+        foreach ($rawKegiatan as $idx => $item) {
+            if (is_array($item)) {
+                $kegiatanText = trim((string)($item['kegiatan'] ?? ''));
+                $deskripsiText = trim((string)($item['deskripsi'] ?? ''));
+                // Item valid jika setidaknya nama kegiatan atau deskripsi terisi
+                if ($kegiatanText !== '' || $deskripsiText !== '') {
+                    $normalizedKegiatan[] = [
+                        'pertemuan' => (int)($item['pertemuan'] ?? ($idx + 1)),
+                        'kegiatan'  => $kegiatanText !== '' ? $kegiatanText : ('Kegiatan Pertemuan ' . ($idx + 1)),
+                        'deskripsi' => $deskripsiText
+                    ];
+                }
+            }
+        }
+
+        // Validasi: kegiatan_kokurikuler harus memiliki minimal 1 kegiatan yang valid
+        if (empty($normalizedKegiatan)) {
+            log_message('error', "Kokurikuler AI Response Error: kegiatan_kokurikuler kosong atau tidak memiliki kegiatan valid. Raw: " . substr($content, 0, 500));
+            return [
+                'success' => false,
+                'message' => 'AI tidak menghasilkan rincian kegiatan kokurikuler per pertemuan yang valid. Silakan coba generate ulang.'
+            ];
+        }
+
         return [
             'success' => true,
-            'tujuan_pembelajaran' => $aiData['tujuan_pembelajaran'] ?? '',
-            'praktik_pedagogis' => $aiData['praktik_pedagogis'] ?? '',
-            'lingkungan_belajar' => $aiData['lingkungan_belajar'] ?? '',
-            'kegiatan_kokurikuler' => json_encode($aiData['kegiatan_kokurikuler'] ?? [])
+            'tujuan_pembelajaran' => trim((string)($aiData['tujuan_pembelajaran'] ?? '')),
+            'praktik_pedagogis'   => trim((string)($aiData['praktik_pedagogis'] ?? '')),
+            'lingkungan_belajar'  => trim((string)($aiData['lingkungan_belajar'] ?? '')),
+            'kegiatan_kokurikuler' => json_encode($normalizedKegiatan, JSON_UNESCAPED_UNICODE)
         ];
     }
 

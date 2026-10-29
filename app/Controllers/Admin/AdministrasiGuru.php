@@ -16,6 +16,7 @@ use App\Models\TeacherModel;
 use App\Models\TeachingAssignmentModel;
 use App\Models\AcademicYearModel;
 use App\Models\HolidayModel;
+use App\Services\AiContextBuilder;
 
 class AdministrasiGuru extends BaseController
 {
@@ -33,6 +34,7 @@ class AdministrasiGuru extends BaseController
     protected $yearModel;
     protected $holidayModel;
     protected $db;
+    protected $aiContextBuilder;
 
     public function __construct()
     {
@@ -50,6 +52,23 @@ class AdministrasiGuru extends BaseController
         $this->yearModel = new AcademicYearModel();
         $this->holidayModel = new HolidayModel();
         $this->db = \Config\Database::connect();
+    }
+
+    /**
+     * Helper: Get AiContextBuilder instance
+     */
+    protected function getAiContextBuilder(): AiContextBuilder
+    {
+        return $this->aiContextBuilder ??= new AiContextBuilder();
+    }
+
+    /**
+     * Helper untuk injeksi AiContextBuilder pada pengujian
+     */
+    public function setAiContextBuilder(AiContextBuilder $builder): self
+    {
+        $this->aiContextBuilder = $builder;
+        return $this;
     }
 
     public function index()
@@ -1660,126 +1679,283 @@ class AdministrasiGuru extends BaseController
             return $this->response->setJSON(['error' => 'Tidak diizinkan.']);
         }
 
-        // Load data ATP
-        $atpRaw = $this->atpModel->find($atpId);
-        if (!$atpRaw) {
-            return $this->response->setJSON(['error' => 'ATP tidak ditemukan.']);
-        }
+        $activeYear = $this->yearModel->getActiveYear();
+        $activeYearId = $activeYear ? (int)$activeYear['id'] : null;
 
-        $atpResult = $this->loadAtpWithElemen((int)$atpRaw['subject_id']);
-        $atpFull = null;
-        foreach ($atpResult['list'] as $a) {
-            if ($a['id'] == $atpId) { $atpFull = $a; break; }
-        }
-        $atp = $atpFull ?? $atpRaw;
-
-        $tps = $atp['tps'] ?? [];
-        $tpDeskripsi = "";
-        foreach ($tps as $tp) {
-            $kodeTp = !empty($tp['kode_tp']) ? $tp['kode_tp'] . '. ' : '';
-            $tpDeskripsi .= $kodeTp . $tp['deskripsi'] . "\n";
-        }
-
-        $cpDeskripsiAll = "";
-        foreach ($atp['elemen_list'] ?? [] as $el) {
-            $cpDeskripsiAll .= ($el['elemen'] ?? '') . ": " . ($el['cp_deskripsi'] ?? '') . "\n";
-        }
-
-        $subject = $this->subjectModel->find($subjectId);
-        $school = $this->schoolModel->getProfile();
-
-        // Resolve teacher
-        if ($user['role_id'] == 3) {
-            $teacher = $this->teacherModel->find($user['related_id']);
-        } else {
-            $assignment = $this->db->table('teaching_assignments')
-                ->where('subject_id', $subjectId)
-                ->where('class_id', $atpRaw['class_id'])
-                ->get()->getRowArray();
-            $teacher = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
-        }
-
-        $totalJp = (int) ($atp['alokasi_waktu'] ?? 4);
-
-        // JP per minggu dari promes
-        $prosemJpPerWeek = $this->db->table('prosem_distributions')
-            ->where('atp_id', $atpId)->where('jp >', 0)
-            ->orderBy('id', 'ASC')->limit(1)->get()->getRowArray();
-        $jpPerMinggu = (int) ($prosemJpPerWeek['jp'] ?? 0);
-
-        if ($jpPerMinggu <= 0) {
-            $totalDistributed = $this->db->table('prosem_distributions')
-                ->where('atp_id', $atpId)->where('jp >', 0)->countAllResults();
-            if ($totalDistributed > 0) {
-                $sumJp = $this->db->table('prosem_distributions')
-                    ->selectSum('jp')->where('atp_id', $atpId)->where('jp >', 0)->get()->getRowArray();
-                $jpPerMinggu = (int) round(($sumJp['jp'] ?? $totalJp) / $totalDistributed);
-            } else {
-                $jpPerMinggu = min($totalJp, 4);
+        // Validasi sumber class_id yang otoritatif
+        $postClassId = $this->request->getPost('class_id');
+        $classId = null;
+        if (!empty($postClassId)) {
+            $classExists = $this->db->table('classes')->where('id', $postClassId)->get()->getRowArray();
+            if ($classExists) {
+                if ($user['role_id'] == 3) {
+                    $authQuery = $this->db->table('teaching_assignments')
+                        ->where('teacher_id', $user['related_id'])
+                        ->where('class_id', $postClassId)
+                        ->where('subject_id', $subjectId);
+                    if ($activeYearId) {
+                        $authQuery->where('academic_year_id', $activeYearId);
+                    }
+                    $hasAccess = $authQuery->countAllResults();
+                    if ($hasAccess === 0) {
+                        $hasAccess = $this->db->table('teaching_assignments')
+                            ->where('teacher_id', $user['related_id'])
+                            ->where('class_id', $postClassId)
+                            ->where('subject_id', $subjectId)
+                            ->countAllResults();
+                    }
+                    if ($hasAccess > 0) {
+                        $classId = (int)$postClassId;
+                    }
+                } else {
+                    $classId = (int)$postClassId;
+                }
             }
         }
 
-        $pertemuanPerMinggu = ($jpPerMinggu <= 3) ? 1 : 2;
-        $jpPerPertemuan = max(1, (int) round($jpPerMinggu / $pertemuanPerMinggu));
-        $jumlahPertemuan = max(1, (int) ceil($totalJp / $jpPerPertemuan));
-        $menitPerPertemuan = $jpPerPertemuan * 45;
+        $atpRaw = $this->atpModel->find($atpId);
+        if (!$atpRaw) {
+            return $this->response->setJSON(['error' => 'Dokumen ATP tidak ditemukan.']);
+        }
+
+        if (empty($classId) && !empty($atpRaw['class_id'])) {
+            $classId = (int)$atpRaw['class_id'];
+        }
+
+        // Resolve teacher
+        $teacherName = '-';
+        $teacherId = null;
+        if ($user['role_id'] == 3) {
+            $teacher = $this->teacherModel->find($user['related_id']);
+            $teacherName = !empty($teacher['name']) ? $teacher['name'] : '-';
+            $teacherId = (int)$user['related_id'];
+        } else {
+            $assignQuery = $this->db->table('teaching_assignments')
+                ->where('subject_id', $subjectId)
+                ->where('class_id', $classId);
+            if ($activeYearId) {
+                $assignQuery->where('academic_year_id', $activeYearId);
+            }
+            $assignment = $assignQuery->get()->getRowArray();
+            if (!$assignment) {
+                $assignment = $this->db->table('teaching_assignments')
+                    ->where('subject_id', $subjectId)
+                    ->where('class_id', $classId)
+                    ->get()->getRowArray();
+            }
+            if ($assignment) {
+                $teacher = $this->teacherModel->find($assignment['teacher_id']);
+                $teacherName = !empty($teacher['name']) ? $teacher['name'] : '-';
+                $teacherId = (int)$assignment['teacher_id'];
+            }
+        }
+
+        $contextBuilder = $this->getAiContextBuilder();
+
+        // Kondisi 3: Cek apakah kueri sarana/fasilitas mengalami kesalahan teknis (QUERY_ERROR)
+        $facilityCheck = $contextBuilder->getConfirmedFacilities();
+        if (isset($facilityCheck['status']) && $facilityCheck['status'] === 'QUERY_ERROR') {
+            return $this->response->setJSON(['error' => 'Gagal menyiapkan konteks AI: Terjadi kesalahan kueri database pada fasilitas sekolah.']);
+        }
+
+        // Kondisi 2: Validasi integritas relasi via AiContextBuilder
+        $contextResult = $contextBuilder->buildModulAjarContext((int)$atpId, $classId, (int)$subjectId, $teacherId, $activeYearId);
+        if (!$contextResult['success']) {
+            return $this->response->setJSON(['error' => $contextResult['message']]);
+        }
+
+        $context = $contextResult['data'];
+        $prompt = $this->buildModulPromptFromContext($context, $teacherName);
+
+        $kurikulum = $context['kurikulum'] ?? [];
+        $jadwal    = $context['jadwal'] ?? [];
+
+        return $this->response->setJSON([
+            'success' => true,
+            'prompt'  => $prompt,
+            'info'    => [
+                'materi'              => $kurikulum['materi_pokok'] ?? '-',
+                'total_jp'            => $kurikulum['total_jp'] ?? 4,
+                'pertemuan'           => $jadwal['jumlah_pertemuan'] ?? 1,
+                'jp_per_pertemuan'    => $jadwal['jp_per_pertemuan'] ?? 2,
+                'menit_per_pertemuan' => $jadwal['menit_per_pertemuan'] ?? 80,
+                'is_uniform'          => $jadwal['is_uniform'] ?? true,
+                'jadwal_info'         => $jadwal['jadwal_info'] ?? '-',
+            ],
+        ]);
+    }
+
+    /**
+     * Menyusun teks prompt AI Modul Ajar dari konteks faktual terstruktur
+     *
+     * @param array $context Konteks terstruktur dari AiContextBuilder::buildModulAjarContext()['data']
+     * @param string|null $teacherName Nama guru pengampu
+     * @return string
+     */
+    protected function buildModulPromptFromContext(array $context, ?string $teacherName = null): string
+    {
+        $sekolah    = $context['sekolah'] ?? [];
+        $kelas      = $context['kelas'] ?? [];
+        $akademik   = $context['akademik'] ?? [];
+        $kurikulum  = $context['kurikulum'] ?? [];
+        $jadwal     = $context['jadwal'] ?? [];
+        $guidelines = $context['panduan_kontekstual'] ?? [];
+
+        $schoolName   = $sekolah['nama'] ?? 'Satuan Pendidikan';
+        $jenjang      = $sekolah['jenjang'] ?? 'SMP';
+        $schoolCity   = $sekolah['wilayah'] ?? '';
+        $tingkatKelas = !empty($kelas['nama']) && $kelas['nama'] !== '-' ? $kelas['nama'] : ($kelas['tingkat'] ?? '-');
+        $subjectName  = $akademik['mapel_nama'] ?? '-';
+        $penyusun     = $teacherName ?? ($akademik['guru_nama'] ?? '-');
+        $materiPokok  = $kurikulum['materi_pokok'] ?? '-';
+        $totalJp      = (int)($kurikulum['total_jp'] ?? 4);
+
+        // CP List
+        $cpDeskripsiAll = "";
+        foreach ($kurikulum['cp_list'] ?? [] as $el) {
+            $cpDeskripsiAll .= ($el['elemen'] ?? '') . ": " . ($el['cp_deskripsi'] ?? '') . "\n";
+        }
+
+        // TP List
+        $tpDeskripsi = "";
+        foreach ($kurikulum['tp_list'] ?? [] as $tp) {
+            $kodeTp = !empty($tp['kode_tp']) ? $tp['kode_tp'] . '. ' : '';
+            $tpDeskripsi .= $kodeTp . ($tp['deskripsi'] ?? '') . "\n";
+        }
+
+        // Alokasi Jadwal & Pertemuan
+        $jumlahPertemuan   = max(1, (int)($jadwal['jumlah_pertemuan'] ?? 1));
+        $jpPerPertemuan    = max(1, (int)($jadwal['jp_per_pertemuan'] ?? 2));
+        $menitPerPertemuan = max(25, (int)($jadwal['menit_per_pertemuan'] ?? 80));
+        $isUniform         = $jadwal['is_uniform'] ?? true;
+        $pertemuanList     = $jadwal['pertemuan_list'] ?? [];
+        $jadwalKonteksInfo = $jadwal['jadwal_info'] ?? 'Alokasi waktu dihitung dari standar kurikulum jenjang.';
+
+        // Format label dan petunjuk langkah waktu adaptif
+        if ($isUniform) {
+            $alokasiWaktuLabel = "{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)";
+            $alokasiWaktuInfo  = "{$totalJp} JP → {$jumlahPertemuan} Pertemuan (@ {$jpPerPertemuan} JP / {$menitPerPertemuan} menit per pertemuan)";
+
+            $pedomanWaktuSesi = ($menitPerPertemuan < 35)
+                ? "DURASI SESI SINGKAT ({$menitPerPertemuan} MENIT): Pilih model atau strategi ringkas (misal: Explicit Instruction ringkas atau Mini-Discovery 3 langkah). Fokuskan pada aktivitas inti yang realistis dan kurangi kegiatan tambahan yang tidak esensial agar total waktu seluruh baris tepat {$menitPerPertemuan} menit."
+                : "DURASI SESI STANDAR ({$menitPerPertemuan} MENIT): Terapkan sintaks model pembelajaran terpilih secara proporsional (pembukaan bermakna, fase-fase eksplorasi inti yang mendalam, dan penutup reflektif) dengan total alokasi waktu seluruh baris tepat {$menitPerPertemuan} menit.";
+
+            $langkahWaktuText = "PETUNJUK STRUKTUR PERTEMUAN ({$menitPerPertemuan} MENIT PER PERTEMUAN):\n"
+                . "* {$pedomanWaktuSesi}\n"
+                . "* Header setiap pertemuan WAJIB berformat: <h4>Pertemuan ke-X — [Nama Model Utama] ({$menitPerPertemuan} menit)</h4> (Contoh: <h4>Pertemuan ke-1 — Discovery Learning ({$menitPerPertemuan} menit)</h4>).\n"
+                . "* Jumlah baris tahap dalam tabel fleksibel mengikuti sintaks resmi model yang dipilih (tidak dibatasi kaku 3 baris).\n"
+                . "* Total waktu seluruh baris dalam tabel setiap pertemuan WAJIB TEPAT {$menitPerPertemuan} MENIT.\n";
+        } else {
+            $alokasiWaktuLabel = "{$totalJp} JP ({$jumlahPertemuan} Pertemuan)";
+            $ringkasList = array_map(function($p) {
+                return "P{$p['pertemuan']}: {$p['jp']}JP/{$p['menit']}m";
+            }, $pertemuanList);
+            $alokasiWaktuInfo  = "{$totalJp} JP → {$jumlahPertemuan} Pertemuan (" . implode(', ', $ringkasList) . ")";
+
+            $rincianWaktuPertemuan = "";
+            foreach ($pertemuanList as $p) {
+                $pMenit = (int)($p['menit'] ?? 80);
+                $rincianWaktuPertemuan .= "  * Pertemuan ke-{$p['pertemuan']} ({$p['jp']} JP / {$pMenit} menit): Header: <h4>Pertemuan ke-{$p['pertemuan']} — [Nama Model] ({$pMenit} menit)</h4> | Total alokasi waktu tabel: TEPAT {$pMenit} menit.\n";
+            }
+            $langkahWaktuText = "PETUNJUK STRUKTUR PERTEMUAN (JADWAL BERAGAM):\n"
+                . "* Perhatikan durasi aktual masing-masing pertemuan:\n"
+                . $rincianWaktuPertemuan
+                . "* Header setiap pertemuan WAJIB mencantumkan nama model dan durasi aktualnya.\n"
+                . "* Jumlah baris tahap dalam tabel fleksibel mengikuti sintaks resmi model yang dipilih.\n"
+                . "* Total alokasi waktu seluruh baris dalam tabel masing-masing pertemuan WAJIB TEPAT sama dengan menit sesi pertemuan tersebut.\n";
+        }
+
+        // Informasi Sarana Terkonfirmasi
+        $fasilitasInfo = !empty($sekolah['has_fasilitas']) && !empty($sekolah['fasilitas'])
+            ? implode(', ', $sekolah['fasilitas'])
+            : 'Fasilitas ruang kelas standar dan area lingkungan sekolah (tidak tercatat fasilitas khusus tambahan)';
+
+        // Rombel & Skala Kelas
+        $infoRombel = !empty($kelas['has_jumlah_siswa']) && !empty($kelas['jumlah_siswa'])
+            ? "Jumlah Peserta Didik Aktif: {$kelas['jumlah_siswa']} siswa."
+            : "Kapasitas kelas standar jenjang {$jenjang}.";
+
+        // KKTP Context
+        $kktpContextText = "";
+        if (!empty($kurikulum['has_kktp']) && !empty($kurikulum['kktp_list'])) {
+            $kktpRows = [];
+            foreach ($kurikulum['kktp_list'] as $kktpItem) {
+                $critStrings = [];
+                foreach ($kktpItem['kriteria'] ?? [] as $crit) {
+                    $critStrings[] = "Interval {$crit['interval']}: {$crit['label']} (Intervensi: {$crit['intervensi']})";
+                }
+                $kktpRows[] = "- TP: {$kktpItem['tujuan_pembelajaran']} | Kriteria: " . implode('; ', $critStrings);
+            }
+            $kktpContextText = "Kriteria Ketercapaian Tujuan Pembelajaran (KKTP) Resmi Terdaftar:\n" . implode("\n", $kktpRows) . "\n\n";
+        }
 
         $prompt = "Buatkan Modul Ajar Kurikulum Merdeka DEEP LEARNING (MJM) 2025 dengan STRUKTUR PERSIS mengikuti rujukan 'Guru Karier' (LENGKAP POIN A SAMPAI K BERURUTAN, DILARANG MELOMPATI BAGIAN APAPUN):\n\n"
             . "WAJIB TULISKAN SELURUH 11 BAGIAN SECARA LENGKAP & BERURUTAN:\n"
             . "<h3>A. Identitas Modul</h3>\n"
-            . "Tabel 2-kolom (Label: text-align: left; width: 170px; font-weight: bold;). Isi Alokasi Waktu: '{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)'.\n\n"
+            . "Tabel 2-kolom (Label: text-align: left; width: 170px; font-weight: bold;). Isi Alokasi Waktu: '{$alokasiWaktuLabel}'.\n\n"
             . "<h3>B. Kompetensi Awal</h3>\n"
             . "Tuliskan narasi Capaian Pembelajaran (CP) dan kompetensi awal peserta didik.\n\n"
             . "<h3>C. Tujuan Pembelajaran</h3>\n"
             . "Masukkan Tujuan Pembelajaran (TP) persis seperti input data.\n\n"
             . "<h3>D. Materi Pembelajaran</h3>\n"
-            . "Tuliskan ringkasan pokok materi esensial yang dipelajari siswa terkait materi " . ($atp['lingkup_materi'] ?? '-') . ".\n\n"
-            . "<h3>E. Metode Pembelajaran</h3>\n"
-            . "Tuliskan pendekatan Pembelajaran Mendalam (Deep Learning MJM: Mindful, Meaningful, Joyful), diskusi kolaboratif, eksplorasi konsep, dan presentasi.\n\n"
+            . "Tuliskan ringkasan pokok materi esensial yang dipelajari siswa terkait materi " . $materiPokok . ".\n\n"
+            . "<h3>E. Model dan Metode Pembelajaran</h3>\n"
+            . "Tuliskan secara terstruktur 4 komponen:\n"
+            . "1. Pendekatan Pembelajaran: Pembelajaran Mendalam (Deep Learning) dengan trilogi pengalaman Mindful (kesadaran penuh), Meaningful (kebermaknaan konsep), dan Joyful (kegembiraan/refleksi belajar).\n"
+            . "2. Model Pembelajaran Utama (Rekomendasi AI): Pilih model pembelajaran yang paling relevan dan kontekstual dari kandidat resmi: Problem-Based Learning (PBL), Project-Based Learning (PjBL), Discovery Learning, Inquiry Learning, Cooperative Learning (termasuk Think-Pair-Share), Explicit/Direct Instruction, Contextual Teaching & Learning (CTL), atau pembelajaran berdiferensiasi sebagai strategi pendukung. Anda diperbolehkan mengombinasikan model dan strategi yang bervariasi antarpertemuan bila memang meningkatkan kualitas pembelajaran, namun TIDAK BOLEH mengganti model hanya demi variasi acak (penggunaan model yang sama pada beberapa pertemuan berturut-turut diperbolehkan jika secara pedagogis tepat).\n"
+            . "3. Alasan Pedagogis Pemilihan Model: Jelaskan secara singkat dan spesifik mengapa model tersebut paling tepat untuk TP, materi " . $materiPokok . ", ketersediaan sarana (" . $fasilitasInfo . "), rombel (" . $infoRombel . "), dan alokasi waktu yang tersedia.\n"
+            . "4. Metode dan Strategi Pendukung: Uraikan strategi operasional pendukung (misal: diskusi kelompok Think-Pair-Share, eksperimen sederhana, demonstrasi terbimbing, observasi terarah, pengerjaan LKPD berjenjang, dan presentasi apresiatif).\n\n"
             . "<h3>F. Langkah Pembelajaran</h3>\n"
             . "Buat TEPAT {$jumlahPertemuan} tabel pertemuan (dari 'Pertemuan ke-1' sampai 'Pertemuan ke-{$jumlahPertemuan}').\n"
-            . "Setiap tabel pertemuan memiliki 4 kolom: (Tahap | Sintaks | Deskripsi | Waktu) dengan Header Cream (#fff9c4).\n"
-            . "SETIAP tabel pertemuan (TERMASUK PERTEMUAN TERAKHIR KE-{$jumlahPertemuan}) WAJIB memiliki TEPAT 3 baris lengkap:\n"
-            . "  Baris 1 → Tahap: Mindful    | Waktu: 10 menit\n"
-            . "  Baris 2 → Tahap: Meaningful | Waktu: " . max(10, $menitPerPertemuan - 25) . " menit\n"
-            . "  Baris 3 → Tahap: Joyful     | Waktu: 15 menit\n"
-            . "* PERHATIAN BESAR: Pada PERTEMUAN TERAKHIR, tahapan Joyful dan kolom waktunya (15 menit) HARUS DITULIS LENGKAP. DILARANG KERAS MENGOSONGKAN ATAU MEMOTONG BARIS JOYFUL ATAU ALOKASI WAKTUNYA!\n"
-            . "* Jaga deskripsi kegiatan pada setiap tahap tetap padat, konkret, dan aplikatif (2-3 kalimat lugas per tahap).\n\n"
+            . "Setiap pertemuan diawali dengan judul: <h4>Pertemuan ke-X — [Nama Model Utama] ([Alokasi] menit)</h4> (Contoh: <h4>Pertemuan ke-1 — Discovery Learning (100 menit)</h4>).\n"
+            . "Setiap tabel pertemuan memiliki 4 kolom persis: (Tahap | Sintaks Model | Deskripsi Aktivitas Guru dan Siswa | Waktu) dengan Header Cream (#fff9c4).\n"
+            . $langkahWaktuText . "\n"
+            . "* PEDOMAN SINTAKS MODEL & PRINSIP DEEP LEARNING (SANGAT PENTING):\n"
+            . "  1. SINTAKS OTENTIK & JUMLAH BARIS FLEKSIBEL: Jumlah baris tahap dalam tabel fleksibel mengikuti sintaks resmi model yang dipilih (jangan memaksakan tepat 3 baris jika model membutuhkan 4, 5, atau langkah sintaks lain). Kolom 1 memuat nama Tahap Pembelajaran (misal: Pendahuluan/Orientasi, Inti, Penutup/Refleksi) dan Kolom 2 memuat langkah resmi (Sintaks Model, misal pada PBL: Orientasi Masalah, Organisasi Belajar, Penyelidikan Kelompok, Penyajian Hasil Karya, Evaluasi Pemecahan Masalah).\n"
+            . "  2. PENJIWAAN DEEP LEARNING (MJM): Prinsip Mindful, Meaningful, dan Joyful diwujudkan secara kontekstual ke dalam pengalaman belajar, BUKAN sebagai pengganti sintaks model atau pembagian waktu kaku. Wujudkan Mindful pada apersepsi fokus kesadaran belajar di awal, Meaningful pada keterlibatan berpikir mendalam saat menjalankan sintaks inti, dan Joyful pada kepuasan refleksi serta apresiasi keberhasilan belajar di penutup.\n"
+            . "  3. TINDAKAN NYATA SISWA & GURU: Deskripsi setiap tahap HARUS menjabarkan aktivitas operasional konkret siswa dan peran guru (apa yang diamati, dihitung, ditulis, didiskusikan, atau dihasilkan), BUKAN instruksi retoris pasif.\n"
+            . "  4. KEPATUHAN SARANA FISIK: " . ($guidelines['sarana'] ?? "Gunakan sarana yang nyata di kelas jenjang {$jenjang}.") . "\n"
+            . "  5. MANAJEMEN KELAS & SKALA ROMBEL: " . ($guidelines['skala_kelas'] ?? "Atur kelompok belajar proporsional sesuai rombel.") . "\n"
+            . "  6. ALTERNATIF KENDALA SARANA: Jika ada media tayang/video guru yang direkomendasikan, WAJIB sertakan alternatif konvensional (misal: 'Jika proyektor/internet tidak tersedia, guru menggunakan carta dinding, gambar cetak, atau demonstrasi manual di papan tulis').\n"
+            . "  7. ARTEFAK TERUKUR & PENUTUP TUNTAS: Tahap inti harus menghasilkan bukti belajar nyata (LKPD, peta konsep, laporan solusi kelompok) yang selaras dengan asesmen di Bagian K. Setiap pertemuan WAJIB ditutup tuntas dengan refleksi bermakna dan apresiasi (Joyful) sesuai alokasi waktu yang dijadwalkan.\n"
+            . "  8. TOTAL WAKTU TEPAT: Jumlah seluruh alokasi waktu setiap pertemuan HARUS SAMA PERSIS dengan durasi sesi yang ditetapkan.\n"
+            . ($jumlahPertemuan > 6
+                ? "  9. KEPADATAN DESKRIPSI (MODUL BESAR {$jumlahPertemuan} PERTEMUAN): Karena modul ini mencakup {$jumlahPertemuan} pertemuan, batasi deskripsi aktivitas maksimal sekitar 2 kalimat per sel tabel. Tetap pertahankan sintaks model pembelajaran yang benar dan aktivitas operasional siswa yang konkret, agar seluruh bagian A sampai K selesai tuntas sempurna tanpa terpotong batas token.\n\n"
+                : "\n")
             . "<h3>G. Sumber Belajar</h3>\n"
-            . "Sebutkan buku pegangan siswa/guru, media digital/video interaktif, LKPD, dan sumber belajar lingkungan nyata yang relevan.\n\n"
+            . "Sebutkan buku pegangan siswa/guru, media pembelajaran fisik/digital yang realistis, LKPD, dan sumber belajar lingkungan nyata yang relevan.\n\n"
             . "<h3>H. Keterampilan</h3>\n"
-            . "Uraikan keterampilan abad-21 dan dimensi profil kelulusan yang dilatih (bernalar kritis, kreativitas, gotong royong/kolaborasi, komunikasi).\n\n"
+            . "Uraikan keterampilan abad-21 dan dimensi profil kelulusan yang dilatih secara konkret (bernalar kritis, kreativitas, gotong royong/kolaborasi, komunikasi).\n\n"
             . "<h3>I. Penilaian Sikap</h3>\n"
             . "Uraikan teknik observasi sikap (keaktifan, kedisiplinan, kejujuran, dan tanggung jawab selama proses pembelajaran).\n\n"
             . "<h3>J. Kriteria Kelulusan</h3>\n"
-            . "Uraikan kriteria ketercapaian tujuan pembelajaran peserta didik pada materi ini.\n\n"
+            . (!empty($kktpContextText)
+                ? "Selaraskan indikator ketuntasan dengan kriteria ketercapaian resmi berikut:\n{$kktpContextText}"
+                : "Uraikan kriteria ketercapaian tujuan pembelajaran peserta didik pada materi ini secara terukur berdasarkan rubrik observasi proses kerja kelompok dan bukti karya formatif.\n\n")
             . "<h3>K. Penilaian / Asesmen</h3>\n"
-            . "Uraikan secara spesifik: 1. Penilaian Proses (formatif/observasi keaktifan diskusi) dan 2. Penilaian Hasil (sumatif/tes tertulis dan rubrik tugas/produk).\n\n"
+            . "Uraikan secara spesifik dan selaras dengan kegiatan di Bagian F serta Tujuan Pembelajaran (TP):\n"
+            . "1. Penilaian Proses (Formatif): Observasi keaktifan diskusi, partisipasi kelompok, dan lembar cek pengerjaan LKPD dengan menyebutkan kode/nomor TP yang diobservasi.\n"
+            . "2. Penilaian Hasil (Sumatif): Tes tertulis, lembar kerja mandiri, atau rubrik penilaian produk/karya nyata. WAJIB sertakan tabel kisi-kisi atau pemetaan yang menghubungkan setiap bentuk instrumen/soal secara eksplisit dengan nomor/kode Tujuan Pembelajaran (TP) yang diukur (hanya mengacu pada TP yang terdaftar di Bagian C/Data Input, dilarang mengarang kode TP baru).\n\n"
             . "ATURAN TAMBAHAN (KETAT & MUTLAK):\n"
             . "1. FORMAT JUDUL BAGIAN: Gunakan tag <h3> dengan format LANGSUNG huruf dan judul saja, TANPA kata 'Bagian'. Contoh: <h3>B. Kompetensi Awal</h3>.\n"
             . "2. JANGAN MENGHASILKAN bagian Tanda Tangan (L, M, dst) karena sistem pencetak otomatis telah menyediakan kolom tanda tangan resmi di bawah modul.\n"
             . "3. KEMBALIKAN HANYA PURE HTML (tanpa markdown, tanpa code block ```html).\n"
             . "4. DILARANG MENGGUNAKAN TANDA BACKSLASH (\\) DALAM BENTUK APAPUN: dilarang rumus LaTeX (\\( \\), \\div, \\times, \\%), dilarang escape penomoran (\\d., \\e.), dilarang backslash di akhir kalimat/baris/sel tabel (Bobot\\, Nilai\\).\n\n"
-            . "DATA INPUT:\n"
-            . "Sekolah: " . ($school['name'] ?? '-') . "\n"
-            . "Penyusun: " . ($teacher['name'] ?? '-') . "\n"
-            . "Mapel: " . ($subject['name'] ?? '-') . "\n"
-            . "Materi: " . ($atp['lingkup_materi'] ?? '-') . "\n"
-            . "Kelas: " . ($tps[0]['kelas'] ?? '-') . "\n"
-            . "Alokasi: {$totalJp} JP → {$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP ({$menitPerPertemuan} menit)\n"
-            . "CP:\n" . $cpDeskripsiAll . "\n"
-            . "TP:\n" . $tpDeskripsi . "\n";
+            . "DATA INPUT PEMBELAJARAN:\n"
+            . "Sekolah: {$schoolName} ({$jenjang}" . (!empty($schoolCity) ? " di {$schoolCity}" : "") . ")\n"
+            . "Penyusun: {$penyusun}\n"
+            . "Mapel: {$subjectName}\n"
+            . "Materi: {$materiPokok}\n"
+            . "Kelas: {$tingkatKelas} (Jenjang {$jenjang})\n"
+            . "Karakteristik Rombel: {$infoRombel}\n"
+            . "Sarana Terdaftar: {$fasilitasInfo}\n"
+            . "Alokasi Waktu: {$alokasiWaktuInfo}\n"
+            . "Rujukan Jadwal & Sesi: {$jadwalKonteksInfo}\n"
+            . "CP:\n{$cpDeskripsiAll}"
+            . "TP:\n{$tpDeskripsi}\n\n"
+            . "KEMBALIKAN HANYA PURE HTML (TANPA MARKDOWN). Pastikan seluruh bagian A sampai K dan seluruh pertemuan selesai tuntas sempurna.";
 
-        return $this->response->setJSON([
-            'success' => true,
-            'prompt' => $prompt,
-            'info' => [
-                'materi' => $atp['lingkup_materi'] ?? '-',
-                'total_jp' => $totalJp,
-                'pertemuan' => $jumlahPertemuan,
-                'jp_per_pertemuan' => $jpPerPertemuan,
-            ],
-        ]);
+        return $prompt;
     }
 
     /**
@@ -1800,9 +1976,6 @@ class AdministrasiGuru extends BaseController
             return redirect()->back()->with('error', 'Konten modul terlalu pendek. Pastikan Anda paste hasil dari AI dengan benar.');
         }
 
-        // Jalankan auto-healer untuk menyempurnakan baris Joyful dan alokasi waktu
-        $content = $this->sanitizeAndHealModulContent($content, 90);
-
         $atpRaw = $this->atpModel->find($atpId);
         if (!$atpRaw) {
             return redirect()->back()->with('error', 'ATP tidak ditemukan.');
@@ -1810,20 +1983,57 @@ class AdministrasiGuru extends BaseController
 
         $classId = $atpRaw['class_id'];
 
+        $activeYear = $this->yearModel->getActiveYear();
+        $activeYearId = $activeYear ? (int)$activeYear['id'] : null;
+
         // Resolve teacher
         if ($user['role_id'] == 3) {
             $targetTeacherId = $user['related_id'];
         } else {
-            $assignment = $this->db->table('teaching_assignments')
+            $assignQuery = $this->db->table('teaching_assignments')
                 ->where('subject_id', $subjectId)
-                ->where('class_id', $classId)
-                ->get()->getRowArray();
+                ->where('class_id', $classId);
+            if ($activeYearId) {
+                $assignQuery->where('academic_year_id', $activeYearId);
+            }
+            $assignment = $assignQuery->get()->getRowArray();
+            if (!$assignment) {
+                $assignment = $this->db->table('teaching_assignments')
+                    ->where('subject_id', $subjectId)
+                    ->where('class_id', $classId)
+                    ->get()->getRowArray();
+            }
             $targetTeacherId = $assignment['teacher_id'] ?? null;
         }
 
         if (!$targetTeacherId) {
             return redirect()->back()->with('error', 'Tidak dapat menentukan guru pengampu.');
         }
+
+        // Ambil konteks jadwal riil untuk menentukan durasi pertemuan aktual (P2-1)
+        $durationContext = null;
+        try {
+            $contextBuilder = $this->getAiContextBuilder();
+            $ctxResult = $contextBuilder->buildModulAjarContext(
+                (int)$atpId,
+                $classId ? (int)$classId : null,
+                (int)$subjectId,
+                (int)$targetTeacherId,
+                $activeYearId
+            );
+            if (!empty($ctxResult['success']) && !empty($ctxResult['data']['jadwal'])) {
+                $jadwalData = $ctxResult['data']['jadwal'];
+                $durationContext = !empty($jadwalData['pertemuan_list'])
+                    ? $jadwalData['pertemuan_list']
+                    : ($jadwalData['menit_per_pertemuan'] ?? null);
+            }
+        } catch (\Throwable $e) {
+            log_message('error', 'saveManualModul schedule resolution error: ' . $e->getMessage());
+        }
+
+        // Jalankan sanitasi dan auto-healer dengan konteks durasi aktual dan data TP (P1 Tahap 10)
+        $tps = !empty($ctxResult['data']['kurikulum']['tps']) ? $ctxResult['data']['kurikulum']['tps'] : [];
+        $content = $this->sanitizeAndHealModulContent($content, $durationContext ?? 0, $tps);
 
         $modulModel = new \App\Models\ModulAjarModel();
 
@@ -2083,14 +2293,278 @@ class AdministrasiGuru extends BaseController
             ->setBody(file_get_contents($filePath));
     }
 
+    /**
+     * Hitung struktur dan alokasi pertemuan pembelajaran berdasarkan Jadwal Riil (Tier 1),
+     * Program Semester (Tier 2), atau Standar Jenjang Kurikulum (Tier 3).
+     *
+     * @param int|string|null $classId
+     * @param int|string|null $subjectId
+     * @param int|string|null $atpId
+     * @param int $totalJp
+     * @param int $schoolLevel 1=SD, 2=SMP, 3=SMA
+     * @return array
+     */
+    private function hitungAlokasiPertemuan($classId, $subjectId, $atpId, int $totalJp, int $schoolLevel = 2): array
+    {
+        if (function_exists('helper')) {
+            helper('jp');
+        }
+
+        $jenjang = ($schoolLevel == 1) ? 'SD' : (($schoolLevel == 2) ? 'SMP' : 'SMA/SMK');
+        $menitPerJpStandard = ($schoolLevel == 1) ? 35 : (($schoolLevel == 2) ? 40 : 45);
+
+        $activeYear = $this->yearModel->getActiveYear();
+        $activeYearId = $activeYear ? $activeYear['id'] : null;
+
+        $namaHariIndo = [
+            1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'
+        ];
+
+        // TIER 1: Cek Jadwal Riil di Tabel schedules (Paling Akurat)
+        $schedules = [];
+        if (!empty($classId) && !empty($subjectId)) {
+            $builder = $this->db->table('schedules')
+                ->where('class_id', $classId)
+                ->where('subject_id', $subjectId);
+            if ($activeYearId) {
+                $builder->where('academic_year_id', $activeYearId);
+            }
+            $schedules = $builder
+                ->orderBy('day_of_week', 'ASC')
+                ->orderBy('start_time', 'ASC')
+                ->get()->getResultArray();
+        }
+
+        $jadwalSlots = [];
+        foreach ($schedules as $sc) {
+            $slotMenit = 0;
+            if (!empty($sc['start_time']) && !empty($sc['end_time'])) {
+                $slotMenit = max(0, (strtotime($sc['end_time']) - strtotime($sc['start_time'])) / 60);
+            }
+
+            if (function_exists('hitung_jp_dari_waktu') && !empty($sc['start_time']) && !empty($sc['end_time'])) {
+                $slotJp = hitung_jp_dari_waktu($sc['start_time'], $sc['end_time'], $schoolLevel);
+            } elseif ($slotMenit > 0) {
+                $slotJp = max(1, (int) round($slotMenit / $menitPerJpStandard));
+            } else {
+                $slotJp = 2;
+            }
+
+            if ($slotMenit <= 0) {
+                $slotMenit = $slotJp * $menitPerJpStandard;
+            }
+
+            $hariNama = $namaHariIndo[(int)($sc['day_of_week'] ?? 1)] ?? 'Hari Belajar';
+            $jadwalSlots[] = [
+                'hari'  => $hariNama,
+                'jp'    => $slotJp,
+                'menit' => (int) $slotMenit,
+                'start' => substr((string)$sc['start_time'], 0, 5),
+                'end'   => substr((string)$sc['end_time'], 0, 5),
+            ];
+        }
+
+        $pertemuanList = [];
+        $tierDigunakan = 'standar_jenjang';
+
+        if (!empty($jadwalSlots)) {
+            // TIER 1: Jadwal Riil ditemukan
+            $tierDigunakan = 'jadwal_riil';
+            $sisaJp = $totalJp;
+            $slotIndex = 0;
+            $slotCount = count($jadwalSlots);
+            $pNo = 1;
+
+            while ($sisaJp > 0) {
+                if ($pNo > 40) break;
+                $currentSlot = $jadwalSlots[$slotIndex % $slotCount];
+                if (($currentSlot['jp'] ?? 0) <= 0) break; // Defensive guard: cegah loop jika data JP korup
+
+                $jpThis = min($currentSlot['jp'], $sisaJp);
+                $menitThis = (int) round(($jpThis / max(1, $currentSlot['jp'])) * $currentSlot['menit']);
+                if ($menitThis < 25) {
+                    $menitThis = $jpThis * $menitPerJpStandard;
+                }
+
+                $pertemuanList[] = [
+                    'pertemuan' => $pNo,
+                    'hari'      => $currentSlot['hari'],
+                    'jp'        => $jpThis,
+                    'menit'     => $menitThis,
+                ];
+
+                $sisaJp -= $jpThis;
+                $slotIndex++;
+                $pNo++;
+            }
+
+            $jumlahPertemuan = count($pertemuanList);
+            $jpPerPertemuan = (int) round(array_sum(array_column($pertemuanList, 'jp')) / max(1, $jumlahPertemuan));
+            if ($jpPerPertemuan < 1) $jpPerPertemuan = 1;
+
+            $slotDesc = implode(', ', array_map(function($s) {
+                return "{$s['hari']} ({$s['jp']} JP / {$s['menit']} menit, {$s['start']}-{$s['end']})";
+            }, $jadwalSlots));
+            $jadwalKonteksInfo = "Dihitung dari Jadwal Pelajaran Riil Kelas ({$slotCount} sesi tatap muka per pekan: {$slotDesc}). Total materi {$totalJp} JP diselesaikan dalam {$jumlahPertemuan} Pertemuan.";
+        } else {
+            // TIER 2: Cek Distribusi Program Semester (Promes) jika jadwal belum diisi
+            $prosemRows = $this->db->table('prosem_distributions')
+                ->where('atp_id', $atpId)
+                ->where('jp >', 0)
+                ->orderBy('id', 'ASC')
+                ->get()->getResultArray();
+
+            if (!empty($prosemRows)) {
+                $tierDigunakan = 'promes';
+                $sumJp = (int) array_sum(array_column($prosemRows, 'jp'));
+                $totalWeeks = count($prosemRows);
+                $jpPerMinggu = (int) round($sumJp / max(1, $totalWeeks));
+                if ($jpPerMinggu <= 0) $jpPerMinggu = 2;
+
+                // Tentukan jumlah pertemuan per minggu dari Promes
+                $pertemuanPerMinggu = ($jpPerMinggu <= 3) ? 1 : 2;
+                $jpPerPertemuan = max(1, (int) round($jpPerMinggu / $pertemuanPerMinggu));
+
+                $sisaJp = $totalJp;
+                $pNo = 1;
+                while ($sisaJp > 0) {
+                    if ($pNo > 40) break;
+                    $jpThis = min($jpPerPertemuan, $sisaJp);
+                    $menitThis = $jpThis * $menitPerJpStandard;
+                    $pertemuanList[] = [
+                        'pertemuan' => $pNo,
+                        'hari'      => 'Pertemuan ke-' . $pNo,
+                        'jp'        => $jpThis,
+                        'menit'     => $menitThis,
+                    ];
+                    $sisaJp -= $jpThis;
+                    $pNo++;
+                }
+                $jumlahPertemuan = count($pertemuanList);
+
+                $jadwalKonteksInfo = "Dihitung dari Program Semester ({$totalWeeks} pekan efektif, rata-rata {$jpPerMinggu} JP/minggu). Materi {$totalJp} JP dialokasikan ke {$jumlahPertemuan} Pertemuan.";
+            } else {
+                // TIER 3: Standar Kurikulum berdasarkan Jenjang {$jenjang}
+                $tierDigunakan = 'standar_jenjang';
+                if ($totalJp <= 3) {
+                    $jpPerPertemuan = $totalJp;
+                } elseif ($totalJp % 2 === 0) {
+                    $jpPerPertemuan = 2;
+                } elseif ($totalJp % 3 === 0) {
+                    $jpPerPertemuan = 3;
+                } else {
+                    $jpPerPertemuan = 2;
+                }
+
+                $sisaJp = $totalJp;
+                $pNo = 1;
+                while ($sisaJp > 0) {
+                    if ($pNo > 40) break;
+                    $jpThis = min($jpPerPertemuan, $sisaJp);
+                    $menitThis = $jpThis * $menitPerJpStandard;
+                    $pertemuanList[] = [
+                        'pertemuan' => $pNo,
+                        'hari'      => 'Pertemuan ke-' . $pNo,
+                        'jp'        => $jpThis,
+                        'menit'     => $menitThis,
+                    ];
+                    $sisaJp -= $jpThis;
+                    $pNo++;
+                }
+                $jumlahPertemuan = count($pertemuanList);
+
+                $jadwalKonteksInfo = "Dihitung dari Standar Kurikulum Jenjang {$jenjang} (1 JP = {$menitPerJpStandard} menit). Materi {$totalJp} JP dialokasikan ke {$jumlahPertemuan} Pertemuan.";
+            }
+        }
+
+        // Hitung waktuMeaningful per pertemuan (tiap pertemuan: Mindful 10 mnt, Joyful 15 mnt, sisa = Meaningful)
+        foreach ($pertemuanList as &$pItem) {
+            $pMenit = (int)$pItem['menit'];
+            if ($pMenit < 35) {
+                $pItem['meaningfulMenit'] = max(5, $pMenit - 10);
+            } else {
+                $pItem['meaningfulMenit'] = max(10, $pMenit - 25);
+            }
+        }
+        unset($pItem);
+
+        // Periksa keseragaman durasi pertemuan
+        $isUniform = true;
+        $firstMenit = $pertemuanList[0]['menit'] ?? ($menitPerJpStandard * 2);
+        foreach ($pertemuanList as $p) {
+            if ($p['menit'] !== $firstMenit) {
+                $isUniform = false;
+                break;
+            }
+        }
+
+        // Gunakan durasi slot tipikal/pertama (bukan mean pembulatan yang menyesatkan)
+        $menitPerPertemuan = $firstMenit;
+        if ($menitPerPertemuan < 35) {
+            $waktuMindful    = 5;
+            $waktuJoyful     = 5;
+            $waktuMeaningful = max(5, $menitPerPertemuan - 10);
+        } else {
+            $waktuMindful    = 10;
+            $waktuJoyful     = 15;
+            $waktuMeaningful = max(10, $menitPerPertemuan - 25);
+        }
+
+        if ($isUniform) {
+            $alokasiWaktuLabel = "{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)";
+            $alokasiWaktuInfo  = "{$totalJp} JP → {$jumlahPertemuan} Pertemuan (@ {$jpPerPertemuan} JP / {$menitPerPertemuan} menit per pertemuan)";
+            $langkahWaktuText  = "SETIAP tabel pertemuan (TERMASUK PERTEMUAN TERAKHIR KE-{$jumlahPertemuan}) WAJIB memiliki TEPAT 3 baris lengkap:\n"
+                . "  Baris 1 → Tahap: Mindful    | Waktu: " . $waktuMindful . " menit\n"
+                . "  Baris 2 → Tahap: Meaningful | Waktu: " . $waktuMeaningful . " menit\n"
+                . "  Baris 3 → Tahap: Joyful     | Waktu: " . $waktuJoyful . " menit\n";
+        } else {
+            $alokasiWaktuLabel = "{$totalJp} JP ({$jumlahPertemuan} Pertemuan)";
+            $ringkasList = array_map(function($p) {
+                return "P{$p['pertemuan']}: {$p['jp']}JP/{$p['menit']}m";
+            }, $pertemuanList);
+            $alokasiWaktuInfo  = "{$totalJp} JP → {$jumlahPertemuan} Pertemuan (" . implode(', ', $ringkasList) . ")";
+
+            $rincianWaktuPertemuan = "";
+            foreach ($pertemuanList as $p) {
+                $pMenit = (int)($p['menit'] ?? 80);
+                if ($pMenit < 35) {
+                    $pMindful = 5;
+                    $pJoyful = 5;
+                    $pMeaningful = max(5, $pMenit - 10);
+                } else {
+                    $pMindful = 10;
+                    $pJoyful = 15;
+                    $pMeaningful = max(10, $pMenit - 25);
+                }
+                $rincianWaktuPertemuan .= "  * Tabel Pertemuan ke-{$p['pertemuan']} ({$p['jp']} JP / {$pMenit} menit): Baris 1 Mindful ({$pMindful} menit) | Baris 2 Meaningful ({$pMeaningful} menit) | Baris 3 Joyful ({$pJoyful} menit)\n";
+            }
+            $langkahWaktuText  = "SETIAP tabel pertemuan (TERMASUK PERTEMUAN TERAKHIR KE-{$jumlahPertemuan}) WAJIB memiliki TEPAT 3 baris lengkap (Tahap: Mindful, Meaningful, Joyful). Perhatikan alokasi waktu aktual masing-masing pertemuan:\n"
+                . $rincianWaktuPertemuan;
+        }
+
+        return [
+            'jumlahPertemuan'    => $jumlahPertemuan,
+            'jpPerPertemuan'     => $jpPerPertemuan,
+            'menitPerPertemuan'  => $menitPerPertemuan,
+            'waktuMeaningful'    => $waktuMeaningful,
+            'pertemuanList'      => $pertemuanList,
+            'isUniform'          => $isUniform,
+            'alokasiWaktuLabel'  => $alokasiWaktuLabel,
+            'alokasiWaktuInfo'   => $alokasiWaktuInfo,
+            'langkahWaktuText'   => $langkahWaktuText,
+            'jadwalKonteksInfo'  => $jadwalKonteksInfo,
+            'tierDigunakan'      => $tierDigunakan,
+        ];
+    }
+
     public function generateModulAjar()
     {
         try {
             @set_time_limit(180);
 
-            $atpId     = $this->request->getPost('atp_id');
-            $subjectId = $this->request->getPost('subject_id');
-            $classId   = $this->request->getPost('class_id');
+            $atpId       = $this->request->getPost('atp_id');
+            $subjectId   = $this->request->getPost('subject_id');
+            $postClassId = $this->request->getPost('class_id');
             
             $user = session()->get('user');
             if (!in_array($user['role_id'], [1, 3])) {
@@ -2100,173 +2574,111 @@ class AdministrasiGuru extends BaseController
             // Load ATP beserta elemen CP dan TP (struktur baru)
             $atpRaw = $this->atpModel->find($atpId);
             if (!$atpRaw) {
-                $fallbackUrl = ($classId && $subjectId)
-                    ? base_url("admin/administrasi-guru/modul-ajar?class_id={$classId}&subject_id={$subjectId}")
+                $fallbackUrl = ($postClassId && $subjectId)
+                    ? base_url("admin/administrasi-guru/modul-ajar?class_id={$postClassId}&subject_id={$subjectId}")
                     : base_url('admin/administrasi-guru/modul-ajar');
                 return redirect()->to($fallbackUrl)->with('error', 'ATP tidak ditemukan.');
             }
 
-            if (empty($classId)) {
-                $classId = $atpRaw['class_id'];
+            $activeYear = $this->yearModel->getActiveYear();
+            $activeYearId = $activeYear ? (int)$activeYear['id'] : null;
+
+            // Validasi class_id otoritatif
+            $classId = null;
+            if (!empty($postClassId)) {
+                $classExists = $this->db->table('classes')->where('id', $postClassId)->get()->getRowArray();
+                if ($classExists) {
+                    if ($user['role_id'] == 3) {
+                        $authQuery = $this->db->table('teaching_assignments')
+                            ->where('teacher_id', $user['related_id'])
+                            ->where('class_id', $postClassId)
+                            ->where('subject_id', $subjectId);
+                        if ($activeYearId) {
+                            $authQuery->where('academic_year_id', $activeYearId);
+                        }
+                        $hasAccess = $authQuery->countAllResults();
+                        if ($hasAccess === 0) {
+                            $hasAccess = $this->db->table('teaching_assignments')
+                                ->where('teacher_id', $user['related_id'])
+                                ->where('class_id', $postClassId)
+                                ->where('subject_id', $subjectId)
+                                ->countAllResults();
+                        }
+                        if ($hasAccess > 0) {
+                            $classId = (int)$postClassId;
+                        }
+                    } else {
+                        $classId = (int)$postClassId;
+                    }
+                }
+            }
+            if (empty($classId) && !empty($atpRaw['class_id'])) {
+                $classId = (int)$atpRaw['class_id'];
             }
 
             $redirectUrl = base_url("admin/administrasi-guru/modul-ajar?class_id={$classId}&subject_id={$subjectId}");
             
+            $teacherName = '-';
             if ($user['role_id'] == 3) {
                 $teacher = $this->teacherModel->find($user['related_id']);
+                $teacherName = !empty($teacher['name']) ? $teacher['name'] : '-';
                 $apiKey = $teacher['gemini_api_key'] ?? '';
                 $aiProvider = $teacher['ai_provider'] ?? 'gemini';
-                $targetTeacherId = $user['related_id'];
+                $targetTeacherId = (int)$user['related_id'];
             } else {
                 // Admin
                 $userData = $this->db->table('users')->where('id', $user['id'])->get()->getRowArray();
                 $apiKey = $userData['gemini_api_key'] ?? '';
                 $aiProvider = $userData['ai_provider'] ?? 'gemini';
                 
-                // Resolve Teacher based on subject & class
-                $assignment = $this->db->table('teaching_assignments')
+                // Resolve Teacher based on subject & class for active year
+                $assignQuery = $this->db->table('teaching_assignments')
                     ->where('subject_id', $subjectId)
-                    ->where('class_id', $classId)
-                    ->get()->getRowArray();
+                    ->where('class_id', $classId);
+                if ($activeYearId) {
+                    $assignQuery->where('academic_year_id', $activeYearId);
+                }
+                $assignment = $assignQuery->get()->getRowArray();
+                if (!$assignment) {
+                    $assignment = $this->db->table('teaching_assignments')
+                        ->where('subject_id', $subjectId)
+                        ->where('class_id', $classId)
+                        ->get()->getRowArray();
+                }
                 
                 if (!$assignment) {
                     return redirect()->to($redirectUrl)->with('error', 'Tidak ada guru yang diplot untuk Kelas dan Mapel ini. Modul tidak dapat digenerate karena membutuhkan identitas Guru Pengampu.');
                 }
-                $targetTeacherId = $assignment['teacher_id'];
+                $targetTeacherId = (int)$assignment['teacher_id'];
+                $teacher = $this->teacherModel->find($targetTeacherId);
+                $teacherName = !empty($teacher['name']) ? $teacher['name'] : '-';
             }
 
             if (empty($apiKey)) {
                 return redirect()->to($redirectUrl)->with('error', 'Anda belum mengatur Gemini API Key.');
             }
 
-        $atpResult   = $this->loadAtpWithElemen((int)$atpRaw['subject_id']);
-        $atpFull     = null;
-        foreach ($atpResult['list'] as $a) {
-            if ($a['id'] == $atpId) { $atpFull = $a; break; }
-        }
-        $atp = $atpFull ?? $atpRaw;
+            $contextBuilder = $this->getAiContextBuilder();
 
-        // Kumpulkan semua TP dari semua elemen CP
-        $tps = $atp['tps'] ?? [];
-        $tpDeskripsi = "";
-        foreach ($tps as $index => $tp) {
-            $kodeTp = !empty($tp['kode_tp']) ? $tp['kode_tp'] . '. ' : '';
-            $tpDeskripsi .= "<p>" . $kodeTp . $tp['deskripsi'] . "</p>\n";
-        }
-
-        // Kumpulkan semua CP deskripsi dari elemen_list
-        $cpDeskripsiAll = "";
-        foreach ($atp['elemen_list'] ?? [] as $el) {
-            $cpDeskripsiAll .= "<p><b>" . ($el['elemen'] ?? '') . ":</b> " . ($el['cp_deskripsi'] ?? '') . "</p>\n";
-        }
-        if (empty($cpDeskripsiAll) && !empty($atp['cp_deskripsi'])) {
-            $cpDeskripsiAll = $atp['cp_deskripsi']; // fallback data lama
-        }
-
-        $subject = $this->subjectModel->find($subjectId);
-        $teacher = $this->teacherModel->find($targetTeacherId);
-        $school = $this->schoolModel->getProfile();
-
-        $totalJp = (int) ($atp['alokasi_waktu'] ?? 4);
-
-        // Ambil JP per minggu dari Program Semester (Promes)
-        // untuk menentukan jumlah pertemuan yang akurat
-        $prosemJpPerWeek = $this->db->table('prosem_distributions')
-            ->where('atp_id', $atpId)
-            ->where('jp >', 0)
-            ->orderBy('id', 'ASC')
-            ->limit(1)
-            ->get()->getRowArray();
-
-        $jpPerMinggu = (int) ($prosemJpPerWeek['jp'] ?? 0);
-
-        // Fallback: jika promes belum diisi, hitung dari total JP
-        if ($jpPerMinggu <= 0) {
-            // Estimasi dari total JP / jumlah minggu efektif (asumsi)
-            $totalDistributed = $this->db->table('prosem_distributions')
-                ->where('atp_id', $atpId)
-                ->where('jp >', 0)
-                ->countAllResults();
-            if ($totalDistributed > 0) {
-                $sumJp = $this->db->table('prosem_distributions')
-                    ->selectSum('jp')
-                    ->where('atp_id', $atpId)
-                    ->where('jp >', 0)
-                    ->get()->getRowArray();
-                $jpPerMinggu = (int) round(($sumJp['jp'] ?? $totalJp) / $totalDistributed);
-            } else {
-                // Tidak ada promes sama sekali, fallback ke alokasi_waktu
-                $jpPerMinggu = min($totalJp, 4);
+            // Kondisi 3: Cek apakah kueri fasilitas mengalami kesalahan teknis (QUERY_ERROR)
+            $facilityCheck = $contextBuilder->getConfirmedFacilities();
+            if (isset($facilityCheck['status']) && $facilityCheck['status'] === 'QUERY_ERROR') {
+                return redirect()->to($redirectUrl)->with('error', 'Gagal menyiapkan konteks AI: Terjadi kesalahan kueri database pada fasilitas sekolah.');
             }
-        }
 
-        // Hitung jumlah pertemuan per minggu berdasarkan JP per minggu
-        // Aturan: 1-3 JP = 1 pertemuan, 4-8 JP = 2 pertemuan
-        if ($jpPerMinggu <= 3) {
-            $pertemuanPerMinggu = 1;
-        } else {
-            $pertemuanPerMinggu = 2;
-        }
+            // Kondisi 2: Validasi integritas relasi via AiContextBuilder
+            $contextResult = $contextBuilder->buildModulAjarContext((int)$atpId, $classId, (int)$subjectId, $targetTeacherId, $activeYearId);
+            if (!$contextResult['success']) {
+                return redirect()->to($redirectUrl)->with('error', $contextResult['message']);
+            }
 
-        // JP per pertemuan
-        $jpPerPertemuan = max(1, (int) round($jpPerMinggu / $pertemuanPerMinggu));
+            $context = $contextResult['data'];
+            $prompt = $this->buildModulPromptFromContext($context, $teacherName);
+            $pertemuanList = $context['jadwal']['pertemuan_list'] ?? [];
 
-        // Total pertemuan untuk seluruh alokasi waktu ATP ini
-        $jumlahPertemuan = max(1, (int) ceil($totalJp / $jpPerPertemuan));
-
-        // Menit per pertemuan
-        $menitPerPertemuan = $jpPerPertemuan * 45;
-
-        $prompt = "Buatkan Modul Ajar Kurikulum Merdeka DEEP LEARNING (MJM) 2025 dengan STRUKTUR PERSIS mengikuti rujukan 'Guru Karier' (LENGKAP POIN A SAMPAI K BERURUTAN, DILARANG MELOMPATI BAGIAN APAPUN):\n\n"
-                . "WAJIB TULISKAN SELURUH 11 BAGIAN SECARA LENGKAP & BERURUTAN:\n"
-                . "<h3>A. Identitas Modul</h3>\n"
-                . "Tabel 2-kolom (Label: text-align: left; width: 170px; font-weight: bold;). Isi Alokasi Waktu: '{$totalJp} JP ({$jumlahPertemuan} Pertemuan × {$jpPerPertemuan} JP)'.\n\n"
-                . "<h3>B. Kompetensi Awal</h3>\n"
-                . "Tuliskan narasi Capaian Pembelajaran (CP) dan kompetensi awal peserta didik.\n\n"
-                . "<h3>C. Tujuan Pembelajaran</h3>\n"
-                . "Masukkan Tujuan Pembelajaran (TP) persis seperti input data.\n\n"
-                . "<h3>D. Materi Pembelajaran</h3>\n"
-                . "Tuliskan ringkasan pokok materi esensial yang dipelajari siswa terkait materi " . $atp['lingkup_materi'] . ".\n\n"
-                . "<h3>E. Metode Pembelajaran</h3>\n"
-                . "Tuliskan pendekatan Pembelajaran Mendalam (Deep Learning MJM: Mindful, Meaningful, Joyful), diskusi kolaboratif, eksplorasi konsep, dan presentasi.\n\n"
-                . "<h3>F. Langkah Pembelajaran</h3>\n"
-                . "Buat TEPAT {$jumlahPertemuan} tabel pertemuan (dari 'Pertemuan ke-1' sampai 'Pertemuan ke-{$jumlahPertemuan}').\n"
-                . "Setiap tabel pertemuan memiliki 4 kolom: (Tahap | Sintaks | Deskripsi | Waktu) dengan Header Cream (#fff9c4).\n"
-                . "SETIAP tabel pertemuan (TERMASUK PERTEMUAN TERAKHIR KE-{$jumlahPertemuan}) WAJIB memiliki TEPAT 3 baris lengkap:\n"
-                . "  Baris 1 → Tahap: Mindful    | Waktu: 10 menit\n"
-                . "  Baris 2 → Tahap: Meaningful | Waktu: " . max(10, $menitPerPertemuan - 25) . " menit\n"
-                . "  Baris 3 → Tahap: Joyful     | Waktu: 15 menit\n"
-                . "* PERHATIAN BESAR: Pada PERTEMUAN TERAKHIR, tahapan Joyful dan kolom waktunya (15 menit) HARUS DITULIS LENGKAP. DILARANG KERAS MENGOSONGKAN ATAU MEMOTONG BARIS JOYFUL ATAU ALOKASI WAKTUNYA!\n"
-                . "* Jaga deskripsi kegiatan pada setiap tahap tetap padat, konkret, dan aplikatif (2-3 kalimat lugas per tahap).\n\n"
-                . "<h3>G. Sumber Belajar</h3>\n"
-                . "Sebutkan buku pegangan siswa/guru, media digital/video interaktif, LKPD, dan sumber belajar lingkungan nyata yang relevan.\n\n"
-                . "<h3>H. Keterampilan</h3>\n"
-                . "Uraikan keterampilan abad-21 dan dimensi profil kelulusan yang dilatih (bernalar kritis, kreativitas, gotong royong/kolaborasi, komunikasi).\n\n"
-                . "<h3>I. Penilaian Sikap</h3>\n"
-                . "Uraikan teknik observasi sikap (keaktifan, kedisiplinan, kejujuran, dan tanggung jawab selama proses pembelajaran).\n\n"
-                . "<h3>J. Kriteria Kelulusan</h3>\n"
-                . "Uraikan kriteria ketercapaian tujuan pembelajaran peserta didik pada materi ini.\n\n"
-                . "<h3>K. Penilaian / Asesmen</h3>\n"
-                . "Uraikan secara spesifik: 1. Penilaian Proses (formatif/observasi keaktifan diskusi) dan 2. Penilaian Hasil (sumatif/tes tertulis dan rubrik tugas/produk).\n\n"
-                . "ATURAN TAMBAHAN (KETAT & MUTLAK):\n"
-                . "1. FORMAT JUDUL BAGIAN: Gunakan tag <h3> dengan format LANGSUNG huruf dan judul saja, TANPA kata 'Bagian'. Contoh: <h3>B. Kompetensi Awal</h3>.\n"
-                . "2. JANGAN MENGHASILKAN bagian Tanda Tangan (L, M, dst) karena sistem pencetak otomatis telah menyediakan kolom tanda tangan resmi di bawah modul.\n"
-                . "3. KEMBALIKAN HANYA PURE HTML (tanpa markdown, tanpa code block ```html).\n"
-                . "4. DILARANG MENGGUNAKAN TANDA BACKSLASH (\\) DALAM BENTUK APAPUN: dilarang rumus LaTeX (\\( \\), \\div, \\times, \\%), dilarang escape penomoran (\\d., \\e.), dilarang backslash di akhir kalimat/baris/sel tabel (Bobot\\, Nilai\\).\n\n"
-                . "DATA INPUT:\n"
-                . "Sekolah: " . ($school['name'] ?? '-') . "\n"
-                . "Penyusun: " . ($teacher['name'] ?? '-') . "\n"
-                . "Mapel: " . $subject['name'] . "\n"
-                . "Materi: " . $atp['lingkup_materi'] . "\n"
-                . "Kelas: " . ($tps[0]['kelas'] ?? '-') . "\n"
-                . "Alokasi Waktu: {$totalJp} JP → {$jumlahPertemuan} Pertemuan (masing-masing {$jpPerPertemuan} JP / {$menitPerPertemuan} menit)\n"
-                . "CP: " . $cpDeskripsiAll . "\n"
-                . "TP:\n" . $tpDeskripsi . "\n\n"
-                . "KEMBALIKAN HANYA PURE HTML (TANPA MARKDOWN). Pastikan seluruh bagian A sampai K dan seluruh pertemuan selesai tuntas sempurna.";
-
-        $response = null;
-        $httpCode = 0;
-        $curlError = '';
+            $response = null;
+            $httpCode = 0;
+            $curlError = '';
 
         if ($aiProvider === 'groq') {
             $url = 'https://api.groq.com/openai/v1/chat/completions';
@@ -2414,8 +2826,9 @@ class AdministrasiGuru extends BaseController
             return redirect()->to($redirectUrl)->with('error', "AI tidak mengembalikan teks modul ajar (Status: {$blockedReason}). Silakan coba generate ulang atau gunakan provider lain.");
         }
 
-        // Jalankan auto-healer untuk menyempurnakan setiap pertemuan (terutama pertemuan terakhir)
-        $content = $this->sanitizeAndHealModulContent($content, $menitPerPertemuan);
+        // Jalankan auto-healer untuk menyempurnakan setiap pertemuan dan melengkapi asesmen Bagian K jika terpotong (P1 Tahap 10)
+        $tps = !empty($context['kurikulum']['tps']) ? $context['kurikulum']['tps'] : [];
+        $content = $this->sanitizeAndHealModulContent($content, $pertemuanList, $tps);
 
         $modulModel = new \App\Models\ModulAjarModel();
         $existing = $modulModel->where('atp_id', $atpId)->where('class_id', $classId)->first();
@@ -2556,7 +2969,7 @@ class AdministrasiGuru extends BaseController
      * 3. Menyempurnakan kalimat yang terpotong jika output AI terkena batas token.
      * 4. Melengkapi Poin Penilaian (K) jika terpotong sebelum selesai.
      */
-    protected function sanitizeAndHealModulContent(string $content, int $menitPerPertemuan = 90): string
+    protected function sanitizeAndHealModulContent(string $content, $menitPerPertemuan = 90, array $validTps = []): string
     {
         if (trim($content) === '') {
             return $content;
@@ -2564,7 +2977,6 @@ class AdministrasiGuru extends BaseController
 
         $content = preg_replace('/```(?:html)?(.*?)```/s', '$1', $content);
         $content = $this->cleanBackslashesAndLatex($content);
-        $waktuMeaningful = max(10, $menitPerPertemuan - 25) . " menit";
 
         if (class_exists('DOMDocument')) {
             libxml_use_internal_errors(true);
@@ -2574,69 +2986,126 @@ class AdministrasiGuru extends BaseController
 
             if ($loaded && ($wrapper = $dom->getElementById('__root_wrapper'))) {
                 $tables = $wrapper->getElementsByTagName('table');
+                $stepTableIndex = 0;
                 foreach ($tables as $table) {
                     $tableHtml = $dom->saveHTML($table);
                     // Periksa apakah tabel ini adalah tabel langkah pembelajaran pertemuan
-                    if (stripos($tableHtml, 'Mindful') === false && stripos($tableHtml, 'Meaningful') === false && stripos($tableHtml, 'Sintaks') === false) {
+                    if (stripos($tableHtml, 'Sintaks') === false && stripos($tableHtml, 'Tahap') === false && stripos($tableHtml, 'Mindful') === false && stripos($tableHtml, 'Meaningful') === false) {
                         continue;
                     }
 
+                    // Tentukan durasi untuk pertemuan ini (bisa array per-pertemuan atau durasi flat)
+                    if (is_array($menitPerPertemuan)) {
+                        $pInfo = $menitPerPertemuan[$stepTableIndex] ?? null;
+                        if (is_array($pInfo)) {
+                            $menitThisTable = (int)($pInfo['menit'] ?? 0);
+                        } else {
+                            $menitThisTable = (int)($pInfo ?? 0);
+                        }
+                    } else {
+                        $menitThisTable = (int)$menitPerPertemuan;
+                    }
+
+                    if ($menitThisTable <= 0) {
+                        // Deteksi durasi dari heading atau teks sebelum tabel jika tersedia di HTML
+                        $prevNode = $table->previousSibling;
+                        while ($prevNode) {
+                            if ($prevNode->nodeType === XML_ELEMENT_NODE) {
+                                $prevText = $prevNode->textContent;
+                                if (preg_match('/(?:Pertemuan|\bKe-)\s*\d+.*?\(\s*(\d+)\s*(?:x\s*(\d+)\s*)?menit\s*\)/i', $prevText, $m)) {
+                                    $menitThisTable = !empty($m[2]) ? ((int)$m[1] * (int)$m[2]) : (int)$m[1];
+                                    break;
+                                } elseif (preg_match('/(\d+)\s*menit/i', $prevText, $m)) {
+                                    $menitThisTable = (int)$m[1];
+                                    break;
+                                }
+                            }
+                            $prevNode = $prevNode->previousSibling;
+                        }
+                    }
+
+                    if ($menitThisTable <= 0) {
+                        // Fallback aman default standar sekolah jika durasi benar-benar tidak diketahui
+                        $menitThisTable = 80;
+                    }
+
+                    if ($menitThisTable < 35) {
+                        $defaultClosingMenit = "5 menit";
+                    } else {
+                        $defaultClosingMenit = "15 menit";
+                    }
+
                     $rows = $table->getElementsByTagName('tr');
-                    $hasJoyful = false;
+                    $hasClosing = false;
+                    $hasContentRows = false;
 
                     foreach ($rows as $row) {
-                        $rowText = $row->textContent;
-                        if (stripos($rowText, 'Joyful') !== false) {
-                            $hasJoyful = true;
-                            $cells = $row->getElementsByTagName('td');
-                            if ($cells->length >= 4) {
-                                $waktuCell = $cells->item(3);
-                                if (trim($waktuCell->textContent) === '') {
-                                    $waktuCell->textContent = '15 menit';
-                                }
-                            } elseif ($cells->length === 3) {
-                                $newTd = $dom->createElement('td', '15 menit');
-                                $row->appendChild($newTd);
-                            }
-                        } elseif (stripos($rowText, 'Meaningful') !== false) {
-                            $cells = $row->getElementsByTagName('td');
-                            if ($cells->length >= 4) {
-                                $waktuCell = $cells->item(3);
-                                if (trim($waktuCell->textContent) === '') {
-                                    $waktuCell->textContent = $waktuMeaningful;
-                                }
-                            } elseif ($cells->length === 3) {
-                                $newTd = $dom->createElement('td', $waktuMeaningful);
-                                $row->appendChild($newTd);
-                            }
+                        // Lewati baris header <th>
+                        $thCells = $row->getElementsByTagName('th');
+                        if ($thCells->length > 0) {
+                            continue;
+                        }
 
-                            // Rapikan deskripsi jika terpotong di tengah kalimat
-                            if ($cells->length >= 3) {
-                                $descCell = $cells->item(2);
-                                $descText = trim($descCell->textContent);
-                                if ($descText !== '' && !preg_match('/[.!?:]$/', $descText)) {
-                                    $descCell->textContent = $descText . ' serta menyimpulkan konsep materi secara bermakna.';
-                                }
+                        $cells = $row->getElementsByTagName('td');
+                        if ($cells->length === 0) {
+                            continue;
+                        }
+
+                        $hasContentRows = true;
+                        $rowText = $row->textContent;
+
+                        // Deteksi apakah baris ini adalah baris penutup / refleksi / joyful
+                        if (
+                            stripos($rowText, 'Joyful') !== false ||
+                            stripos($rowText, 'Penutup') !== false ||
+                            stripos($rowText, 'Refleksi') !== false ||
+                            stripos($rowText, 'Apresiasi') !== false
+                        ) {
+                            $hasClosing = true;
+                        }
+
+                        // Jika kolom waktu (kolom ke-4) kurang dari 4 tapi ada 3 kolom, lengkapi tanpa merusak baris
+                        if ($cells->length === 3) {
+                            $fallbackWaktu = $hasClosing ? $defaultClosingMenit : '15 menit';
+                            $newTd = $dom->createElement('td', $fallbackWaktu);
+                            $row->appendChild($newTd);
+                        } elseif ($cells->length >= 4) {
+                            // Jika ada kolom ke-4 namun kosong / hanya spasi, isi dengan durasi yang sesuai tanpa menimpa yang sudah ada
+                            $timeCell = $cells->item(3);
+                            if (trim($timeCell->textContent) === '') {
+                                $fallbackWaktu = $hasClosing ? $defaultClosingMenit : '15 menit';
+                                $timeCell->textContent = $fallbackWaktu;
+                            }
+                        }
+
+                        // Rapikan deskripsi jika terpotong di tengah kalimat tanpa tanda baca akhir
+                        if ($cells->length >= 3) {
+                            $descCell = $cells->item(2);
+                            $descText = trim($descCell->textContent);
+                            if ($descText !== '' && !preg_match('/[.!?:]$/', $descText)) {
+                                $descCell->textContent = $descText . '.';
                             }
                         }
                     }
 
-                    // Jika tabel langkah pertemuan belum memiliki baris Joyful (misal terpotong di akhir), tambahkan!
-                    if (!$hasJoyful) {
-                        $trJoyful = $dom->createElement('tr');
-                        $tdTahap   = $dom->createElement('td', 'Joyful');
-                        $tdSintaks = $dom->createElement('td');
-                        $tdSintaks->appendChild($dom->createTextNode('Refleksi & Game Edukatif'));
+                    // Hanya jika tabel sama sekali tidak memiliki baris penutup/refleksi (misal LLM terpotong pada batas token),
+                    // tambahkan baris penutup yang proporsional agar tabel tuntas
+                    if ($hasContentRows && !$hasClosing) {
+                        $trClosing = $dom->createElement('tr');
+                        $tdTahap   = $dom->createElement('td', 'Penutup (Joyful)');
+                        $tdSintaks = $dom->createElement('td', 'Refleksi & Apresiasi');
                         $tdDesc    = $dom->createElement('td', 'Peserta didik berpartisipasi dalam kuis interaktif singkat / refleksi apresiatif yang menyenangkan untuk menguatkan pemahaman konsep materi.');
-                        $tdWaktu   = $dom->createElement('td', '15 menit');
+                        $tdWaktu   = $dom->createElement('td', $defaultClosingMenit);
 
-                        $trJoyful->appendChild($tdTahap);
-                        $trJoyful->appendChild($tdSintaks);
-                        $trJoyful->appendChild($tdDesc);
-                        $trJoyful->appendChild($tdWaktu);
+                        $trClosing->appendChild($tdTahap);
+                        $trClosing->appendChild($tdSintaks);
+                        $trClosing->appendChild($tdDesc);
+                        $trClosing->appendChild($tdWaktu);
 
-                        $table->appendChild($trJoyful);
+                        $table->appendChild($trClosing);
                     }
+
+                    $stepTableIndex++;
                 }
 
                 $fixedHtml = '';
@@ -2692,9 +3161,110 @@ class AdministrasiGuru extends BaseController
             }
         }
 
-        // Cek jika bagian asesmen (K. Penilaian / Asesmen) terpotong atau belum ada
-        if (!preg_match('/<h3>\s*K\./i', $content) && stripos($content, 'Penilaian / Asesmen') === false) {
-            $content .= "\n\n<h3>K. Penilaian / Asesmen</h3>\n<p>Penilaian proses dilaksanakan melalui observasi keaktifan diskusi, pemahaman konsep, dan kolaborasi kelompok. Penilaian hasil dilaksanakan melalui tes tertulis (pemahaman konsep) dan penilaian produk/proyek untuk mengukur ketercapaian Tujuan Pembelajaran.</p>";
+        // Cek dan lengkapi bagian asesmen (K. Penilaian / Asesmen) jika belum ada atau terpotong
+        $hasHeadingK = false;
+        $posHeadingK = -1;
+        $contentAfterK = '';
+
+        // Deteksi posisi tag heading K
+        if (preg_match('/<h3>\s*K\.[^<]*<\/h3>/i', $content, $matchK, PREG_OFFSET_CAPTURE)) {
+            $hasHeadingK = true;
+            $posHeadingK = $matchK[0][1];
+            $lenHeadingK = strlen($matchK[0][0]);
+            $contentAfterK = substr($content, $posHeadingK + $lenHeadingK);
+        }
+
+        // Evaluasi substansi konten setelah heading K
+        $isSubstantiveK = false;
+        if ($hasHeadingK) {
+            // Hapus tag HTML dan decode entitas
+            $strippedAfterK = trim(strip_tags($contentAfterK));
+            $decodedAfterK = html_entity_decode($strippedAfterK, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            // Hapus whitespace, non-breaking space, dan karakter dekoratif/pemisah (seperti ---, ***, ___, dsb)
+            $cleanedAfterK = preg_replace('/[\s\x{00A0}\x{200B}-\x{200D}]+/u', ' ', $decodedAfterK);
+            $substantiveAfterK = preg_replace('/^[\s\-\_\*\#\:\.\,\;\|\~\=\+\/\(\)\[\]]+$/u', '', $cleanedAfterK);
+
+            // Konten dianggap substantif jika memiliki minimal 25 karakter bermakna
+            if ($substantiveAfterK !== '' && mb_strlen($substantiveAfterK) >= 25) {
+                $isSubstantiveK = true;
+            }
+        }
+
+        if (!$hasHeadingK || !$isSubstantiveK) {
+            // 1. Ekstraksi kode/nomor TP valid dari array parameter atau Bagian C dokumen
+            $discoveredTpCodes = [];
+            foreach ($validTps as $tpItem) {
+                if (is_array($tpItem)) {
+                    $code = !empty($tpItem['kode_tp']) ? trim($tpItem['kode_tp']) : '';
+                    if ($code === '' && !empty($tpItem['deskripsi'])) {
+                        if (preg_match('/^([0-9]+(?:\.[0-9]+)+|[A-Z]+-[0-9]+)/', trim($tpItem['deskripsi']), $m)) {
+                            $code = $m[1];
+                        }
+                    }
+                    if ($code !== '') {
+                        $discoveredTpCodes[] = rtrim($code, '.');
+                    }
+                } elseif (is_string($tpItem) && trim($tpItem) !== '') {
+                    if (preg_match('/^([0-9]+(?:\.[0-9]+)+|[A-Z]+-[0-9]+)/', trim($tpItem), $m)) {
+                        $discoveredTpCodes[] = rtrim($m[1], '.');
+                    } else {
+                        $discoveredTpCodes[] = trim($tpItem);
+                    }
+                }
+            }
+
+            // Jika $validTps kosong, coba ekstrak kode TP dari Bagian C pada dokumen
+            if (empty($discoveredTpCodes) && preg_match('/<h3>\s*C\.[^<]*<\/h3>(.*?)(?=<h3>|$)/is', $content, $matchC)) {
+                $cHtml = $matchC[1];
+                if (preg_match_all('/(?:<li>|<p>)\s*(?:(?:Kode\s*TP|TP)\s*[:.]?\s*)?([0-9]+(?:\.[0-9]+)+|[A-Z]+-[0-9]+)[.:\s]/i', $cHtml, $mCodes)) {
+                    foreach ($mCodes[1] as $c) {
+                        $discoveredTpCodes[] = rtrim($c, '.');
+                    }
+                }
+            }
+            $discoveredTpCodes = array_values(array_unique(array_filter($discoveredTpCodes)));
+
+            // 2. Susun konten Bagian K fallback yang proporsional
+            if (!empty($discoveredTpCodes)) {
+                $tpListStr = implode(', ', $discoveredTpCodes);
+                $tpRows = '';
+                foreach ($discoveredTpCodes as $idx => $code) {
+                    $no = $idx + 1;
+                    $tpRows .= "    <tr>\n"
+                        . "      <td style=\"text-align:center;\">{$no}</td>\n"
+                        . "      <td>Tujuan Pembelajaran {$code}</td>\n"
+                        . "      <td>Observasi keaktifan diskusi, partisipasi kelompok, dan lembar kerja peserta didik (LKPD)</td>\n"
+                        . "      <td>Tes tertulis pemahaman konsep serta penilaian unjuk kerja / produk hasil pembelajaran</td>\n"
+                        . "    </tr>\n";
+                }
+
+                $bodyK = "<p>Penilaian dilaksanakan secara komprehensif mencakup penilaian proses (formatif) dan penilaian hasil (sumatif) yang terpetakan secara langsung pada Tujuan Pembelajaran (TP: {$tpListStr}):</p>\n"
+                    . "<ol>\n"
+                    . "  <li><strong>Penilaian Proses (Formatif):</strong> Observasi keaktifan belajar, keterlibatan diskusi, dan pengerjaan LKPD terfokus pada penguasaan materi sesuai indikator ketercapaian tujuan pembelajaran.</li>\n"
+                    . "  <li><strong>Penilaian Hasil (Sumatif):</strong> Tes tertulis (uraian/pilihan objektif) dan tugas mandiri/kelompok untuk mengukur ketercapaian tujuan pembelajaran secara terukur.</li>\n"
+                    . "</ol>\n"
+                    . "<p><strong>Tabel Pemetaan Asesmen terhadap Tujuan Pembelajaran:</strong></p>\n"
+                    . "<table border=\"1\" cellspacing=\"0\" cellpadding=\"5\" width=\"100%\">\n"
+                    . "  <tr style=\"background:#fff9c4;font-weight:bold;text-align:center;\">\n"
+                    . "    <th style=\"width:8%;\">No</th>\n"
+                    . "    <th style=\"width:22%;\">Kode TP</th>\n"
+                    . "    <th style=\"width:35%;\">Bentuk Asesmen Formatif</th>\n"
+                    . "    <th style=\"width:35%;\">Bentuk Asesmen Sumatif</th>\n"
+                    . "  </tr>\n"
+                    . $tpRows
+                    . "</table>";
+            } else {
+                $bodyK = "<p>Penilaian proses (formatif) dilaksanakan melalui observasi keaktifan diskusi, partisipasi kerja kelompok, dan lembar cek pengerjaan tugas harian peserta didik. Penilaian hasil (sumatif) dilaksanakan melalui tes tertulis pemahaman konsep serta penilaian unjuk kerja atau portofolio karya nyata untuk mengukur ketercapaian tujuan pembelajaran pada materi ini.</p>";
+            }
+
+            $fullSectionK = "<h3>K. Penilaian / Asesmen</h3>\n" . $bodyK;
+
+            if ($hasHeadingK) {
+                // Potong dari posisi <h3>K. lalu gantikan dengan $fullSectionK lengkap (cegah duplikasi heading)
+                $content = substr($content, 0, $posHeadingK) . $fullSectionK;
+            } else {
+                $content .= "\n\n" . $fullSectionK;
+            }
         }
 
         return trim($this->cleanBackslashesAndLatex($content));

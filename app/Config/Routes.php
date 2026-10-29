@@ -458,11 +458,17 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
 
     // Teaching Journal (Jurnal Mengajar) - Admin, Principal, Teacher
     $routes->get('teaching-journal', 'TeachingJournalController::index', $auth123);
+    $routes->get('teaching-journal/monitoring', 'TeachingJournalController::monitoring', $auth123);
+    $routes->get('teaching-journal/monitoring-detail', 'TeachingJournalController::monitoringDetail', $auth123);
+    $routes->get('teaching-journal/monitoring-print', 'TeachingJournalController::monitoringPrint', $auth123);
+    $routes->get('teaching-journal/monitoring-pdf', 'TeachingJournalController::monitoringPdf', $auth123);
     $routes->get('teaching-journal/add', 'TeachingJournalController::add', $auth123);
     $routes->get('teaching-journal/edit/(:num)', 'TeachingJournalController::edit/$1', $auth123);
     $routes->post('teaching-journal/store', 'TeachingJournalController::store', $auth123);
     $routes->get('teaching-journal/delete/(:num)', 'TeachingJournalController::delete/$1', $auth123);
     $routes->get('teaching-journal/get-atps', 'TeachingJournalController::getAtps', $auth123);
+    $routes->get('teaching-journal/get-moduls', 'TeachingJournalController::getModuls', $auth123);
+    $routes->get('teaching-journal/get-modul-meetings', 'TeachingJournalController::getModulMeetings', $auth123);
 
     // School Schedule (Jadwal Pelajaran)
     $routes->get('schedules', 'ScheduleController::index', $auth1237);

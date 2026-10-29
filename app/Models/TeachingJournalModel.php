@@ -14,6 +14,10 @@ class TeachingJournalModel extends Model
         'class_id',
         'subject_id',
         'atp_id',
+        'modul_id',
+        'pertemuan_ke',
+        'rencana_snapshot',
+        'status_realisasi',
         'notes'
     ];
     protected $useTimestamps = true;
