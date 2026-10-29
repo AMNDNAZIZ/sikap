@@ -81,7 +81,6 @@ docs/
 /log_Cpanel/
 /ai-context/
 
-# Local test credentials and sensitive scratch files (NEVER commit these!)
-/scratch/*.local.php
-/scratch/*_local.php
+# Scratch & local test artifacts (NEVER commit these!)
+/scratch/
 .env.test.local
