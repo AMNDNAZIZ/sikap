@@ -409,7 +409,27 @@ class RaporSemester extends BaseController
 
         $school = $this->schoolModel->getProfile();
         if ($school) {
-            $this->schoolModel->update($school['id'], ['regional_logo' => $relPath]);
+            $db = \Config\Database::connect();
+            if (!$db->fieldExists('regional_logo', 'school_profile')) {
+                try {
+                    $forge = \Config\Database::forge();
+                    $forge->addColumn('school_profile', [
+                        'regional_logo' => [
+                            'type'       => 'VARCHAR',
+                            'constraint' => 255,
+                            'null'       => true,
+                            'default'    => null,
+                            'after'      => 'logo',
+                        ],
+                    ]);
+                } catch (\Throwable $e) {
+                    log_message('warning', '[RaporSemester] Auto-add regional_logo column notice: ' . $e->getMessage());
+                }
+            }
+
+            if ($db->fieldExists('regional_logo', 'school_profile')) {
+                $this->schoolModel->update($school['id'], ['regional_logo' => $relPath]);
+            }
         }
 
         return $this->response->setJSON([
