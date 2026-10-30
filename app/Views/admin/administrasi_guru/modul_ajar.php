@@ -248,11 +248,11 @@
                                                         <i class="bi bi-magic"></i> Generate AI
                                                     </button>
                                                 </form>
-                                                <button type="button" class="btn btn-sm btn-outline-secondary w-100 get-prompt-btn" data-atp-id="<?= $atp['id'] ?>" data-subject-id="<?= $selected_subject ?>">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary w-100 get-prompt-btn" data-atp-id="<?= $atp['id'] ?>" data-subject-id="<?= $selected_subject ?>" data-class-id="<?= $selected_class ?>">
                                                     <i class="bi bi-clipboard"></i> Salin Prompt AI
                                                 </button>
                                             <?php else: ?>
-                                                <button type="button" class="btn btn-sm btn-outline-primary w-100 get-prompt-btn" data-atp-id="<?= $atp['id'] ?>" data-subject-id="<?= $selected_subject ?>">
+                                                <button type="button" class="btn btn-sm btn-outline-primary w-100 get-prompt-btn" data-atp-id="<?= $atp['id'] ?>" data-subject-id="<?= $selected_subject ?>" data-class-id="<?= $selected_class ?>">
                                                     <i class="bi bi-clipboard"></i> Salin Prompt AI
                                                 </button>
                                                 <button type="button" class="btn btn-sm btn-danger w-100" data-bs-toggle="modal" data-bs-target="#apiKeyModal">
@@ -421,6 +421,7 @@
     $('.get-prompt-btn').on('click', function() {
         const atpId = $(this).data('atp-id');
         const subjectId = $(this).data('subject-id');
+        const classId = $(this).data('class-id');
         const btn = $(this);
 
         btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
@@ -428,6 +429,7 @@
         $.post('<?= base_url('admin/administrasi-guru/modul-ajar/get-prompt') ?>', {
             atp_id: atpId,
             subject_id: subjectId,
+            class_id: classId,
             '<?= csrf_token() ?>': '<?= csrf_hash() ?>'
         }, function(res) {
             btn.prop('disabled', false).html('<i class="bi bi-clipboard"></i> Salin Prompt AI');

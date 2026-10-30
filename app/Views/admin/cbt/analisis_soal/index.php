@@ -1,35 +1,36 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="container-fluid">
-  <div class="card shadow-sm mb-3">
-    <div class="card-body d-flex align-items-center">
+<div class="container-fluid py-2">
+  <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px;">
+    <div class="card-body d-flex align-items-center p-3">
       <div class="me-3">
-        <div class="icon bg-light rounded-circle p-3">
-          <i class="bi bi-bar-chart-line fs-3 text-success"></i>
+        <div class="icon bg-success bg-opacity-10 text-success rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; font-size: 1.5rem;">
+          <i class="bi bi-bar-chart-line"></i>
         </div>
       </div>
       <div>
-        <h5 class="mb-1">Analisis Soal</h5>
-        <p class="text-muted mb-0">
-          Halaman ini menampilkan tingkat kesulitan soal berdasarkan hasil jawaban siswa.
-          <br>Soal esai ditampilkan di bagian akhir dan tidak dianalisis otomatis.
+        <h5 class="mb-1 fw-bold">Analisis Soal</h5>
+        <p class="text-muted mb-0 small">
+          Tingkat kesulitan butir soal berdasarkan rekapitulasi jawaban siswa.
         </p>
       </div>
     </div>
   </div>
 
-  <div class="card shadow-sm">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-      <strong><?= esc($test['subject_name']) ?> — <?= esc($test['exam_name']) ?>
-        [<?= esc($test['bank_code']) ?>]</strong>
-      <div>
-        <a href="<?= site_url('admin/cbt/aktivitas') ?>" class="btn btn-success btn-sm me-2">
-          <i class="bi bi-arrow-left"></i>
+  <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
+    <div class="card-header bg-white border-bottom py-3 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
+      <div class="pe-2">
+        <div class="fw-bold text-dark fs-6"><?= esc($test['subject_name']) ?> &bull; <?= esc($test['exam_name']) ?></div>
+        <span class="badge bg-light text-dark border font-monospace mt-1">[<?= esc($test['bank_code']) ?>]</span>
+      </div>
+      <div class="d-flex gap-2 w-100 w-sm-auto justify-content-end">
+        <a href="<?= site_url('admin/cbt/aktivitas') ?>" class="btn btn-outline-secondary btn-sm flex-fill flex-sm-grow-0 d-inline-flex align-items-center justify-content-center py-2 px-3">
+          <i class="bi bi-arrow-left me-1"></i> Kembali
         </a>
         <a href="<?= site_url('admin/cbt/aktivitas/analisis/download/' . $test['id']) ?>"
-          class="btn btn-primary btn-sm">
-          <i class="bi bi-download"></i>
+          class="btn btn-primary btn-sm flex-fill flex-sm-grow-0 d-inline-flex align-items-center justify-content-center py-2 px-3 shadow-sm">
+          <i class="bi bi-download me-1"></i> Unduh Excel
         </a>
       </div>
     </div>

@@ -1,58 +1,55 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<style>
-  .container {
-    max-width: 700px;
-    margin-top: 80px;
-    background: white;
-    padding: 25px;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
+<div class="container-fluid py-2 py-md-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-5 col-md-8 col-12">
+      <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-body p-3 p-md-4">
+          <div class="text-center mb-3">
+            <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-circle mb-2" style="width: 50px; height: 50px; font-size: 1.5rem;">
+              <i class="bi bi-file-earmark-text"></i>
+            </div>
+            <h5 class="fw-bold mb-1">Cetak Daftar Hadir Penilaian</h5>
+            <p class="text-muted small mb-0">Pilih ujian dan kelas untuk mencetak daftar hadir siswa</p>
+          </div>
 
-  h4 {
-    font-weight: bold;
-    text-align: center;
-    margin-bottom: 25px;
-  }
-</style>
+          <form id="attendanceForm">
+            <!-- Pilihan Nama Ujian -->
+            <div class="mb-3">
+              <label for="exam_id" class="form-label fw-semibold small">Pilih Nama Ujian <span class="text-danger">*</span></label>
+              <select id="exam_id" name="exam_id" class="form-select rounded-3 py-2" required>
+                <option value="">-- Pilih Ujian --</option>
+                <?php foreach ($exams as $e): ?>
+                  <option value="<?= esc($e['id']) ?>"><?= esc($e['name']) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
 
-<div class="col-md-4">
-  <h4 class="text-center fw-bold mb-3">📃 Cetak Daftar Hadir Penilaian</h4>
+            <!-- Pilihan Kelas -->
+            <div class="mb-4">
+              <label for="class_id" class="form-label fw-semibold small">Pilih Kelas <span class="text-danger">*</span></label>
+              <select id="class_id" name="class_id" class="form-select rounded-3 py-2" required>
+                <option value="">-- Pilih Kelas --</option>
+                <?php foreach ($classes as $c): ?>
+                  <option value="<?= esc($c['id']) ?>"><?= esc($c['name']) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
 
-  <form id="attendanceForm" class="mx-auto">
-    <!-- Pilihan Nama Ujian -->
-    <div class="mb-3">
-      <label for="exam_id" class="form-label">Pilih Nama Ujian</label>
-      <select id="exam_id" name="exam_id" class="form-select" required>
-        <option value="">-- Pilih Ujian --</option>
-        <?php foreach ($exams as $e): ?>
-          <option value="<?= esc($e['id']) ?>"><?= esc($e['name']) ?></option>
-        <?php endforeach; ?>
-      </select>
+            <div class="d-grid gap-2 d-sm-flex justify-content-center">
+              <button type="button" id="printPdfBtn" class="btn btn-danger rounded-pill px-4 py-2 fw-semibold">
+                <i class="bi bi-file-earmark-pdf me-1"></i> Cetak PDF
+              </button>
+              <button type="button" id="printHalBtn" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold">
+                <i class="bi bi-printer me-1"></i> Pratinjau Cetak
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
-
-    <!-- Pilihan Kelas -->
-    <div class="mb-3">
-      <label for="class_id" class="form-label">Pilih Kelas</label>
-      <select id="class_id" name="class_id" class="form-select" required>
-        <option value="">-- Pilih Kelas --</option>
-        <?php foreach ($classes as $c): ?>
-          <option value="<?= esc($c['id']) ?>"><?= esc($c['name']) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
-
-    <div class="text-center mt-3">
-      <button type="button" id="printPdfBtn" class="btn btn-danger" target="_blank">
-        <i class="bi bi-file-earmark-pdf"></i> Cetak PDF
-      </button>
-      <button type="button" id="printHalBtn" class="btn btn-primary">
-        <i class="bi bi-printer"></i> Pratinjau Cetak
-      </button>
-    </div>
-  </form>
+  </div>
 </div>
 
 <?= $this->endSection() ?>

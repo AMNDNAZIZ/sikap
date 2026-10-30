@@ -390,6 +390,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     // Integrasi Pembayaran (Admin Only)
     $routes->get('settings/payment', 'SettingsController::payment', $auth1);
     $routes->post('settings/payment/save', 'SettingsController::savePayment', $auth1);
+    $routes->post('settings/payment/test', 'SettingsController::testPayment', $auth1);
 
     // Cache CBT Settings (Admin Only)
     $routes->get('settings/session', 'SessionSettings::index', $auth1);
@@ -457,11 +458,17 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
 
     // Teaching Journal (Jurnal Mengajar) - Admin, Principal, Teacher
     $routes->get('teaching-journal', 'TeachingJournalController::index', $auth123);
+    $routes->get('teaching-journal/monitoring', 'TeachingJournalController::monitoring', $auth123);
+    $routes->get('teaching-journal/monitoring-detail', 'TeachingJournalController::monitoringDetail', $auth123);
+    $routes->get('teaching-journal/monitoring-print', 'TeachingJournalController::monitoringPrint', $auth123);
+    $routes->get('teaching-journal/monitoring-pdf', 'TeachingJournalController::monitoringPdf', $auth123);
     $routes->get('teaching-journal/add', 'TeachingJournalController::add', $auth123);
     $routes->get('teaching-journal/edit/(:num)', 'TeachingJournalController::edit/$1', $auth123);
     $routes->post('teaching-journal/store', 'TeachingJournalController::store', $auth123);
     $routes->get('teaching-journal/delete/(:num)', 'TeachingJournalController::delete/$1', $auth123);
     $routes->get('teaching-journal/get-atps', 'TeachingJournalController::getAtps', $auth123);
+    $routes->get('teaching-journal/get-moduls', 'TeachingJournalController::getModuls', $auth123);
+    $routes->get('teaching-journal/get-modul-meetings', 'TeachingJournalController::getModulMeetings', $auth123);
 
     // School Schedule (Jadwal Pelajaran)
     $routes->get('schedules', 'ScheduleController::index', $auth1237);
@@ -808,12 +815,17 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
 
     $routes->get('cbt/aktivitas', 'CbtAktivitas::aktivitasIndex', $auth123);
     $routes->get('cbt/aktivitas/detail/(:num)', 'CbtAktivitas::detail/$1', $auth123);
+    $routes->get('cbt/aktivitas/pollStatus/(:num)', 'CbtAktivitas::pollStatus/$1', $auth123);
     $routes->get('cbt/aktivitas/detail_jawaban/(:num)', 'CbtAktivitas::detail_jawaban/$1', $auth123);
     $routes->post('cbt/aktivitas/forceFinish/(:num)', 'CbtAktivitas::forceFinish/$1', $auth123);
+    $routes->post('cbt/aktivitas/forceFinishMassal/(:num)', 'CbtAktivitas::forceFinishMassal/$1', $auth123);
     $routes->post('cbt/aktivitas/addTime/(:num)', 'CbtAktivitas::addTime/$1', $auth123);
     $routes->post('cbt/aktivitas/resetSession/(:num)', 'CbtAktivitas::resetSession/$1', $auth123);
+    $routes->post('cbt/aktivitas/resetLogin/(:num)', 'CbtAktivitas::resetLogin/$1', $auth123);
+    $routes->post('cbt/aktivitas/resetMassal/(:num)', 'CbtAktivitas::resetMassal/$1', $auth123);
     $routes->get('cbt/aktivitas/belumTes/(:num)', 'CbtAktivitas::belumTes/$1', $auth123);
     $routes->get('cbt/aktivitas/unduhNilai/(:num)', 'CbtAktivitas::unduhNilai/$1', $auth123);
+    $routes->get('cbt/aktivitas/exportNilai/(:num)', 'CbtAktivitas::exportNilai/$1', $auth123);
     $routes->get('cbt/aktivitas/analisis/(:num)', 'CbtAktivitas::analisisSoal/$1', $auth123);
     $routes->get('cbt/aktivitas/analisis/download/(:num)', 'CbtAktivitas::analisisDownload/$1', $auth123);
     $routes->get('cbt/aktivitas/analisisjawaban/download/(:num)', 'CbtAktivitas::downloadAnalisis/$1', $auth123);

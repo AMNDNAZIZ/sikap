@@ -1,4 +1,10 @@
 <?= $this->extend('layouts/cbt') ?>
+<?php 
+$hideLogout = true; 
+$hideNavbar = true;
+$noMainPadding = true;
+$fluidNoPadding = true;
+?>
 <?= $this->section('content') ?>
 
 <?php
@@ -10,27 +16,39 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
 <style>
   :root {
-    --exam-font-size: 1.1rem;
+    --exam-font-size: 1.05rem;
     --primary-blue: #0d6efd;
+    --primary-blue-hover: #0b5ed7;
+    --primary-blue-light: #ebf5ff;
     --danger-red: #dc3545;
     --warning-yellow: #ffc107;
+    --warning-yellow-light: #fff9db;
+    --success-green: #198754;
+    --bg-page: #f8fafc;
+    --card-bg: #ffffff;
+    --text-primary: #1e293b;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
   }
 
   body {
-    background-color: #f8f9fa;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-page);
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
   }
 
   /* 🔒 ANTI-CHEAT: Disable text selection to prevent AI search on mobile */
   .stimulus-text,
   .q-text,
-  .option-text {
+  .option-text,
+  .stimulus-header-bar,
+  .q-header-bar {
     -webkit-user-select: none !important;
     -moz-user-select: none !important;
     -ms-user-select: none !important;
     user-select: none !important;
     -webkit-touch-callout: none !important;
-    /* iOS Safari */
   }
 
   /* Allow selection for input fields only */
@@ -42,9 +60,38 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     user-select: text !important;
   }
 
-  html {}
+  /* 🛠️ Responsive and scrollable tables */
+  .stimulus-text table,
+  .q-text table,
+  .option-text table,
+  .exam-pc-root table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 
-  /* Ensure scrolling works in fullscreen mode */
+  .stimulus-text table td, .stimulus-text table th,
+  .q-text table td, .q-text table th,
+  .option-text table td, .option-text table th {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+  }
+
+  /* 🖼️ Zoomable Exam Images */
+  .stimulus-text img,
+  .q-text img,
+  .option-text img {
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  .stimulus-text img:hover,
+  .q-text img:hover,
+  .option-text img:hover {
+    opacity: 0.9;
+  }
+
+  /* Fullscreen mode support */
   html:fullscreen,
   html:-webkit-full-screen,
   html:-moz-full-screen,
@@ -64,13 +111,11 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   .exam-pc-root {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 16px 20px 100px 20px;
     overflow-y: visible;
-    /* Allow vertical scroll */
     position: relative;
-    /* Establish stacking context */
     z-index: 1;
-    /* Ensure content is above body but below footer */
+    overflow-x: hidden;
   }
 
   /* Ensure exam-pc-root can scroll in fullscreen */
@@ -82,38 +127,98 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     height: auto !important;
   }
 
-  /* Header Section */
+  /* =================================================== */
+  /* HEADER SECTION (DESKTOP & RESPONSIVE BASE)          */
+  /* =================================================== */
   .exam-header {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+  }
+
+  .header-main-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #fff;
-    padding: 15px 25px;
-    border-radius: 15px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    margin-bottom: 20px;
+    padding: 14px 24px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
 
   .q-number-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #333;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #1e293b;
     margin: 0;
+    letter-spacing: -0.3px;
+  }
+
+  .progress-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f1f5f9;
+    padding: 6px 14px;
+    border-radius: 30px;
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  .progress-breadcrumb .current {
+    color: var(--primary-blue);
+    font-size: 1rem;
+  }
+
+  .progress-breadcrumb .separator {
+    color: #94a3b8;
+  }
+
+  .progress-breadcrumb .total {
+    color: #64748b;
+  }
+
+  .progress-bar-mini {
+    width: 80px;
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-left: 6px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-blue), #00c6ff);
+    transition: width 0.3s ease;
+    border-radius: 3px;
   }
 
   .font-zoom-ctrl {
     display: flex;
     align-items: center;
-    gap: 15px;
-    margin-left: 30px;
+    gap: 10px;
+    margin-left: 20px;
+    background: #f8fafc;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
   }
 
   .zoom-btn {
     cursor: pointer;
-    color: #6c757d;
-    transition: 0.2s;
+    color: #64748b;
+    transition: 0.15s;
     user-select: none;
     font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
   }
 
   .zoom-btn:hover {
@@ -121,70 +226,104 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   }
 
   .zoom-btn.active {
-    color: #000;
+    color: #fff;
+    background: var(--primary-blue);
     font-weight: 800;
-    border-bottom: 2px solid #000;
   }
 
   .header-actions {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
   }
 
   .pill-btn {
     border-radius: 50px !important;
-    padding: 8px 25px !important;
+    padding: 8px 20px !important;
     font-weight: 600 !important;
-    display: flex;
+    display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     border: none !important;
+    transition: all 0.2s ease;
   }
 
   .btn-blue {
     background-color: var(--primary-blue);
     color: #fff;
+    box-shadow: 0 2px 6px rgba(13, 110, 253, 0.25);
   }
 
   .btn-blue:hover {
-    background-color: #0b5ed7;
+    background-color: var(--primary-blue-hover);
     color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(13, 110, 253, 0.35);
   }
 
   .timer-pill {
     background: #fff;
-    border: 1px solid #dee2e6;
+    border: 1.5px solid var(--border-color);
     border-radius: 50px;
-    padding: 6px 15px;
-    display: flex;
+    padding: 6px 16px;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    font-family: monospace;
+    gap: 6px;
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
     font-weight: 700;
-    font-size: 1.1rem;
-    min-width: 140px;
+    font-size: 1.05rem;
+    min-width: 130px;
     justify-content: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    transition: all 0.3s ease;
+  }
+
+  .timer-pill.timer-warning {
+    background: #fff9db !important;
+    border-color: #ffc107 !important;
+    color: #b25e00 !important;
+  }
+
+  .timer-pill.timer-danger {
+    background: #ffe3e3 !important;
+    border-color: #dc3545 !important;
+    color: #dc3545 !important;
+    animation: pulse-danger 1.5s infinite;
+  }
+
+  @keyframes pulse-danger {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
+    50% { transform: scale(1.02); box-shadow: 0 0 0 6px rgba(220, 53, 69, 0); }
+  }
+
+  .subject-strip {
+    background: #f8fafc;
+    padding: 6px 24px;
+    border-top: 1px solid #f1f5f9;
+    border-radius: 0 0 16px 16px;
+    font-size: 0.85rem;
   }
 
   /* Auto-Save Indicator */
   .save-status {
     position: fixed;
-    bottom: 100px;
+    bottom: 95px;
     right: 30px;
     background: #fff;
-    padding: 10px 20px;
+    padding: 8px 18px;
     border-radius: 30px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 600;
-    z-index: 1000;
+    z-index: 1050;
     opacity: 0;
     transform: translateY(10px);
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
+    pointer-events: none;
   }
 
   .save-status.show {
@@ -215,224 +354,107 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   }
 
   @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-
-    to {
-      transform: rotate(360deg);
-    }
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 
-  /* Progress Breadcrumb */
-  .progress-breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: #f8f9fa;
-    padding: 8px 20px;
-    border-radius: 30px;
-    font-size: 0.95rem;
-    font-weight: 600;
-  }
-
-  .progress-breadcrumb .current {
-    color: var(--primary-blue);
-    font-size: 1.1rem;
-  }
-
-  .progress-breadcrumb .separator {
-    color: #adb5bd;
-  }
-
-  .progress-breadcrumb .total {
-    color: #6c757d;
-  }
-
-  .progress-bar-mini {
-    width: 100px;
-    height: 6px;
-    background: #e9ecef;
-    border-radius: 3px;
-    overflow: hidden;
-    margin-left: 10px;
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--primary-blue), #667eea);
-    transition: width 0.3s ease;
-    border-radius: 3px;
-  }
-
-  /* Keyboard Shortcut Hints */
-  .keyboard-hints {
-    position: fixed;
-    bottom: 30px;
-    left: 30px;
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 15px 20px;
-    border-radius: 10px;
-    font-size: 0.85rem;
-    z-index: 1000;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
-  }
-
-  .keyboard-hints.show {
-    opacity: 1;
-  }
-
-  .keyboard-hints kbd {
-    background: #495057;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-family: monospace;
-    font-size: 0.8rem;
-    margin: 0 2px;
-  }
-
-  .keyboard-hints .hint-item {
-    margin: 5px 0;
-  }
-
-  /* Two Column Layout */
+  /* Two Column Layout for Desktop */
   .exam-content-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
-    height: calc(100vh - 250px);
+    height: calc(100vh - 240px);
     min-height: 500px;
     position: relative;
-    /* Establish stacking context */
     z-index: 1;
-    /* Ensure grid is above body */
   }
 
-  /* Ensure proper height in fullscreen */
+  /* Fullscreen height */
   :fullscreen .exam-content-grid,
   :-webkit-full-screen .exam-content-grid,
   :-moz-full-screen .exam-content-grid,
   :-ms-fullscreen .exam-content-grid {
-    height: calc(100vh - 200px) !important;
+    height: calc(100vh - 190px) !important;
   }
 
   .stimulus-col,
   .question-col {
     background: #fff;
-    border-radius: 15px;
-    padding: 30px;
+    border-radius: 16px;
+    padding: 24px;
     overflow-y: auto;
     overflow-x: hidden;
     position: relative;
-    border: 1px solid #eee;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
     -webkit-overflow-scrolling: touch;
-    /* Smooth scrolling on iOS */
     z-index: 2;
-    /* Ensure columns are above grid */
   }
 
-  /* Ensure columns can scroll in fullscreen */
-  :fullscreen .stimulus-col,
-  :fullscreen .question-col,
-  :-webkit-full-screen .stimulus-col,
-  :-webkit-full-screen .question-col,
-  :-moz-full-screen .stimulus-col,
-  :-moz-full-screen .question-col,
-  :-ms-fullscreen .stimulus-col,
-  :-ms-fullscreen .question-col {
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-  }
-
-
-  /* Ensure images can be clicked for zoom */
-  .stimulus-text img,
-  .q-text img,
-  .option-text img {
-    pointer-events: auto !important;
-  }
-
-  /* Scrollbar styling */
   .stimulus-col::-webkit-scrollbar,
   .question-col::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
   }
 
   .stimulus-col::-webkit-scrollbar-track,
   .question-col::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 10px;
+    background: #f8fafc;
   }
 
   .stimulus-col::-webkit-scrollbar-thumb,
   .question-col::-webkit-scrollbar-thumb {
-    background: #ccc;
-    border-radius: 10px;
-  }
-
-  .stimulus-col::-webkit-scrollbar-thumb:hover,
-  .question-col::-webkit-scrollbar-thumb:hover {
-    background: #999;
+    background: #cbd5e1;
+    border-radius: 6px;
   }
 
   .stimulus-title {
     text-align: center;
     font-weight: 800;
     font-size: 1.25rem;
-    margin-bottom: 25px;
-    color: #111;
+    margin-bottom: 20px;
+    color: #1e293b;
   }
 
   .stimulus-text,
   .q-text {
     font-size: var(--exam-font-size);
     line-height: 1.7;
-    color: #2c3e50;
+    color: #334155;
   }
 
-  /* Styling untuk gambar dan paragraf dalam soal */
+  /* Images within questions */
   .stimulus-text img,
   .q-text img,
   .option-text img {
     display: block !important;
-    margin: 15px auto !important;
+    margin: 14px auto !important;
     max-width: 100% !important;
     height: auto !important;
-    border-radius: 8px !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-    cursor: pointer !important;
+    border-radius: 10px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+    cursor: zoom-in !important;
     transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    pointer-events: auto !important;
   }
 
   .stimulus-text img:hover,
   .q-text img:hover,
   .option-text img:hover {
-    transform: scale(1.02) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+    transform: scale(1.01) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
   }
 
   .stimulus-text p,
   .q-text p,
   .option-text p {
-    margin-bottom: 1rem !important;
+    margin-bottom: 0.85rem !important;
     line-height: 1.7 !important;
   }
 
-  .stimulus-text br,
-  .q-text br,
-  .option-text br {
-    display: block !important;
-    content: "" !important;
-    margin-bottom: 0.5rem !important;
-  }
-
-  .stimulus-text,
-  .q-text,
-  .option-text {
-    white-space: normal !important;
+  .stimulus-text p:last-child,
+  .q-text p:last-child,
+  .option-text p:last-child {
+    margin-bottom: 0 !important;
   }
 
   .stimulus-text ul,
@@ -441,26 +463,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   .q-text ol,
   .option-text ul,
   .option-text ol {
-    margin-left: 1.5rem !important;
-    margin-bottom: 1rem !important;
-  }
-
-  .stimulus-text table,
-  .q-text table,
-  .option-text table {
-    width: 100% !important;
-    margin-bottom: 1rem !important;
-    border-collapse: collapse !important;
-  }
-
-  .stimulus-text table td,
-  .stimulus-text table th,
-  .q-text table td,
-  .q-text table th,
-  .option-text table td,
-  .option-text table th {
-    border: 1px solid #dee2e6 !important;
-    padding: 0.5rem !important;
+    margin-left: 1.4rem !important;
+    margin-bottom: 0.85rem !important;
   }
 
   /* Question Item Visibility */
@@ -475,40 +479,76 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   /* Options Styling */
   .option-row {
     cursor: pointer;
-    transition: 0.2s;
-    border: 2px solid #f1f3f5;
-    border-radius: 8px;
-    padding: 12px 20px;
+    transition: all 0.15s ease;
+    border: 1.5px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px 18px;
     margin-bottom: 12px;
     display: flex;
     align-items: flex-start;
     font-size: var(--exam-font-size);
+    background: #fff;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .option-row:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+
+  .option-row:active {
+    transform: scale(0.99);
+  }
+
+  .option-row.selected {
+    background: var(--primary-blue-light);
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 1px var(--primary-blue);
   }
 
   .option-text {
     flex: 1;
-    line-height: 1.7;
+    line-height: 1.6;
+    color: #1e293b;
+    word-break: break-word;
   }
 
-  .option-row:hover {
-    background: #f8f9fa;
-    border-color: #dee2e6;
+  .letter-circle {
+    width: 36px;
+    height: 36px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-right: 14px;
+    background: #fff;
+    color: #475569;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
   }
 
-  .option-row.selected {
-    background: #e7f1ff;
+  .option-row.selected .letter-circle {
+    background: var(--primary-blue);
+    color: #fff;
     border-color: var(--primary-blue);
   }
 
   .option-check {
     appearance: none;
-    width: 20px;
-    height: 20px;
-    border: 2px solid #adb5bd;
-    border-radius: 4px;
-    margin-right: 15px;
+    -webkit-appearance: none;
+    width: 22px;
+    height: 22px;
+    border: 2px solid #94a3b8;
+    border-radius: 6px;
+    margin-right: 14px;
     cursor: pointer;
     position: relative;
+    flex-shrink: 0;
+    margin-top: 2px;
+    transition: 0.15s;
   }
 
   .option-check:checked {
@@ -520,12 +560,11 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     content: '✔';
     position: absolute;
     color: white;
-    font-size: 12px;
-    left: 3px;
-    top: -1px;
+    font-size: 13px;
+    left: 4px;
+    top: 0px;
   }
 
-  /* Hide radio but keep checkbox for PGK */
   .q-item[data-type="pg"] .option-check {
     display: none;
   }
@@ -534,38 +573,32 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     border-radius: 50% !important;
   }
 
-  /* Benar-Salah Radio Button Styling */
+  /* Benar-Salah styling */
+  .bs-table-wrap {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1.5px solid var(--border-color);
+  }
+
   .inp-bs {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
     cursor: pointer;
-    transform: scale(1.3);
     accent-color: var(--primary-blue);
   }
 
-  .inp-bs:hover {
-    transform: scale(1.4);
+  /* Essay styling */
+  .inp-essay {
+    font-size: 1rem;
+    line-height: 1.6;
+    border-radius: 12px;
+    border: 1.5px solid var(--border-color);
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
 
-  .letter-circle {
-    width: 35px;
-    height: 35px;
-    border: 2px solid #dee2e6;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    margin-right: 15px;
-    background: #fff;
-    transition: 0.2s;
-    flex-shrink: 0;
-  }
-
-  .option-row.selected .letter-circle {
-    background: var(--primary-blue);
-    color: #fff;
+  .inp-essay:focus {
     border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
   }
 
   /* Footer Section */
@@ -575,22 +608,27 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     left: 0;
     right: 0;
     background: #fff;
-    padding: 20px;
+    padding: 16px 30px;
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 150px;
-    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.05);
+    gap: 40px;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
     z-index: 1000;
   }
 
   .btn-nav {
-    font-size: 1.1rem;
-    text-transform: none;
+    font-size: 1rem;
+    padding: 10px 24px !important;
   }
 
   .btn-prev {
-    background-color: var(--danger-red);
+    background-color: #64748b;
+    color: white;
+  }
+
+  .btn-prev:hover {
+    background-color: #475569;
     color: white;
   }
 
@@ -600,215 +638,121 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   }
 
   .btn-ragu {
-    background-color: var(--warning-yellow);
-    color: #000;
+    background-color: var(--warning-yellow-light);
+    color: #856404;
+    border: 1.5px solid var(--warning-yellow) !important;
     font-weight: 700 !important;
+    transition: all 0.2s ease;
   }
 
-  .btn-nav:hover {
-    opacity: 0.9;
-    color: #fff;
-  }
-
-  .btn-ragu:hover {
-    opacity: 0.9;
-    color: #000;
+  .btn-ragu.btn-ragu-active {
+    background-color: var(--warning-yellow) !important;
+    color: #000 !important;
+    border-color: #d39e00 !important;
+    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.4);
   }
 
   .btn-secondary {
-    background-color: #6c757d !important;
+    background-color: #64748b !important;
     color: #fff !important;
   }
 
   .btn-success {
-    background-color: #198754 !important;
+    background-color: var(--success-green) !important;
     color: #fff !important;
   }
 
-  @media (max-width: 992px) {
-    .exam-pc-root {
-      padding: 10px;
-      padding-bottom: 120px;
-      /* Increased to give more space for footer */
-      position: relative;
-      z-index: 1;
-    }
-
-    .exam-header {
-      flex-direction: column;
-      gap: 15px;
-      padding: 15px;
-      text-align: center;
-      position: relative;
-      z-index: 2;
-    }
-
-    .font-zoom-ctrl {
-      margin-left: 0;
-      justify-content: center;
-      margin-top: 5px;
-    }
-
-    .header-actions {
-      width: 100%;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .pill-btn {
-      padding: 6px 15px !important;
-      font-size: 0.9rem !important;
-    }
-
-    .exam-content-grid {
-      display: flex;
-      flex-direction: column;
-      height: auto;
-      min-height: unset;
-      gap: 15px;
-      margin-bottom: 20px;
-      /* Extra space before footer */
-      position: relative;
-      z-index: 1;
-    }
-
-    .stimulus-col,
-    .question-col {
-      height: auto;
-      max-height: none;
-      overflow-y: visible;
-      padding: 20px;
-      -webkit-overflow-scrolling: touch;
-      z-index: 2;
-      /* Above grid */
-    }
-
-    .exam-footer {
-      gap: 10px;
-      padding: 15px 10px;
-      justify-content: space-around;
-    }
-
-    .btn-nav {
-      font-size: 0.9rem;
-      padding: 8px 15px !important;
-    }
-
-    .q-number-title {
-      font-size: 1.2rem;
-    }
-
-    .timer-pill {
-      min-width: 120px;
-      font-size: 1rem;
-    }
+  .btn-panel {
+    background-color: #ebf5ff;
+    color: var(--primary-blue);
+    border: 1.5px solid #bfdbfe !important;
+    font-weight: 700 !important;
+    transition: all 0.2s ease;
   }
 
-  @media (max-width: 576px) {
-    .font-zoom-ctrl {
-      display: none;
-    }
-
-    .header-actions {
-      gap: 5px;
-    }
-
-    .exam-footer {
-      gap: 10px;
-      padding: 10px;
-      justify-content: space-between;
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      z-index: 999;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-    }
-
-    .exam-pc-root {
-      padding-bottom: 80px;
-      /* Space for the fixed footer */
-    }
-
-    .stimulus-col,
-    .question-col {
-      max-height: none;
-      overflow-y: visible;
-      padding: 15px;
-    }
-
-    .pill-btn span {
-      display: none;
-    }
-
-    /* Hide text labels on mobile */
-
-    .btn-nav,
-    .btn-ragu {
-      flex: 0 0 auto;
-      width: 60px;
-      height: 60px;
-      padding: 0 !important;
-      justify-content: center;
-      border-radius: 50% !important;
-    }
-
-    .btn-ragu input {
-      margin-right: 0 !important;
-    }
-
-    .btn-nav i {
-      font-size: 1.8rem;
-    }
-
-    /* Centering Countdown on Finish Button */
-    #navFinish.btn-secondary {
-      flex-direction: column !important;
-      justify-content: center !important;
-      gap: 0 !important;
-      line-height: 1 !important;
-    }
-
-    #navFinish.btn-secondary .finish-text {
-      display: none !important;
-    }
-
-    #navFinish.btn-secondary .finish-time {
-      display: block !important;
-      font-size: 0.75rem !important;
-      font-weight: 800;
-      margin-top: -3px;
-    }
-
-    #navFinish.btn-secondary i {
-      font-size: 1.4rem !important;
-      margin-bottom: 2px;
-    }
+  .btn-panel:hover {
+    background-color: var(--primary-blue);
+    color: #fff;
+    border-color: var(--primary-blue) !important;
   }
 
-  /* Prevent horizontal scroll */
-  .exam-pc-root {
-    overflow-x: hidden;
+  .btn-finish {
+    background-color: var(--success-green);
+    color: #fff;
+    border: 1.5px solid var(--success-green) !important;
+    font-weight: 700 !important;
+    transition: all 0.2s ease;
   }
 
-  .timer-badge {
-    background: #f1f3f5;
-    border: 1px solid #dee2e6;
-    padding: 6px 16px;
-    border-radius: 30px;
-    font-family: 'Monaco', 'Consolas', monospace;
-    font-size: 1.1rem;
+  .btn-finish:hover {
+    background-color: #157347;
+    color: #fff;
   }
 
-  /* Better modal z-index management */
-  .modal {
-    z-index: 1060 !important;
+  /* Animasi hitung mundur kunci tombol selesai */
+  @keyframes lockTicking {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.18); color: #f59e0b; }
+    100% { transform: scale(1); }
   }
 
-  .modal-backdrop {
-    z-index: 1050 !important;
+  @keyframes pulseGlowLock {
+    0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+    70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  }
+
+  .btn-finish-locked {
+    background: #475569 !important;
+    color: #f8fafc !important;
+    border: 1.5px solid #64748b !important;
+    cursor: not-allowed !important;
+    animation: pulseGlowLock 2s infinite !important;
+    transition: all 0.3s ease;
+  }
+
+  .btn-finish-locked .lock-icon-anim {
+    display: inline-block;
+    animation: lockTicking 1s infinite ease-in-out;
+  }
+
+  .countdown-badge-anim {
+    background: rgba(0, 0, 0, 0.35);
+    color: #fef08a;
+    padding: 2px 7px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+    font-size: 0.85rem;
+  }
+
+  /* Modal & Panels */
+  .panel-q-btn {
+    min-height: 48px;
+    width: 100%;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 1rem;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .panel-q-btn:active {
+    transform: scale(0.95);
+  }
+
+  .panel-q-btn.current-q-btn {
+    box-shadow: 0 0 0 3px #0d6efd, 0 4px 12px rgba(13, 110, 253, 0.4) !important;
+    border-color: #0d6efd !important;
+    font-weight: 800 !important;
+    transform: scale(1.05);
+    z-index: 5;
+  }
+
+  .swal2-container {
+    z-index: 20000 !important;
   }
 
   /* Fullscreen Overlay Styling */
@@ -818,21 +762,18 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.95);
+    background: rgba(15, 23, 42, 0.95);
     z-index: 9998;
-    /* Below browser UI (9999+) but above content */
-    box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.1);
-    pointer-events: auto;
-    touch-action: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  /* When requesting fullscreen permission, lower z-index to prevent blocking dialog */
   #fsOverlay.requesting-permission {
     z-index: -1 !important;
     pointer-events: none !important;
   }
 
-  /* When overlay is hidden (display:none), disable pointer events completely */
   #fsOverlay[style*='display: none'],
   #fsOverlay[style*='display:none'] {
     pointer-events: none !important;
@@ -840,38 +781,272 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     z-index: -1 !important;
   }
 
-  #fsOverlay .card {
-    transition: 0.3s;
+  /* =================================================== */
+  /* 📱 MOBILE / HP OPTIMIZATIONS (< 992px & < 576px)    */
+  /* =================================================== */
+  @media (max-width: 991.98px) {
+    .exam-pc-root {
+      padding: 0 10px calc(85px + env(safe-area-inset-bottom)) 10px;
+    }
+
+    /* 📌 STICKY HEADER FOR SMARTPHONE */
+    .exam-header {
+      position: sticky;
+      top: 0;
+      z-index: 1020;
+      margin: 0 -10px 14px -10px;
+      border-radius: 0 0 18px 18px;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+      border: none;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .header-main-row {
+      padding: 10px 14px;
+      gap: 8px;
+    }
+
+    .header-left {
+      gap: 8px;
+    }
+
+    .q-number-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .progress-breadcrumb {
+      padding: 4px 10px;
+      font-size: 0.8rem;
+    }
+
+    .progress-bar-mini {
+      display: none;
+    }
+
+    .font-zoom-ctrl {
+      display: none;
+    }
+
+    .header-actions {
+      gap: 6px;
+    }
+
+    .timer-pill {
+      min-width: 95px;
+      font-size: 0.95rem;
+      padding: 5px 10px;
+      gap: 4px;
+    }
+
+    .timer-pill span.timer-label {
+      display: none;
+    }
+
+    .btn-info-soal-btn {
+      display: none;
+    }
+
+    .btn-panel-header {
+      padding: 6px 12px !important;
+      font-size: 0.85rem !important;
+    }
+
+    .subject-strip {
+      padding: 5px 14px;
+      font-size: 0.78rem;
+    }
+
+    /* Content Stack */
+    .exam-content-grid {
+      display: flex;
+      flex-direction: column;
+      height: auto;
+      min-height: unset;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .stimulus-col,
+    .question-col {
+      height: auto;
+      max-height: none;
+      overflow-y: visible;
+      padding: 16px;
+      border-radius: 14px;
+    }
+
+    /* Bottom Navigation Bar for Mobile */
+    .exam-footer {
+      padding: 8px 10px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
+      gap: 8px;
+      justify-content: space-between;
+      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.07);
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .btn-nav,
+    .btn-ragu {
+      flex: 1 1 0;
+      min-width: 0;
+      height: 46px;
+      padding: 0 4px !important;
+      font-size: 0.9rem !important;
+      border-radius: 50px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      white-space: nowrap;
+    }
+
+    /* Pastikan tombol yang disembunyikan benar-benar tersembunyi dan tidak tampil */
+    .exam-footer .btn-nav.d-none,
+    .exam-footer .btn-finish.d-none,
+    .exam-footer .d-none {
+      display: none !important;
+    }
+
+    /* 📱 KHUSUS TAMPILAN HP: Hilangkan tulisan di navigasi soal bawah */
+    .exam-footer .btn-nav-text,
+    .exam-footer .btn-nav-label-long,
+    .exam-footer .btn-nav-label-short,
+    .exam-footer .finish-btn-label {
+      display: none !important;
+    }
+
+    .exam-footer i {
+      font-size: 1.25rem !important;
+      margin: 0 !important;
+    }
+
+    /* Checkbox kuning tombol ragu-ragu */
+    .exam-footer .btn-ragu {
+      background-color: #fef3c7 !important;
+      border: 1.5px solid #f59e0b !important;
+      color: #92400e !important;
+    }
+    .exam-footer .btn-ragu input {
+      margin-right: 4px !important;
+      transform: scale(1.2);
+      accent-color: #f59e0b;
+      cursor: pointer;
+    }
+    .exam-footer .btn-ragu i {
+      font-size: 1.1rem !important;
+      color: #d97706;
+    }
+
+    /* Hitung mundur pada tombol selesai terkunci tetap tampil di HP di dalam tombol */
+    .btn-finish-locked .countdown-badge-anim {
+      font-size: 0.84rem !important;
+      padding: 2px 6px !important;
+      margin-left: 3px !important;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+      color: #fff !important;
+      display: inline-block !important;
+    }
+
+    /* Teks Selesai ringkas di HP */
+    .exam-footer .finish-btn-mobile-label {
+      font-size: 0.85rem !important;
+      margin-left: 4px !important;
+      color: #fff !important;
+    }
+
+    /* Auto-save floating indicator on Mobile: reposition to top-right below sticky header */
+    .save-status {
+      top: 65px;
+      right: 14px;
+      bottom: auto;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      border-radius: 20px;
+    }
+
+    /* Input touch adjustments */
+    .inp-essay {
+      font-size: 16px !important;
+      min-height: 120px;
+    }
+
+    .option-row {
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      min-height: 48px;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    }
+
+    .option-row:active {
+      transform: scale(0.99);
+    }
+
+    .letter-circle {
+      width: 32px;
+      height: 32px;
+      font-size: 0.9rem;
+      margin-right: 10px;
+      border-radius: 8px;
+    }
+
+    /* 5-Column Question Grid on Mobile Phones */
+    #panelButtons {
+      grid-template-columns: repeat(5, 1fr) !important;
+      gap: 8px !important;
+    }
+
+    .panel-q-btn {
+      height: 44px !important;
+      min-height: 44px !important;
+      font-size: 0.95rem !important;
+      border-radius: 10px !important;
+      font-weight: 700 !important;
+    }
+
+    #panelModal .modal-dialog {
+      margin: 0.5rem;
+    }
+
+    #panelModal .modal-content {
+      border-radius: 20px !important;
+    }
   }
 
-  #fsOverlay .card:hover {
-    transform: translateY(-5px);
-  }
+  @media (max-width: 480px) {
+    .header-main-row {
+      padding: 8px 10px;
+    }
 
-  /* Spacing adjustment for stimulus and question text */
-  .stimulus-text p,
-  .q-text p,
-  .option-text p {
-    margin-bottom: 0.5rem;
-  }
+    .q-number-title {
+      font-size: 0.95rem;
+    }
 
-  .stimulus-text p:last-child,
-  .q-text p:last-child,
-  .option-text p:last-child {
-    margin-bottom: 0;
+    .timer-pill {
+      min-width: 85px;
+      font-size: 0.88rem;
+      padding: 4px 8px;
+    }
   }
 </style>
 
 <div id="fsOverlay"
-  class="position-fixed top-0 start-0 w-100 h-100 bg-light d-flex flex-column align-items-center justify-content-center"
+  class="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3"
   style="z-index: 9999;">
-  <div class="card text-center p-5 shadow-lg rounded-5 border-0" style="max-width: 450px;">
-    <div class="mb-4">
-      <i class="bi bi-shield-lock-fill text-primary" style="font-size: 5rem;"></i>
+  <div class="card text-center p-4 p-md-5 shadow-lg border-0" style="max-width: 440px; border-radius: 24px; background: #ffffff;">
+    <div class="mb-3">
+      <i class="bi bi-shield-lock-fill text-primary" style="font-size: 4rem;"></i>
     </div>
-    <h3 class="fw-bold mb-3">SakaSalika SafeExam</h3>
-    <p class="text-muted mb-4 fs-5">Ujian ini mewajibkan mode <b>Layar Penuh</b> untuk menjaga integritas keluar dari
-      layar penuh dianggap pelanggaran.</p>
+    <h3 class="fw-bold mb-2 fs-4">SakaSalika SafeExam</h3>
+    <p class="text-muted mb-4 small">Ujian ini mewajibkan mode <b>Layar Penuh</b> untuk menjaga integritas. Keluar dari layar penuh dianggap pelanggaran.</p>
     <button id="startFS" class="btn btn-primary btn-lg w-100 rounded-pill py-3 fw-bold shadow">
       MULAI UJIAN SEKARANG
     </button>
@@ -879,45 +1054,168 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 </div>
 
 <div class="exam-pc-root" style="opacity: 0;">
-  <!-- PC HEADER -->
-  <header class="exam-header">
-    <div class="d-flex align-items-center">
-      <h1 class="q-number-title" id="q_display_num">Soal nomor 1</h1>
+  <!-- EXAM HEADER (STICKY ON MOBILE, FLOATING CARD ON PC) -->
+  <header class="exam-header" id="examHeader">
+    <div class="header-main-row">
+      <div class="header-left">
+        <h1 class="q-number-title" id="q_display_num">Soal nomor 1</h1>
 
-      <!-- Progress Breadcrumb -->
-      <div class="progress-breadcrumb ms-3">
-        <span class="current" id="current_num">1</span>
-        <span class="separator">/</span>
-        <span class="total" id="total_num">0</span>
-        <div class="progress-bar-mini">
-          <div class="progress-fill" id="progress_fill" style="width: 0%"></div>
+        <!-- Progress Breadcrumb -->
+        <div class="progress-breadcrumb">
+          <span class="current" id="current_num">1</span>
+          <span class="separator">/</span>
+          <span class="total" id="total_num"><?= count($questions) ?></span>
+          <div class="progress-bar-mini d-none d-lg-block">
+            <div class="progress-fill" id="progress_fill_mini" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Font Zoom Controls (Desktop) -->
+        <div class="font-zoom-ctrl d-none d-lg-flex">
+          <span class="text-muted small me-1">Font:</span>
+          <span class="zoom-btn" data-zoom="0.95rem">A</span>
+          <span class="zoom-btn active" data-zoom="1.05rem">A</span>
+          <span class="zoom-btn" data-zoom="1.2rem">A</span>
         </div>
       </div>
 
-      <div class="font-zoom-ctrl">
-        <span class="text-muted small">Ukuran font soal:</span>
-        <span class="zoom-btn" data-zoom="1rem">A</span>
-        <span class="zoom-btn active" data-zoom="1.1rem">A</span>
-        <span class="zoom-btn" data-zoom="1.3rem">A</span>
+      <div class="header-actions">
+        <!-- Font Zoom Cycle (Mobile) -->
+        <button type="button" class="btn btn-sm btn-light border rounded-pill d-lg-none py-1 px-2" id="btnFontCycle" title="Ubah Ukuran Tulisan">
+          <i class="bi bi-type"></i> <span id="fontCycleLabel" class="small fw-bold">A</span>
+        </button>
+
+        <button class="pill-btn btn-blue d-none d-lg-inline-flex btn-info-soal-btn" id="btn_info_soal_desktop">
+          <i class="bi bi-info-circle"></i> <span>INFORMASI SOAL</span>
+        </button>
+
+        <div class="timer-pill" id="headerTimerPill">
+          <i class="bi bi-clock-fill text-primary me-1"></i>
+          <span id="exam_timer">00:00:00</span>
+        </div>
+
+        <button class="pill-btn btn-blue btn-panel-header" id="navPanel">
+          <i class="bi bi-grid-3x3-gap-fill"></i>
+          <span class="d-none d-sm-inline">Daftar Soal</span>
+          <span class="badge bg-white text-primary rounded-pill ms-1" id="answeredCountBadge">0/<?= count($questions) ?></span>
+        </button>
       </div>
     </div>
 
-    <div class="header-actions">
-      <button class="pill-btn btn-blue" id="btn_info_soal"><i class="bi bi-info-circle"></i> INFORMASI SOAL</button>
-      <div class="timer-pill">
-        <span class="text-muted small me-1">Sisa Waktu :</span>
-        <span id="exam_timer">00:00:00</span>
-      </div>
-      <button class="pill-btn btn-blue" id="navPanel"><i class="bi bi-grid-3x3-gap-fill"></i> Daftar Soal</button>
+    <!-- Progress Bar (Full Width under Header for Mobile) -->
+    <div class="w-100" style="height: 3px; background: #e2e8f0; overflow: hidden;">
+      <div class="progress-fill" id="progress_fill" style="width: 0%; height: 100%;"></div>
+    </div>
+
+    <!-- Subject & Info Sub-Bar -->
+    <div class="subject-strip d-flex justify-content-between align-items-center">
+      <span class="text-truncate fw-semibold text-secondary">
+        <i class="bi bi-journal-bookmark me-1 text-primary"></i><?= esc($test['subject_name'] ?? 'Ujian Utama') ?>
+      </span>
+      <button type="button" class="btn btn-sm btn-link text-muted p-0 text-decoration-none small" id="btn_info_soal">
+        <i class="bi bi-info-circle"></i> Info Ujian
+      </button>
     </div>
   </header>
 
-  <div class="text-end mb-2 pe-3 text-muted small fw-bold">
-    <?= esc($test['subject_name'] ?? 'Ujian Utama') ?>
-  </div>
-
   <!-- CONTENT GRID -->
   <div id="questions-container">
+    <?php
+    /**
+     * Helper: rewrite URL gambar localhost/relative ke URL production
+     * Dipanggil untuk semua konten HTML yang mungkin mengandung <img>
+     */
+    $baseUrl = base_url();
+    $rewriteImageUrls = function(string $html) use ($baseUrl): string {
+        if (empty($html) || strpos($html, '<img') === false) {
+            return $html;
+        }
+        // Ganti URL localhost
+        $html = preg_replace(
+            '#src="https?://localhost(?::\d+)?/(uploads/)#i',
+            'src="' . $baseUrl . '$1',
+            $html
+        );
+        $html = preg_replace(
+            '#src="https?://127\.0\.0\.1(?::\d+)?/(uploads/)#i',
+            'src="' . $baseUrl . '$1',
+            $html
+        );
+        // Ganti URL yang mengandung /public/uploads/
+        $html = preg_replace(
+            '#src="https?://[^"]+/public/(uploads/)#i',
+            'src="' . $baseUrl . '$1',
+            $html
+        );
+        // Ganti relative path uploads/ → absolute URL
+        $html = preg_replace(
+            '#src="(?!https?://)(uploads/)#i',
+            'src="' . $baseUrl . '$1',
+            $html
+        );
+        // FIX MIXED CONTENT: Ganti http:// → https:// untuk domain yang sama
+        // Ini menangani gambar yang disimpan saat baseURL masih http://
+        $host = parse_url($baseUrl, PHP_URL_HOST);
+        if ($host) {
+            $html = preg_replace(
+                '#src="http://' . preg_quote($host, '#') . '/#i',
+                'src="https://' . $host . '/',
+                $html
+            );
+        }
+        return $html;
+    };
+
+    /**
+     * Helper: bersihkan raw_text di server-side (PHP) agar langsung siap tampil,
+     * menghilangkan delay JavaScript dan layout shift / loading visual tiba-tiba.
+     */
+    $cleanRawTextPhp = function(string $html): string {
+        if (empty($html)) return '';
+        $out = $html;
+
+        // 1. Simpan tag img dengan placeholder
+        $imgTags = [];
+        $out = preg_replace_callback('/<img[^>]+>/i', function ($m) use (&$imgTags) {
+            $imgTags[] = $m[0];
+            return '[[IMG_' . (count($imgTags) - 1) . ']]';
+        }, $out);
+
+        // 2. Inject newlines di sekitar block tags
+        $blockTags = ['p', 'div', 'li', 'h[1-6]', 'blockquote', 'tr'];
+        foreach ($blockTags as $tag) {
+            $out = preg_replace('/<' . $tag . '[^>]*>/i', "\n$0", $out);
+            $out = preg_replace('/<\/' . $tag . '>/i', "$0\n", $out);
+        }
+
+        // 3. Ganti <br> dengan newline
+        $out = preg_replace('/<br\s*\/?>/i', "\n", $out);
+
+        // 4. Regex opsi & kunci
+        $out = preg_replace('/^(?:<[^>]+>)*[\s\xc2\xa0\x{00a0}]*[\(]?[A-Ea-e]\s*(?:[:.)]|\s+-)\s*.*$/imu', '', $out);
+        $out = preg_replace('/^(?:<[^>]+>)*[\s\xc2\xa0\x{00a0}]*(?:Kunci|Tipe)\s*[\:\=\-]\s*.*$/imu', '', $out);
+        $out = preg_replace('/Tipe\s*:\s*[A-Za-z0-9_]+/i', '', $out);
+        $out = preg_replace('/Kunci\s*:\s*[A-Za-z0-9,\s]+/i', '', $out);
+
+        // 5. Hapus span/font
+        $out = preg_replace('/<\/?(span|font)[^>]*>/i', '', $out);
+
+        // 6. Hapus tag kosong
+        $out = preg_replace('/<(p|div|li)[^>]*>([\s\n\r]|&nbsp;|<br\s*\/?>)*<\/\1>/i', '', $out);
+        $out = preg_replace('/\n\s*\n/', "\n", $out);
+
+        // 7. Kembalikan img
+        foreach ($imgTags as $imgIdx => $tag) {
+            $out = str_replace('[[IMG_' . $imgIdx . ']]', $tag, $out);
+        }
+
+        $out = preg_replace('/>\s*\n/', '>', $out);
+        $out = preg_replace('/\n\s*</', '<', $out);
+        $out = nl2br($out);
+
+        return trim($out);
+    };
+    ?>
     <?php if (!empty($questions)): ?>
       <?php foreach ($questions as $idx => $q): ?>
         <?php
@@ -944,19 +1242,38 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
           data-type="<?= $type ?>" data-doubtful="<?= $isDoubtful ?>" data-use-raw="<?= $useRawText ? '1' : '0' ?>">
           <div class="exam-content-grid">
             <!-- LEFT COLUMN: STIMULUS/BACAAN -->
-            <div class="stimulus-col">
-              <div class="stimulus-text"
-                data-raw-content="<?= $useRawText ? htmlspecialchars($qText, ENT_QUOTES, 'UTF-8') : '' ?>">
-                <?php if ($useRawText): ?>
-                  <!-- Content will be cleaned and rendered by JavaScript -->
-                <?php else: ?>
-                  <?= !empty($qText) ? nl2br(str_replace(["\\r\\n", "\\n", "\\r"], "\n", $qText)) : '<div class="alert alert-warning">Konten bacaan tidak tersedia.</div>' ?>
-                <?php endif; ?>
+            <div class="stimulus-col" id="stimulus_col_<?= $idx ?>">
+              <div class="stimulus-header-bar d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1 rounded-pill small">
+                  <i class="bi bi-book-half me-1"></i> Teks Bacaan / Stimulus
+                </span>
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill small py-0 px-2 btn-jump-to-q d-lg-none" data-target="q_col_<?= $idx ?>">
+                  <i class="bi bi-arrow-down-short"></i> Ke Soal
+                </button>
+              </div>
+
+              <?php
+              $qTextForRender = $rewriteImageUrls($qText);
+              if ($useRawText) {
+                $qTextForRender = $cleanRawTextPhp($qTextForRender);
+              }
+              ?>
+              <div class="stimulus-text">
+                <?= $qTextForRender ?: '<div class="alert alert-warning">Konten bacaan tidak tersedia.</div>' ?>
               </div>
             </div>
 
             <!-- RIGHT COLUMN: QUESTION & OPTIONS -->
-            <div class="question-col">
+            <div class="question-col" id="q_col_<?= $idx ?>">
+              <div class="q-header-bar d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom d-lg-none">
+                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-2 py-1 rounded-pill small">
+                  <i class="bi bi-ui-checks me-1"></i> Pilihan Jawaban
+                </span>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill small py-0 px-2 btn-jump-to-stimulus" data-target="stimulus_col_<?= $idx ?>">
+                  <i class="bi bi-arrow-up-short"></i> Ke Bacaan
+                </button>
+              </div>
+
               <div class="q-text mb-4">
                 <?php if ($type === 'pg_kompleks' || $type === 'pgk'): ?>
                   <span class="badge bg-primary rounded-pill me-2">PG Kompleks</span> Klik pada setiap pilihan jawaban yang
@@ -982,6 +1299,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                     $selected = in_array((string) $key, $savedArr);
                     $inpType = ($type === 'pg_kompleks' ? 'checkbox' : 'radio');
                     $letter = chr(65 + $i);
+                    $val = $rewriteImageUrls($val);
                     ?>
                     <label class="option-row <?= $selected ? 'selected' : '' ?> <?= $type === 'pg_kompleks' ? 'pgk-row' : '' ?>"
                       data-letter="<?= $letter ?>">
@@ -993,18 +1311,18 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                         <div class="letter-circle"><?= $letter ?></div>
                       <?php endif; ?>
 
-                      <div class="option-text"><?= nl2br(str_replace(["\\r\\n", "\\n", "\\r"], "\n", $val)) ?></div>
+                      <div class="option-text"><?= $val ?></div>
                     </label>
                     <?php $i++; endforeach; ?>
 
                 <?php elseif ($type === 'benar_salah'): ?>
-                  <div class="table-responsive rounded-3 border">
+                  <div class="table-responsive rounded-3 border bs-table-wrap">
                     <table class="table table-hover align-middle mb-0">
                       <thead class="table-light">
                         <tr>
                           <th class="ps-3">Pernyataan</th>
-                          <th width="60" class="text-center">B</th>
-                          <th width="60" class="text-center">S</th>
+                          <th width="70" class="text-center">Benar</th>
+                          <th width="70" class="text-center">Salah</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1016,10 +1334,10 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                           $ansValue = $savedBS[$rowIdx] ?? '';
                           ?>
                           <tr>
-                            <td class="ps-3 small"><?= nl2br(str_replace(["\\r\\n", "\\n", "\\r"], "\n", $opts[$letter])) ?></td>
-                            <td class="text-center"><input type="radio" name="bs_<?= $qid ?>_<?= $letter ?>" value="B"
+                            <td class="ps-3 py-2 small fw-medium"><?= $opts[$letter] ?></td>
+                            <td class="text-center py-2"><input type="radio" name="bs_<?= $qid ?>_<?= $letter ?>" value="B"
                                 class="inp-bs" data-qid="<?= $qid ?>" data-row="<?= $rowIdx ?>" <?= $ansValue === 'B' ? 'checked' : '' ?>></td>
-                            <td class="text-center"><input type="radio" name="bs_<?= $qid ?>_<?= $letter ?>" value="S"
+                            <td class="text-center py-2"><input type="radio" name="bs_<?= $qid ?>_<?= $letter ?>" value="S"
                                 class="inp-bs" data-qid="<?= $qid ?>" data-row="<?= $rowIdx ?>" <?= $ansValue === 'S' ? 'checked' : '' ?>></td>
                           </tr>
                         <?php endforeach; ?>
@@ -1028,7 +1346,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                   </div>
 
                 <?php else: // ESSAY ?>
-                  <textarea class="form-control inp-essay p-3" rows="10" data-qid="<?= $qid ?>"
+                  <textarea class="form-control inp-essay p-3" rows="8" data-qid="<?= $qid ?>"
                     placeholder="Ketik jawaban Anda di sini..."><?= esc($saved) ?></textarea>
                 <?php endif; ?>
               </div>
@@ -1039,19 +1357,33 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     <?php endif; ?>
   </div>
 
-  <!-- PC FOOTER -->
+  <!-- EXAM FOOTER -->
   <footer class="exam-footer">
-    <button class="pill-btn btn-nav btn-prev" id="navBack"><i class="bi bi-arrow-left-circle-fill"></i> <span>Soal
-        sebelumnya</span></button>
+    <button type="button" class="pill-btn btn-nav btn-prev" id="navBack" title="Soal Sebelumnya">
+      <i class="bi bi-chevron-left"></i>
+      <span class="btn-nav-text ms-1">Sebelumnya</span>
+    </button>
 
-    <label class="pill-btn btn-ragu m-0" style="cursor:pointer">
-      <input type="checkbox" id="check_ragu" class="me-2" style="transform: scale(1.2)"> <span>Ragu-ragu</span>
+    <label class="pill-btn btn-ragu m-0" id="label_ragu" style="cursor:pointer" title="Tandai Ragu-ragu">
+      <input type="checkbox" id="check_ragu" class="me-1">
+      <i class="bi bi-flag me-1"></i>
+      <span class="btn-nav-text">Ragu-ragu</span>
     </label>
 
-    <button class="pill-btn btn-nav btn-next" id="navNext"><span>Soal berikutnya</span> <i
-        class="bi bi-arrow-right-circle-fill"></i></button>
-    <button class="pill-btn btn-nav btn-next d-none" id="navFinish"><span>Selesaikan Ujian</span> <i
-        class="bi bi-check-circle-fill"></i></button>
+    <button type="button" class="pill-btn btn-nav btn-panel" id="navPanelFooter" title="Lihat Seluruh Soal">
+      <i class="bi bi-grid-3x3-gap-fill me-1"></i>
+      <span class="btn-nav-text">Daftar Soal</span>
+    </button>
+
+    <button type="button" class="pill-btn btn-nav btn-next" id="navNext" title="Soal Berikutnya">
+      <span class="btn-nav-text me-1">Berikutnya</span>
+      <i class="bi bi-chevron-right"></i>
+    </button>
+    <button type="button" class="pill-btn btn-nav btn-finish d-none" id="navFinish" title="Selesaikan Ujian" style="display: none;">
+      <i class="bi bi-check2-all me-1"></i>
+      <span class="btn-nav-text finish-btn-label">Selesaikan Ujian</span>
+      <span class="finish-btn-mobile-label d-inline d-md-none fw-bold ms-1">Selesai</span>
+    </button>
   </footer>
 
   <!-- Auto-Save Indicator -->
@@ -1061,7 +1393,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   </div>
 
   <!-- Keyboard Hints -->
-  <div id="keyboardHints" class="keyboard-hints">
+  <div id="keyboardHints" class="keyboard-hints d-none d-lg-block">
     <div class="hint-item"><kbd>←</kbd> <kbd>→</kbd> Navigasi soal</div>
     <div class="hint-item"><kbd>A</kbd>-<kbd>E</kbd> Pilih jawaban</div>
     <div class="hint-item"><kbd>Space</kbd> Tandai ragu-ragu</div>
@@ -1093,20 +1425,40 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
   </div>
 </div>
 
-<!-- PANEL MODAL - PLACED AT ROOT FOR BEST COMPATIBILITY -->
+<!-- PANEL MODAL - ENHANCED FOR MOBILE AND DESKTOP -->
 <div class="modal fade" id="panelModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content shadow-lg border-0" style="border-radius: 25px;">
-      <div class="modal-header border-0 pb-0 pt-4 px-4 text-center d-block">
-        <h4 class="modal-title fw-bold mx-auto">Navigasi Soal</h4>
-        <p class="text-muted small">Klik nomor soal untuk berpindah halaman</p>
-        <button type="button" class="btn-close position-absolute end-0 top-0 m-4" data-bs-dismiss="modal"
-          aria-label="Close"></button>
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+    <div class="modal-content shadow-lg border-0" style="border-radius: 24px;">
+      <div class="modal-header border-0 pb-0 pt-4 px-4 text-center d-block position-relative">
+        <h4 class="modal-title fw-bold mx-auto fs-5 mb-1"><i class="bi bi-grid-3x3-gap-fill text-primary me-2"></i>Daftar Seluruh Soal</h4>
+        <p class="text-muted small mb-2">Pilih nomor soal untuk langsung melompat ke soal tersebut</p>
+        <button type="button" class="btn-close position-absolute end-0 top-0 m-3" data-bs-dismiss="modal" aria-label="Close"></button>
+
+        <!-- Status Badges / Legend -->
+        <div class="d-flex flex-wrap gap-2 justify-content-center pt-1 pb-2 border-bottom">
+          <span class="badge bg-success text-white px-2 py-1 rounded-pill small">
+            <i class="bi bi-check-circle-fill me-1"></i> Sudah Dijawab: <b id="summary_answered">0</b>
+          </span>
+          <span class="badge bg-warning text-dark px-2 py-1 rounded-pill small">
+            <i class="bi bi-flag-fill me-1"></i> Ragu-ragu: <b id="summary_doubtful">0</b>
+          </span>
+          <span class="badge bg-light text-secondary border px-2 py-1 rounded-pill small">
+            <i class="bi bi-circle me-1"></i> Belum Dijawab: <b id="summary_unanswered">0</b>
+          </span>
+          <span class="badge bg-primary text-white px-2 py-1 rounded-pill small">
+            <i class="bi bi-geo-alt-fill me-1"></i> Soal Aktif: No. <b id="summary_current_num">1</b>
+          </span>
+        </div>
       </div>
-      <div class="modal-body p-4">
-        <div id="panelButtons" class="d-flex flex-wrap gap-3 justify-content-center pt-2 pb-4">
+      <div class="modal-body p-3 p-md-4">
+        <div id="panelButtons" class="d-grid gap-2 pt-2 pb-3" style="grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));">
           <!-- Dynamic Buttons -->
         </div>
+      </div>
+      <div class="modal-footer border-0 pt-0 pb-3 justify-content-center">
+        <button type="button" class="btn btn-light rounded-pill px-4 small border" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg me-1"></i> Tutup Navigasi
+        </button>
       </div>
     </div>
   </div>
@@ -1115,21 +1467,22 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
-
 <!-- 🔹 Load MathJax untuk Formula Matematika -->
 <script>
   window.MathJax = {
     tex: {
       inlineMath: [['$', '$'], ['\\(', '\\)']],
       displayMath: [['$$', '$$'], ['\\[', '\\]']],
-      processEscapes: true
+      processEscapes: true,
+      processEnvironments: true
     },
-    options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'] },
+    options: {
+      skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+    },
     startup: {
+      typeset: false, // 🚀 Matikan auto-typeset seluruh halaman agar buka ujian instan
       pageReady: () => {
-        return MathJax.startup.defaultPageReady().catch(() => {
-          return Promise.resolve();
-        });
+        return Promise.resolve();
       }
     }
   };
@@ -1183,19 +1536,30 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       // Another tab is active
       Swal.fire({
         title: 'Ujian Sudah Dibuka',
-        html: 'Ujian ini sudah dibuka di tab/window lain.<br><br>Hanya satu tab yang diperbolehkan untuk ujian.',
-        icon: 'error',
+        html: 'Sistem mendeteksi ujian ini sudah dibuka di tab lain.<br><br><strong>Hanya diperbolehkan satu tab aktif.</strong>',
+        icon: 'warning',
         allowOutsideClick: false,
         allowEscapeKey: false,
-        confirmButtonText: 'Tutup Tab Ini'
-      }).then(() => {
-        window.close();
-        // If window.close() doesn't work (some browsers block it)
-        setTimeout(() => {
-          window.location.href = '<?= site_url('siswa/cbt') ?>';
-        }, 500);
+        showCancelButton: true,
+        confirmButtonText: 'Gunakan Tab Ini (Ambil Alih)',
+        cancelButtonText: 'Tutup Tab Ini',
+        confirmButtonColor: '#0d6efd',
+        cancelButtonColor: '#dc3545'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // 🔄 TAKE OVER: Force this tab to be the active one
+          console.log('[TAB] Taking over session...');
+          localStorage.setItem(TAB_KEY, TAB_ID);
+          window.location.reload();
+        } else {
+          // Close or redirect
+          window.close();
+          setTimeout(() => {
+            window.location.href = '<?= site_url('siswa/cbt') ?>';
+          }, 500);
+        }
       });
-      return; // Stop execution
+      return; // Stop execution of the rest of the script
     }
 
     // Register this tab as active
@@ -1237,9 +1601,12 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     setInterval(() => {
       if (isUnloading) return; // Prevent race conditions during redirect
       const currentTab = localStorage.getItem(TAB_KEY);
-      if (currentTab !== TAB_ID) {
-        // This tab is no longer the active one
+      if (currentTab && currentTab !== TAB_ID) {
+        // Another tab is active
         window.location.href = '<?= site_url('siswa/cbt') ?>';
+      } else if (!currentTab) {
+        // Tab key was cleared or dropped (e.g. mobile app backgrounding), re-claim
+        localStorage.setItem(TAB_KEY, TAB_ID);
       }
     }, 2000);
 
@@ -1453,41 +1820,137 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       console.log('[OFFLINE] Answer queued:', qid, answer);
     };
 
+    /**
+     * 🔹 Kumpulkan semua jawaban aktif langsung dari tampilan siswa (DOM)
+     * dan menggabungkan dengan antrean offline lokal jika ada.
+     */
+    const collectAllAnswers = () => {
+      const answers = {};
+      items.forEach(item => {
+        const qid = item.dataset.qid;
+        const type = item.dataset.type;
+        let val = '';
+
+        if (type === 'pg_kompleks' || type === 'pgk') {
+          val = Array.from(item.querySelectorAll('.option-check:checked')).map(i => i.value).join(',');
+        } else if (type === 'benar_salah' || type === 'bs') {
+          const bsRows = item.querySelectorAll('.inp-bs[data-row]');
+          const totalRows = new Set();
+          bsRows.forEach(inp => totalRows.add(inp.dataset.row));
+          const rowCount = totalRows.size;
+          const arr = [];
+          for (let i = 0; i < rowCount; i++) {
+            const picked = item.querySelector(`.inp-bs[data-row="${i}"]:checked`);
+            arr.push(picked ? picked.value : '');
+          }
+          val = arr.join(',');
+        } else if (type === 'pg' || type === 'pilihan_ganda') {
+          const checked = item.querySelector('.inp-target:checked');
+          if (checked) val = checked.value;
+        } else {
+          // Essay
+          const essay = item.querySelector('.inp-essay');
+          if (essay) val = essay.value.trim();
+        }
+
+        if (val !== '') {
+          answers[qid] = val;
+        }
+      });
+
+      // Gabungkan dengan antrean offline jika ada data yang belum ter-render
+      try {
+        const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+        if (Array.isArray(queue)) {
+          queue.forEach(item => {
+            if (item && item.question_id && item.answer !== undefined && answers[item.question_id] === undefined) {
+              answers[item.question_id] = item.answer;
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('[CBT] Gagal membaca offline queue:', e);
+      }
+
+      return answers;
+    };
+
     // Function to flush offline queue when back online
-    const flushOfflineQueue = () => {
+    const flushOfflineQueue = (retryCount) => {
+      if (typeof retryCount === 'undefined') retryCount = 0;
+      
       const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
 
-      if (queue.length === 0) return;
+      if (queue.length === 0) return Promise.resolve(true);
 
-      console.log('[OFFLINE] Flushing queue:', queue.length, 'answers');
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY = 5000; // 5 seconds
+
+      console.log('[OFFLINE] Flushing queue:', queue.length, 'answers, retry:', retryCount);
       showSaveStatus('saving', 'Menyinkronkan...');
 
       // Send all queued answers
-      fetch('<?= site_url('siswa/cbt/saveAnswersBulk') ?>', {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+      return fetch('<?= site_url('siswa/cbt/saveAnswersBulk') ?>', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest'
         },
+        signal: controller.signal,
         body: JSON.stringify({
           test_id: TEST_ID,
           answers: queue
         })
       })
-        .then(r => r.json())
-        .then(res => {
+        .then(function(r) {
+          clearTimeout(timeoutId);
+          if (!r.ok) {
+            throw new Error('HTTP ' + r.status);
+          }
+          return r.json();
+        })
+        .then(function(res) {
           if (res.status === 'ok') {
             // Clear queue on success
             localStorage.removeItem(OFFLINE_QUEUE_KEY);
             showSaveStatus('saved', 'Tersinkronkan (' + queue.length + ')');
             console.log('[OFFLINE] Queue flushed successfully');
           } else {
-            showSaveStatus('error', 'Gagal sinkronisasi');
+            throw new Error(res.message || 'Sync failed');
           }
         })
-        .catch(err => {
+        .catch(function(err) {
           console.error('[OFFLINE] Flush failed:', err);
-          showSaveStatus('error', 'Gagal sinkronisasi');
+
+          // Retry with exponential backoff
+          if (retryCount < MAX_RETRIES) {
+            var delay = RETRY_DELAY * Math.pow(2, retryCount);
+            console.log('[OFFLINE] Retrying in', delay, 'ms');
+            showSaveStatus('error', 'Gagal sinkronisasi, mencoba lagi...');
+
+            setTimeout(function() {
+              flushOfflineQueue(retryCount + 1);
+            }, delay);
+          } else {
+            showSaveStatus('error', 'Gagal sinkronisasi setelah ' + MAX_RETRIES + ' percobaan');
+
+            // Show manual retry option
+            Swal.fire({
+              title: 'Sinkronisasi Gagal',
+              text: 'Jawaban offline gagal disinkronkan. Coba lagi?',
+              icon: 'error',
+              showCancelButton: true,
+              confirmButtonText: 'Coba Lagi',
+              cancelButtonText: 'Nanti'
+            }).then(function(result) {
+              if (result.isConfirmed) {
+                flushOfflineQueue(0); // Reset retry count
+              }
+            });
+          }
         });
     };
 
@@ -1550,6 +2013,128 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     // END NETWORK DISCONNECT HANDLING
     // ============================================
 
+    // ============================================
+    // SESSION KEEP-ALIVE
+    // ============================================
+    const SESSION_REFRESH_INTERVAL = 1800000; // 30 minutes in milliseconds
+    let keepAliveInterval = null;
+
+    /**
+     * Send keep-alive ping to server to prevent session expiration
+     */
+    const sendKeepAlive = () => {
+      // Don't send if exam is finished or time expired
+      if (examFinished || timeExpiredHandled) {
+        console.log('[SESSION] Keep-alive skipped - exam finished');
+        return;
+      }
+
+      // Don't send if offline
+      if (!isOnline) {
+        console.log('[SESSION] Keep-alive skipped - offline');
+        return;
+      }
+
+      console.log('[SESSION] Sending keep-alive ping...');
+
+      fetch('<?= site_url('siswa/cbt/keepAlive') ?>', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+          test_id: TEST_ID
+        })
+      })
+        .then(function(r) {
+          if (!r.ok) {
+            throw new Error('HTTP ' + r.status);
+          }
+          return r.json();
+        })
+        .then(function(res) {
+          if (res.status === 'ok') {
+            console.log('[SESSION] Keep-alive successful at', new Date().toLocaleTimeString());
+
+            // Update CSRF token if provided
+            if (res.csrf_token) {
+              // Update all CSRF token inputs
+              var csrfInputs = document.querySelectorAll('input[name="<?= csrf_token() ?>"]');
+              for (var i = 0; i < csrfInputs.length; i++) {
+                csrfInputs[i].value = res.csrf_token;
+              }
+              console.log('[SESSION] CSRF token refreshed');
+            }
+
+            // Show subtle notification (optional)
+            if (typeof showSaveStatus === 'function') {
+              showSaveStatus('saved', 'Sesi diperpanjang');
+            }
+          } else {
+            console.warn('[SESSION] Keep-alive failed:', res.message);
+
+            // If session invalid, show warning
+            if (res.status === 'error' && res.message.indexOf('Session') !== -1) {
+              Swal.fire({
+                title: 'Peringatan Sesi',
+                text: 'Sesi ujian Anda mungkin bermasalah. Halaman akan dimuat ulang.',
+                icon: 'warning',
+                confirmButtonText: 'Muat Ulang'
+              }).then(function() {
+                window.location.reload();
+              });
+            }
+          }
+        })
+        .catch(function(err) {
+          console.error('[SESSION] Keep-alive error:', err);
+          // Don't show error to user - will retry in 30 minutes
+        });
+    };
+
+    /**
+     * Start keep-alive interval
+     */
+    const startKeepAlive = () => {
+      // Send first keep-alive after 5 minutes (to establish baseline)
+      setTimeout(function() {
+        sendKeepAlive();
+      }, 300000); // 5 minutes
+
+      // Then send every 30 minutes
+      keepAliveInterval = setInterval(function() {
+        sendKeepAlive();
+      }, SESSION_REFRESH_INTERVAL);
+
+      console.log('[SESSION] Keep-alive started - will ping every 30 minutes');
+    };
+
+    /**
+     * Stop keep-alive interval
+     */
+    const stopKeepAlive = () => {
+      if (keepAliveInterval) {
+        clearInterval(keepAliveInterval);
+        keepAliveInterval = null;
+        console.log('[SESSION] Keep-alive stopped');
+      }
+    };
+
+    // Start keep-alive when page loads
+    startKeepAlive();
+
+    // Stop keep-alive when exam finishes
+    window.addEventListener('beforeunload', function() {
+      stopKeepAlive();
+    });
+
+    console.log('[SESSION] Keep-alive system initialized');
+
+    // ============================================
+    // END SESSION KEEP-ALIVE
+    // ============================================
+
     // Try to lock orientation again after DOM loaded
     if (screen.orientation && screen.orientation.lock) {
       screen.orientation.lock('portrait').catch(err => {
@@ -1557,87 +2142,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       });
     }
 
-    // Function to clean raw text (same as admin detail view)
-    function cleanRawText(html) {
-      if (!html) return '';
-      let out = html;
-
-      // 0. Normalisasi literal \n dan \r\n jika tersimpan sebagai teks literal
-      out = out.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\\r/g, '\n');
-
-      // 1. Simpan tag img dulu dengan placeholder
-      const imgTags = [];
-      out = out.replace(/<img[^>]+>/gi, function (match) {
-        imgTags.push(match);
-        return `[[IMG_${imgTags.length - 1}]]`;
-      });
-
-      // 2. Inject newlines di sekitar block tags agar regex line-based (^) bisa bekerja
-      // meskipun opsi berada di dalam tag <p> atau <div> yang berbeda
-      const blockTags = ['p', 'div', 'li', 'h[1-6]', 'blockquote', 'tr'];
-      blockTags.forEach(tag => {
-        const reOpen = new RegExp('<' + tag + '[^>]*>', 'gi');
-        const reClose = new RegExp('</' + tag + '>', 'gi');
-        out = out.replace(reOpen, '\n$&').replace(reClose, '$&\n');
-      });
-
-      // 3. Ganti <br> dengan newline juga
-      out = out.replace(/<br\s*\/?>/gi, '\n');
-
-      // 4. Regex Pembersihan Opsi (TAG-AWARE)
-      // ^(?:<[^>]+>)*  --> Mengizinkan tag HTML pembuka di awal baris (misal <p>)
-      // [\s\xc2\xa0&nbsp;]* --> Mengizinkan spasi/nbsp
-      // [\(]?[A-Ea-e] --> Pola Opsi A-E
-      const optionRegex = /^(?:<[^>]+>)*[\s\xc2\xa0&nbsp;]*[\(]?[A-Ea-e]\s*(?:[:.)]|\s+-)\s*.*$/gim;
-      out = out.replace(optionRegex, '');
-
-      const keyTypeRegex = /^(?:<[^>]+>)*[\s\xc2\xa0&nbsp;]*(?:Kunci|Tipe)\s*[\:\=\-]\s*.*$/gim;
-      out = out.replace(keyTypeRegex, '');
-
-      // 5. Hapus inline Tipe: dan Kunci:
-      out = out.replace(/Tipe\s*:\s*[A-Za-z0-9_]+/gi, '');
-      out = out.replace(/Kunci\s*:\s*[A-Za-z0-9,\s]+/gi, '');
-
-      // 6. Hapus formatting tags (span, strong, em, font, u, b, i, etc.)
-      out = out.replace(/<\/?(span|strong|em|font|u|b|i)[^>]*>/gi, '');
-
-      // 7. Hapus paragraf/div/li kosong (termasuk yang berisi whitespace atau &nbsp;)
-      out = out.replace(/<(p|div|li)[^>]*>([\s\n\xc2\xa0\r]|&nbsp;|<br\s*\/?>)*<\/\1>/gi, '');
-
-      // 8. Bersihkan whitespace berlebih hasil penghapusan
-      out = out.replace(/\n\s*\n/g, '\n');
-
-      // 9. Kembalikan tag img
-      imgTags.forEach((tag, index) => {
-        out = out.replace(`[[IMG_${index}]]`, tag);
-      });
-
-      // 10. Bersihkan newline yang menempel pada tag blok sebelum konversi ke <br>
-      out = out.replace(/>\s*\n/g, '>');
-      out = out.replace(/\n\s*</g, '<');
-
-      // 11. Terakhir, ganti newline kembali ke <br> agar tampilan tetap terjaga
-      out = out.replace(/\n/g, '<br>');
-
-      return out.trim();
-    }
-
-    // Clean and render raw text for all questions that use raw_text
-    items.forEach(item => {
-      const useRaw = item.dataset.useRaw === '1';
-      if (useRaw) {
-        const stimulusDiv = item.querySelector('.stimulus-text');
-        if (stimulusDiv) {
-          const rawContent = stimulusDiv.dataset.rawContent;
-          if (rawContent) {
-            const cleanedHtml = cleanRawText(rawContent);
-            stimulusDiv.innerHTML = cleanedHtml || '<div class="alert alert-warning">Konten bacaan tidak tersedia.</div>';
-          }
-        }
-      }
-    });
-
-    // Image Zoom Modal Handler
+    // Image Zoom Modal Handler (Event Delegation tanpa klon DOM)
     const imageZoomModal = new bootstrap.Modal(document.getElementById('imageZoomModal'));
     const zoomedImage = document.getElementById('zoomedImage');
     const imageZoomModalElement = document.getElementById('imageZoomModal');
@@ -1651,37 +2156,28 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       });
     }
 
-    // Add click handler to all images in questions
-    const setupImageZoom = () => {
-      document.querySelectorAll('.stimulus-text img, .q-text img, .option-text img').forEach(img => {
-        img.style.cursor = 'pointer';
-        img.title = 'Klik untuk memperbesar';
-
-        // Remove old event listeners by cloning
-        const newImg = img.cloneNode(true);
-        img.parentNode.replaceChild(newImg, img);
-
-        newImg.addEventListener('click', function (e) {
+    // Event delegation efisien: tangani klik zoom gambar tanpa merusak DOM
+    const qContainer = document.getElementById('questions-container');
+    if (qContainer) {
+      qContainer.addEventListener('click', function (e) {
+        const img = e.target.closest('.stimulus-text img, .q-text img, .option-text img');
+        if (img) {
           e.preventDefault();
           e.stopPropagation();
-
-          // Set the zoomed image source
-          zoomedImage.src = this.src;
-          zoomedImage.alt = this.alt || 'Gambar Soal';
-
-          // Show modal
+          if (zoomedImage) {
+            zoomedImage.src = img.src;
+            zoomedImage.alt = img.alt || 'Gambar Soal';
+          }
           imageZoomModal.show();
-        });
+        }
       });
-    };
-
-    // Setup image zoom on page load
-    setupImageZoom();
+    }
 
     const btnBack = document.getElementById('navBack');
     const btnNext = document.getElementById('navNext');
     const btnFinish = document.getElementById('navFinish');
     const btnPanel = document.getElementById('navPanel');
+    const btnPanelFooter = document.getElementById('navPanelFooter');
     const checkRagu = document.getElementById('check_ragu');
     const modalPanel = new bootstrap.Modal(document.getElementById('panelModal'));
     const ANTI_CHEAT = "<?= $test['anti_cheat'] ?? 'tidak' ?>";
@@ -2077,88 +2573,69 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             }
             // Continue to fullscreen request below
             console.log('[BUTTON] User confirmed, proceeding to fullscreen');
-            checkAndProceedToFullscreen(); // Call existing function
+            proceedToFullscreen(); // Call existing function
           });
           return;
         }
 
         // Normal flow: request fullscreen (call existing function)
-        console.log('[BUTTON] Normal flow, proceeding to fullscreen');
-        checkAndProceedToFullscreen();
+        console.log('[BUTTON] Normal flow, proceeding to fullscreenRequest');
+        proceedToFullscreen();
       };
 
       /**
-       * Proceed to fullscreen (called after violation check)
+       * Proceed to fullscreen (called after all checks)
        */
-      function checkAndProceedToFullscreen() {
-        // Detect browser dan device
+      function proceedToFullscreen() {
+        // 1. Detect device/browser
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
-        console.log('Browser detection:', { isSafari, isIOS });
+        console.log('[FS] Browser detection:', { isSafari, isIOS });
 
-        // iOS Safari tidak support fullscreen API untuk document
+        // 2. iOS Safari Workaround
         if (isIOS) {
-          console.log('iOS detected - using alternative fullscreen');
-
-          // Hide address bar (tanpa lock scroll)
+          console.log('[FS] iOS detected - using alternative mode');
+          
+          // Hide address bar on iOS
           setTimeout(() => {
             window.scrollTo(0, 1);
           }, 100);
 
-          // JANGAN lock scroll - biarkan user bisa scroll konten soal
-          // Hanya prevent pull-to-refresh
+          // Prevent pull-to-refresh but allow content scroll
           document.body.style.overscrollBehavior = 'none';
 
-          // Hide overlay and show exam
+          // Show exam root
           if (fsOverlay) fsOverlay.style.setProperty('display', 'none', 'important');
           if (root) root.style.opacity = '1';
           renderActive(activeIdx);
 
-          // Show info untuk iOS users
           Swal.fire({
             title: 'Mode Ujian Aktif',
-            html: 'Jangan keluar dari halaman ini atau beralih ke aplikasi lain.<br><small class="text-muted">iOS tidak mendukung fullscreen penuh</small>',
+            html: 'Bekerja dalam mode optimal untuk iOS.<br><small class="text-muted">Jangan keluar dari tab ini selama ujian.</small>',
             icon: 'info',
             timer: 3000,
             showConfirmButton: false
           });
-
           return;
         }
 
-        // Desktop/Android: Check browser compatibility
+        // 3. Desktop/Android: Browser Compatibility Check
         const browserCheck = isBrowserSupported();
-
         if (!browserCheck.supported) {
-          // Browser not supported - show error
           Swal.fire({
             title: 'Browser Tidak Didukung',
-            html: `
-              <div class="text-start">
-                <p class="mb-3">${browserCheck.reason}</p>
-                <p class="text-danger fw-bold mb-3">
-                  <i class="fas fa-exclamation-triangle"></i>
-                  Ujian tidak dapat dilakukan dengan browser ini.
-                </p>
-                <p class="fw-bold text-primary mb-2">Solusi:</p>
-                <p>${browserCheck.recommendation}</p>
-              </div>
-            `,
+            html: `<div class="text-start"><p>${browserCheck.reason}</p><p class="text-danger fw-bold">Ujian mungkin tidak berjalan stabil.</p><p>${browserCheck.recommendation}</p></div>`,
             icon: 'error',
             showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-exclamation-circle"></i> Lanjutkan (Risiko Sendiri)',
-            cancelButtonText: '<i class="fas fa-arrow-left"></i> Kembali',
-            confirmButtonColor: '#dc3545',
-            cancelButtonColor: '#6c757d',
-            allowOutsideClick: false
+            confirmButtonText: 'Lanjutkan (Resiko Sendiri)',
+            cancelButtonText: 'Kembali',
+            confirmButtonColor: '#dc3545'
           }).then((result) => {
             if (result.isConfirmed) {
-              // User accepts risk, proceed anyway
-              console.warn('User proceeding with unsupported browser');
+              console.warn('[FS] User proceeding with unsupported browser');
               executeFullscreenRequest();
             } else {
-              // Go back
               window.location.href = '<?= site_url('siswa/cbt') ?>';
             }
           });
@@ -2166,42 +2643,15 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         }
 
         if (browserCheck.warning) {
-          // Browser has minor issues - show warning
-          Swal.fire({
-            title: 'Peringatan Browser',
-            html: `
-              <div class="text-start">
-                <p class="mb-3">${browserCheck.reason}</p>
-                <p class="text-warning mb-3">
-                  <i class="fas fa-info-circle"></i>
-                  ${browserCheck.recommendation}
-                </p>
-                <p>Anda masih bisa melanjutkan, tapi mungkin ada masalah minor.</p>
-              </div>
-            `,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: '<i class="fas fa-check"></i> Lanjutkan',
-            cancelButtonText: '<i class="fas fa-arrow-left"></i> Kembali',
-            confirmButtonColor: '#ffc107',
-            cancelButtonColor: '#6c757d',
-            allowOutsideClick: false
-          }).then((result) => {
-            if (result.isConfirmed) {
-              executeFullscreenRequest();
-            } else {
-              window.location.href = '<?= site_url('siswa/cbt') ?>';
-            }
-          });
-          return;
+          console.warn('[FS] Browser warning:', browserCheck.reason);
         }
 
-        // Browser supported - proceed normally
+        // 4. Proceed to actual request
         executeFullscreenRequest();
-      };
+      }
 
       /**
-       * Proceed to fullscreen (called after browser check)
+       * Execute the actual fullscreen request with UI adjustments
        */
       function executeFullscreenRequest() {
         // IMPORTANT: Lower overlay z-index BEFORE requesting fullscreen
@@ -2211,7 +2661,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
           fsOverlay.style.pointerEvents = 'none';
         }
 
-        // Add small delay to ensure z-index applied
+        // Add small delay to ensure z-index applied before API call
         setTimeout(() => {
           requestFullscreenWithFallback();
         }, 50);
@@ -2246,12 +2696,14 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
           // Disable beforeunload warning
           window.onbeforeunload = null;
 
+          const allAnswers = (typeof collectAllAnswers === 'function') ? collectAllAnswers() : {};
+
           if (isCheat) {
-            // Force submit immediately via AJAX
+            // Force submit immediately via AJAX with all collected answers
             fetch('<?= site_url('siswa/cbt/submit/' . $test['id']) ?>?forced=1', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-              body: JSON.stringify({ forced: true })
+              body: JSON.stringify({ forced: true, answers: allAnswers })
             })
               .then(r => r.json())
               .then(res => {
@@ -2265,10 +2717,16 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                 }, 2000);
               });
           } else {
-            // Non-cheat (timeout)
-            setTimeout(() => {
-              window.location.href = '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>?timeout=1';
-            }, 2000);
+            // Non-cheat (timeout): kirim semua jawaban terlebih dahulu sebelum redirect
+            fetch('<?= site_url('siswa/cbt/submit/' . $test['id']) ?>?forced=1', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+              body: JSON.stringify({ forced: true, timeout: true, answers: allAnswers })
+            }).finally(() => {
+              setTimeout(() => {
+                window.location.href = '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>?timeout=1';
+              }, 1500);
+            });
           }
         }
       });
@@ -2332,15 +2790,25 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       });
     };
 
-    const ping = (event = null) => {
+    const ping = (event = null, retry = 0) => {
       const data = { test_id: TEST_ID };
       if (event) data.event = event;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
       return fetch('<?= site_url('siswa/cbt/ping') ?>', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        signal: controller.signal,
         body: JSON.stringify(data)
-      }).then(r => r.json()).then(res => {
+      }).then(r => {
+        clearTimeout(timeoutId);
+        if (!r.ok && r.status >= 500 && retry < 2) {
+            throw new Error('Server Busy');
+        }
+        return r.json();
+      }).then(res => {
         // Sync local violation count and limit with server
         if (res.violation_count !== undefined) violationCount = res.violation_count;
         if (res.violation_limit !== undefined) violationLimit = res.violation_limit;
@@ -2351,6 +2819,10 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         return res;
       }).catch(err => {
         console.warn("Ping failed", err);
+        if (retry < 2) {
+            console.log("Retrying ping...", retry + 1);
+            return new Promise(resolve => setTimeout(() => resolve(ping(event, retry + 1)), 2000));
+        }
         throw err;
       });
     };
@@ -2377,26 +2849,55 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
       console.log('Fullscreen change:', { isFullscreen });
 
-      if (!isFullscreen) {
-        console.log('Exited fullscreen - showing overlay');
-        if (fsOverlay) {
-          fsOverlay.style.setProperty('display', 'flex', 'important');
-          // 🔹 FIX: Reset overlay z-index to make button clickable again
-          fsOverlay.style.zIndex = '9998';
-          fsOverlay.style.pointerEvents = 'auto';
-        }
-        if (root) root.style.opacity = '0';
-
-        // 🔹 FIX: Reset button state to ensure it's clickable
-        if (startFS) {
-          startFS.disabled = false;
-          startFS.style.pointerEvents = 'auto';
-          startFS.style.opacity = '1';
-          console.log('[BUTTON] Button state reset after fullscreen exit');
-        }
-
-        if (ANTI_CHEAT !== 'tidak') reportViolation('Exit Fullscreen');
+      if (isFullscreen) {
+        // Layar penuh aktif: pastikan konten ujian terlihat normal dan overlay tersembunyi
+        if (fsOverlay) fsOverlay.style.setProperty('display', 'none', 'important');
+        if (root) root.style.opacity = '1';
+        return;
       }
+
+      // 🔹 Proteksi HP / Virtual Keyboard:
+      // Pada HP/tablet, memencet input/textarea membuka soft-keyboard
+      // yang dapat memicu event keluar fullscreen sementara. Jangan tampilkan overlay jika user sedang mengetik!
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+        console.log('Fullscreen exit ignored: soft keyboard is open');
+        return;
+      }
+
+      // Berikan debounce 400ms untuk menghindari false-positive saat rotasi atau scroll layar HP
+      setTimeout(() => {
+        if (examFinished) return;
+        const stillFullscreen = document.fullscreenElement ||
+          document.webkitFullscreenElement ||
+          document.mozFullScreenElement ||
+          document.msFullscreenElement;
+
+        const currentActive = document.activeElement;
+        if (currentActive && (currentActive.tagName === 'INPUT' || currentActive.tagName === 'TEXTAREA')) {
+          return;
+        }
+
+        if (!stillFullscreen) {
+          console.log('Exited fullscreen - showing overlay');
+          if (fsOverlay) {
+            fsOverlay.style.setProperty('display', 'flex', 'important');
+            fsOverlay.style.zIndex = '9998';
+            fsOverlay.style.pointerEvents = 'auto';
+          }
+          if (root) root.style.opacity = '0';
+
+          // 🔹 FIX: Reset button state to ensure it's clickable
+          if (startFS) {
+            startFS.disabled = false;
+            startFS.style.pointerEvents = 'auto';
+            startFS.style.opacity = '1';
+            console.log('[BUTTON] Button state reset after fullscreen exit');
+          }
+
+          if (ANTI_CHEAT !== 'tidak') reportViolation('Exit Fullscreen');
+        }
+      }, 400);
     };
 
     // Add event listeners untuk semua browser (skip untuk iOS)
@@ -2420,18 +2921,9 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     // Orientation Change Event - Keep trying to lock to portrait
     if (screen.orientation) {
       screen.orientation.addEventListener('change', () => {
-        console.log('Orientation changed to:', screen.orientation.type);
-
-        // If orientation changed to landscape, try to lock back to portrait
-        if (screen.orientation.type.includes('landscape')) {
-          console.log('Detected landscape, attempting to lock to portrait...');
-
-          if (screen.orientation.lock) {
-            screen.orientation.lock('portrait').then(() => {
-              console.log('Successfully locked back to portrait');
-            }).catch(err => {
-              console.log('Failed to lock to portrait:', err.message);
-            });
+        if (screen.orientation.type && screen.orientation.type.includes('landscape')) {
+          if (screen.orientation.lock && (document.fullscreenElement || document.webkitFullscreenElement)) {
+            screen.orientation.lock('portrait').catch(() => {});
           }
         }
       });
@@ -2446,6 +2938,100 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         btn.classList.add('active');
       };
     });
+
+    // Update Ragu-ragu visual on button
+    const updateRaguVisual = () => {
+      const isChecked = checkRagu ? checkRagu.checked : false;
+      const labelRagu = document.getElementById('label_ragu');
+      if (labelRagu) {
+        labelRagu.classList.toggle('btn-ragu-active', isChecked);
+        const icon = labelRagu.querySelector('i');
+        if (icon) {
+          icon.className = isChecked ? 'bi bi-flag-fill me-1' : 'bi bi-flag me-1';
+        }
+      }
+    };
+
+    // Update Mobile Header info
+    const updateMobileHeader = (idx) => {
+      const activeQ = items[idx];
+      if (!activeQ) return;
+      const type = activeQ.dataset.type || 'pg';
+      const typeMap = {
+        'pg': 'Pilihan Ganda',
+        'pg_kompleks': 'PG Kompleks',
+        'pgk': 'PG Kompleks',
+        'benar_salah': 'Benar/Salah',
+        'esai': 'Esai',
+        'essay': 'Esai'
+      };
+      const badgeType = document.getElementById('badge_q_type');
+      if (badgeType) badgeType.textContent = typeMap[type] || 'Soal';
+    };
+
+    // Update Answer Stats Counter
+    const updateAnswerStats = () => {
+      let answeredCount = 0;
+      let doubtfulCount = 0;
+      items.forEach(item => {
+        const type = item.dataset.type;
+        const isDoubtful = (item.dataset.doubtful == '1');
+        let answered = false;
+        if (type === 'pg' || type === 'pg_kompleks' || type === 'pgk') {
+          answered = !!item.querySelector('.inp-target:checked');
+        } else if (type === 'benar_salah') {
+          const bsRows = item.querySelectorAll('.inp-bs[data-row]');
+          const totalRows = new Set();
+          bsRows.forEach(inp => totalRows.add(inp.dataset.row));
+          const rowCount = totalRows.size;
+          let answeredRows = 0;
+          for (let i = 0; i < rowCount; i++) {
+            if (item.querySelector(`.inp-bs[data-row="${i}"]:checked`)) answeredRows++;
+          }
+          answered = (answeredRows === rowCount && rowCount > 0);
+        } else {
+          const essay = item.querySelector('.inp-essay');
+          answered = (essay && essay.value.trim().length > 0);
+        }
+        if (answered) answeredCount++;
+        if (isDoubtful) doubtfulCount++;
+      });
+
+      const badge = document.getElementById('answeredCountBadge');
+      if (badge) badge.textContent = `${answeredCount}/${items.length}`;
+      const sumAns = document.getElementById('summary_answered');
+      if (sumAns) sumAns.textContent = answeredCount;
+      const sumDoubt = document.getElementById('summary_doubtful');
+      if (sumDoubt) sumDoubt.textContent = doubtfulCount;
+      const sumUnans = document.getElementById('summary_unanswered');
+      if (sumUnans) sumUnans.textContent = items.length - answeredCount;
+      const sumCurr = document.getElementById('summary_current_num');
+      if (sumCurr) sumCurr.textContent = activeIdx + 1;
+    };
+
+    // Finish Button State & Animated Countdown Logic
+    const updateFinishButtonState = () => {
+      if (!btnFinish) return;
+
+      if (LOCK_DURATION > 0 && elapsedSeconds < LOCK_DURATION) {
+        const waitTime = LOCK_DURATION - elapsedSeconds;
+        const wm = Math.floor(waitTime / 60);
+        const ws = waitTime % 60;
+        const waitFormatted = (wm < 10 ? '0' + wm : wm) + ':' + (ws < 10 ? '0' + ws : ws);
+
+        btnFinish.disabled = true;
+        btnFinish.classList.remove('btn-next', 'btn-success');
+        btnFinish.classList.add('btn-secondary', 'btn-finish-locked');
+        btnFinish.innerHTML = `<i class="bi bi-lock-fill lock-icon-anim me-1"></i><span class="btn-nav-text finish-btn-label me-1">Selesai dalam</span><span class="countdown-badge-anim font-monospace fw-bold">${waitFormatted}</span>`;
+        btnFinish.title = `Selesaikan Ujian (Terkunci selama ${waitFormatted} lagi)`;
+      } else {
+        btnFinish.disabled = false;
+        btnFinish.classList.remove('btn-secondary', 'btn-finish-locked', 'btn-next');
+        btnFinish.classList.add('btn-success');
+        btnFinish.innerHTML = `<i class="bi bi-check2-all me-1"></i><span class="btn-nav-text finish-btn-label">Selesaikan Ujian</span><span class="finish-btn-mobile-label d-inline d-md-none fw-bold ms-1">Selesai</span>`;
+        btnFinish.title = 'Selesaikan Ujian';
+      }
+    };
 
     const renderActive = (idx) => {
       items.forEach((item, i) => {
@@ -2463,30 +3049,58 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       // Update Navigation
       if (btnBack) btnBack.disabled = (idx === 0);
       const isEnd = (idx === items.length - 1);
-      if (btnNext) btnNext.classList.toggle('d-none', isEnd);
-      if (btnFinish) btnFinish.classList.toggle('d-none', !isEnd);
+      
+      // Slot ke-4: Tombol Berikutnya BERUBAH menjadi Tombol Selesai di nomor terakhir
+      if (btnNext) {
+        if (isEnd) {
+          btnNext.classList.add('d-none');
+          btnNext.style.setProperty('display', 'none', 'important');
+        } else {
+          btnNext.classList.remove('d-none');
+          btnNext.style.removeProperty('display');
+        }
+      }
+      if (btnFinish) {
+        if (isEnd) {
+          btnFinish.classList.remove('d-none');
+          btnFinish.style.removeProperty('display');
+          updateFinishButtonState();
+        } else {
+          btnFinish.classList.add('d-none');
+          btnFinish.style.setProperty('display', 'none', 'important');
+        }
+      }
 
       // Sync Check Ragu-ragu
       const currentItem = items[idx];
       if (currentItem && checkRagu) {
         checkRagu.checked = (currentItem.dataset.doubtful == '1');
       }
+      updateRaguVisual();
+      updateMobileHeader(idx);
+      updateAnswerStats();
 
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo(0, 0);
 
-      // Setup image zoom for current question
-      setupImageZoom();
-
-      // Render MathJax untuk formula matematika
-      if (typeof MathJax !== 'undefined') {
-        if (typeof MathJax.typesetPromise === 'function') {
-          MathJax.typesetPromise().catch(() => {});
-        } else if (MathJax.startup && MathJax.startup.promise) {
-          MathJax.startup.promise.then(() => {
-            if (typeof MathJax.typesetPromise === 'function') {
-              MathJax.typesetPromise().catch(() => {});
-            }
-          }).catch(() => {});
+      // Lazy typesetting MathJax HANYA pada soal aktif jika mengandung LaTeX
+      if (currentItem && !currentItem.dataset.mathTypeset) {
+        const text = currentItem.textContent || '';
+        if (text.includes('$') || text.includes('\\(') || text.includes('\\[') || text.includes('\\begin')) {
+          if (typeof MathJax !== 'undefined' && typeof MathJax.typesetPromise === 'function') {
+            MathJax.typesetPromise([currentItem]).then(() => {
+              currentItem.dataset.mathTypeset = '1';
+            }).catch(() => {});
+          } else if (typeof MathJax !== 'undefined' && MathJax.startup && MathJax.startup.promise) {
+            MathJax.startup.promise.then(() => {
+              if (typeof MathJax.typesetPromise === 'function') {
+                MathJax.typesetPromise([currentItem]).then(() => {
+                  currentItem.dataset.mathTypeset = '1';
+                }).catch(() => {});
+              }
+            }).catch(() => {});
+          }
+        } else {
+          currentItem.dataset.mathTypeset = '1';
         }
       }
     };
@@ -2496,13 +3110,13 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       const currentNum = document.getElementById('current_num');
       const totalNum = document.getElementById('total_num');
       const progressFill = document.getElementById('progress_fill');
+      const progressFillMini = document.getElementById('progress_fill_mini');
 
       if (currentNum) currentNum.textContent = activeIdx + 1;
       if (totalNum) totalNum.textContent = items.length;
-      if (progressFill) {
-        const percentage = ((activeIdx + 1) / items.length) * 100;
-        progressFill.style.width = percentage + '%';
-      }
+      const percentage = ((activeIdx + 1) / items.length) * 100;
+      if (progressFill) progressFill.style.width = percentage + '%';
+      if (progressFillMini) progressFillMini.style.width = percentage + '%';
     };
 
     // Auto-Save Status Indicator
@@ -2567,12 +3181,17 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       if (val !== null) fd.append('answer', val);
       fd.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout for answer save
+
       fetch('<?= site_url('siswa/cbt/saveAnswer') ?>', {
         method: 'POST',
         body: fd,
+        signal: controller.signal,
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
       })
         .then(response => {
+          clearTimeout(timeoutId);
           // Check HTTP status first
           if (!response.ok) {
             console.error('[SAVE] HTTP Error:', response.status, response.statusText);
@@ -2581,19 +3200,18 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             if (response.status === 403 || response.status === 401) {
               Swal.fire({
                 title: 'Sesi Berakhir',
-                text: 'Sesi ujian Anda telah berakhir. Jawaban disimpan offline. Halaman akan dimuat ulang.',
+                text: 'Sesi ujian Anda telah berakhir atau akun Anda digunakan di perangkat lain. Jawaban Anda saat ini telah disimpan secara offline.',
                 icon: 'warning',
                 allowOutsideClick: false,
-                confirmButtonText: 'Muat Ulang'
+                confirmButtonText: 'Login Ulang'
               }).then(() => {
-                // Flush offline queue first
-                flushOfflineQueue();
-                setTimeout(() => {
-                  window.location.reload();
-                }, 1000);
+                window.location.reload();
               });
               throw new Error('Session expired');
             }
+            
+            // For other errors (500, 504, etc.), treat as network failure and save offline
+            throw new Error('Server error: ' + response.status);
           }
           return response.json();
         })
@@ -2631,6 +3249,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
         // Update UI saja
         activeQ.dataset.doubtful = isChecked ? '1' : '0';
+        updateRaguVisual();
+        updateAnswerStats();
 
         // Simpan ke localStorage untuk persistence
         const doubtfulKey = `cbt_doubtful_${TEST_ID}`;
@@ -2667,6 +3287,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
         // Kirim jawaban saja, jangan ubah status ragu-ragu
         commitAnswer(qid, val);
+        updateAnswerStats();
       };
     });
 
@@ -2683,6 +3304,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
         // Kirim jawaban saja, jangan ubah status ragu-ragu
         commitAnswer(qid, bsData.join(','));
+        updateAnswerStats();
       };
     });
 
@@ -2693,6 +3315,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
         // Kirim jawaban saja, jangan ubah status ragu-ragu
         commitAnswer(qid, e.target.value);
+        updateAnswerStats();
       };
     });
 
@@ -2707,6 +3330,18 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         const h = Math.floor(timeRaw / 3600), m = Math.floor((timeRaw % 3600) / 60), s = timeRaw % 60;
         if (timerBox) {
           timerBox.textContent = [h, m, s].map(v => v < 10 ? '0' + v : v).join(':');
+
+          const headerTimerPill = document.getElementById('headerTimerPill');
+          if (headerTimerPill) {
+            if (timeRaw <= 60) {
+              headerTimerPill.classList.remove('timer-warning');
+              headerTimerPill.classList.add('timer-danger');
+            } else if (timeRaw <= 300) {
+              headerTimerPill.classList.add('timer-warning');
+            } else {
+              headerTimerPill.classList.remove('timer-warning', 'timer-danger');
+            }
+          }
 
           // Warning when 5 minutes left
           if (timeRaw === 300 && timeRaw > 0) {
@@ -2746,24 +3381,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         }
       }
 
-      // Finish Button Lock Logic
-      if (LOCK_DURATION > 0 && btnFinish) {
-        if (elapsedSeconds < LOCK_DURATION) {
-          const waitTime = LOCK_DURATION - elapsedSeconds;
-          const wm = Math.floor(waitTime / 60), ws = waitTime % 60;
-          const waitText = (wm > 0 ? wm + 'm ' : '') + ws + 's';
-
-          btnFinish.disabled = true;
-          btnFinish.innerHTML = `<i class="bi bi-lock-fill"></i> <span class="finish-text">Selesaikan</span> <span class="finish-time">${waitText}</span>`;
-          btnFinish.classList.remove('btn-next', 'btn-success');
-          btnFinish.classList.add('btn-secondary');
-        } else {
-          btnFinish.disabled = false;
-          btnFinish.innerHTML = `<i class="bi bi-check2-all"></i> <span class="finish-text">Selesaikan Ujian</span>`;
-          btnFinish.classList.remove('btn-secondary', 'btn-next');
-          btnFinish.classList.add('btn-success');
-        }
-      }
+      // Update finish button countdown & state
+      updateFinishButtonState();
 
       elapsedSeconds++;
     };
@@ -2835,6 +3454,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     const renderPanel = () => {
       if (!panelButtons) return;
       panelButtons.innerHTML = '';
+      updateAnswerStats();
+
       items.forEach((item, i) => {
         const qid = item.dataset.qid;
         const type = item.dataset.type;
@@ -2879,17 +3500,12 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
           if (answered) answerLabel = '√';
         }
 
-        const btnWrap = document.createElement('div');
-        btnWrap.className = 'position-relative';
-
         const btn = document.createElement('button');
-        let bgColor = answered ? 'btn-success' : 'btn-outline-secondary';
-        if (isDoubtful) bgColor = 'btn-warning';
+        btn.type = 'button';
+        let bgColor = answered ? 'btn-success text-white' : 'btn-outline-secondary';
+        if (isDoubtful) bgColor = 'btn-warning text-dark';
 
-        btn.className = `btn ${bgColor} m-1 fw-bold`;
-        btn.style.width = '55px';
-        btn.style.height = '55px';
-        btn.style.borderRadius = '12px';
+        btn.className = `btn ${bgColor} panel-q-btn fw-bold ${i === activeIdx ? 'current-q-btn' : ''}`;
         btn.style.position = 'relative';
         btn.innerText = (i + 1);
 
@@ -2918,11 +3534,16 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       });
     };
 
+    const openPanelModal = () => {
+      renderPanel();
+      modalPanel.show();
+    };
+
     if (btnPanel) {
-      btnPanel.onclick = () => {
-        renderPanel();
-        modalPanel.show();
-      };
+      btnPanel.onclick = openPanelModal;
+    }
+    if (btnPanelFooter) {
+      btnPanelFooter.onclick = openPanelModal;
     }
 
     if (btnFinish) {
@@ -2933,6 +3554,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         let unanswered = 0;
         let doubtful = 0;
         let incompleteBS = []; // Track incomplete benar-salah questions
+        let unansweredNums = [];
+        let doubtfulNums = [];
 
         items.forEach((item, idx) => {
           const type = item.dataset.type;
@@ -2960,32 +3583,73 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             hasAnswer = (essay && essay.value.trim().length > 0);
           }
 
-          if (isDoubtful) doubtful++;
-          if (!hasAnswer) unanswered++;
+          if (isDoubtful) {
+            doubtful++;
+            doubtfulNums.push(idx + 1);
+          }
+          if (!hasAnswer) {
+            unanswered++;
+            unansweredNums.push(idx + 1);
+          }
         });
 
         if (unanswered > 0 || doubtful > 0) {
-          let warnMsg = "Ujian belum bisa diselesaikan:<br>";
+          let warnMsg = "<div class='text-start'>";
           if (unanswered > 0) {
-            warnMsg += `- Masih ada <b>${unanswered}</b> soal belum dijawab.<br>`;
+            warnMsg += `<div class='mb-2 text-dark fw-bold'><i class='bi bi-exclamation-circle text-danger me-1'></i> Masih ada <b>${unanswered}</b> soal belum dijawab:</div>`;
+            warnMsg += `<div class='d-flex flex-wrap gap-1 justify-content-center mb-3'>`;
+            unansweredNums.forEach(num => {
+              warnMsg += `<button type='button' class='btn btn-danger btn-sm py-1 px-2 fw-bold rounded-2 btn-swal-jump' data-target-num='${num}' title='Buka Soal #${num}'>#${num}</button>`;
+            });
+            warnMsg += `</div>`;
+
             if (incompleteBS.length > 0) {
-              warnMsg += `<br><b>Soal Benar/Salah yang belum lengkap:</b><br>`;
+              warnMsg += `<div class='alert alert-warning py-2 px-3 small mb-2'>
+                <b>Soal Benar/Salah yang belum lengkap:</b><br>`;
               incompleteBS.forEach(q => {
-                warnMsg += `&nbsp;&nbsp;• Soal #${q.num}: ${q.answered}/${q.total} pernyataan dijawab<br>`;
+                warnMsg += `&nbsp;&nbsp;• Soal <b>#${q.num}</b>: baru ${q.answered}/${q.total} baris pernyataan dijawab<br>`;
               });
-              warnMsg += `<br><small class='text-muted'>Semua pernyataan harus dijawab (Benar atau Salah)</small><br>`;
+              warnMsg += `<span class='text-muted' style='font-size:11px;'>Semua baris pernyataan harus dipilih (Benar atau Salah).</span></div>`;
             }
           }
-          if (doubtful > 0) warnMsg += `- Masih ada <b>${doubtful}</b> soal dalam status Ragu-ragu.<br>`;
-          warnMsg += "<br><small class='text-muted'>Silakan selesaikan semua soal terlebih dahulu.</small>";
-          Swal.fire({ title: 'Perhatian!', html: warnMsg, icon: 'warning', confirmButtonText: 'Kembali Ke Soal', confirmButtonColor: '#0d6efd' });
+          if (doubtful > 0) {
+            warnMsg += `<div class='mt-2 mb-2 text-dark fw-bold'><i class='bi bi-flag-fill text-warning me-1'></i> Masih ada <b>${doubtful}</b> soal dalam status Ragu-ragu:</div>`;
+            warnMsg += `<div class='d-flex flex-wrap gap-1 justify-content-center mb-3'>`;
+            doubtfulNums.forEach(num => {
+              warnMsg += `<button type='button' class='btn btn-warning text-dark btn-sm py-1 px-2 fw-bold rounded-2 btn-swal-jump' data-target-num='${num}' title='Buka Soal #${num}'>#${num}</button>`;
+            });
+            warnMsg += `</div>`;
+          }
+          warnMsg += "<div class='small text-muted text-center mt-2'>Klik tombol nomor di atas untuk langsung membuka soal tersebut.</div></div>";
+
+          Swal.fire({
+            title: 'Perhatian!',
+            html: warnMsg,
+            icon: 'warning',
+            confirmButtonText: 'Kembali Ke Soal',
+            confirmButtonColor: '#0d6efd',
+            didOpen: () => {
+              document.querySelectorAll('.btn-swal-jump').forEach(btn => {
+                btn.onclick = () => {
+                  const targetNum = parseInt(btn.dataset.targetNum, 10);
+                  Swal.close();
+                  if (!isNaN(targetNum) && targetNum > 0) {
+                    renderActive(targetNum - 1);
+                  }
+                };
+              });
+            }
+          });
           return;
         }
 
         Swal.fire({
           title: '<h3 class="fw-bold mb-0">Selesaikan Ujian?</h3>',
+          position: 'center', // 🔹 FIX: Explicitly set position to center
+          heightAuto: false,  // 🔹 FIX: Prevent layout shift on mobile
+          grow: 'column',     // Ensure it doesn't try to grow too wide
           html: `
-            <div class="mt-3 mb-4">
+            <div class="mt-2 mb-3">
               <div class="p-3 rounded-4 bg-light border text-start shadow-sm">
                 <div class="d-flex justify-content-between mb-2">
                   <span class="text-muted">Total Soal</span>
@@ -3030,36 +3694,135 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             btnFinish.disabled = true;
             btnFinish.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses...';
 
-            // Disable beforeunload warning
-            window.onbeforeunload = null;
+            // 🔹 BULLETPROOF ANSWER SUBMISSION:
+            // 1. Kumpulkan seluruh jawaban aktif langsung dari tampilan siswa (DOM) & antrean lokal
+            const allAnswers = (typeof collectAllAnswers === 'function') ? collectAllAnswers() : {};
 
-            // Get CSRF token
+            // 2. Ambil CSRF token
             const csrfTokenName = '<?= csrf_token() ?>';
             const csrfHash = document.querySelector(`meta[name='${csrfTokenName}']`)?.getAttribute('content') || '<?= csrf_hash() ?>';
-            const csrfData = new URLSearchParams({ [csrfTokenName]: csrfHash }).toString();
 
-            // AJAX submit first, then redirect (faster - scoring runs on server)
+            // 3. Kirim request submit BESERTA seluruh jawaban terkini siswa (format JSON)
             return fetch('<?= site_url('siswa/cbt/submit/' . $test['id']) ?>', {
               method: 'POST',
               headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-Requested-With': 'XMLHttpRequest'
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfHash
               },
-              body: csrfData
+              body: JSON.stringify({
+                [csrfTokenName]: csrfHash,
+                answers: allAnswers
+              })
             })
-              .then(r => r.json())
-              .then(res => {
+              .then(async r => {
+                const res = await r.json();
+                if (!r.ok || res.error) {
+                  const errObj = new Error(res.error || 'Ujian belum bisa diselesaikan.');
+                  errObj.details = res.details || {};
+                  throw errObj;
+                }
+                // Hapus antrean offline lokal setelah submit sukses
+                localStorage.removeItem(OFFLINE_QUEUE_KEY);
                 if (res.redirect) return res.redirect;
-                // Even if there's an error, redirect to selesai as fallback
                 return '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>';
               })
-              .catch(() => {
-                // Network error - redirect to selesai as fallback
-                return '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>';
+              .catch((err) => {
+                examFinished = false;
+                btnFinish.disabled = false;
+                updateFinishButtonState();
+
+                // Cek apakah server mengirimkan rincian nomor soal yang belum tercatat
+                const details = err.details || {};
+                const unansNums = details.unanswered_numbers || [];
+                const incBsNums = details.incomplete_bs_numbers || [];
+                const allMissingNums = [...new Set([...unansNums, ...incBsNums])].sort((a,b) => a-b);
+
+                if (allMissingNums.length > 0) {
+                  // Otomatis kirim ulang jawaban pada nomor-nomor tersebut jika di tampilan siswa sudah terpilih
+                  allMissingNums.forEach(num => {
+                    const item = items[num - 1];
+                    if (item) {
+                      const qid = item.dataset.qid;
+                      const type = item.dataset.type;
+                      let val = '';
+                      if (type === 'pg_kompleks' || type === 'pgk') {
+                        val = Array.from(item.querySelectorAll('.option-check:checked')).map(i => i.value).join(',');
+                      } else if (type === 'benar_salah') {
+                        const bsRows = item.querySelectorAll('.inp-bs[data-row]');
+                        const totalRows = new Set();
+                        bsRows.forEach(inp => totalRows.add(inp.dataset.row));
+                        const rowCount = totalRows.size;
+                        const arr = [];
+                        for (let i = 0; i < rowCount; i++) {
+                          const picked = item.querySelector(`.inp-bs[data-row="${i}"]:checked`);
+                          arr.push(picked ? picked.value : '');
+                        }
+                        val = arr.join(',');
+                      } else if (type === 'pg') {
+                        const checked = item.querySelector('.option-check:checked');
+                        if (checked) val = checked.value;
+                      } else {
+                        const essay = item.querySelector('.inp-essay');
+                        if (essay) val = essay.value.trim();
+                      }
+                      if (val !== '') {
+                        commitAnswer(qid, val);
+                      }
+                    }
+                  });
+
+                  setTimeout(() => {
+                    let missingHtml = `<div class="text-start">
+                      <div class="alert alert-danger py-2 px-3 small mb-3">
+                        <i class="bi bi-wifi-off me-1"></i> <strong>Koneksi Terganggu Saat Menyimpan:</strong><br>
+                        Pilihan di layar Anda mungkin sudah terisi, tetapi rekaman jawaban untuk <b>${allMissingNums.length}</b> soal berikut belum berhasil masuk ke server:
+                      </div>
+                      <div class="d-flex flex-wrap gap-2 justify-content-center mb-3">`;
+
+                    allMissingNums.forEach(num => {
+                      missingHtml += `<button type="button" class="btn btn-danger btn-sm py-2 px-3 fw-bold rounded-3 btn-jump-missing" data-target-num="${num}">
+                        <i class="bi bi-pencil-square me-1"></i> Periksa Soal #${num}
+                      </button>`;
+                    });
+
+                    missingHtml += `</div>
+                      <p class="small text-muted text-center mb-0">Sistem sedang otomatis mengirimkan ulang jawaban tersebut. Silakan klik nomor soal di atas untuk memeriksa, lalu klik Akhiri Ujian kembali.</p>
+                    </div>`;
+
+                    Swal.fire({
+                      title: 'Jawaban Belum Tercatat di Server!',
+                      html: missingHtml,
+                      icon: 'warning',
+                      confirmButtonText: 'Tutup & Periksa Soal',
+                      confirmButtonColor: '#4f46e5',
+                      didOpen: () => {
+                        document.querySelectorAll('.btn-jump-missing').forEach(btn => {
+                          btn.onclick = () => {
+                            const targetNum = parseInt(btn.dataset.targetNum, 10);
+                            Swal.close();
+                            if (!isNaN(targetNum) && targetNum > 0) {
+                              renderActive(targetNum - 1);
+                              const activeQ = items[targetNum - 1];
+                              if (activeQ) {
+                                activeQ.classList.add('border-warning');
+                                setTimeout(() => activeQ.classList.remove('border-warning'), 2500);
+                              }
+                            }
+                          };
+                        });
+                      }
+                    });
+                  }, 200);
+                  return false;
+                }
+
+                Swal.showValidationMessage(err.message || 'Gagal menyelesaikan ujian.');
+                return false;
               });
           }
         }).then(result => {
-          if (result.isConfirmed && result.value) {
+          if (result && result.isConfirmed && result.value) {
             window.location.href = result.value;
           }
         });
@@ -3106,9 +3869,9 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       }
 
       // Ctrl+P: Open panel
-      if (e.ctrlKey && key === 'P' && btnPanel) {
+      if (e.ctrlKey && key === 'P') {
         e.preventDefault();
-        btnPanel.click();
+        openPanelModal();
       }
 
       // Escape: Close modal
@@ -3151,10 +3914,69 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     });
 
     renderActive(activeIdx);
+
+    // Info buttons handler (mobile & desktop)
+    const showExamInfo = () => {
+      Swal.fire({
+        title: 'Informasi Ujian',
+        html: `
+          <div class="text-start">
+            <p class="mb-2"><strong>Mata Pelajaran:</strong> <?= esc($test['subject_name'] ?? '-') ?></p>
+            <p class="mb-2"><strong>Nama Ujian:</strong> <?= esc($test['exam_name'] ?? '-') ?></p>
+            <p class="mb-2"><strong>Kode Bank:</strong> <?= esc($test['bank_code'] ?? '-') ?></p>
+            <p class="mb-0"><strong>Total Soal:</strong> <?= count($questions) ?> butir</p>
+          </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Tutup',
+        confirmButtonColor: '#0d6efd'
+      });
+    };
+
     const infoBtn = document.getElementById('btn_info_soal');
-    if (infoBtn) {
-      infoBtn.onclick = () => Swal.fire('Informasi', 'Anda sedang mengerjakan ujian <?= esc($test['subject_name']) ?>.', 'info');
+    if (infoBtn) infoBtn.onclick = showExamInfo;
+    const infoBtnDesktop = document.getElementById('btn_info_soal_desktop');
+    if (infoBtnDesktop) infoBtnDesktop.onclick = showExamInfo;
+
+    // Mobile Font Zoom Cycle
+    const btnFontCycle = document.getElementById('btnFontCycle');
+    if (btnFontCycle) {
+      const fontSizes = ['0.95rem', '1.05rem', '1.2rem'];
+      const fontLabels = ['A-', 'A', 'A+'];
+      let currentFontIdx = 1;
+
+      btnFontCycle.onclick = () => {
+        currentFontIdx = (currentFontIdx + 1) % fontSizes.length;
+        document.documentElement.style.setProperty('--exam-font-size', fontSizes[currentFontIdx]);
+        const cycleLabel = document.getElementById('fontCycleLabel');
+        if (cycleLabel) cycleLabel.textContent = fontLabels[currentFontIdx];
+      };
     }
+
+    // Mobile Jump to Questions / Stimulus
+    document.addEventListener('click', function(e) {
+      const jumpQ = e.target.closest('.btn-jump-to-q');
+      if (jumpQ) {
+        const targetId = jumpQ.dataset.target;
+        const targetEl = document.getElementById(targetId);
+        if (targetEl) {
+          const headerHeight = document.getElementById('examHeader') ? document.getElementById('examHeader').offsetHeight : 60;
+          const y = targetEl.getBoundingClientRect().top + window.pageYOffset - headerHeight - 10;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+      }
+
+      const jumpStimulus = e.target.closest('.btn-jump-to-stimulus');
+      if (jumpStimulus) {
+        const targetId = jumpStimulus.dataset.target;
+        const targetEl = document.getElementById(targetId);
+        if (targetEl) {
+          const headerHeight = document.getElementById('examHeader') ? document.getElementById('examHeader').offsetHeight : 60;
+          const y = targetEl.getBoundingClientRect().top + window.pageYOffset - headerHeight - 10;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+      }
+    });
   });
 </script>
 <?= $this->endSection() ?>

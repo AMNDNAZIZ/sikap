@@ -346,8 +346,23 @@ class CbtScoringService extends BaseService
     public function validateAllAnswered(int $studentId, int $testId, int $bankId): array
     {
         try {
-            // Get all questions
-            $questions = $this->questionModel->where('bank_id', $bankId)->findAll();
+            // Get questions: periksa question_order dari sesi siswa jika ada
+            $questions = [];
+            $session = (new \App\Models\CbtSessionModel())
+                ->where('student_id', $studentId)
+                ->where('test_id', $testId)
+                ->first();
+
+            if ($session && !empty($session['question_order'])) {
+                $qOrder = json_decode($session['question_order'], true);
+                if (is_array($qOrder) && !empty($qOrder)) {
+                    $questions = $this->questionModel->whereIn('id', $qOrder)->findAll();
+                }
+            }
+
+            if (empty($questions)) {
+                $questions = $this->questionModel->where('bank_id', $bankId)->findAll();
+            }
             
             // Get student answers
             $answers = $this->answerModel->where([
@@ -373,7 +388,7 @@ class CbtScoringService extends BaseService
                 if (in_array($type, ['benar_salah', 'bs'])) {
                     // Check if all rows are answered
                     $rows = ['A', 'B', 'C', 'D', 'E'];
-                    $studentArr = explode(',', $studentAnswer);
+                    $studentArr = explode(',', (string) $studentAnswer);
                     
                     $answeredOptions = 0;
                     foreach ($studentArr as $ans) {
@@ -382,21 +397,21 @@ class CbtScoringService extends BaseService
                         }
                     }
 
-                    // Count how many options exist
+                    // Count how many options exist (exclude empty HTML tags)
                     $existingOptions = 0;
                     foreach ($rows as $row) {
                         $col = 'option_' . strtolower($row);
-                        if (!empty($q[$col])) {
+                        if (!empty($q[$col]) && trim(strip_tags((string) $q[$col])) !== '') {
                             $existingOptions++;
                         }
                     }
 
-                    if ($answeredOptions < $existingOptions) {
+                    if ($existingOptions > 0 && $answeredOptions < $existingOptions) {
                         $incompleteBS[] = $qid;
                     }
                 } else {
-                    // Check if answered
-                    if (empty(trim($studentAnswer))) {
+                    // Check if answered (safe against string '0')
+                    if ($studentAnswer === null || trim((string) $studentAnswer) === '') {
                         $unanswered[] = $qid;
                     }
                 }

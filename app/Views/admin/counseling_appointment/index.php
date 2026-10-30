@@ -81,47 +81,6 @@
                                         </form>
                                     </td>
                                 </tr>
-
-                                <!-- Modal Proses Status -->
-                                <div class="modal fade" id="statusModal<?= $row['id'] ?>" tabindex="-1" aria-labelledby="statusModalLabel<?= $row['id'] ?>" aria-hidden="true">
-                                    <div class="modal-dialog">
-                                        <form action="<?= base_url('admin/counseling-appointment/updateStatus/' . $row['id']) ?>" method="post">
-                                            <?= csrf_field() ?>
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="statusModalLabel<?= $row['id'] ?>">Proses Janji Temu</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    <div class="mb-3">
-                                                        <label class="form-label fw-bold">Topik / Keluhan</label>
-                                                        <p class="mb-0 bg-light p-2 rounded border"><?= esc($row['topic']) ?></p>
-                                                    </div>
-                                                    
-                                                    <div class="mb-3">
-                                                        <label class="form-label fw-bold">Tanggal Janji Temu</label>
-                                                        <input type="datetime-local" name="proposed_date" class="form-control" value="<?= $row['requested_date'] && $row['requested_time'] ? date('Y-m-d\TH:i', strtotime($row['requested_date'] . ' ' . $row['requested_time'])) : '' ?>">
-                                                        <small class="text-muted">Ubah jika Anda ingin menjadwalkan ulang.</small>
-                                                    </div>
-
-                                                    <div class="mb-3">
-                                                        <label class="form-label fw-bold">Status</label>
-                                                        <select name="status" class="form-select">
-                                                            <option value="Pending" <?= $row['status'] == 'Pending' ? 'selected' : '' ?>>Menunggu</option>
-                                                            <option value="Approved" <?= $row['status'] == 'Approved' ? 'selected' : '' ?>>Disetujui (Jadwalkan)</option>
-                                                            <option value="Rejected" <?= $row['status'] == 'Rejected' ? 'selected' : '' ?>>Ditolak</option>
-                                                            <option value="Completed" <?= $row['status'] == 'Completed' ? 'selected' : '' ?>>Selesai</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-                                                    <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
-                                                </div>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
@@ -129,6 +88,49 @@
             </div>
         </div>
     </section>
+
+    <!-- Modal Proses Status -->
+    <?php foreach ($appointments as $row) : ?>
+        <div class="modal fade" id="statusModal<?= $row['id'] ?>" tabindex="-1" aria-labelledby="statusModalLabel<?= $row['id'] ?>" aria-hidden="true">
+            <div class="modal-dialog">
+                <form action="<?= base_url('admin/counseling-appointment/updateStatus/' . $row['id']) ?>" method="post">
+                    <?= csrf_field() ?>
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="statusModalLabel<?= $row['id'] ?>">Proses Janji Temu</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Topik / Keluhan</label>
+                                <p class="mb-0 bg-light p-2 rounded border"><?= esc($row['topic']) ?></p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Tanggal Janji Temu</label>
+                                <input type="datetime-local" name="proposed_date" class="form-control" value="<?= $row['requested_date'] && $row['requested_time'] ? date('Y-m-d\TH:i', strtotime($row['requested_date'] . ' ' . $row['requested_time'])) : '' ?>">
+                                <small class="text-muted">Ubah jika Anda ingin menjadwalkan ulang.</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Status</label>
+                                <select name="status" class="form-select">
+                                    <option value="Pending" <?= $row['status'] == 'Pending' ? 'selected' : '' ?>>Menunggu</option>
+                                    <option value="Approved" <?= $row['status'] == 'Approved' ? 'selected' : '' ?>>Disetujui (Jadwalkan)</option>
+                                    <option value="Rejected" <?= $row['status'] == 'Rejected' ? 'selected' : '' ?>>Ditolak</option>
+                                    <option value="Completed" <?= $row['status'] == 'Completed' ? 'selected' : '' ?>>Selesai</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                            <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    <?php endforeach; ?>
 </div>
 
 <!-- DataTables Initialization -->

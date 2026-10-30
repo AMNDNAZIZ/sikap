@@ -3,11 +3,16 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3>📓 Jurnal Mengajar</h3>
-    <?php if (!$readonly): ?>
-    <a href="<?= base_url('admin/teaching-journal/add' . ($selected_class ? '?class_id='.$selected_class : '') . ($selected_subject ? '&subject_id='.$selected_subject : '')) ?>" class="btn btn-primary">
-        ➕ Tambah Jurnal
-    </a>
-    <?php endif; ?>
+    <div class="d-flex gap-2">
+        <a href="<?= base_url('admin/teaching-journal/monitoring') ?>" class="btn btn-outline-primary">
+            📊 Monitoring Keterlaksanaan
+        </a>
+        <?php if (!$readonly): ?>
+        <a href="<?= base_url('admin/teaching-journal/add' . ($selected_class ? '?class_id='.$selected_class : '') . ($selected_subject ? '&subject_id='.$selected_subject : '')) ?>" class="btn btn-primary">
+            ➕ Tambah Jurnal
+        </a>
+        <?php endif; ?>
+    </div>
 </div>
 
 <div class="card mb-4 shadow-sm">
@@ -141,7 +146,36 @@
                                 <small><?= esc($j['lingkup_materi'] ?? '-') ?></small>
                             <?php endif; ?>
                         </td>
-                        <td><?= nl2br(esc($j['notes'])) ?></td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-1 mb-1">
+                                <?php
+                                    $status = $j['status_realisasi'] ?? 'terlaksana';
+                                    if ($status === 'sebagian'):
+                                ?>
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"><i class="bi bi-exclamation-triangle me-1"></i>Sebagian</span>
+                                <?php elseif ($status === 'tertunda'): ?>
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"><i class="bi bi-clock-history me-1"></i>Tertunda</span>
+                                <?php else: ?>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle me-1"></i>Terlaksana</span>
+                                <?php endif; ?>
+
+                                <?php if (!empty($j['pertemuan_ke'])): ?>
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle"><i class="bi bi-bookmark me-1"></i>Pertemuan <?= esc($j['pertemuan_ke']) ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="mt-1"><?= nl2br(esc($j['notes'])) ?></div>
+                            <?php if (!empty($j['rencana_snapshot'])): ?>
+                                <?php $snap = json_decode($j['rencana_snapshot'], true); ?>
+                                <?php if (!empty($snap['rencana_teks'])): ?>
+                                    <details class="small mt-2 text-muted">
+                                        <summary class="text-primary text-decoration-none fw-semibold" style="cursor: pointer; font-size: 0.8rem;">
+                                            <i class="bi bi-journal-text me-1"></i> Lihat Rencana (<?= esc($snap['model'] ?? 'Rencana') ?><?= !empty($snap['durasi']) ? ' - ' . esc($snap['durasi']) : '' ?>)
+                                        </summary>
+                                        <div class="p-2 bg-light border rounded mt-1 text-secondary" style="font-size: 0.8rem; white-space: pre-wrap;"><?= esc($snap['rencana_teks']) ?></div>
+                                    </details>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        </td>
                         <?php if (!$readonly): ?>
                         <td>
                             <a href="<?= base_url('admin/teaching-journal/edit/' . $j['id']) ?>" class="btn btn-sm btn-warning">✏️ Edit</a>

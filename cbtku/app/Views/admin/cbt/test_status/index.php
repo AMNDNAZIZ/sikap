@@ -3,12 +3,12 @@
 
 <div class="container-fluid">
   <!-- Header -->
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
     <div>
       <h4 class="mb-0"><i class="bi bi-calendar-check"></i> Pengaturan Ujian</h4>
       <small class="text-muted">Kelola jadwal, token, dan status ujian siswa.</small>
     </div>
-    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalAddTest">
+    <button class="btn btn-success d-inline-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#modalAddTest">
       <i class="bi bi-plus-circle"></i> Tambah Jadwal
     </button>
   </div>

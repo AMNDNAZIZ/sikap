@@ -205,6 +205,8 @@ function showEventDetail(info) {
   if (ext.subject_name)  rows += row('bi-journal-text', 'Mapel',  ext.subject_name);
   if (ext.class_name)    rows += row('bi-people',        'Kelas',  ext.class_name);
   if (ext.teacher)       rows += row('bi-person',        'Guru',   ext.teacher);
+  if (ext.duration)      rows += row('bi-stopwatch',     'Durasi', ext.duration + ' menit');
+  if (ext.window_end)    rows += row('bi-hourglass-split', 'Batas Pengerjaan', formatDT(ext.window_end));
   if (ext.description && ext.description.trim())
     rows += row('bi-card-text', 'Keterangan', ext.description);
 
@@ -306,25 +308,21 @@ var calendar = new FullCalendar.Calendar(calEl, {
     showEventDetail(info);
   },
 
-  // Tooltip saat hover (desktop)
+  // Style event sesuai tipe & tooltip saat hover (desktop)
   eventDidMount: function(info) {
     var ext = info.event.extendedProps;
     var tooltip = info.event.title;
     if (ext.description) tooltip += '\n' + ext.description;
     info.el.setAttribute('title', tooltip);
+
+    // Tambah border-left tebal per tipe
+    info.el.style.borderLeft = '3px solid ' + (info.event.backgroundColor || '#ccc');
+    info.el.style.borderRadius = '3px';
   },
 
   // Loading indicator
   loading: function(isLoading) {
     document.getElementById('calendar').style.opacity = isLoading ? '0.6' : '1';
-  },
-
-  // Style event sesuai tipe
-  eventDidMount: function(info) {
-    var type = info.event.extendedProps.type;
-    // Tambah border-left tebal per tipe
-    info.el.style.borderLeft = '3px solid ' + (info.event.backgroundColor || '#ccc');
-    info.el.style.borderRadius = '3px';
   },
 });
 

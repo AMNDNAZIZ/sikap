@@ -228,18 +228,36 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+    .stat-card {
+        padding: 0.85rem !important;
+        border-radius: 10px !important;
+    }
+
     .stat-card-value {
-        font-size: 1.75rem !important;
+        font-size: 1.45rem !important;
+        font-weight: 700 !important;
     }
     
     .stat-card-icon {
-        width: 45px !important;
-        height: 45px !important;
-        font-size: 1.25rem !important;
+        width: 38px !important;
+        height: 38px !important;
+        font-size: 1.1rem !important;
+        border-radius: 8px !important;
+        margin-bottom: 0.5rem !important;
+    }
+
+    .stat-card-label {
+        font-size: 0.75rem !important;
     }
     
     .page-header h1 {
-        font-size: 1.5rem !important;
+        font-size: 1.35rem !important;
+    }
+
+    .page-header {
+        padding: 1.15rem 1rem !important;
+        border-radius: 12px !important;
+        margin-bottom: 1rem !important;
     }
 }
 
@@ -273,16 +291,16 @@
 }
 </style>
 
-<div class="container-fluid px-4">
+<div class="container-fluid px-2 px-md-4">
     <!-- Page Header -->
-    <div class="page-header mt-4">
+    <div class="page-header mt-2 mt-md-4">
         <h1><i class="fas fa-tachometer-alt"></i> Dashboard Administrator</h1>
         <p>Selamat datang kembali, <strong><?= esc($user['name'] ?? 'Admin') ?></strong>! Berikut ringkasan sistem Anda.</p>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
+    <!-- Stats Cards (2x2 grid on mobile) -->
+    <div class="row g-2 g-md-3 mb-3 mb-md-4">
+        <div class="col-6 col-md-3">
             <div class="stat-card">
                 <div class="stat-card-icon primary">
                     <i class="fas fa-user-graduate"></i>
@@ -292,7 +310,7 @@
             </div>
         </div>
         
-        <div class="col-md-3">
+        <div class="col-6 col-md-3">
             <div class="stat-card">
                 <div class="stat-card-icon success">
                     <i class="fas fa-book-open"></i>
@@ -302,7 +320,7 @@
             </div>
         </div>
         
-        <div class="col-md-3">
+        <div class="col-6 col-md-3">
             <div class="stat-card">
                 <div class="stat-card-icon warning">
                     <i class="fas fa-clipboard-list"></i>
@@ -312,7 +330,7 @@
             </div>
         </div>
         
-        <div class="col-md-3">
+        <div class="col-6 col-md-3">
             <div class="stat-card">
                 <div class="stat-card-icon danger">
                     <i class="fas fa-users"></i>
@@ -325,26 +343,26 @@
 
     <!-- License Info -->
     <?php if ($license): ?>
-    <div class="row g-3 mb-4">
+    <div class="row g-3 mb-3 mb-md-4">
         <div class="col-12">
             <div class="modern-card">
                 <div class="modern-card-body">
                     <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <h5 class="mb-2">
+                        <div class="col-12 col-md-8">
+                            <h5 class="mb-3">
                                 <i class="fas fa-key text-primary"></i> Informasi Lisensi
                             </h5>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <small class="text-muted">License Key</small>
-                                    <div class="fw-bold"><?= esc(substr($license['license_key'], 0, 20)) ?>...</div>
+                            <div class="row g-2">
+                                <div class="col-12 col-sm-4">
+                                    <small class="text-muted d-block">License Key</small>
+                                    <div class="fw-bold font-monospace text-truncate"><?= esc(substr($license['license_key'], 0, 20)) ?>...</div>
                                 </div>
-                                <div class="col-md-4">
-                                    <small class="text-muted">Domain</small>
-                                    <div class="fw-bold"><?= esc($license['domain']) ?></div>
+                                <div class="col-6 col-sm-4">
+                                    <small class="text-muted d-block">Domain</small>
+                                    <div class="fw-bold text-truncate"><?= esc($license['domain']) ?></div>
                                 </div>
-                                <div class="col-md-4">
-                                    <small class="text-muted">Status</small>
+                                <div class="col-6 col-sm-4">
+                                    <small class="text-muted d-block">Status</small>
                                     <div>
                                         <?php if ($license['status'] === 'active'): ?>
                                             <span class="badge badge-modern badge-success-gradient">
@@ -359,7 +377,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-4 text-end">
+                        <div class="col-12 col-md-4 text-start text-md-end mt-3 mt-md-0 pt-2 pt-md-0 border-top border-md-0">
                             <?php if ($license['expires_at']): ?>
                                 <?php 
                                 $expiryDate = strtotime($license['expires_at']);

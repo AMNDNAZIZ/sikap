@@ -20,9 +20,9 @@
     <div class="alert alert-danger"><?= esc(session()->getFlashdata('error')) ?></div>
   <?php endif; ?>
 
-  <div class="row">
+  <div class="row g-3">
     <div class="col-md-7">
-      <div class="card shadow-sm">
+      <div class="card border-0 shadow-sm" style="border-radius: 12px;">
         <div class="card-header bg-white fw-bold">Pilih Bank Soal CBT</div>
         <div class="card-body">
           <?php if (empty($banks)): ?>
@@ -71,8 +71,8 @@
                 Siswa yang tidak mengikuti ujian tidak akan masuk ke PTS.
               </div>
 
-              <button type="submit" class="btn btn-primary">
-                <i class="bi bi-arrow-right-circle"></i> Lihat Preview Nilai
+              <button type="submit" class="btn btn-primary w-100 w-sm-auto py-2">
+                <i class="bi bi-arrow-right-circle me-1"></i> Lihat Preview Nilai
               </button>
             </form>
           <?php endif; ?>

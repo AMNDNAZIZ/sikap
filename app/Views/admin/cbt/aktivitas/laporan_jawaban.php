@@ -166,19 +166,41 @@
   }
   
   @media (max-width: 768px) {
+    .page-header {
+      padding: 1.25rem 1rem !important;
+      border-radius: 12px !important;
+    }
+    
     .page-header-content {
       flex-direction: column !important;
       gap: 1rem !important;
     }
+
+    .page-header h4 {
+      font-size: 1.25rem !important;
+    }
     
     .page-header-actions {
       width: 100% !important;
-      justify-content: stretch !important;
+      display: flex !important;
+      gap: 0.5rem !important;
     }
     
     .btn-modern {
       flex: 1 !important;
       justify-content: center !important;
+      padding: 0.5rem !important;
+      font-size: 0.85rem !important;
+    }
+
+    .table-card {
+      padding: 0.75rem !important;
+      border-radius: 10px !important;
+    }
+
+    .btn-action {
+      padding: 0.4rem 0.6rem !important;
+      font-size: 0.78rem !important;
     }
   }
 </style>

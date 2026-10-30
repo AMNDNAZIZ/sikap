@@ -1,20 +1,42 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="container-fluid">
-  <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
-    <h4 class="mb-0">Daftar Nama Ujian</h4>
+<style>
+  @media (max-width: 576px) {
+    .btn-header-action {
+      width: 100%;
+    }
+    .table-exam td, .table-exam th {
+      padding: 0.6rem 0.5rem;
+      font-size: 0.9rem;
+    }
+    .btn-action-touch {
+      min-width: 36px;
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+</style>
+
+<div class="container-fluid py-2">
+  <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2 mb-3">
+    <div>
+      <h4 class="mb-0 fw-bold">Daftar Nama Ujian</h4>
+      <small class="text-muted">Master data penamaan ujian CBT</small>
+    </div>
     <?php if ($isAdmin): ?>
-    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalAdd">
-      <i class="bi bi-plus-circle"></i> Tambah Nama Ujian
+    <button class="btn btn-success btn-header-action shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAdd">
+      <i class="bi bi-plus-circle me-1"></i> Tambah Nama Ujian
     </button>
     <?php endif; ?>
   </div>
 
   <?php if (session()->getFlashdata('success')): ?>
-    <div class="alert alert-success"><?= session('success') ?></div>
+    <div class="alert alert-success py-2 small"><?= session('success') ?></div>
   <?php elseif (session()->getFlashdata('error')): ?>
-    <div class="alert alert-danger"><?= session('error') ?></div>
+    <div class="alert alert-danger py-2 small"><?= session('error') ?></div>
   <?php endif; ?>
 
   <?php if (!$isAdmin): ?>
@@ -24,36 +46,38 @@
   </div>
   <?php endif; ?>
 
-  <div class="card shadow-sm">
-    <div class="card-body">
+  <div class="card border-0 shadow-sm" style="border-radius: 12px;">
+    <div class="card-body p-0 p-md-3">
       <div class="table-responsive">
-      <table class="table table-bordered align-middle">
+      <table class="table table-hover table-exam align-middle mb-0">
         <thead class="table-light">
           <tr>
-            <th width="10%">No</th>
+            <th width="8%" class="text-center">No</th>
             <th>Nama Ujian</th>
             <?php if ($isAdmin): ?>
-            <th width="20%">Aksi</th>
+            <th width="15%" class="text-center">Aksi</th>
             <?php endif; ?>
           </tr>
         </thead>
         <tbody>
           <?php foreach ($examNames as $i => $exam): ?>
             <tr>
-              <td><?= $i + 1 ?></td>
-              <td><?= esc($exam['name']) ?></td>
+              <td class="text-center fw-semibold text-muted"><?= $i + 1 ?></td>
+              <td class="fw-semibold text-dark"><?= esc($exam['name']) ?></td>
               <?php if ($isAdmin): ?>
-              <td>
-                <div class="btn-group">
-                  <button class="btn btn-warning btn-sm btn-edit"
+              <td class="text-center">
+                <div class="btn-group shadow-sm">
+                  <button class="btn btn-warning btn-sm btn-edit btn-action-touch"
                           data-id="<?= $exam['id'] ?>"
                           data-name="<?= esc($exam['name']) ?>"
-                          data-bs-toggle="modal" data-bs-target="#modalEdit">
+                          data-bs-toggle="modal" data-bs-target="#modalEdit"
+                          title="Edit">
                     <i class="bi bi-pencil"></i>
                   </button>
                   <a href="<?= site_url('admin/cbt/examname/delete/' . $exam['id']) ?>"
-                     class="btn btn-danger btn-sm"
-                     onclick="return confirm('Yakin hapus nama ujian ini?')">
+                     class="btn btn-danger btn-sm btn-action-touch"
+                     onclick="return confirm('Yakin hapus nama ujian ini?')"
+                     title="Hapus">
                     <i class="bi bi-trash"></i>
                   </a>
                 </div>

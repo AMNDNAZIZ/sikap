@@ -66,16 +66,21 @@ class CbtTestStatus extends BaseController
             $classes = [];
         }
 
-        // Ambil jadwal ujian (status tes) - filter berdasarkan created_by untuk guru
+        // Ambil jadwal ujian (status tes) - pastikan semua data ditampilkan
         $builder = $this->testStatusModel
             ->select('cbt_test_status.*, cbt_question_banks.code AS bank_code, subjects.name AS subject_name, cbt_exam_names.name AS exam_name')
             ->join('cbt_question_banks', 'cbt_question_banks.id = cbt_test_status.bank_id', 'left')
             ->join('subjects', 'subjects.id = cbt_question_banks.subject_id', 'left')
             ->join('cbt_exam_names', 'cbt_exam_names.id = cbt_test_status.exam_name_id', 'left');
         
-        // Filter untuk guru - hanya lihat yang ia buat
+        // Filter untuk guru - tampilkan jadwal yang dibuat oleh guru ATAU bank soal milik guru
         if ($context['is_teacher'] && $context['user_id']) {
-            $builder->where('cbt_test_status.created_by', $context['user_id']);
+            $builder->groupStart()
+                ->where('cbt_test_status.created_by', (int)$context['user_id']);
+            if (!empty($context['teacher_id'])) {
+                $builder->orWhere('cbt_question_banks.teacher_id', (int)$context['teacher_id']);
+            }
+            $builder->groupEnd();
         }
         
         $testStatuses = $builder->orderBy('cbt_test_status.start_time', 'DESC')->findAll();

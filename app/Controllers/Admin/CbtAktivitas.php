@@ -114,7 +114,7 @@ class CbtAktivitas extends BaseController
         $now = date('Y-m-d H:i:s');
 
         $query = $this->db->table('cbt_test_status ts')
-            ->select('ts.id AS test_id, qb.code AS test_code, s.name AS subject_name, en.name AS exam_name, ts.start_time, ts.end_time')
+            ->select('ts.id AS test_id, qb.code AS test_code, s.name AS subject_name, en.name AS exam_name, ts.start_time, ts.end_time, ts.class_codes')
             ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'left')
             ->join('subjects s', 's.id = qb.subject_id', 'left')
             ->join('cbt_exam_names en', 'en.id = ts.exam_name_id', 'left');
@@ -265,15 +265,23 @@ class CbtAktivitas extends BaseController
         $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
         $activeYearId = $activeYear['id'] ?? 0;
 
+        // 🔹 Resolve room column safely (kolom room ada di tabel students, bukan student_records)
+        $roomField = "'' AS room";
+        if ($db->fieldExists('room', 'students')) {
+            $roomField = 'st.room';
+        } elseif ($db->fieldExists('room', 'student_records')) {
+            $roomField = 'sr.room';
+        }
+
         // 🔹 FIX V3: Get all sessions, log them, then filter
         $allSessions = $db->table('cbt_sessions cs')
             ->select('cs.id, cs.test_id, cs.student_id, cs.question_order, cs.option_orders,
                       cs.status, cs.score, cs.essay_score, cs.total_score, cs.started_at, 
                       cs.finished_at, cs.last_activity, cs.extra_time, cs.updated_at, cs.created_at,
-                      st.name AS student_name, st.nis, u.username, c.name AS class_name')
+                      st.name AS student_name, st.nis, u.username, c.name AS class_name, ' . $roomField)
             ->join('students st', 'st.id = cs.student_id', 'left')
             ->join('users u', 'u.id = st.user_id', 'left')
-            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . (int)$activeYearId, 'left')
             ->join('classes c', 'c.id = sr.class_id', 'left')
             ->where('cs.test_id', $testId)
             ->orderBy('cs.id', 'DESC') // Latest first
@@ -356,7 +364,7 @@ class CbtAktivitas extends BaseController
         // Hitung sisa waktu per sesi
         $now = time();
         foreach ($sessions as &$s) {
-            $order = json_decode($s['question_order'], true) ?? [];
+            $order = json_decode((string)($s['question_order'] ?? '[]'), true) ?? [];
             $noUserMap = [];
             $i = 1;
             foreach ($order as $qid) {
@@ -404,16 +412,26 @@ class CbtAktivitas extends BaseController
                     }
                 }
 
-                // Pastikan End tidak lebih kecil dari Start
-                if ($endTs < $startTs) {
-                    $endTs = $startTs;
-                }
+                $durationSec = ((int) ($test['duration'] ?? 0)) * 60;
+                $extraSec = ((int) ($s['extra_time'] ?? 0)) * 60;
+                $totalDurationSec = $durationSec + $extraSec;
 
-                $elapsed = ($endTs - $startTs) / 60;
-                $remaining = $test['duration'] - $elapsed;
-                $s['remaining_minutes'] = max(0, floor($remaining));
+                $testEndTs = !empty($test['end_time']) ? strtotime((string) $test['end_time']) : PHP_INT_MAX;
+                $sessionEndTs = $startTs + $totalDurationSec;
+                $effectiveEndTs = min($sessionEndTs, $testEndTs);
+
+                if ($s['status'] === 'finished') {
+                    // Jika siswa sudah menyelesaikan ujian, waktu berhenti
+                    $s['remaining_seconds'] = 0;
+                    $s['remaining_minutes'] = 0;
+                } else {
+                    $remainingSec = max(0, $effectiveEndTs - $now);
+                    $s['remaining_seconds'] = $remainingSec;
+                    $s['remaining_minutes'] = max(0, floor($remainingSec / 60));
+                }
             } else {
                 $s['started_at'] = 0;
+                $s['remaining_seconds'] = 0;
                 $s['remaining_minutes'] = 0;
             }
 
@@ -432,12 +450,171 @@ class CbtAktivitas extends BaseController
 
         log_message('info', "[DetailAktivitas] Test ID: $testId - Final sessions to display: " . count($sessions) . ", Active: $count_belum");
 
+        // 🔹 Extract available classes and rooms for filtering
+        $availableClasses = [];
+        $availableRooms = [];
+        foreach ($sessions as $s) {
+            if (!empty($s['class_name']) && !in_array($s['class_name'], $availableClasses)) {
+                $availableClasses[] = $s['class_name'];
+            }
+            if (!empty($s['room']) && !in_array($s['room'], $availableRooms)) {
+                $availableRooms[] = $s['room'];
+            }
+        }
+        sort($availableClasses);
+        sort($availableRooms);
+
         return view('admin/cbt/aktivitas/detail', [
-            'test'       => $test,
-            'sessions'   => $sessions,
-            'noBankMap'  => $noBankMap,
-            'count_belum' => $count_belum,
-            'is_teacher' => $isTeacher,
+            'test'             => $test,
+            'sessions'         => $sessions,
+            'noBankMap'        => $noBankMap,
+            'count_belum'      => $count_belum,
+            'is_teacher'       => $isTeacher,
+            'availableClasses' => $availableClasses,
+            'availableRooms'   => $availableRooms,
+        ]);
+    }
+
+    /**
+     * ⚡ AJAX Polling Ringan untuk Auto-Refresh Monitor Aktivitas Ujian
+     * Mengembalikan JSON ringkas data status peserta tanpa me-render ulang seluruh halaman,
+     * tanpa query bank soal, dan tanpa transfer data HTML berlebih.
+     * Menghemat CPU server hingga 95%+ dibandingkan location.reload().
+     */
+    public function pollStatus($testId)
+    {
+        helper('cbt');
+        $context = get_cbt_user_context();
+
+        if (!can_access_cbt_test_status((int) $testId)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized'])->setStatusCode(403);
+        }
+
+        $db = $this->db;
+        $test = $db->table('cbt_test_status ts')
+            ->select('ts.id, ts.duration, ts.end_time, ts.is_active')
+            ->where('ts.id', $testId)
+            ->get()
+            ->getRowArray();
+
+        if (!$test) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Test not found'])->setStatusCode(404);
+        }
+
+        // Auto-close sesi expired jika ada
+        $this->autoCloseExpiredSessions(
+            (int) $testId,
+            (int) ($test['duration'] ?? 0),
+            (string) ($test['end_time'] ?? '')
+        );
+
+        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+        $activeYearId = $activeYear['id'] ?? 0;
+
+        // Ambil sesi ringkas saja
+        $allSessions = $db->table('cbt_sessions cs')
+            ->select('cs.id, cs.student_id, cs.status, cs.score, cs.total_score, cs.started_at, cs.finished_at, cs.extra_time, c.name AS class_name')
+            ->join('students st', 'st.id = cs.student_id', 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . (int)$activeYearId, 'left')
+            ->join('classes c', 'c.id = sr.class_id', 'left')
+            ->where('cs.test_id', $testId)
+            ->orderBy('cs.id', 'DESC')
+            ->get()->getResultArray();
+
+        // Ambil sesi terbaru per siswa
+        $seenStudents = [];
+        $sessions = [];
+        foreach ($allSessions as $session) {
+            $studentId = $session['student_id'];
+            if (!isset($seenStudents[$studentId])) {
+                $seenStudents[$studentId] = true;
+                $sessions[] = $session;
+            }
+        }
+
+        // Filter kelas jika guru
+        $isTeacher = $context['is_teacher'] && $context['teacher_id'];
+        if ($isTeacher) {
+            $teacherClasses = get_teacher_classes($context['teacher_id']);
+            $teacherClassNames = array_map(
+                fn($c) => strtolower(trim($c['name'])),
+                $teacherClasses
+            );
+            $sessions = array_values(array_filter($sessions, function ($s) use ($teacherClassNames) {
+                return in_array(strtolower(trim($s['class_name'] ?? '')), $teacherClassNames);
+            }));
+        }
+
+        // Ambil total pelanggaran per siswa
+        $violationCounts = $db->table('cbt_cheat_logs')
+            ->select('student_id, COUNT(*) as violation_count')
+            ->where('test_id', $testId)
+            ->groupBy('student_id')
+            ->get()->getResultArray();
+
+        $violationMap = [];
+        foreach ($violationCounts as $v) {
+            $violationMap[$v['student_id']] = (int) $v['violation_count'];
+        }
+
+        $now = time();
+        $durationSec = ((int) ($test['duration'] ?? 0)) * 60;
+        $testEndTs = !empty($test['end_time']) ? strtotime((string) $test['end_time']) : PHP_INT_MAX;
+
+        $studentsData = [];
+        $kpi = [
+            'total'          => count($sessions),
+            'active'         => 0,
+            'finished'       => 0,
+            'timeout'        => 0,
+            'violation_count'=> 0,
+            'total_violations'=> 0
+        ];
+
+        foreach ($sessions as $s) {
+            $status = $s['status'] ?? 'timeout';
+            $violations = $violationMap[$s['student_id']] ?? 0;
+            $score = $s['total_score'] ?? $s['score'] ?? 0;
+
+            // Hitung sisa waktu
+            $remainingSec = 0;
+            if (!empty($s['started_at']) && $status !== 'finished') {
+                $startTs = is_numeric($s['started_at']) ? (int) $s['started_at'] : strtotime((string) $s['started_at']);
+                if ($startTs > 100000) {
+                    $extraSec = ((int) ($s['extra_time'] ?? 0)) * 60;
+                    $effectiveEndTs = min($startTs + $durationSec + $extraSec, $testEndTs);
+                    $remainingSec = max(0, $effectiveEndTs - $now);
+                }
+            }
+
+            if ($status === 'active') {
+                $kpi['active']++;
+            } elseif ($status === 'finished') {
+                $kpi['finished']++;
+            } else {
+                $kpi['timeout']++;
+            }
+
+            if ($violations > 0) {
+                $kpi['violation_count']++;
+                $kpi['total_violations'] += $violations;
+            }
+
+            $studentsData[$s['id']] = [
+                'session_id'        => (int) $s['id'],
+                'student_id'        => (int) $s['student_id'],
+                'status'            => $status,
+                'score'             => $score,
+                'remaining_seconds' => $remainingSec,
+                'violations'        => $violations
+            ];
+        }
+
+        return $this->response->setJSON([
+            'status'      => 'success',
+            'server_time' => date('H:i:s'),
+            'kpi'         => $kpi,
+            'students'    => $studentsData
         ]);
     }
 
@@ -496,7 +673,7 @@ class CbtAktivitas extends BaseController
     }
 
     /**
-     * 📄 Modal detail jawaban siswa — real-time, tampilkan jawaban benar & status benar/salah
+     * 📄 Modal detail jawaban siswa — real-time, tampilkan rincian lengkap soal, opsi, dan status jawaban sesuai tampilan siswa
      */
     public function detail_jawaban($sessionId)
     {
@@ -510,55 +687,141 @@ class CbtAktivitas extends BaseController
         $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
         $activeYearId = $activeYear['id'] ?? 0;
 
-        // 1) Ambil session & test info (termasuk bank_id, bobot)
+        $roomField = "'' AS room";
+        if ($db->fieldExists('room', 'students')) {
+            $roomField = 'st.room';
+        } elseif ($db->fieldExists('room', 'student_records')) {
+            $roomField = 'sr.room';
+        }
+
+        // 1) Ambil session & test info (termasuk bank_id, bobot, option_orders)
         $session = $db->table('cbt_sessions s')
-            ->select('s.id AS session_id, s.student_id, s.test_id, s.question_order,
-                      s.status, s.score, s.total_score, s.updated_at,
-                      ts.bank_id,
+            ->select('s.id AS session_id, s.student_id, s.test_id, s.question_order, s.option_orders,
+                      s.status, s.score, s.total_score, s.essay_score, s.started_at, s.finished_at, s.updated_at,
+                      ts.bank_id, ts.duration,
                       ts.bobot_pg, ts.bobot_pg_kompleks, ts.bobot_bs, ts.bobot_esai,
                       ts.show_pg_count, ts.show_pg_kompleks_count, ts.show_bs_count, ts.show_esai_count,
                       st.name AS student_name, st.nis,
                       u.username,
-                      c.name AS class_name')
+                      c.name AS class_name, ' . $roomField)
             ->join('cbt_test_status ts',    'ts.id = s.test_id',                       'left')
             ->join('students st',           'st.id = s.student_id',                    'left')
             ->join('users u',               'u.id = st.user_id',                       'left')
-            ->join('student_records sr',    'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
+            ->join('student_records sr',    'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . (int)$activeYearId, 'left')
             ->join('classes c',             'c.id = sr.class_id',                      'left')
             ->where('s.id', $sessionId)
             ->get()
             ->getRowArray();
 
         if (!$session) {
-            return '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Sesi tidak ditemukan.</div>';
+            return '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i> Sesi ujian tidak ditemukan.</div>';
         }
 
         $bankId    = $session['bank_id'];
         $studentId = $session['student_id'];
-        $testId    = $session['test_id'];  // test_id dari cbt_sessions (bukan ts.id alias)
+        $testId    = $session['test_id'];
 
-        // 2) Ambil semua soal dari bank lengkap dengan teks & kunci jawaban, real-time (no cache)
+        // 2) Ambil semua soal dari bank lengkap dengan teks, raw_text & opsi, real-time
         $bankQuestions = $db->table('cbt_questions')
-            ->select('id, question_text, question_type, correct_option, option_a, option_b, option_c, option_d, option_e, score')
+            ->select('id, question_text, raw_text, question_type, correct_option, option_a, option_b, option_c, option_d, option_e, score')
             ->where('bank_id', $bankId)
             ->orderBy('id', 'ASC')
             ->get()
             ->getResultArray();
+
+        // Helper rewrite URL gambar
+        $baseUrl = base_url();
+        $rewriteImageUrls = function(string $html) use ($baseUrl): string {
+            if (empty($html) || strpos($html, '<img') === false) return $html;
+            $html = preg_replace('#src="https?://localhost(?::\d+)?/(uploads/)#i', 'src="' . $baseUrl . '$1', $html);
+            $html = preg_replace('#src="https?://127\.0\.0\.1(?::\d+)?/(uploads/)#i', 'src="' . $baseUrl . '$1', $html);
+            $html = preg_replace('#src="https?://[^"]+/public/(uploads/)#i', 'src="' . $baseUrl . '$1', $html);
+            $html = preg_replace('#src="(?!https?://)(uploads/)#i', 'src="' . $baseUrl . '$1', $html);
+            return $html;
+        };
+
+        // Helper membersihkan teks soal dari duplikasi baris opsi/kunci jika ada
+        $cleanQuestionText = function(string $html): string {
+            if (empty($html)) return '';
+            $out = $html;
+            $out = preg_replace('/<p[^>]*>\s*[\(]?[A-Ea-e]\s*[:.)\-]\s*[^<]*<\/p>/i', '', $out);
+            $out = preg_replace('/^[\(]?[A-Ea-e]\s*[:.)\-]\s*[^\n]*$/im', '', $out);
+            $out = preg_replace('/<p[^>]*>\s*Kunci\s*[\:\=\-]\s*[^<]*<\/p>/i', '', $out);
+            return trim($out);
+        };
+
+        // Service parser soal
+        $questionService = new \App\Services\CbtQuestionService();
 
         // Map question_id → detail soal & nomor urut di bank
         $questionMap = [];
         $noBankMap   = [];
         $no = 1;
         foreach ($bankQuestions as $q) {
+            $parsed = null;
+            if (!empty($q['raw_text']) && (empty($q['question_text']) || strlen(strip_tags($q['question_text'])) < 10)) {
+                try {
+                    $parsed = $questionService->parseRawQuestion($q['raw_text']);
+                } catch (\Throwable $e) {
+                    $parsed = null;
+                }
+            }
+
+            // Normalisasi tipe soal
+            $rawTypeFromDb = strtolower(str_replace(' ', '_', $q['question_type'] ?? 'pg'));
+            if ($parsed && !empty($parsed['type'])) {
+                $rawTypeFromDb = $parsed['type'];
+            }
+            $type = 'pg';
+            if ($rawTypeFromDb === 'pgk' || strpos($rawTypeFromDb, 'kompleks') !== false) {
+                $type = 'pg_kompleks';
+            } elseif ($rawTypeFromDb === 'bs' || strpos($rawTypeFromDb, 'benar') !== false || strpos($rawTypeFromDb, 'salah') !== false) {
+                $type = 'benar_salah';
+            } elseif (in_array($rawTypeFromDb, ['esai', 'essay', 'uraian'])) {
+                $type = 'esai';
+            }
+
+            // Ekstrak teks soal
+            if ($parsed && !empty($parsed['question'])) {
+                $qText = $parsed['question'];
+            } elseif (!empty($q['question_text'])) {
+                $qText = $cleanQuestionText($q['question_text']);
+            } else {
+                $qText = $cleanQuestionText($q['raw_text'] ?? '');
+            }
+            $qText = $rewriteImageUrls(trim($qText));
+
+            // Ekstrak opsi
+            $opts = [];
+            foreach (['A', 'B', 'C', 'D', 'E'] as $opt) {
+                $col = 'option_' . strtolower($opt);
+                if (!empty($q[$col])) {
+                    $opts[$opt] = $rewriteImageUrls(trim($q[$col]));
+                }
+            }
+            if (empty($opts) && $parsed && !empty($parsed['options'])) {
+                foreach ($parsed['options'] as $k => $v) {
+                    $opts[$k] = $rewriteImageUrls(trim($v));
+                }
+            }
+
+            $q['processed_type'] = $type;
+            $q['processed_text'] = $qText;
+            $q['processed_opts'] = $opts;
+
             $questionMap[$q['id']] = $q;
             $noBankMap[$q['id']]   = $no++;
         }
 
-        // 3) Ambil question_order dari session (urutan soal yang dilihat siswa)
+        // 3) Ambil question_order & option_orders dari session
         $questionOrder = json_decode($session['question_order'] ?? '[]', true);
-        if (!is_array($questionOrder)) $questionOrder = [];
+        if (!is_array($questionOrder) || empty($questionOrder)) {
+            $questionOrder = array_keys($questionMap);
+        }
+        $optionOrders = json_decode($session['option_orders'] ?? '{}', true);
+        if (!is_array($optionOrders)) $optionOrders = [];
 
-        // 4) Ambil jawaban siswa terbaru langsung dari DB (tanpa cache)
+        // 4) Ambil jawaban siswa terbaru langsung dari DB
         $answerRows = $db->table('cbt_answers')
             ->where('student_id', $studentId)
             ->where('test_id',    $testId)
@@ -566,203 +829,543 @@ class CbtAktivitas extends BaseController
             ->getResultArray();
 
         $answerMap = [];
+        $essayScoreMap = [];
+        $latestAnswerTimestamp = !empty($session['updated_at']) ? strtotime($session['updated_at']) : 0;
         foreach ($answerRows as $a) {
             $answerMap[(int)$a['question_id']] = $a['answer'] ?? '';
+            if (isset($a['essay_score'])) {
+                $essayScoreMap[(int)$a['question_id']] = $a['essay_score'];
+            }
+            if (!empty($a['updated_at'])) {
+                $t = strtotime($a['updated_at']);
+                if ($t > $latestAnswerTimestamp) {
+                    $latestAnswerTimestamp = $t;
+                }
+            }
         }
 
-        // 5) Hitung statistik: total soal, terjawab, benar, salah
-        $totalSoal  = count($questionOrder) ?: count($bankQuestions);
-        $totalJawab = 0;
-        $totalBenar = 0;
-        $totalSalah = 0;
+        // 5) Hitung statistik: total soal, terjawab, benar, salah, sebagian benar
+        $totalSoal       = count($questionOrder);
+        $totalJawab      = 0;
+        $totalBenar      = 0;
+        $totalSalah      = 0;
+        $totalSebagian   = 0;
+        $totalEsai       = 0;
+        $resultsPerQid   = [];
 
         foreach ($questionOrder as $qid) {
             $qid = (int)$qid;
-            if (!isset($answerMap[$qid])) continue;
-            $totalJawab++;
-            $q       = $questionMap[$qid] ?? null;
+            $q   = $questionMap[$qid] ?? null;
             if (!$q) continue;
-            $type    = strtolower(trim($q['question_type'] ?? 'pg'));
-            $correct = strtoupper(trim($q['correct_option'] ?? ''));
-            $student = strtoupper(trim($answerMap[$qid]));
-            $result  = $this->isAnswerCorrect($type, $student, $correct);
-            if ($result === null) continue;   // esai, skip
-            if ($result === true)  $totalBenar++;
-            else                   $totalSalah++;
+
+            $type     = $q['processed_type'];
+            $answered = isset($answerMap[$qid]) && trim($answerMap[$qid]) !== '';
+            $student  = $answered ? strtoupper(trim($answerMap[$qid])) : '';
+            $correct  = strtoupper(trim($q['correct_option'] ?? ''));
+
+            if ($answered) $totalJawab++;
+            if ($type === 'esai') {
+                $totalEsai++;
+                $resultsPerQid[$qid] = 'esai';
+                continue;
+            }
+
+            if (!$answered) {
+                $resultsPerQid[$qid] = 'unanswered';
+                continue;
+            }
+
+            // Hitung kebenaran
+            if ($type === 'pg_kompleks') {
+                $sArr = array_filter(array_map('trim', explode(',', $student)));
+                $cArr = array_filter(array_map('trim', explode(',', $correct)));
+                sort($sArr);
+                sort($cArr);
+                if ($sArr === $cArr && count($cArr) > 0) {
+                    $totalBenar++;
+                    $resultsPerQid[$qid] = 'correct';
+                } else {
+                    $matches = count(array_intersect($sArr, $cArr));
+                    $incorrects = count(array_diff($sArr, $cArr));
+                    $tCorr = count($cArr);
+                    $raw = $matches - (0.5 * $incorrects);
+                    $scoreRatio = $tCorr > 0 ? (max(0, $raw) / $tCorr) : 0;
+                    if ($scoreRatio >= 0.5) {
+                        $totalSebagian++;
+                        $resultsPerQid[$qid] = 'partial';
+                    } else {
+                        $totalSalah++;
+                        $resultsPerQid[$qid] = 'incorrect';
+                    }
+                }
+            } elseif ($type === 'benar_salah') {
+                $sArr = array_map('trim', explode(',', $student));
+                $cArr = array_map('trim', explode(',', $correct));
+                $matchedCount = 0;
+                $itemCount = 0;
+                foreach (['A', 'B', 'C', 'D', 'E'] as $rowIdx => $letter) {
+                    if (empty($q['processed_opts'][$letter])) continue;
+                    $itemCount++;
+                    $sVal = $sArr[$rowIdx] ?? '';
+                    $cVal = $cArr[$rowIdx] ?? '';
+                    if ($sVal !== '' && $sVal === $cVal) $matchedCount++;
+                }
+                if ($itemCount > 0 && $matchedCount === $itemCount) {
+                    $totalBenar++;
+                    $resultsPerQid[$qid] = 'correct';
+                } elseif ($itemCount > 0 && ($matchedCount / $itemCount) >= 0.5) {
+                    $totalSebagian++;
+                    $resultsPerQid[$qid] = 'partial';
+                } else {
+                    $totalSalah++;
+                    $resultsPerQid[$qid] = 'incorrect';
+                }
+            } else {
+                // PG biasa
+                if ($student === $correct && $correct !== '') {
+                    $totalBenar++;
+                    $resultsPerQid[$qid] = 'correct';
+                } else {
+                    $totalSalah++;
+                    $resultsPerQid[$qid] = 'incorrect';
+                }
+            }
         }
 
-        $totalBelum  = $totalSoal - $totalJawab;
+        $totalBelum   = $totalSoal - $totalJawab;
         $percentJawab = $totalSoal > 0 ? round(($totalJawab / $totalSoal) * 100) : 0;
-        $percentBenar = $totalJawab  > 0 ? round(($totalBenar  / $totalJawab)  * 100) : 0;
+        $objektifCount = $totalSoal - $totalEsai;
+        $percentBenar = $objektifCount > 0 ? round(($totalBenar / $objektifCount) * 100) : 0;
 
         $statusBadge = match($session['status']) {
-            'finished' => "<span class='badge bg-primary'>Selesai</span>",
-            'active'   => "<span class='badge bg-success'>Sedang Ujian</span>",
+            'finished' => "<span class='badge bg-primary'><i class='fas fa-check-circle me-1'></i>Selesai</span>",
+            'active'   => "<span class='badge bg-success'><i class='fas fa-play-circle me-1'></i>Sedang Ujian</span>",
             default    => "<span class='badge bg-secondary'>{$session['status']}</span>",
         };
 
-        $nilaiDisplay = $session['total_score'] ?? $session['score'] ?? '-';
-        $updatedAt    = !empty($session['updated_at']) ? date('d/m/Y H:i:s', strtotime($session['updated_at'])) : '-';
+        $nilaiDisplay = $session['total_score'] ?? $session['score'] ?? null;
+        if ($nilaiDisplay === null || $nilaiDisplay === '') {
+            $nilaiDisplay = ($session['status'] === 'active') ? "<span class='text-primary' style='font-size:16px;'>{$totalBenar} Benar</span>" : '-';
+        }
+        $updatedAt = $latestAnswerTimestamp > 0 ? date('d/m/Y H:i:s', $latestAnswerTimestamp) : (!empty($session['started_at']) ? date('d/m/Y H:i:s', strtotime($session['started_at'])) : '-');
 
-        // 6) Render HTML
+        // 6) Render HTML Modal
         $html = "
-        <div class='mb-3 p-2 border rounded bg-light small'>
-            <strong>{$session['student_name']}</strong>
-            <span class='text-muted ms-2'>({$session['username']} — NIS: {$session['nis']})</span>
-            <span class='ms-2'>{$statusBadge}</span>
-            <span class='ms-2'>Nilai: <strong class='text-primary'>{$nilaiDisplay}</strong></span>
-            <span class='text-muted ms-2' style='font-size:11px'>Update: {$updatedAt}</span>
+        <div id='sessionStatusMarker' data-session-status='{$session['status']}' class='d-none'></div>";
+
+        // Banner Status Live Sinkronisasi
+        if ($session['status'] === 'active') {
+            $html .= "
+            <div class='alert alert-success bg-success-subtle border-success py-2 px-3 d-flex flex-wrap justify-content-between align-items-center mb-3 rounded-3 text-start' style='text-align:left;'>
+                <div class='d-flex align-items-center gap-2'>
+                    <span class='badge bg-success d-flex align-items-center gap-1'><i class='fas fa-broadcast-tower me-1'></i> LIVE AKTIF</span>
+                    <span class='small fw-semibold text-success-emphasis'>Siswa sedang mengerjakan ujian. Jawaban dan progres diperbarui secara langsung.</span>
+                </div>
+                <div class='small text-muted'>
+                    <span class='me-2'><i class='fas fa-clock me-1 text-success'></i>Aktivitas Terakhir: <strong>{$updatedAt}</strong></span>
+                    <span class='badge bg-white text-secondary border'><i class='fas fa-sync-alt fa-spin me-1'></i>" . date('H:i:s') . "</span>
+                </div>
+            </div>";
+        } elseif ($session['status'] === 'finished') {
+            $html .= "
+            <div class='alert alert-primary bg-primary-subtle border-primary py-2 px-3 d-flex flex-wrap justify-content-between align-items-center mb-3 rounded-3 text-start' style='text-align:left;'>
+                <div class='d-flex align-items-center gap-2'>
+                    <span class='badge bg-primary'><i class='fas fa-check-circle me-1'></i> SELESAI</span>
+                    <span class='small fw-semibold text-primary-emphasis'>Siswa telah menyelesaikan ujian ini.</span>
+                </div>
+                <div class='small text-muted'>
+                    <span>Waktu Selesai: <strong>" . (!empty($session['finished_at']) ? date('d/m/Y H:i:s', strtotime($session['finished_at'])) : $updatedAt) . "</strong></span>
+                </div>
+            </div>";
+        }
+
+        $html .= "
+        <div class='modal-student-info mb-3 p-3 border rounded-3 bg-light shadow-sm text-start' style='text-align:left;'>
+            <div class='d-flex flex-wrap justify-content-between align-items-center gap-2'>
+                <div>
+                    <h5 class='mb-1 fw-bold text-dark'>{$session['student_name']}</h5>
+                    <div class='text-muted small'>
+                        <span class='me-2'><i class='fas fa-id-card me-1 text-primary'></i>Username: <strong>{$session['username']}</strong></span>
+                        <span class='me-2'><i class='fas fa-hashtag me-1 text-primary'></i>NIS: <strong>{$session['nis']}</strong></span>
+                        <span class='me-2'><i class='fas fa-chalkboard-teacher me-1 text-primary'></i>Kelas: <strong>" . esc($session['class_name'] ?? '-') . "</strong></span>
+                        <span class='me-2'><i class='fas fa-door-open me-1 text-primary'></i>Ruang: <strong>" . esc($session['room'] ?? '-') . "</strong></span>
+                    </div>
+                </div>
+                <div class='d-flex align-items-center gap-2'>
+                    <div>{$statusBadge}</div>
+                    <div class='px-3 py-2 bg-white rounded-3 border text-center'>
+                        <span class='small text-muted d-block' style='font-size:10px;'>SKOR / NILAI</span>
+                        <h4 class='mb-0 fw-bold text-primary'>{$nilaiDisplay}</h4>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class='row g-2 mb-3 text-center'>
-            <div class='col-3'>
-                <div class='p-2 border rounded bg-light'>
+            <div class='col'>
+                <div class='p-2 border rounded bg-white'>
                     <small class='text-muted d-block'>Total Soal</small>
-                    <h5 class='mb-0'>{$totalSoal}</h5>
+                    <h5 class='mb-0 fw-bold'>{$totalSoal}</h5>
                 </div>
             </div>
-            <div class='col-3'>
+            <div class='col'>
                 <div class='p-2 border rounded bg-success-subtle border-success'>
                     <small class='text-muted d-block'>Terjawab</small>
-                    <h5 class='mb-0 text-success'>{$totalJawab}</h5>
+                    <h5 class='mb-0 text-success fw-bold'>{$totalJawab}</h5>
                 </div>
             </div>
-            <div class='col-3'>
-                <div class='p-2 border rounded bg-danger-subtle border-danger'>
-                    <small class='text-muted d-block'>Benar</small>
-                    <h5 class='mb-0 text-danger'>{$totalBenar}</h5>
+            <div class='col'>
+                <div class='p-2 border rounded bg-success text-white'>
+                    <small class='d-block opacity-75'>Benar</small>
+                    <h5 class='mb-0 fw-bold'>{$totalBenar}</h5>
                 </div>
             </div>
-            <div class='col-3'>
+            <div class='col'>
+                <div class='p-2 border rounded bg-danger text-white'>
+                    <small class='d-block opacity-75'>Salah</small>
+                    <h5 class='mb-0 fw-bold'>{$totalSalah}</h5>
+                </div>
+            </div>
+            <div class='col'>
                 <div class='p-2 border rounded bg-warning-subtle border-warning'>
                     <small class='text-muted d-block'>Belum Dijawab</small>
-                    <h5 class='mb-0 text-warning'>{$totalBelum}</h5>
+                    <h5 class='mb-0 text-warning-emphasis fw-bold'>{$totalBelum}</h5>
                 </div>
             </div>
         </div>
 
-        <div class='mb-1 small text-muted'>Progres menjawab: <strong>{$percentJawab}%</strong> &nbsp;|&nbsp; Akurasi jawaban: <strong>{$percentBenar}%</strong></div>
-        <div class='progress mb-3' style='height:14px;'>
-            <div class='progress-bar bg-success' role='progressbar' style='width:{$percentJawab}%'>{$percentJawab}%</div>
+        <div class='d-flex justify-content-between align-items-center mb-1 small text-muted text-start' style='text-align:left;'>
+            <span>Progres Pengerjaan: <strong>{$percentJawab}%</strong> ({$totalJawab}/{$totalSoal} soal)</span>
+            <span>Akurasi Soal Objektif: <strong>{$percentBenar}%</strong></span>
+        </div>
+        <div class='progress mb-3' style='height:8px;'>
+            <div class='progress-bar bg-success' role='progressbar' style='width:{$percentJawab}%'></div>
         </div>
 
-        <div class='mb-3'>
-            <div class='d-flex flex-wrap gap-1 justify-content-start'>";
+        <!-- Grid Navigasi Nomor Soal -->
+        <div class='card mb-4 border shadow-sm text-start' style='text-align:left;'>
+            <div class='card-header bg-light py-2 px-3 d-flex justify-content-between align-items-center text-start'>
+                <strong class='small text-secondary'><i class='fas fa-th me-1'></i>Navigasi Nomor Soal Siswa:</strong>
+                <span class='text-muted' style='font-size:11px;'>(Klik nomor untuk melompat ke rincian soal)</span>
+            </div>
+            <div class='card-body p-2 text-start'>
+                <div class='d-flex flex-wrap gap-1 justify-content-start'>";
 
         // Grid kotak nomor soal berwarna sesuai status
         foreach ($questionOrder as $idx => $qid) {
             $qid    = (int)$qid;
             $noUser = $idx + 1;
-            $q      = $questionMap[$qid] ?? null;
-            $type   = strtolower(trim($q['question_type'] ?? 'pg'));
-            $isEsai = in_array($type, ['esai', 'essay']);
+            $res    = $resultsPerQid[$qid] ?? 'unanswered';
 
-            if (!isset($answerMap[$qid])) {
-                $bgClass = 'bg-light text-muted border-secondary-subtle';
-                $title   = "No {$noUser}: Belum dijawab";
-            } elseif ($isEsai) {
-                $bgClass = 'bg-info text-white border-info';
-                $title   = "No {$noUser}: Esai (belum dikoreksi)";
+            if ($res === 'unanswered') {
+                $bgClass = 'btn-outline-secondary';
+                $title   = "Soal No {$noUser}: Belum dijawab";
+            } elseif ($res === 'esai') {
+                $bgClass = 'btn-info text-dark';
+                $title   = "Soal No {$noUser}: Esai / Uraian";
+            } elseif ($res === 'correct') {
+                $bgClass = 'btn-success text-white';
+                $title   = "Soal No {$noUser}: Benar";
+            } elseif ($res === 'partial') {
+                $bgClass = 'btn-warning text-dark';
+                $title   = "Soal No {$noUser}: Sebagian Benar";
             } else {
-                $correct = strtoupper(trim($q['correct_option'] ?? ''));
-                $student = strtoupper(trim($answerMap[$qid]));
-                $result  = $this->isAnswerCorrect($type, $student, $correct);
-                if ($result === true) {
-                    $bgClass = 'bg-success text-white border-success';
-                    $title   = "No {$noUser}: Benar ({$student})";
-                } else {
-                    $bgClass = 'bg-danger text-white border-danger';
-                    $title   = "No {$noUser}: Salah (Jawaban: {$student}, Kunci: {$correct})";
-                }
+                $bgClass = 'btn-danger text-white';
+                $title   = "Soal No {$noUser}: Salah";
             }
 
-            $html .= "<div class='border rounded d-flex align-items-center justify-content-center {$bgClass}'
-                           style='width:32px;height:32px;font-size:11px;font-weight:bold;cursor:default;'
-                           title='" . htmlspecialchars($title, ENT_QUOTES) . "'>{$noUser}</div>";
+            $html .= "<button type='button' class='btn btn-sm {$bgClass} modal-nav-q-btn p-0 d-flex align-items-center justify-content-center'
+                             style='width:34px;height:34px;font-size:12px;font-weight:700;'
+                             data-target='soal-card-{$noUser}'
+                             title='" . htmlspecialchars($title, ENT_QUOTES) . "'>{$noUser}</button>";
         }
 
         $html .= "
-            </div>
-            <div class='mt-1 small'>
-                <span class='me-2'><span style='display:inline-block;width:12px;height:12px;background:#198754;border-radius:2px;'></span> Benar</span>
-                <span class='me-2'><span style='display:inline-block;width:12px;height:12px;background:#dc3545;border-radius:2px;'></span> Salah</span>
-                <span class='me-2'><span style='display:inline-block;width:12px;height:12px;background:#0dcaf0;border-radius:2px;'></span> Esai</span>
-                <span class='me-2'><span style='display:inline-block;width:12px;height:12px;background:#f8f9fa;border:1px solid #ccc;border-radius:2px;'></span> Belum dijawab</span>
+                </div>
+                <div class='mt-2 pt-2 border-top d-flex flex-wrap gap-3 small' style='font-size:11px;'>
+                    <span><span class='badge bg-success me-1'>&nbsp;</span> Benar</span>
+                    <span><span class='badge bg-danger me-1'>&nbsp;</span> Salah</span>
+                    <span><span class='badge bg-warning text-dark me-1'>&nbsp;</span> Sebagian Benar</span>
+                    <span><span class='badge bg-info text-dark me-1'>&nbsp;</span> Esai</span>
+                    <span><span class='badge bg-light text-secondary border me-1'>&nbsp;</span> Belum Dijawab</span>
+                </div>
             </div>
         </div>
 
-        <h6 class='mb-2'>Rincian Jawaban:</h6>
-        <div class='table-responsive'>
-            <table class='table table-bordered table-sm align-middle' style='font-size:13px;'>
-                <thead class='table-dark'>
-                    <tr>
-                        <th class='text-center' style='width:50px;'>No</th>
-                        <th>Pertanyaan</th>
-                        <th class='text-center' style='width:80px;'>Jawaban Siswa</th>
-                        <th class='text-center' style='width:80px;'>Kunci Jawaban</th>
-                        <th class='text-center' style='width:70px;'>Status</th>
-                    </tr>
-                </thead>
-                <tbody>";
+        <h6 class='fw-bold mb-3 text-dark text-start' style='text-align:left;'><i class='fas fa-list-check me-2 text-primary'></i>Rincian Soal dan Jawaban:</h6>
+        <div class='soal-detail-container text-start' style='text-align:left !important;'>";
 
+        // Rincian setiap soal
         foreach ($questionOrder as $idx => $qid) {
             $qid    = (int)$qid;
             $noUser = $idx + 1;
+            $noBank = $noBankMap[$qid] ?? '-';
             $q      = $questionMap[$qid] ?? null;
 
             if (!$q) {
-                $html .= "<tr class='table-secondary'><td class='text-center'>{$noUser}</td><td colspan='4'><em class='text-muted'>Soal tidak ditemukan (ID: {$qid})</em></td></tr>";
+                $html .= "<div class='alert alert-secondary small mb-2 text-start' id='soal-card-{$noUser}'>Soal nomor {$noUser} (ID: {$qid}) tidak ditemukan di bank soal.</div>";
                 continue;
             }
 
-            $type       = strtolower(trim($q['question_type'] ?? 'pg'));
-            $isEsai     = in_array($type, ['esai', 'essay']);
-            $correct    = strtoupper(trim($q['correct_option'] ?? ''));
-            $student    = isset($answerMap[$qid]) ? strtoupper(trim($answerMap[$qid])) : null;
-            $answered   = $student !== null && $student !== '';
+            $type           = $q['processed_type'];
+            $qText          = $q['processed_text'];
+            $opts           = $q['processed_opts'];
+            $correct        = strtoupper(trim($q['correct_option'] ?? ''));
+            $studentRaw     = $answerMap[$qid] ?? '';
+            $answered       = trim($studentRaw) !== '';
+            $studentUpper   = strtoupper(trim($studentRaw));
+            $res            = $resultsPerQid[$qid] ?? 'unanswered';
 
-            // Teks soal — strip HTML tags agar ringkas, batasi 120 karakter
-            $qText = strip_tags(html_entity_decode($q['question_text'] ?? ''));
-            $qText = mb_strlen($qText) > 120 ? mb_substr($qText, 0, 117) . '...' : $qText;
-            $qText = esc($qText);
+            // Badge Tipe Soal
+            $typeLabel = match($type) {
+                'pg_kompleks' => "<span class='badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25'>PG Kompleks</span>",
+                'benar_salah' => "<span class='badge bg-warning bg-opacity-10 text-warning-emphasis border border-warning border-opacity-25'>Benar / Salah</span>",
+                'esai'        => "<span class='badge bg-info bg-opacity-10 text-info border border-info border-opacity-25'>Esai / Uraian</span>",
+                default       => "<span class='badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25'>Pilihan Ganda</span>",
+            };
 
-            // Tentukan status & warna baris
-            $answerResult = $answered ? $this->isAnswerCorrect($type, $student, $correct) : null;
+            // Badge Status Hasil
+            $statusBadge = match($res) {
+                'correct'     => "<span class='badge bg-success px-2 py-1'><i class='fas fa-check-circle me-1'></i>Benar</span>",
+                'partial'     => "<span class='badge bg-warning text-dark px-2 py-1'><i class='fas fa-exclamation-triangle me-1'></i>Sebagian Benar</span>",
+                'incorrect'   => "<span class='badge bg-danger px-2 py-1'><i class='fas fa-times-circle me-1'></i>Salah</span>",
+                'esai'        => "<span class='badge bg-info text-dark px-2 py-1'><i class='fas fa-pen me-1'></i>Esai</span>",
+                default       => "<span class='badge bg-secondary px-2 py-1'><i class='fas fa-minus-circle me-1'></i>Belum Dijawab</span>",
+            };
 
-            if (!$answered) {
-                $bgRow      = 'table-warning';
-                $statusHtml = "<span class='badge bg-warning text-dark'>Belum</span>";
-            } elseif ($isEsai) {
-                $bgRow      = 'table-info';
-                $statusHtml = "<span class='badge bg-info text-dark'>Esai</span>";
-            } elseif ($answerResult === true) {
-                $bgRow      = 'table-success';
-                $statusHtml = "<span class='badge bg-success'>✓ Benar</span>";
-            } else {
-                $bgRow      = 'table-danger';
-                $statusHtml = "<span class='badge bg-danger'>✗ Salah</span>";
+            // Shuffled option mapping: susun urutan opsi sesuai urutan yang dilihat siswa di layarnya
+            $shuffledOrder = $optionOrders[$qid] ?? [];
+            $displayOpts = [];
+
+            if (!empty($shuffledOrder) && is_array($shuffledOrder)) {
+                $screenIndex = 0;
+                foreach ($shuffledOrder as $bankLetter) {
+                    $bankLetter = strtoupper(trim($bankLetter));
+                    if (isset($opts[$bankLetter])) {
+                        $displayOpts[] = [
+                            'bank_letter'   => $bankLetter,
+                            'screen_letter' => chr(65 + $screenIndex),
+                            'text'          => $opts[$bankLetter],
+                            'is_shuffled'   => true
+                        ];
+                        $screenIndex++;
+                    }
+                }
             }
 
-            $studentDisplay = $answered ? esc($answerMap[$qid]) : "<span class='text-muted fst-italic'>-</span>";
-            $correctDisplay = ($isEsai || $correct === '')
-                ? "<span class='text-muted'>—</span>"
-                : "<strong class='text-success'>{$correct}</strong>";
+            if (empty($displayOpts)) {
+                foreach (['A', 'B', 'C', 'D', 'E'] as $bankLetter) {
+                    if (isset($opts[$bankLetter])) {
+                        $displayOpts[] = [
+                            'bank_letter'   => $bankLetter,
+                            'screen_letter' => $bankLetter,
+                            'text'          => $opts[$bankLetter],
+                            'is_shuffled'   => false
+                        ];
+                    }
+                }
+            }
+
+            $cardBorder = match($res) {
+                'correct'   => 'border-success',
+                'partial'   => 'border-warning',
+                'incorrect' => 'border-danger',
+                'esai'      => 'border-info',
+                default     => 'border-secondary-subtle',
+            };
 
             $html .= "
-                <tr class='{$bgRow}'>
-                    <td class='text-center fw-bold'>{$noUser}</td>
-                    <td style='white-space:normal;max-width:380px;'>{$qText}</td>
-                    <td class='text-center'>{$studentDisplay}</td>
-                    <td class='text-center'>{$correctDisplay}</td>
-                    <td class='text-center'>{$statusHtml}</td>
-                </tr>";
+            <div class='card mb-3 shadow-sm {$cardBorder} text-start' id='soal-card-{$noUser}' style='text-align:left !important;'>
+                <div class='card-header bg-light d-flex flex-wrap justify-content-between align-items-center py-2 px-3 text-start'>
+                    <div class='d-flex align-items-center gap-2'>
+                        <span class='badge bg-dark rounded-pill px-2 py-1'>Soal {$noUser}</span>
+                        <span class='text-muted small'>(No. {$noBank} di Bank Soal)</span>
+                        {$typeLabel}
+                    </div>
+                    <div>
+                        {$statusBadge}
+                    </div>
+                </div>
+                <div class='card-body p-3 text-start' style='text-align:left !important;'>
+                    <!-- Teks Pertanyaan -->
+                    <div class='question-content mb-3 text-dark text-start' style='line-height:1.6; text-align:left !important;'>
+                        {$qText}
+                    </div>";
+
+            // Rincian Jawaban sesuai tipe
+            if ($type === 'pg') {
+                $html .= "<div class='options-review-list mt-2 text-start' style='text-align:left !important;'>";
+                foreach ($displayOpts as $optItem) {
+                    $bankLetter   = $optItem['bank_letter'];
+                    $screenLetter = $optItem['screen_letter'];
+                    $isShuffled   = $optItem['is_shuffled'];
+                    $optText      = $optItem['text'];
+
+                    $isStudentChoice = ($answered && $studentUpper === $bankLetter);
+                    $isCorrectKey    = ($correct === $bankLetter);
+
+                    $optClass = 'border-secondary-subtle bg-white';
+                    $badgeChoice = '';
+
+                    if ($isStudentChoice && $isCorrectKey) {
+                        $optClass = 'border-success bg-success-subtle text-success-emphasis fw-bold';
+                        $badgeChoice = "<span class='badge bg-success ms-auto'><i class='fas fa-check me-1'></i>Pilihan Siswa & Kunci</span>";
+                    } elseif ($isStudentChoice && !$isCorrectKey) {
+                        $optClass = 'border-danger bg-danger-subtle text-danger-emphasis fw-bold';
+                        $badgeChoice = "<span class='badge bg-danger ms-auto'><i class='fas fa-times me-1'></i>Pilihan Siswa</span>";
+                    } elseif ($isCorrectKey) {
+                        $optClass = 'border-success bg-success bg-opacity-10 text-success-emphasis';
+                        $badgeChoice = "<span class='badge bg-success bg-opacity-75 text-white ms-auto'><i class='fas fa-key me-1'></i>Kunci Jawaban</span>";
+                    }
+
+                    $letterBadge = $isShuffled
+                        ? "<span class='badge bg-primary text-white border px-2 py-1' style='font-size:12px;' title='Huruf di layar siswa: {$screenLetter}'>{$screenLetter}</span><span class='badge bg-light text-secondary border px-1 py-1' style='font-size:10px;' title='Kunci bank soal: {$bankLetter}'>Bank: {$bankLetter}</span>"
+                        : "<span class='badge bg-secondary-subtle text-dark border px-2 py-1' style='font-size:12px;'>{$bankLetter}</span>";
+
+                    $html .= "
+                    <div class='p-2 mb-2 border rounded-3 d-flex align-items-start gap-2 text-start {$optClass}' style='text-align:left !important;'>
+                        <div class='d-flex align-items-center gap-1 flex-shrink-0 pt-1'>
+                            {$letterBadge}
+                        </div>
+                        <div class='flex-grow-1 text-start' style='text-align:left !important;'>{$optText}</div>
+                        <div class='flex-shrink-0'>{$badgeChoice}</div>
+                    </div>";
+                }
+                $html .= "</div>";
+
+            } elseif ($type === 'pg_kompleks') {
+                $studentKeys = array_filter(array_map('trim', explode(',', $studentUpper)));
+                $correctKeys = array_filter(array_map('trim', explode(',', $correct)));
+
+                $html .= "<div class='options-review-list mt-2 text-start' style='text-align:left !important;'>";
+                foreach ($displayOpts as $optItem) {
+                    $bankLetter   = $optItem['bank_letter'];
+                    $screenLetter = $optItem['screen_letter'];
+                    $isShuffled   = $optItem['is_shuffled'];
+                    $optText      = $optItem['text'];
+
+                    $isStudentChoice = in_array($bankLetter, $studentKeys);
+                    $isCorrectKey    = in_array($bankLetter, $correctKeys);
+
+                    $optClass = 'border-secondary-subtle bg-white';
+                    $badgeChoice = '';
+
+                    if ($isStudentChoice && $isCorrectKey) {
+                        $optClass = 'border-success bg-success-subtle text-success-emphasis fw-bold';
+                        $badgeChoice = "<span class='badge bg-success ms-auto'><i class='fas fa-check me-1'></i>Dipilih (Benar)</span>";
+                    } elseif ($isStudentChoice && !$isCorrectKey) {
+                        $optClass = 'border-danger bg-danger-subtle text-danger-emphasis fw-bold';
+                        $badgeChoice = "<span class='badge bg-danger ms-auto'><i class='fas fa-times me-1'></i>Dipilih (Salah)</span>";
+                    } elseif ($isCorrectKey) {
+                        $optClass = 'border-success bg-success bg-opacity-10 text-success-emphasis';
+                        $badgeChoice = "<span class='badge bg-success bg-opacity-75 text-white ms-auto'><i class='fas fa-key me-1'></i>Kunci Jawaban</span>";
+                    }
+
+                    $letterBadge = $isShuffled
+                        ? "<span class='badge bg-primary text-white border px-2 py-1' style='font-size:12px;' title='Huruf di layar siswa: {$screenLetter}'>{$screenLetter}</span><span class='badge bg-light text-secondary border px-1 py-1' style='font-size:10px;' title='Kunci bank soal: {$bankLetter}'>Bank: {$bankLetter}</span>"
+                        : "<span class='badge bg-secondary-subtle text-dark border px-2 py-1' style='font-size:12px;'>{$bankLetter}</span>";
+
+                    $html .= "
+                    <div class='p-2 mb-2 border rounded-3 d-flex align-items-start gap-2 text-start {$optClass}' style='text-align:left !important;'>
+                        <div class='d-flex align-items-center gap-1 flex-shrink-0 pt-1'>
+                            {$letterBadge}
+                        </div>
+                        <div class='flex-grow-1 text-start' style='text-align:left !important;'>{$optText}</div>
+                        <div class='flex-shrink-0'>{$badgeChoice}</div>
+                    </div>";
+                }
+                $html .= "</div>";
+
+            } elseif ($type === 'benar_salah') {
+                $studentBS = explode(',', $studentUpper);
+                $correctBS = explode(',', $correct);
+
+                $html .= "
+                <div class='table-responsive mt-2 text-start'>
+                    <table class='table table-bordered table-sm align-middle mb-0 text-start' style='font-size:13px; text-align:left;'>
+                        <thead class='table-light'>
+                            <tr>
+                                <th style='width:40px;' class='text-center'>No</th>
+                                <th class='text-start'>Pernyataan</th>
+                                <th class='text-center' style='width:120px;'>Pilihan Siswa</th>
+                                <th class='text-center' style='width:120px;'>Kunci Jawaban</th>
+                                <th class='text-center' style='width:80px;'>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>";
+
+                $bsIndex = 0;
+                foreach (['A', 'B', 'C', 'D', 'E'] as $rowLetter) {
+                    if (empty($opts[$rowLetter])) continue;
+
+                    $sVal = $studentBS[$bsIndex] ?? '';
+                    $cVal = $correctBS[$bsIndex] ?? '';
+                    $isRowCorrect = ($sVal !== '' && $sVal === $cVal);
+
+                    $sValDisplay = match($sVal) {
+                        'B' => "<span class='badge bg-primary'>Benar</span>",
+                        'S' => "<span class='badge bg-warning text-dark'>Salah</span>",
+                        default => "<span class='text-muted fst-italic'>-</span>"
+                    };
+                    $cValDisplay = match($cVal) {
+                        'B' => "<span class='badge bg-primary'>Benar</span>",
+                        'S' => "<span class='badge bg-warning text-dark'>Salah</span>",
+                        default => "<span class='text-muted fst-italic'>-</span>"
+                    };
+
+                    $rowStatus = $sVal === '' 
+                        ? "<span class='badge bg-secondary'>-</span>" 
+                        : ($isRowCorrect 
+                            ? "<span class='badge bg-success'><i class='fas fa-check'></i></span>" 
+                            : "<span class='badge bg-danger'><i class='fas fa-times'></i></span>");
+
+                    $html .= "
+                            <tr class='" . ($isRowCorrect ? 'table-success-subtle' : ($sVal !== '' ? 'table-danger-subtle' : '')) . "'>
+                                <td class='text-center fw-bold'>{$rowLetter}</td>
+                                <td class='text-start' style='text-align:left !important;'>{$opts[$rowLetter]}</td>
+                                <td class='text-center'>{$sValDisplay}</td>
+                                <td class='text-center'>{$cValDisplay}</td>
+                                <td class='text-center'>{$rowStatus}</td>
+                            </tr>";
+
+                    $bsIndex++;
+                }
+
+                $html .= "
+                        </tbody>
+                    </table>
+                </div>";
+
+            } elseif ($type === 'esai') {
+                $essayText = $answered ? nl2br(esc($studentRaw)) : "<em class='text-muted'>Siswa belum mengisi jawaban untuk soal esai ini.</em>";
+                $essayScore = $essayScoreMap[$qid] ?? null;
+
+                $scoreDisplay = $essayScore !== null 
+                    ? "<span class='badge bg-success px-2 py-1'><i class='fas fa-star me-1'></i>Nilai: {$essayScore}</span>" 
+                    : "<span class='badge bg-warning text-dark px-2 py-1'><i class='fas fa-hourglass me-1'></i>Belum Dikoreksi</span>";
+
+                $html .= "
+                <div class='mt-2 text-start'>
+                    <div class='d-flex justify-content-between align-items-center mb-1'>
+                        <span class='small fw-bold text-secondary'><i class='fas fa-file-alt me-1'></i>Jawaban Esai Siswa:</span>
+                        {$scoreDisplay}
+                    </div>
+                    <div class='p-3 bg-light border rounded-3 text-dark text-start' style='font-size:13.5px;line-height:1.6; text-align:left !important;'>
+                        {$essayText}
+                    </div>
+                </div>";
+            }
+
+            $html .= "
+                </div>
+            </div>";
         }
 
         $html .= "
-                </tbody>
-            </table>
         </div>
-        <div class='text-muted small text-end mt-1'>Data diambil: " . date('d/m/Y H:i:s') . "</div>";
+        <div class='text-muted small text-end mt-2 pt-2 border-top'>
+            <i class='fas fa-sync-alt me-1'></i>Data sinkronisasi realtime pada: " . date('d/m/Y H:i:s') . "
+        </div>";
 
         return $html;
     }
@@ -1390,61 +1993,129 @@ class CbtAktivitas extends BaseController
     public function belumTes($testId)
     {
         // Paksa browser tidak cache response ini agar selalu menampilkan data terbaru
-        $this->response->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $this->response->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0');
         $this->response->setHeader('Pragma', 'no-cache');
-        $this->response->setHeader('Expires', '0');
+        $this->response->setHeader('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
 
-        helper('cbt');
-        $db = $this->db;
+        try {
+            helper('cbt');
+            $db = $this->db;
+            $testId = (int) $testId;
 
-        $test = $db->table('cbt_test_status ts')
-            ->select('ts.id, ts.class_codes, ts.bank_id, ts.subject_type, ts.religion AS test_religion, s.name AS subject_name, s.religion AS subject_religion')
-            ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'left')
-            ->join('subjects s', 's.id = qb.subject_id', 'left')
-            ->where('ts.id', $testId)
-            ->get()
-            ->getRowArray();
+            $test = $db->table('cbt_test_status ts')
+                ->select('ts.id, ts.class_codes, ts.bank_id, ts.duration, ts.end_time, ts.subject_type, ts.religion AS test_religion, s.name AS subject_name, s.religion AS subject_religion')
+                ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'left')
+                ->join('subjects s', 's.id = qb.subject_id', 'left')
+                ->where('ts.id', $testId)
+                ->get()
+                ->getRowArray();
 
-        if (!$test) {
-            return $this->response->setBody('<div class="text-danger">Tes tidak ditemukan</div>');
-        }
+            if (!$test) {
+                return $this->response->setBody('<div class="alert alert-danger py-3"><i class="fas fa-exclamation-triangle me-2"></i> Ujian dengan ID ini tidak ditemukan di database.</div>');
+            }
 
-        $classList = json_decode($test['class_codes'] ?? '[]', true);
-        if (empty($classList)) {
-            return $this->response->setBody('<div class="text-warning">Tidak ada kelas terkait ujian ini.</div>');
-        }
+            // Sinkronisasi auto-close sesi yang expired jika method tersedia
+            if (method_exists($this, 'autoCloseExpiredSessions')) {
+                $this->autoCloseExpiredSessions(
+                    $testId,
+                    (int) ($test['duration'] ?? 0),
+                    (string) ($test['end_time'] ?? '')
+                );
+            }
 
-        // Deteksi apakah ujian ini khusus untuk mata pelajaran agama tertentu
-        $targetReligion = cbt_get_test_target_religion($test);
+            // Parsing class_codes (fleksibel: json array atau pemisah koma)
+            $rawCodes = $test['class_codes'] ?? '';
+            $classList = [];
+            if (is_string($rawCodes)) {
+                $decoded = json_decode($rawCodes, true);
+                if (is_array($decoded)) {
+                    $classList = $decoded;
+                } elseif (trim($rawCodes) !== '') {
+                    $classList = array_map('trim', explode(',', $rawCodes));
+                }
+            } elseif (is_array($rawCodes)) {
+                $classList = $rawCodes;
+            }
 
-        // ✅ Ambil siswa berdasarkan student_records (aktif)
-        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
-        $activeYearId = $activeYear['id'] ?? 0;
-        $students = $db->table('students st')
-            ->select('st.id, st.name AS student_name, st.religion, c.name AS class_name')
-            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
-            ->join('classes c', 'c.id = sr.class_id', 'left')
-            ->whereIn('c.name', $classList)
-            ->orderBy('c.name', 'ASC')
-            ->orderBy('st.name', 'ASC')
-            ->get()
-            ->getResultArray();
+            $classList = array_values(array_filter(array_map('trim', (array) $classList)));
+            if (empty($classList)) {
+                return $this->response->setBody('<div class="alert alert-warning py-3"><i class="fas fa-info-circle me-2"></i> Tidak ada kelas yang terdaftar untuk ujian ini.</div>');
+            }
 
-        // Khusus mapel agama: filter hanya siswa yang agamanya sesuai
-        if ($targetReligion !== '') {
-            $students = array_values(array_filter($students, function ($s) use ($targetReligion) {
-                return cbt_normalize_religion($s['religion'] ?? '') === $targetReligion;
+            // Deteksi apakah ujian ini khusus untuk mata pelajaran agama tertentu
+            $targetReligion = function_exists('cbt_get_test_target_religion') ? cbt_get_test_target_religion($test) : '';
+
+            // Ambil tahun ajaran aktif
+            $activeYearId = 0;
+            try {
+                $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
+                $activeYearId = (int) ($activeYear['id'] ?? 0);
+            } catch (\Throwable $e) {
+                $activeYearId = 0;
+            }
+
+            // Ambil siswa aktif: Gunakan LEFT JOIN tanpa groupBy SQL untuk kompatibilitas MariaDB/MySQL ONLY_FULL_GROUP_BY
+            $studentQuery = $db->table('students st')
+                ->select('st.id, st.name AS student_name, st.nis, st.religion, c.name AS class_name')
+                ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"' . ($activeYearId > 0 ? ' AND sr.academic_year_id = ' . $activeYearId : ''), 'left')
+                ->join('classes c', 'c.id = sr.class_id', 'left')
+                ->whereIn('c.name', $classList)
+                ->orderBy('c.name', 'ASC')
+                ->orderBy('st.name', 'ASC')
+                ->get()
+                ->getResultArray();
+
+            // Deduplikasi siswa di PHP berdasarkan ID
+            $seenStudentIds = [];
+            $students = [];
+            foreach ($studentQuery as $row) {
+                $sid = (int) ($row['id'] ?? 0);
+                if ($sid > 0 && !isset($seenStudentIds[$sid])) {
+                    $seenStudentIds[$sid] = true;
+                    $students[] = $row;
+                }
+            }
+
+            // Khusus mapel agama: filter hanya siswa yang agamanya sesuai
+            if ($targetReligion !== '' && function_exists('cbt_normalize_religion')) {
+                $students = array_values(array_filter($students, function ($s) use ($targetReligion) {
+                    return cbt_normalize_religion($s['religion'] ?? '') === $targetReligion;
+                }));
+            }
+
+            // 1. Ambil student_id yang tercatat di cbt_sessions
+            $doneSessions = $db->table('cbt_sessions')
+                ->select('student_id')
+                ->where('test_id', $testId)
+                ->get()
+                ->getResultArray();
+
+            // 2. Ambil student_id yang tercatat di cbt_answers jika tabel ada
+            $doneAnswers = [];
+            if ($db->tableExists('cbt_answers')) {
+                $doneAnswers = $db->table('cbt_answers')
+                    ->select('student_id')
+                    ->where('test_id', $testId)
+                    ->get()
+                    ->getResultArray();
+            }
+
+            // Normalisasi semua ID yang sudah pernah mengerjakan/mulai ke integer
+            $doneSessionIds = array_map('intval', array_column($doneSessions, 'student_id'));
+            $doneAnswerIds  = array_map('intval', array_column($doneAnswers, 'student_id'));
+            $allDoneIds     = array_unique(array_filter(array_merge($doneSessionIds, $doneAnswerIds)));
+            $doneMap        = array_fill_keys($allDoneIds, true);
+
+            // Siswa yang benar-benar belum tes
+            $notTested = array_values(array_filter($students, function ($s) use ($doneMap) {
+                return !isset($doneMap[(int) $s['id']]);
             }));
-        }
 
-        $done = $db->table('cbt_sessions')
-            ->select('student_id')
-            ->where('test_id', $testId)
-            ->get()
-            ->getResultArray();
-
-        $doneIds = array_column($done, 'student_id');
-        $notTested = array_values(array_filter($students, fn($s) => !in_array($s['id'], $doneIds)));
+            $totalStudents = count($students);
+            $totalNotTested = count($notTested);
+        $totalDone = max(0, $totalStudents - $totalNotTested);
+        $pctDone = $totalStudents > 0 ? round(($totalDone / $totalStudents) * 100, 1) : 0;
+        $syncTime = date('H:i:s');
 
         $religionNotice = '';
         if ($targetReligion !== '') {
@@ -1459,37 +2130,130 @@ class CbtAktivitas extends BaseController
         }
 
         if (empty($students)) {
-            return $this->response->setBody($religionNotice . '<div class="alert alert-warning">Tidak ada siswa beragama ' . ucfirst($targetReligion) . ' pada kelas terkait ujian ini.</div>');
+            return $this->response->setBody($religionNotice . '<div class="alert alert-warning py-3"><i class="fas fa-exclamation-circle me-2"></i> Tidak ada siswa ' . ($targetReligion !== '' ? 'beragama ' . ucfirst($targetReligion) . ' ' : '') . 'pada kelas terkait ujian ini.</div>');
         }
+
+        // Statistik Cards
+        $statsHtml = "
+        <div class='row g-2 mb-3'>
+            <div class='col-sm-4'>
+                <div class='card border-0 bg-light-subtle shadow-sm rounded-3 p-2 text-center'>
+                    <small class='text-muted d-block'>Target Siswa</small>
+                    <span class='fs-5 fw-bold text-dark'><i class='fas fa-users me-1 text-secondary'></i> {$totalStudents}</span>
+                </div>
+            </div>
+            <div class='col-sm-4'>
+                <div class='card border-0 bg-success-subtle shadow-sm rounded-3 p-2 text-center'>
+                    <small class='text-success fw-semibold d-block'>Sudah Ikut Tes</small>
+                    <span class='fs-5 fw-bold text-success'><i class='fas fa-user-check me-1'></i> {$totalDone} <small class='fs-6 fw-normal'>({$pctDone}%)</small></span>
+                </div>
+            </div>
+            <div class='col-sm-4'>
+                <div class='card border-0 " . ($totalNotTested > 0 ? "bg-warning-subtle" : "bg-light-subtle") . " shadow-sm rounded-3 p-2 text-center'>
+                    <small class='" . ($totalNotTested > 0 ? "text-danger" : "text-muted") . " fw-semibold d-block'>Belum Tes</small>
+                    <span class='fs-5 fw-bold " . ($totalNotTested > 0 ? "text-danger" : "text-muted") . "'><i class='fas fa-user-times me-1'></i> {$totalNotTested}</span>
+                </div>
+            </div>
+        </div>
+        <div class='progress mb-3' style='height: 6px;'>
+            <div class='progress-bar bg-success progress-bar-striped progress-bar-animated' role='progressbar' style='width: {$pctDone}%' aria-valuenow='{$pctDone}' aria-valuemin='0' aria-valuemax='100'></div>
+        </div>";
 
         if (empty($notTested)) {
-            return $this->response->setBody($religionNotice . '<div class="alert alert-success d-flex align-items-center gap-2"><i class="fas fa-check-circle"></i> Semua siswa ' . ($targetReligion !== '' ? 'beragama ' . ucfirst($targetReligion) . ' ' : '') . 'telah mengikuti tes ini 🎉</div>');
+            return $this->response->setBody(
+                $religionNotice . $statsHtml .
+                '<div class="alert alert-success d-flex align-items-center gap-3 p-3 shadow-sm rounded-3 mb-0">
+                    <i class="fas fa-check-circle fa-2x text-success"></i>
+                    <div>
+                        <h6 class="fw-bold mb-1">Semua Siswa Telah Mengikuti Tes 🎉</h6>
+                        <small class="text-muted">Seluruh <strong>' . $totalStudents . ' siswa</strong> ' . ($targetReligion !== '' ? 'beragama ' . ucfirst($targetReligion) . ' ' : '') . 'telah mulai atau menyelesaikan ujian ini.</small>
+                    </div>
+                </div>'
+            );
         }
 
-        $html = $religionNotice . "<div class='table-responsive'><table class='table table-bordered table-sm align-middle'>
-            <thead class='table-light text-center'>
-                <tr>
-                    <th style='width:50px;'>No</th>
-                    <th class='text-start'>Nama Siswa</th>
-                    <th style='width:140px;'>Kelas</th>" .
-                    ($targetReligion !== '' ? "<th style='width:120px;'>Agama</th>" : "") .
-                "</tr>
-            </thead>
-            <tbody>";
+        // Toolbar pencarian dan sinkronisasi
+        $toolbarHtml = "
+        <div class='d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2'>
+            <div class='d-flex align-items-center gap-2'>
+                <span class='badge bg-light text-dark border py-1 px-2 small'>
+                    <i class='fas fa-clock text-primary me-1'></i> Sinkron: {$syncTime} WIB
+                </span>
+                <span class='badge bg-warning-subtle text-dark border border-warning-subtle py-1 px-2 small'>
+                    <i class='fas fa-user-times text-danger me-1'></i> {$totalNotTested} Siswa Belum Tes
+                </span>
+            </div>
+            <div style='min-width: 200px; max-width: 280px;' class='flex-grow-1 flex-sm-grow-0'>
+                <div class='input-group input-group-sm'>
+                    <span class='input-group-text bg-light'><i class='fas fa-search text-muted'></i></span>
+                    <input type='text' id='searchBelumTes' class='form-control form-control-sm' placeholder='Cari nama atau kelas...'>
+                </div>
+            </div>
+        </div>";
+
+        $tableHtml = $religionNotice . $statsHtml . $toolbarHtml . "
+        <div class='table-responsive border rounded-3 shadow-sm'>
+            <table class='table table-hover table-striped table-sm align-middle mb-0' id='tableBelumTes'>
+                <thead class='table-light text-center border-bottom'>
+                    <tr>
+                        <th style='width: 45px;' class='py-2'>No</th>
+                        <th class='text-start py-2'>Nama Siswa</th>
+                        <th style='width: 120px;' class='py-2'>Kelas</th>" .
+                        ($targetReligion !== '' ? "<th style='width: 110px;' class='py-2'>Agama</th>" : "") . "
+                        <th style='width: 130px;' class='py-2'>Status</th>
+                    </tr>
+                </thead>
+                <tbody>";
 
         $i = 1;
         foreach ($notTested as $row) {
-            $html .= "<tr>
-                <td class='text-center'>{$i}</td>
-                <td class='text-start'>" . esc($row['student_name']) . "</td>
-                <td class='text-center'>" . esc($row['class_name']) . "</td>" .
-                ($targetReligion !== '' ? "<td class='text-center'><span class='badge bg-light text-dark border'>" . esc($row['religion'] ?: '-') . "</span></td>" : "") .
-            "</tr>";
+            $nisInfo = !empty($row['nis']) ? "<span class='text-muted small ms-1'>(" . esc($row['nis']) . ")</span>" : "";
+            $tableHtml .= "<tr class='belum-tes-row'>
+                <td class='text-center text-muted fw-semibold'>{$i}</td>
+                <td class='text-start'>
+                    <div class='fw-semibold text-dark'>" . esc($row['student_name']) . "</div>
+                    {$nisInfo}
+                </td>
+                <td class='text-center'>
+                    <span class='badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1'>" . esc($row['class_name']) . "</span>
+                </td>" .
+                ($targetReligion !== '' ? "<td class='text-center'><span class='badge bg-light text-dark border px-2 py-1'>" . esc($row['religion'] ?: '-') . "</span></td>" : "") . "
+                <td class='text-center'>
+                    <span class='badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1'>
+                        <i class='fas fa-times-circle me-1'></i> Belum Tes
+                    </span>
+                </td>
+            </tr>";
             $i++;
         }
 
-        $html .= "</tbody></table></div>";
-        return $this->response->setBody($html);
+        $tableHtml .= "
+                <tr id='noSearchResultRow' style='display: none;'>
+                    <td colspan='" . ($targetReligion !== '' ? "5" : "4") . "' class='text-center text-muted py-4'>
+                        <i class='fas fa-search me-1'></i> Tidak ditemukan siswa yang cocok dengan pencarian.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        </div>";
+
+        return $this->response->setBody($tableHtml);
+        } catch (\Throwable $e) {
+            log_message('error', '[CbtAktivitas::belumTes] ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            $errorMsg = esc($e->getMessage());
+            return $this->response->setStatusCode(200)->setBody("
+                <div class='alert alert-danger py-3 shadow-sm'>
+                    <div class='d-flex align-items-center gap-2 mb-2'>
+                        <i class='fas fa-exclamation-triangle fa-lg text-danger'></i>
+                        <strong class='fs-6'>Terjadi Kendala Memuat Data Siswa</strong>
+                    </div>
+                    <p class='small text-muted mb-2'>Pesan sistem: <code>{$errorMsg}</code></p>
+                    <button type='button' class='btn btn-sm btn-outline-danger' onclick='if(typeof fetchBelumTes===\"function\"&&currentBelumTesTestId){fetchBelumTes(currentBelumTesTestId,false);}'>
+                        <i class='fas fa-sync-alt me-1'></i> Coba Muat Ulang
+                    </button>
+                </div>
+            ");
+        }
     }
 
 
@@ -1921,30 +2685,76 @@ class CbtAktivitas extends BaseController
             ->groupBy('student_id')
             ->getCompiledSelect();
             
-        $activeYear = (new \App\Models\AcademicYearModel())->getActiveYear();
-        $activeYearId = $activeYear['id'] ?? 0;
+        $activeYear = class_exists('\App\Models\AcademicYearModel') 
+            ? (new \App\Models\AcademicYearModel())->getActiveYear() 
+            : null;
+        $activeYearId = (int) ($activeYear['id'] ?? 0);
 
-        // 🔹 Ambil sesi siswa — langsung join ke classes
-        $sessions = $this->sessionModel
-            ->select('cs.*, st.name AS student_name, cl.name AS class_name, sr.class_id')
-            ->from('cbt_sessions cs')
-            ->join('students st', 'st.id = cs.student_id', 'left')
-            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif" AND sr.academic_year_id = ' . $activeYearId, 'left')
-            ->join('classes cl', 'cl.id = sr.class_id', 'left')
-            ->join("($subquery) latest", 'cs.id = latest.max_id', 'inner')
-            ->where('cs.test_id', $testId);
+        // Cek keberadaan tabel student_records
+        $hasStudentRecords = $this->db->tableExists('student_records');
 
-        if ($mode === 'kelas' && $classId) {
-            $sessions->where('sr.class_id', $classId);
+        // Gunakan $this->db->table() agar tidak terjadi cartesian product (double FROM) pada Model
+        $builder = $this->db->table('cbt_sessions cs');
+
+        if ($hasStudentRecords) {
+            $builder->select('cs.*, st.name AS student_name, COALESCE(cl.name, cl_direct.name) AS class_name, COALESCE(sr.class_id, st.class_id) AS class_id')
+                ->join('students st', 'st.id = cs.student_id', 'left')
+                ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"' . ($activeYearId ? ' AND sr.academic_year_id = ' . $activeYearId : ''), 'left')
+                ->join('classes cl', 'cl.id = sr.class_id', 'left')
+                ->join('classes cl_direct', 'cl_direct.id = st.class_id', 'left');
+        } else {
+            $builder->select('cs.*, st.name AS student_name, cl.name AS class_name, st.class_id')
+                ->join('students st', 'st.id = cs.student_id', 'left')
+                ->join('classes cl', 'cl.id = st.class_id', 'left');
         }
 
-        $sessions = $sessions
+        $builder->join("($subquery) latest", 'cs.id = latest.max_id', 'inner')
+            ->where('cs.test_id', $testId);
+
+        if ($mode === 'kelas' && !empty($classId)) {
+            if ($hasStudentRecords) {
+                if (is_numeric($classId)) {
+                    $builder->groupStart()
+                        ->where('sr.class_id', (int) $classId)
+                        ->orWhere('st.class_id', (int) $classId)
+                        ->orWhere('cl.id', (int) $classId)
+                        ->orWhere('cl_direct.id', (int) $classId)
+                    ->groupEnd();
+                } else {
+                    $builder->groupStart()
+                        ->where('cl.name', $classId)
+                        ->orWhere('cl_direct.name', $classId)
+                    ->groupEnd();
+                }
+            } else {
+                if (is_numeric($classId)) {
+                    $builder->groupStart()
+                        ->where('st.class_id', (int) $classId)
+                        ->orWhere('cl.id', (int) $classId)
+                    ->groupEnd();
+                } else {
+                    $builder->where('cl.name', $classId);
+                }
+            }
+        }
+
+        $sessions = $builder
             ->orderBy('st.name', 'ASC')
             ->get()
             ->getResultArray();
 
         if (!$sessions) {
-            return redirect()->back()->with('error', 'Tidak ada data sesi ditemukan.');
+            if ($mode === 'kelas' && !empty($classId)) {
+                $targetClassName = '';
+                if (is_numeric($classId)) {
+                    $clsRow = $this->db->table('classes')->select('name')->where('id', $classId)->get()->getRowArray();
+                    $targetClassName = $clsRow['name'] ?? "ID {$classId}";
+                } else {
+                    $targetClassName = $classId;
+                }
+                return redirect()->back()->with('error', 'Tidak ada data sesi ujian untuk kelas "' . $targetClassName . '". Pastikan siswa dari kelas tersebut sudah mengerjakan ujian.');
+            }
+            return redirect()->back()->with('error', 'Tidak ada data sesi ditemukan untuk ujian ini.');
         }
 
         // 🔹 Ambil semua soal (PG, PGK, BS, Esai)
@@ -2838,6 +3648,87 @@ class CbtAktivitas extends BaseController
 
             $sheet->getStyle($range)->setConditionalStyles([$conditionalGreen, $conditionalRed]);
         }
+    }
+
+    // =========================================================
+    // EXPORT NILAI — untuk diimpor ke ESPATA
+    // Menghasilkan file JSON berisi nilai siswa dari satu ujian.
+    // Kunci pencocokan siswa: NIS (bukan student_id lokal).
+    // =========================================================
+    public function exportNilai($testId)
+    {
+        $testId = (int) $testId;
+        $db     = $this->db;
+
+        // Info ujian
+        $test = $db->table('cbt_test_status ts')
+            ->select('ts.id, ts.bank_id, ts.class_codes, ts.semester,
+                      qb.code AS bank_code,
+                      s.id AS subject_id, s.name AS subject_name, s.code AS subject_code,
+                      en.name AS exam_name')
+            ->join('cbt_question_banks qb', 'qb.id = ts.bank_id',   'left')
+            ->join('subjects s',             's.id = qb.subject_id', 'left')
+            ->join('cbt_exam_names en',      'en.id = ts.exam_name_id', 'left')
+            ->where('ts.id', $testId)
+            ->get()->getRowArray();
+
+        if (!$test) {
+            return $this->response->setStatusCode(404)
+                ->setJSON(['error' => 'Ujian tidak ditemukan.']);
+        }
+
+        // Nilai siswa: ambil sesi terbaru per siswa (MAX id)
+        $subquery = "(SELECT student_id, MAX(id) AS max_id
+                      FROM cbt_sessions WHERE test_id = {$testId}
+                      GROUP BY student_id) latest";
+
+        $rows = $db->table('cbt_sessions cs')
+            ->select('st.nis, st.name AS student_name,
+                      c.name AS class_name,
+                      COALESCE(cs.total_score, cs.score, 0) AS score,
+                      cs.status, cs.finished_at')
+            ->join('students st', 'st.id = cs.student_id', 'left')
+            ->join('classes c',   'c.id = st.class_id',    'left')
+            ->join($subquery,     'cs.id = latest.max_id', 'inner')
+            ->where('cs.test_id', $testId)
+            ->orderBy('c.name', 'ASC')
+            ->orderBy('st.name', 'ASC')
+            ->get()->getResultArray();
+
+        $students = [];
+        foreach ($rows as $r) {
+            $students[] = [
+                'nis'        => $r['nis'],
+                'name'       => $r['student_name'],
+                'class_name' => $r['class_name'],
+                'score'      => round((float)$r['score'], 2),
+                'ikut_ujian' => ($r['status'] === 'finished'),
+                'finished_at'=> $r['finished_at'] ?? null,
+            ];
+        }
+
+        $payload = [
+            'format'        => 'espata_cbt_export_v1',
+            'exported_at'   => date('Y-m-d H:i:s'),
+            'test_id'       => $testId,
+            'bank_code'     => $test['bank_code'],
+            'exam_name'     => $test['exam_name'],
+            'subject_id'    => $test['subject_id'],
+            'subject_name'  => $test['subject_name'],
+            'subject_code'  => $test['subject_code'],
+            'class_codes'   => $test['class_codes'],
+            'semester'      => $test['semester'],
+            'total_students'=> count($students),
+            'students'      => $students,
+        ];
+
+        $filename = 'nilai_cbt_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $test['bank_code'])
+                    . '_' . date('Ymd_His') . '.json';
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/json')
+            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->setBody(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
     }
 }
 

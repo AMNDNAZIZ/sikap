@@ -1,35 +1,41 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="container-fluid">
-  <div class="d-flex justify-content-between align-items-center mb-3">
+<style>
+  @media (max-width: 768px) {
+    #editor {
+      min-height: 320px !important;
+    }
+    .ck-editor__editable {
+      min-height: 280px !important;
+    }
+  }
+</style>
+
+<div class="container-fluid py-2">
+  <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
     <div>
-      <h4 class="mb-0">Tambah Soal ke Bank: <?= esc($bank['code']) ?></h4>
+      <h4 class="mb-0 fw-bold">Tambah Soal ke Bank: <span class="text-primary"><?= esc($bank['code']) ?></span></h4>
       <small class="text-muted">
-        Mata pelajaran: <?= esc($bank['subject_name'] ?? '-') ?> | Level: <?= esc($bank['level']) ?>
+        Mata pelajaran: <strong><?= esc($bank['subject_name'] ?? '-') ?></strong> &bull; Level: <strong><?= esc($bank['level']) ?></strong>
       </small>
     </div>
-    <a href="<?= site_url('admin/cbt/banksoal/detail/' . $bank['id']) ?>" class="btn btn-outline-secondary">
-      <i class="bi bi-arrow-left"></i> Kembali
+    <a href="<?= site_url('admin/cbt/banksoal/detail/' . $bank['id']) ?>" class="btn btn-outline-secondary btn-sm px-3 py-2">
+      <i class="bi bi-arrow-left me-1"></i> Kembali
     </a>
   </div>
 
-  <div class="card shadow-sm">
+  <div class="card border-0 shadow-sm" style="border-radius: 12px;">
     <div class="card-body">
       <form id="formAddSoal" method="post" action="<?= site_url('admin/cbt/banksoal/saveParsedSoal/' . $bank['id']) ?>">
         <?= csrf_field() ?>
 
         <div class="mb-3">
           <label class="form-label fw-bold">Paste Soal dari Word</label>
-          <textarea id="editor" name="raw_text"></textarea>
-          
-          <div class="alert alert-info py-2 mt-2 mb-0 border-info">
-            <small><i class="bi bi-info-circle"></i> <strong>Tips Rumus (LaTeX):</strong> Anda dapat mengetik rumus matematika secara langsung. Gunakan <code>\( rumus \)</code> untuk rumus sebaris (inline), dan <code>$$ rumus $$</code> untuk blok rumus. Rumus akan otomatis ter-render pada mode Preview dan di halaman ujian siswa.</small>
-          </div>
-          
+          <textarea id="editor" name="raw_text" style="min-height: 500px;"></textarea>
           <small class="text-muted d-block mt-2">
             Format contoh:
-            <pre class="bg-light p-2 rounded mt-2">
+            <pre class="bg-light p-2 rounded mt-2" style="font-size: 0.85rem; overflow-x: auto;">
 Soal:1)Warna bendera Indonesia adalah ....
 A:Putih Merah
 B:Merah Putih
@@ -56,12 +62,12 @@ Kunci:esai
           </small>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center mt-3">
-          <button type="button" id="btnPreview" class="btn btn-info">
-            <i class="bi bi-eye"></i> Preview Parsing
+        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2 mt-3">
+          <button type="button" id="btnPreview" class="btn btn-info text-white py-2 px-3 shadow-sm">
+            <i class="bi bi-eye me-1"></i> Preview Parsing
           </button>
-          <button type="submit" id="btnSave" class="btn btn-success">
-            <i class="bi bi-save"></i> Simpan Semua Soal
+          <button type="submit" id="btnSave" class="btn btn-success py-2 px-4 shadow-sm fw-semibold">
+            <i class="bi bi-save me-1"></i> Simpan Semua Soal
           </button>
         </div>
       </form>
@@ -105,9 +111,9 @@ window.MathJax = {
 <script>
   $(function () {
     const draftKey = 'cbt_soal_draft_' + <?= $bank['id'] ?>;
-    let editorInstance;
+    let editorInstance = null;
 
-    // 🔧 Inisialisasi CKEditor Superbuild
+    // Inisialisasi CKEditor Superbuild dengan custom upload adapter
     CKEDITOR.ClassicEditor
       .create(document.querySelector('#editor'), {
         toolbar: {
@@ -179,66 +185,91 @@ window.MathJax = {
               styles: true
             }
           ]
-        },
+        }
       })
       .then(editor => {
         editorInstance = editor;
+
+        // Set custom CSS untuk tinggi
         editor.editing.view.change(writer => {
           writer.setStyle('height', '500px', editor.editing.view.document.getRoot());
         });
 
-        // 🔥 PENTING: Custom Upload Adapter untuk handle paste gambar dari Word
+        // Custom upload adapter
         editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
           return {
             upload: () => {
               return loader.file.then(file => {
                 return new Promise((resolve, reject) => {
-                  // Get fresh CSRF token before upload
-                  $.get('<?= site_url('admin/cbt/csrf/refresh') ?>', function(csrfData) {
-                    const formData = new FormData();
-                    formData.append('upload', file);
-                    formData.append(csrfData.token_name, csrfData.token_hash);
+                  const formData = new FormData();
+                  formData.append('file', file);
+                  // Add CSRF token for security
+                  const csrfName = '<?= csrf_token() ?>';
+                  const csrfHash = '<?= csrf_hash() ?>';
+                  formData.append(csrfName, csrfHash);
+                  
+                  console.log('Upload with CSRF:', csrfName, '=', csrfHash);
 
-                    $.ajax({
-                      url: '<?= site_url('admin/cbt/banksoal/uploadImage') ?>',
-                      type: 'POST',
-                      data: formData,
-                      processData: false,
-                      contentType: false,
-                      success: function(response) {
-                        console.log('Upload success:', response);
-                        if (response.url) {
-                          resolve({ default: response.url });
-                        } else if (response.location) {
-                          resolve({ default: response.location });
-                        } else {
-                          reject(response.error || 'Upload failed: response tidak memiliki URL');
-                        }
-                      },
-                      error: function(xhr, status, error) {
-                        console.error('Upload error:', xhr.responseText);
-                        reject('Upload failed: ' + error);
+                  $.ajax({
+                    url: '<?= site_url("admin/cbt/banksoal/uploadImage") ?>',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function (response) {
+                      console.log('Upload success:', response);
+                      if (response.url || response.location) {
+                        resolve({
+                          default: response.url || response.location
+                        });
+                      } else {
+                        reject('Upload gagal: No URL in response');
                       }
-                    });
-                  }).fail(function() {
-                    reject('Failed to get CSRF token');
+                    },
+                    error: function (xhr) {
+                      console.error('Upload error:', xhr);
+                      console.error('Status:', xhr.status, xhr.statusText);
+                      console.error('Response:', xhr.responseText);
+                      
+                      let errorMsg = 'Upload gagal';
+                      if (xhr.status === 403) {
+                        errorMsg = 'Upload gagal: CSRF token invalid atau session expired. Silakan refresh halaman.';
+                      } else if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = xhr.responseJSON.error;
+                      } else if (xhr.responseText) {
+                        errorMsg = xhr.responseText.substring(0, 200);
+                      }
+                      reject(errorMsg);
+                    }
                   });
                 });
               });
-            },
-            abort: () => {
-              console.log('Upload aborted');
             }
           };
         };
+
+        // Load draft dari localStorage
+        const savedDraft = localStorage.getItem(draftKey);
+        if (savedDraft && savedDraft.trim() !== '') {
+          editor.setData(savedDraft);
+        }
+
+        // Auto-save draft
+        editor.model.document.on('change:data', () => {
+          localStorage.setItem(draftKey, editor.getData());
+        });
       })
       .catch(error => {
-        console.error('CKEditor initialization error:', error);
+        console.error('Error loading CKEditor:', error);
+        Swal.fire('Error', 'Gagal memuat editor. Silakan refresh halaman.', 'error');
       });
 
     // 🔹 Preview parsing
     $('#btnPreview').on('click', function () {
-      if (!editorInstance) return Swal.fire('Error', 'Editor belum siap.', 'error');
+      if (!editorInstance) {
+        Swal.fire('Error', 'Editor belum siap', 'error');
+        return;
+      }
       const html = editorInstance.getData().trim();
       const text = $('<div>').html(html).text().trim();
 
@@ -272,20 +303,15 @@ window.MathJax = {
 
       let previewSoals = '';
       validBlocks.slice(0, 100).forEach((block, idx) => {
-        // 🔹 FIX: Preserve HTML untuk LaTeX rendering
-        const soalPreview = block.substring(0, 300) + (block.length > 300 ? '...' : '');
-        previewSoals += `<div class="mb-2 p-2 border rounded bg-light"><strong>${idx + 1}.</strong> <div class="mt-1">${soalPreview}</div></div>`;
+        const plainBlock = block.replace(/<[^>]*>/g, ' ').trim();
+        const soalPreview = plainBlock.substring(0, 200) + (plainBlock.length > 200 ? '...' : '');
+        previewSoals += `<div class="mb-2 p-2 border rounded bg-light"><strong>${idx + 1}.</strong> ${soalPreview}</div>`;
       });
 
       const previewHtml = `
       <div class="card shadow-sm">
         <div class="card-header bg-primary text-white"><h6 class="mb-0"><i class="bi bi-eye"></i> Preview Parsing</h6></div>
         <div class="card-body">
-          <div class="alert alert-info py-2">
-            <small><i class="bi bi-info-circle"></i> <strong>Tips LaTeX:</strong> 
-            Gunakan <code>\\( rumus \\)</code> untuk inline atau <code>$rumus$</code> untuk display math. 
-            Contoh: <code>\\( \\frac{1}{2} \\)</code> atau <code>$\\frac{1}{2}$</code></small>
-          </div>
           <div class="row text-center mb-3">
             <div class="col-3"><div class="p-2 border rounded bg-light"><strong>${pgCount}</strong><br><small>PG</small></div></div>
             <div class="col-3"><div class="p-2 border rounded bg-light"><strong>${pgkCount}</strong><br><small>PGK</small></div></div>
@@ -299,7 +325,7 @@ window.MathJax = {
         </div>
       </div>`;
       $('#previewResult').html(previewHtml);
-      
+
       // Render MathJax pada preview
       if (typeof MathJax !== 'undefined') {
         MathJax.typesetPromise().catch((err) => console.log('MathJax error:', err));
@@ -309,43 +335,36 @@ window.MathJax = {
     // 🔹 Submit (Simpan Soal)
     $('#formAddSoal').on('submit', function (e) {
       e.preventDefault();
-      if (!editorInstance) return Swal.fire('Error', 'Editor belum siap.', 'error');
+      if (!editorInstance) {
+        Swal.fire('Error', 'Editor belum siap', 'error');
+        return;
+      }
       const html = editorInstance.getData().trim();
       if (!html) return Swal.fire('Kosong', 'Silakan tempelkan soal terlebih dahulu.', 'warning');
 
       $('#btnSave').prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Menyimpan...');
 
-      // Refresh CSRF token sebelum submit
-      $.get('<?= site_url('admin/cbt/csrf/refresh') ?>', function(csrfData) {
-        const formData = new FormData();
-        formData.set('raw_text', html);
-        formData.set(csrfData.token_name, csrfData.token_hash);
+      const formData = new FormData(this);
+      formData.set('raw_text', html);
 
-        $.ajax({
-          url: $('#formAddSoal').attr('action'),
-          type: 'POST',
-          data: formData,
-          processData: false,
-          contentType: false,
-          success: function (res) {
-            localStorage.removeItem(draftKey);
-            Swal.fire('Berhasil', 'Soal berhasil disimpan!', 'success').then(() => {
-              window.location.href = "<?= site_url('admin/cbt/banksoal/detail/' . $bank['id']) ?>";
-            });
-          },
-          error: function (xhr) {
-            console.error('Error:', xhr.responseText);
-            let errorMsg = 'Terjadi kesalahan saat menyimpan soal.';
-            try {
-              const response = JSON.parse(xhr.responseText);
-              if (response.error) errorMsg = response.error;
-            } catch(e) {}
-            Swal.fire('Gagal', errorMsg, 'error');
-          },
-          complete: function () {
-            $('#btnSave').prop('disabled', false).html('<i class="bi bi-save"></i> Simpan Semua Soal');
-          }
-        });
+      $.ajax({
+        url: $(this).attr('action'),
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function (res) {
+          localStorage.removeItem(draftKey);
+          Swal.fire('Berhasil', 'Soal berhasil disimpan!', 'success').then(() => {
+            window.location.href = "<?= site_url('admin/cbt/banksoal/detail/' . $bank['id']) ?>";
+          });
+        },
+        error: function (xhr) {
+          Swal.fire('Gagal', 'Terjadi kesalahan saat menyimpan soal.', 'error');
+        },
+        complete: function () {
+          $('#btnSave').prop('disabled', false).html('<i class="bi bi-save"></i> Simpan Semua Soal');
+        }
       });
     });
   });

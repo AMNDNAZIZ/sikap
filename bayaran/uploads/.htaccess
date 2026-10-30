@@ -1,8 +1,0 @@
-# Disable PHP execution
-<FilesMatch "\.(php|php5|php7|php8|phtml|exe|sh|cgi)$">
-    Order allow,deny
-    Deny from all
-</FilesMatch>
-
-# Prevent script execution via RewriteEngine if enabled
-RewriteEngine Off

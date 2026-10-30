@@ -1,49 +1,58 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="container-fluid">
-    <div class="card shadow-sm mb-3">
-        <div class="card-body d-flex align-items-center">
+<style>
+  @media (max-width: 576px) {
+    .nav-tabs .nav-link {
+      padding: 0.6rem 0.8rem;
+      font-size: 0.88rem;
+    }
+  }
+</style>
+
+<div class="container-fluid py-2">
+    <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px;">
+        <div class="card-body d-flex align-items-center p-3">
             <div class="me-3">
-                <div class="icon bg-light rounded-circle p-3">
-                    <i class="bi bi-calculator fs-3 text-primary"></i>
+                <div class="icon bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; font-size: 1.5rem;">
+                    <i class="bi bi-calculator"></i>
                 </div>
             </div>
             <div>
-                <h5 class="mb-1">Konversi & Import Nilai CBT</h5>
-                <p class="mb-0 text-muted">Konversi nilai CBT ESPATA ke rapor, atau import nilai dari CBT Mandiri.</p>
+                <h5 class="mb-1 fw-bold">Konversi &amp; Import Nilai CBT</h5>
+                <p class="mb-0 text-muted small">Konversi nilai ujian ke rapor, atau import nilai dari CBTku.</p>
             </div>
         </div>
     </div>
 
     <?php if (session()->getFlashdata('success')): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <div class="alert alert-success alert-dismissible fade show py-2 small" role="alert">
             <?= session()->getFlashdata('success') ?>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     <?php endif; ?>
 
     <?php if (session()->getFlashdata('error')): ?>
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <div class="alert alert-danger alert-dismissible fade show py-2 small" role="alert">
             <?= session()->getFlashdata('error') ?>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     <?php endif; ?>
 
     <!-- Tab Nav -->
-    <ul class="nav nav-tabs mb-4" id="convertTabs" role="tablist">
+    <ul class="nav nav-pills nav-fill mb-3 gap-2" id="convertTabs" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link <?= (!isset($_GET['tab']) || $_GET['tab'] !== 'mandiri') ? 'active' : '' ?>"
+            <button class="nav-link border text-start text-sm-center py-2 fw-semibold <?= (!isset($_GET['tab']) || $_GET['tab'] !== 'mandiri') ? 'active' : '' ?>"
                     id="tab-konversi" data-bs-toggle="tab" data-bs-target="#panel-konversi"
                     type="button" role="tab">
                 <i class="bi bi-calculator me-1"></i> Konversi Nilai CBT
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link <?= (isset($_GET['tab']) && $_GET['tab'] === 'mandiri') ? 'active' : '' ?>"
+            <button class="nav-link border text-start text-sm-center py-2 fw-semibold <?= (isset($_GET['tab']) && $_GET['tab'] === 'mandiri') ? 'active' : '' ?>"
                     id="tab-mandiri" data-bs-toggle="tab" data-bs-target="#panel-mandiri"
                     type="button" role="tab">
-                <i class="bi bi-box-arrow-in-down me-1"></i> Import dari Aplikasi CBTku
+                <i class="bi bi-box-arrow-in-down me-1"></i> Import dari CBTku
             </button>
         </li>
     </ul>
@@ -53,9 +62,9 @@
         <!-- ═══ TAB 1: KONVERSI NILAI CBT (existing) ═══ -->
         <div class="tab-pane fade <?= (!isset($_GET['tab']) || $_GET['tab'] !== 'mandiri') ? 'show active' : '' ?>"
              id="panel-konversi" role="tabpanel">
-    <div class="row">
+    <div class="row g-3">
         <div class="col-md-6">
-            <div class="card h-100">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
                 <div class="card-header bg-white">
                     <h6 class="mb-0 fw-bold">1. Tentukan Nilai yang akan dikonversi</h6>
                 </div>
@@ -144,9 +153,9 @@
         <!-- ═══ TAB 2: IMPORT DARI CBT MANDIRI ═══ -->
         <div class="tab-pane fade <?= (isset($_GET['tab']) && $_GET['tab'] === 'mandiri') ? 'show active' : '' ?>"
              id="panel-mandiri" role="tabpanel">
-            <div class="row">
+            <div class="row g-3">
                 <div class="col-md-7">
-                    <div class="card shadow-sm">
+                    <div class="card border-0 shadow-sm" style="border-radius: 12px;">
                         <div class="card-header bg-white fw-bold">
                             <i class="bi bi-box-arrow-in-down me-2 text-primary"></i>
                             Upload File Export dari CBTku

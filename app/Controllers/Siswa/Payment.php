@@ -15,33 +15,43 @@ class Payment extends BaseController
     public function index()
     {
         $user = session()->get('user');
-        $roleId = $user['role_id'] ?? null;
         $relatedId = $user['related_id'] ?? null;
 
-        if (!$relatedId) {
-            return redirect()->to('/dashboard')->with('error', 'Data siswa tidak ditemukan.');
+        // Ambil data siswa berdasarkan related_id atau user_id
+        $studentModel = new StudentModel();
+        $student = null;
+        if (!empty($relatedId)) {
+            $student = $studentModel->find($relatedId);
+        }
+        if (!$student && !empty($user['id'])) {
+            $student = $studentModel->where('user_id', $user['id'])->first();
         }
 
-        // Ambil NIS siswa
-        $studentModel = new StudentModel();
-        $student = $studentModel->find($relatedId);
-
         if (!$student || empty($student['nis'])) {
-            return redirect()->to('/dashboard')->with('error', 'NIS siswa tidak ditemukan. Hubungi admin.');
+            return redirect()->to('/dashboard')->with('error', 'Data siswa atau NIS tidak ditemukan. Hubungi admin sekolah.');
         }
 
         $nis = $student['nis'];
 
         // Ambil konfigurasi API pembayaran dari settings
         $settings = new SettingsModel();
-        $apiUrl = $settings->getValue('payment_api_url');
-        $apiKey = $settings->getValue('payment_api_key');
+        $apiUrl = trim((string) $settings->getValue('payment_api_url'));
+        $apiKey = trim((string) $settings->getValue('payment_api_key'));
 
         if (empty($apiUrl)) {
             return view('siswa/payment/index', [
                 'title'   => 'Informasi Pembayaran',
                 'student' => $student,
-                'error'   => 'Fitur pembayaran belum dikonfigurasi. Hubungi admin sekolah.',
+                'error'   => 'URL integrasi pembayaran belum dikonfigurasi. Hubungi admin sekolah.',
+                'data'    => null,
+            ]);
+        }
+
+        if (empty($apiKey)) {
+            return view('siswa/payment/index', [
+                'title'   => 'Informasi Pembayaran',
+                'student' => $student,
+                'error'   => 'API Key pembayaran belum dikonfigurasi di pengaturan sistem. Hubungi admin sekolah untuk mengaturnya di menu Pengaturan Integrasi Pembayaran.',
                 'data'    => null,
             ]);
         }
@@ -63,38 +73,46 @@ class Payment extends BaseController
     private function fetchPaymentData(string $apiUrl, ?string $apiKey, string $nis): array
     {
         // Bangun URL endpoint
-        $url = rtrim($apiUrl, '/') . '/api/payment-info?nis=' . urlencode($nis);
+        $url = rtrim($apiUrl, '/') . '/api/payment-info?nis=' . urlencode(trim($nis));
 
         try {
             $client = \Config\Services::curlrequest();
-            $headers = ['Accept' => 'application/json'];
+            $headers = [
+                'Accept' => 'application/json',
+            ];
 
             if (!empty($apiKey)) {
-                $headers['X-API-Key'] = $apiKey;
+                $headers['X-API-Key'] = trim($apiKey);
             }
 
             $response = $client->get($url, [
                 'headers'     => $headers,
-                'timeout'     => 10,
+                'timeout'     => 12,
                 'http_errors' => false,
             ]);
 
             $statusCode = $response->getStatusCode();
+            $rawBody    = (string) $response->getBody();
+            $body       = json_decode($rawBody, true);
 
             if ($statusCode === 200) {
-                $body = json_decode($response->getBody(), true);
                 if ($body && isset($body['success']) && $body['success']) {
                     return ['data' => $body['data'] ?? $body, 'error' => null];
                 }
-                return ['data' => null, 'error' => $body['message'] ?? 'Data tidak ditemukan di sistem pembayaran.'];
+                return ['data' => null, 'error' => $body['message'] ?? $body['messages']['error'] ?? 'Data pembayaran tidak valid dari server.'];
+            } elseif ($statusCode === 401) {
+                $errMsg = $body['messages']['error'] ?? $body['message'] ?? 'API Key tidak valid atau belum dikonfigurasi.';
+                return ['data' => null, 'error' => 'Autentikasi gagal (HTTP 401): ' . $errMsg . ' Pastikan Secret API Key di Pengaturan ESPATA sama dengan di aplikasi pembayaran.'];
             } elseif ($statusCode === 404) {
-                return ['data' => null, 'error' => 'Data pembayaran untuk NIS ini tidak ditemukan.'];
+                $errMsg = $body['messages']['error'] ?? $body['message'] ?? ('Data pembayaran untuk NIS ' . $nis . ' tidak ditemukan.');
+                return ['data' => null, 'error' => $errMsg];
             } else {
-                return ['data' => null, 'error' => 'Gagal menghubungi server pembayaran (HTTP ' . $statusCode . ').'];
+                $errMsg = $body['messages']['error'] ?? $body['message'] ?? ('HTTP ' . $statusCode);
+                return ['data' => null, 'error' => 'Gagal menghubungi server pembayaran (' . $errMsg . ').'];
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             log_message('error', 'Payment API Error: ' . $e->getMessage());
-            return ['data' => null, 'error' => 'Tidak dapat terhubung ke server pembayaran. Silakan coba lagi nanti.'];
+            return ['data' => null, 'error' => 'Tidak dapat terhubung ke server pembayaran: ' . $e->getMessage()];
         }
     }
 }

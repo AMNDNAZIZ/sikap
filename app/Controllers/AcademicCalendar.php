@@ -295,13 +295,13 @@ class AcademicCalendar extends BaseController
 
         // ── 6. CBT Online ─────────────────────────────────────────────────
         $cbtBuilder = $this->db->table('cbt_test_status cts')
-            ->select('cts.id, cts.start_time, cts.end_time, cts.class_codes, sub.name as subject_name, en.name as exam_name')
+            ->select('cts.id, cts.start_time, cts.end_time, cts.duration, cts.class_codes, sub.name as subject_name, en.name as exam_name')
             ->join('cbt_question_banks qb', 'qb.id = cts.bank_id', 'left')
             ->join('subjects sub', 'sub.id = qb.subject_id', 'left')
             ->join('cbt_exam_names en', 'en.id = cts.exam_name_id', 'left')
             ->where('cts.is_visible', 1)
-            ->where('DATE(cts.start_time) <=', $end)
-            ->where('DATE(cts.end_time) >=', $start);
+            ->where('DATE(cts.start_time) >=', $start)
+            ->where('DATE(cts.start_time) <=', $end);
 
         // Filter berdasarkan kelas (class_codes adalah string JSON array nama kelas)
         if ($className) {
@@ -315,15 +315,41 @@ class AcademicCalendar extends BaseController
                 ? base_url('siswa/cbt')
                 : base_url('admin/cbt/aktivitas');
 
+            $startTime = $cbt['start_time'] ?? null;
+            $endTime   = $cbt['end_time'] ?? null;
+            $startDate = $startTime ? substr($startTime, 0, 10) : '';
+            $endDate   = $endTime ? substr($endTime, 0, 10) : '';
+            $duration  = !empty($cbt['duration']) ? (int) $cbt['duration'] : 60;
+
+            // Batasi event hanya pada hari mulai agar tidak membentang menimpa kolom hari lain
+            if ($startTime) {
+                if ($startDate === $endDate && $endTime) {
+                    $calEnd = $endTime;
+                } else {
+                    $calcEnd = date('Y-m-d H:i:s', strtotime($startTime . " +{$duration} minutes"));
+                    $dayEnd  = $startDate . ' 23:59:59';
+                    $calEnd  = ($calcEnd < $dayEnd) ? $calcEnd : $dayEnd;
+                }
+            } else {
+                $calEnd = null;
+            }
+
+            $desc = trim(($cbt['subject_name'] ?? '') . ' — ' . ($cbt['exam_name'] ?? ''));
+            if ($startDate && $endDate && $startDate !== $endDate) {
+                $desc .= ' (Batas: ' . date('d/m/Y H:i', strtotime($endTime)) . ')';
+            }
+
             $events[] = [
                 'id'          => 'cbt-' . $cbt['id'],
                 'type'        => 'cbt',
                 'title'       => '💻 CBT: ' . ($cbt['exam_name'] ?? '') . ' ' . ($cbt['subject_name'] ?? ''),
-                'start'       => $cbt['start_time'],
-                'end'         => $cbt['end_time'],
+                'start'       => $startTime,
+                'end'         => $calEnd,
                 'color'       => '#e83e8c',
                 'url'         => $url,
-                'description' => ($cbt['subject_name'] ?? '') . ' — ' . ($cbt['exam_name'] ?? ''),
+                'description' => $desc,
+                'duration'    => $cbt['duration'] ?? null,
+                'window_end'  => ($startDate !== $endDate && $endTime) ? $endTime : null,
                 'classNames'  => ['event-cbt'],
             ];
         }

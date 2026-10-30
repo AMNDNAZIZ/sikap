@@ -189,6 +189,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin', 'filter' => 'au
     $routes->post('cbt/aktivitas/resetLogin/(:num)', 'CbtAktivitas::resetLogin/$1');
     $routes->get('cbt/aktivitas/belumTes/(:num)', 'CbtAktivitas::belumTes/$1');
     $routes->get('cbt/aktivitas/unduhNilai/(:num)', 'CbtAktivitas::unduhNilai/$1');
+    $routes->get('cbt/aktivitas/exportNilai/(:num)', 'CbtAktivitas::exportNilai/$1');
     $routes->post('cbt/aktivitas/resetMassal/(:num)', 'CbtAktivitas::resetMassal/$1');
     $routes->post('cbt/aktivitas/forceFinishMassal/(:num)', 'CbtAktivitas::forceFinishMassal/$1');
     $routes->get('cbt/aktivitas/analisis/(:num)', 'CbtAktivitas::analisisSoal/$1');

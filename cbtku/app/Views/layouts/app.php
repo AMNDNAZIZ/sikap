@@ -98,10 +98,30 @@ if ($row && !empty($row->logo)) {
       flex: 1;
       transition: all 0.2s ease-in-out;
       padding: 1rem 1.25rem;
+      min-width: 0;
+      width: 100%;
+      overflow-x: hidden;
     }
 
     .navbar {
-      height: 56px;
+      min-height: 56px;
+      height: auto;
+      width: 100%;
+    }
+
+    .navbar > .container-fluid {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      width: 100%;
+    }
+
+    .navbar-brand {
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     footer {
@@ -119,7 +139,163 @@ if ($row && !empty($row->logo)) {
       }
 
       .offcanvas {
-        width: 220px;
+        width: 280px !important;
+        max-width: 85vw;
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
+      }
+
+      .offcanvas-header {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: white;
+        padding: 1rem 1.25rem;
+      }
+
+      .offcanvas-header .btn-close {
+        filter: brightness(0) invert(1);
+      }
+
+      .main-content {
+        padding: 0.75rem 0.65rem;
+      }
+    }
+
+    /* 📱 GLOBAL MOBILE OPTIMIZATIONS FOR ALL ADMIN PAGES */
+    @media (max-width: 768px) {
+      /* Page Headers on Mobile */
+      .page-header {
+        padding: 1.15rem 1rem !important;
+        border-radius: 12px !important;
+        margin-bottom: 1rem !important;
+      }
+
+      .page-header h1,
+      .page-header h4 {
+        font-size: 1.25rem !important;
+        letter-spacing: -0.01em !important;
+      }
+
+      .page-header p {
+        font-size: 0.82rem !important;
+      }
+
+      /* Cards & Containers on Mobile */
+      .container-fluid {
+        padding-left: 0.35rem !important;
+        padding-right: 0.35rem !important;
+      }
+
+      .card,
+      .modern-card,
+      .table-card {
+        border-radius: 12px !important;
+        margin-bottom: 0.85rem !important;
+      }
+
+      .card-header,
+      .modern-card-header {
+        padding: 0.75rem 0.9rem !important;
+      }
+
+      .card-body,
+      .modern-card-body {
+        padding: 0.85rem 0.85rem !important;
+      }
+
+      /* DataTables Controls on Mobile */
+      .dataTables_wrapper .dataTables_length,
+      .dataTables_wrapper .dataTables_filter {
+        text-align: left !important;
+        float: none !important;
+        margin-bottom: 0.65rem !important;
+        width: 100% !important;
+      }
+
+      .dataTables_wrapper .dataTables_filter input {
+        width: 100% !important;
+        margin-left: 0 !important;
+        margin-top: 0.25rem !important;
+        height: 40px !important;
+        border-radius: 8px !important;
+        font-size: 0.88rem !important;
+      }
+
+      .dataTables_wrapper .dataTables_info,
+      .dataTables_wrapper .dataTables_paginate {
+        text-align: center !important;
+        float: none !important;
+        margin-top: 0.75rem !important;
+        width: 100% !important;
+      }
+
+      .dataTables_paginate .pagination {
+        justify-content: center !important;
+        flex-wrap: wrap !important;
+        gap: 0.2rem !important;
+      }
+
+      .page-item .page-link {
+        padding: 0.35rem 0.65rem !important;
+        font-size: 0.8rem !important;
+        border-radius: 6px !important;
+      }
+
+      /* Responsive Tables */
+      .table-responsive {
+        border-radius: 10px;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .table {
+        font-size: 0.82rem;
+      }
+
+      .table th,
+      .table td {
+        padding: 0.55rem 0.45rem !important;
+        vertical-align: middle;
+      }
+
+      /* Button Groups & Action Buttons */
+      .btn-group {
+        display: inline-flex !important;
+        flex-wrap: wrap !important;
+        gap: 2px !important;
+      }
+
+      .btn-group > .btn {
+        border-radius: 6px !important;
+        margin: 1px !important;
+      }
+
+      /* Form Controls - Touch Optimized & iOS Safari Zoom Prevention */
+      .form-control,
+      .form-select {
+        font-size: 16px !important; /* Prevents auto-zoom on iOS */
+        min-height: 42px !important;
+        border-radius: 8px !important;
+      }
+
+      /* Modals on Mobile */
+      .modal-dialog {
+        margin: 0.5rem auto !important;
+        max-width: calc(100% - 1rem) !important;
+      }
+
+      .modal-content {
+        border-radius: 14px !important;
+      }
+
+      .modal-header {
+        padding: 0.85rem 1rem !important;
+      }
+
+      .modal-body {
+        padding: 1rem 0.85rem !important;
+      }
+
+      .modal-footer {
+        padding: 0.75rem 1rem !important;
+        flex-wrap: wrap !important;
       }
     }
   </style>
@@ -127,15 +303,18 @@ if ($row && !empty($row->logo)) {
 
 <body>
   <!-- 🔹 NAVBAR -->
-  <nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top shadow-sm">
-    <div class="container-fluid">
-      <button class="btn btn-outline-primary d-lg-none me-2" data-bs-toggle="offcanvas"
-        data-bs-target="#sidebarMenu">☰</button>
-      <button id="sidebarToggle" class="btn btn-outline-secondary d-none d-lg-inline me-2">⇔</button>
+  <nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top shadow-sm w-100">
+    <div class="container-fluid d-flex align-items-center justify-content-between flex-nowrap px-3">
+      <div class="d-flex align-items-center overflow-hidden me-2" style="min-width: 0;">
+        <button class="btn btn-outline-primary d-lg-none me-2 flex-shrink-0" data-bs-toggle="offcanvas"
+          data-bs-target="#sidebarMenu" aria-label="Buka Menu">☰</button>
+        <button id="sidebarToggle" class="btn btn-outline-secondary d-none d-lg-inline me-2 flex-shrink-0" aria-label="Toggle Sidebar">⇔</button>
 
-      <a class="navbar-brand fw-semibold" href="<?= base_url('/dashboard') ?>">
-        📘 CBT <?= esc($school['name'] ?? 'Sekolah') ?></a>
-      <div class="ms-auto">
+        <a class="navbar-brand fw-semibold text-truncate mb-0 fs-6" href="<?= base_url('/dashboard') ?>" title="CBT <?= esc($school['name'] ?? 'Sekolah') ?>">
+          📘 CBT <?= esc($school['name'] ?? 'Sekolah') ?>
+        </a>
+      </div>
+      <div class="flex-shrink-0 ms-auto">
         <a href="<?= base_url('logout') ?>" class="btn btn-sm btn-outline-danger">Logout</a>
       </div>
     </div>
@@ -169,8 +348,10 @@ if ($row && !empty($row->logo)) {
   <!-- 🔹 Sidebar mobile offcanvas -->
   <div class="offcanvas offcanvas-start d-lg-none" tabindex="-1" id="sidebarMenu">
     <div class="offcanvas-header">
-      <h5 class="offcanvas-title">Menu</h5>
-      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+      <h5 class="offcanvas-title fs-6 fw-bold mb-0">
+        <i class="fas fa-th-large me-2"></i> Menu Aplikasi
+      </h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Tutup"></button>
     </div>
     <div class="offcanvas-body p-0">
       <?php if ($user['role_id'] == 1): ?>
@@ -319,10 +500,226 @@ if ($row && !empty($row->logo)) {
           });
       }
 
-      // Initial delay set to interval to avoid immediate ping after page load
+      // Start heartbeat
       setInterval(doHeartbeat, heartbeatInterval);
+      // Run immediately on page load
+      doHeartbeat();
     })();
+
+    // Ensure Bootstrap modals are attached directly to body to prevent stacking context clipping
+    $(document).on('show.bs.modal', '.modal', function () {
+      if (this.parentElement !== document.body) {
+        document.body.appendChild(this);
+      }
+    });
   </script>
+
+  <!-- 📱 MASTER MOBILE RESPONSIVE OVERRIDE (Ensures 100% of admin pages are mobile optimized) -->
+  <style>
+    @media (max-width: 768px) {
+      /* Page Header across all admin views */
+      .page-header {
+        padding: 1.15rem 1rem !important;
+        border-radius: 12px !important;
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.85rem !important;
+      }
+
+      .page-header h1,
+      .page-header h4 {
+        font-size: 1.25rem !important;
+        font-weight: 700 !important;
+        margin-bottom: 0.25rem !important;
+      }
+
+      .page-header p {
+        font-size: 0.82rem !important;
+        margin-bottom: 0.75rem !important;
+        opacity: 0.9 !important;
+      }
+
+      .page-header-actions {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 0.4rem !important;
+        width: 100% !important;
+      }
+
+      .page-header-actions .btn,
+      .page-header-actions .btn-modern {
+        flex: 1 1 calc(50% - 0.4rem) !important;
+        min-height: 40px !important;
+        padding: 0.5rem 0.65rem !important;
+        font-size: 0.82rem !important;
+        justify-content: center !important;
+        text-align: center !important;
+      }
+
+      /* Container padding */
+      .container-fluid {
+        padding-left: 0.35rem !important;
+        padding-right: 0.35rem !important;
+      }
+
+      /* Card styling */
+      .card,
+      .modern-card,
+      .table-card {
+        border-radius: 12px !important;
+        margin-bottom: 0.85rem !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
+      }
+
+      .card-header,
+      .modern-card-header {
+        padding: 0.75rem 0.85rem !important;
+      }
+
+      .card-title,
+      .modern-card-title {
+        font-size: 0.95rem !important;
+      }
+
+      .card-body,
+      .modern-card-body {
+        padding: 0.85rem 0.85rem !important;
+      }
+
+      /* Table & DataTables polish */
+      .table-responsive {
+        border-radius: 8px !important;
+        margin-bottom: 0.5rem !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+
+      .table,
+      .table-modern {
+        font-size: 0.82rem !important;
+      }
+
+      .table thead th,
+      .table-modern thead th {
+        padding: 0.6rem 0.45rem !important;
+        font-size: 0.75rem !important;
+        white-space: nowrap !important;
+      }
+
+      .table tbody td,
+      .table-modern tbody td {
+        padding: 0.55rem 0.45rem !important;
+        vertical-align: middle !important;
+      }
+
+      /* DataTables Search & Pagination */
+      .dataTables_wrapper .dataTables_length,
+      .dataTables_wrapper .dataTables_filter {
+        text-align: left !important;
+        float: none !important;
+        margin-bottom: 0.5rem !important;
+        width: 100% !important;
+      }
+
+      .dataTables_wrapper .dataTables_filter input {
+        width: 100% !important;
+        margin-left: 0 !important;
+        margin-top: 0.25rem !important;
+        height: 40px !important;
+        border-radius: 8px !important;
+        font-size: 0.88rem !important;
+      }
+
+      .dataTables_wrapper .dataTables_info,
+      .dataTables_wrapper .dataTables_paginate {
+        text-align: center !important;
+        float: none !important;
+        margin-top: 0.65rem !important;
+        width: 100% !important;
+        font-size: 0.8rem !important;
+      }
+
+      .dataTables_paginate .pagination {
+        justify-content: center !important;
+        flex-wrap: wrap !important;
+        gap: 2px !important;
+      }
+
+      .page-item .page-link {
+        padding: 0.35rem 0.65rem !important;
+        font-size: 0.8rem !important;
+        border-radius: 6px !important;
+      }
+
+      /* Buttons & Button Groups inside tables */
+      .btn-group {
+        display: inline-flex !important;
+        flex-wrap: wrap !important;
+        gap: 3px !important;
+      }
+
+      .btn-group > .btn,
+      .btn-action {
+        border-radius: 6px !important;
+        min-height: 34px !important;
+        padding: 0.35rem 0.55rem !important;
+        font-size: 0.8rem !important;
+      }
+
+      .btn-icon-only {
+        width: 34px !important;
+        height: 34px !important;
+        padding: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+
+      /* Form controls - 16px to prevent iOS auto-zoom */
+      .form-control,
+      .form-select {
+        font-size: 16px !important;
+        min-height: 42px !important;
+        border-radius: 8px !important;
+      }
+
+      /* Modals on Mobile */
+      .modal-dialog {
+        margin: 0.5rem auto !important;
+        max-width: calc(100% - 1rem) !important;
+      }
+
+      .modal-content {
+        border-radius: 14px !important;
+        border: none !important;
+      }
+
+      .modal-header {
+        padding: 0.85rem 1rem !important;
+      }
+
+      .modal-body {
+        padding: 1rem 0.85rem !important;
+      }
+
+      .modal-footer {
+        padding: 0.75rem 1rem !important;
+        gap: 0.4rem !important;
+      }
+
+      .modal-footer > * {
+        flex: 1 1 calc(50% - 0.4rem) !important;
+        margin: 0 !important;
+      }
+
+      /* SweetAlert on Mobile */
+      .swal2-popup {
+        width: 90% !important;
+        padding: 1rem !important;
+        border-radius: 16px !important;
+      }
+    }
+  </style>
+
   <?= $this->renderSection('scripts') ?>
 </body>
 

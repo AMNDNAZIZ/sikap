@@ -39,7 +39,7 @@ class Updater extends BaseController
      */
     public function generateManifest()
     {
-        if (!defined('IS_DEVELOPER') || IS_DEVELOPER !== true) {
+        if (!defined('IS_MASTER_DEVELOPER') || IS_MASTER_DEVELOPER !== true) {
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
         }
 
@@ -263,6 +263,7 @@ class Updater extends BaseController
      */
     public function checkOnlineUpdate()
     {
+        @set_time_limit(180);
         try {
             $remoteManifestUrl = $this->getGithubRawUrl('update_manifest.json');
 
@@ -296,7 +297,11 @@ class Updater extends BaseController
                     $newFiles[] = $path;
                 } else {
                     // Normalize line ending lokal sebelum hash (sama seperti saat generate)
-                    $localContent = file_get_contents($localPath);
+                    $localContent = @file_get_contents($localPath);
+                    if ($localContent === false) {
+                        $changedFiles[] = $path;
+                        continue;
+                    }
                     $localContent = str_replace("\r\n", "\n", $localContent);
                     $localContent = str_replace("\r", "\n", $localContent);
                     $localHash = md5($localContent);
@@ -725,16 +730,65 @@ class Updater extends BaseController
             CURLOPT_TIMEOUT        => 30,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_USERAGENT      => 'CBTKU-Updater/1.0',
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         ]);
         $result = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
         curl_close($ch);
 
-        if ($httpCode !== 200) {
-            return false;
+        if ($httpCode === 200 && $result !== false && strlen($result) > 0) {
+            return $result;
         }
-        return $result;
+
+        // Fallback 1: via file_get_contents jika curl terblokir / error
+        if (ini_get('allow_url_fopen')) {
+            $ctx = stream_context_create([
+                'http' => [
+                    'timeout' => 30,
+                    'header'  => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\r\n",
+                    'follow_location' => 1,
+                ],
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                ]
+            ]);
+            $fallback = @file_get_contents($url, false, $ctx);
+            if ($fallback !== false && strlen($fallback) > 0) {
+                return $fallback;
+            }
+        }
+
+        // Fallback 2: jsdelivr CDN mirror jika raw.githubusercontent.com bermasalah di hosting
+        if (strpos($url, 'raw.githubusercontent.com/' . $this->githubRepo . '/' . $this->githubBranch . '/') !== false) {
+            $cdnUrl = str_replace(
+                'https://raw.githubusercontent.com/' . $this->githubRepo . '/' . $this->githubBranch . '/',
+                'https://cdn.jsdelivr.net/gh/' . $this->githubRepo . '@' . $this->githubBranch . '/',
+                $url
+            );
+            $cdnCh = curl_init();
+            curl_setopt_array($cdnCh, [
+                CURLOPT_URL            => $cdnUrl,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => 30,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            ]);
+            $cdnResult = curl_exec($cdnCh);
+            $cdnCode = curl_getinfo($cdnCh, CURLINFO_HTTP_CODE);
+            curl_close($cdnCh);
+
+            if ($cdnCode === 200 && $cdnResult !== false && strlen($cdnResult) > 0) {
+                return $cdnResult;
+            }
+        }
+
+        log_message('warning', "[curlGet] Gagal mengambil {$url}. HTTP: {$httpCode}, cURL: {$curlErr}");
+        return false;
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -847,7 +901,7 @@ class Updater extends BaseController
 
     public function generatePatch()
     {
-        if (!defined('IS_DEVELOPER') || IS_DEVELOPER !== true) {
+        if (!defined('IS_MASTER_DEVELOPER') || IS_MASTER_DEVELOPER !== true) {
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
         }
         if (!class_exists('ZipArchive')) {

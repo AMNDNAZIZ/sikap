@@ -40,13 +40,13 @@
         </div>
     </div>
 
-    <!-- SECTION: Developer Tools (localhost only) -->
-    <?php if (defined('IS_DEVELOPER') && IS_DEVELOPER === true): ?>
+    <!-- SECTION: Developer Tools (Komputer Master Developer Only) -->
+    <?php if (defined('IS_MASTER_DEVELOPER') && IS_MASTER_DEVELOPER === true): ?>
     <div class="card shadow-sm mb-4 border-warning">
         <div class="card-header bg-warning text-dark">
             <h5 class="mb-0">
                 <i class="fas fa-tools me-2"></i>Developer Tools
-                <span class="badge bg-dark ms-2 small">Localhost Only</span>
+                <span class="badge bg-dark ms-2 small">Master Developer Only</span>
             </h5>
         </div>
         <div class="card-body">
@@ -103,8 +103,8 @@
     </div>
     <?php endif; ?>
 
-    <!-- SECTION: Update Online (Production) -->
-    <?php if (!defined('IS_DEVELOPER') || IS_DEVELOPER !== true): ?>
+    <!-- SECTION: Update Online (Untuk semua client & hosting) -->
+    <?php if (!defined('IS_MASTER_DEVELOPER') || IS_MASTER_DEVELOPER !== true): ?>
     <div class="card shadow-sm mb-4">
         <div class="card-header bg-success text-white">
             <h5 class="mb-0"><i class="fas fa-cloud-download-alt me-2"></i>Update Online (Delta Update)</h5>
@@ -112,7 +112,7 @@
         <div class="card-body">
             <p class="text-muted">Sistem akan mengecek file mana saja yang berubah di server, lalu hanya mendownload file yang berbeda.</p>
 
-            <button type="button" class="btn btn-success btn-lg" id="btnCheckUpdate">
+            <button type="button" class="btn btn-success btn-lg" id="btnCheckUpdate" onclick="window.checkOnlineNow && window.checkOnlineNow()">
                 <i class="fas fa-search me-2"></i>Cek Update
             </button>
 
@@ -270,64 +270,90 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ═══════════ ONLINE UPDATE (Delta) ═══════════
-    const btnCheck = document.getElementById('btnCheckUpdate');
     const resultDiv = document.getElementById('updateResult');
     const progressDiv = document.getElementById('updateProgress');
 
     let updatePayload = null; // store check result for apply
 
-    if (btnCheck) {
-        btnCheck.addEventListener('click', function () {
+    window.checkOnlineNow = function () {
+        const btnCheck = document.getElementById('btnCheckUpdate');
+        if (btnCheck) {
             btnCheck.disabled = true;
             btnCheck.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Mengecek...';
-            if (resultDiv) resultDiv.style.display = 'none';
+        }
+        if (resultDiv) resultDiv.style.display = 'none';
 
-            fetch('<?= site_url("admin/updater/check-online") ?>', {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            })
-            .then(r => r.json())
-            .then(data => {
+        // Pastikan protocol sesuai (mencegah error mixed content http di situs https)
+        const checkUrl = '<?= site_url("admin/updater/check-online") ?>'.replace(/^http:\/\//i, window.location.protocol === 'https:' ? 'https://' : 'http://');
+
+        fetch(checkUrl, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(async r => {
+            if (!r.ok) {
+                throw new Error('HTTP ' + r.status + ' (' + r.statusText + ')');
+            }
+            const text = await r.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                throw new Error('Respons server tidak valid: ' + text.substring(0, 150));
+            }
+        })
+        .then(data => {
+            if (btnCheck) {
                 btnCheck.disabled = false;
                 btnCheck.innerHTML = '<i class="fas fa-search me-2"></i>Cek Update';
+            }
 
-                if (!data.success) {
-                    showAlert('danger', data.message);
-                    return;
-                }
+            if (!data.success) {
+                showAlert('danger', data.message || 'Gagal memeriksa update.');
+                return;
+            }
 
-                if (!data.has_update) {
-                    showAlert('success', `<i class="fas fa-check-circle me-2"></i>Sudah versi terbaru! (v${data.local_version})`);
-                    return;
-                }
+            if (!data.has_update) {
+                showAlert('success', `<i class="fas fa-check-circle me-2"></i>Sudah versi terbaru! (v${data.local_version})`);
+                return;
+            }
 
-                // Ada update — tampilkan detail
-                updatePayload = data;
+            // Ada update — tampilkan detail
+            updatePayload = data;
+            if (resultDiv) {
                 resultDiv.style.display = 'block';
                 resultDiv.innerHTML = buildUpdateInfo(data);
+            }
 
-                // Bind tombol "Update Sekarang"
-                const btnApply = document.getElementById('btnApplyUpdate');
-                if (btnApply) {
-                    btnApply.addEventListener('click', function () {
-                        if (!confirm(`Update ke v${data.remote_version}? (${data.total_diff} file akan diperbarui)\n\nBackup otomatis dibuat sebelum update.`)) return;
-                        doApplyUpdate(data);
-                    });
-                }
-            })
-            .catch(err => {
+            // Bind tombol "Update Sekarang"
+            const btnApply = document.getElementById('btnApplyUpdate');
+            if (btnApply) {
+                btnApply.addEventListener('click', function () {
+                    if (!confirm(`Update ke v${data.remote_version}? (${data.total_diff} file akan diperbarui)\n\nBackup otomatis dibuat sebelum update.`)) return;
+                    doApplyUpdate(data);
+                });
+            }
+        })
+        .catch(err => {
+            if (btnCheck) {
                 btnCheck.disabled = false;
                 btnCheck.innerHTML = '<i class="fas fa-search me-2"></i>Cek Update';
-                showAlert('danger', 'Error: ' + err.message);
-            });
+            }
+            showAlert('danger', '<i class="fas fa-exclamation-triangle me-2"></i>Error: ' + err.message);
         });
+    };
+
+    const btnCheck = document.getElementById('btnCheckUpdate');
+    if (btnCheck) {
+        btnCheck.addEventListener('click', window.checkOnlineNow);
     }
 
     function doApplyUpdate(data) {
-        resultDiv.style.display = 'none';
-        progressDiv.style.display = 'block';
+        if (resultDiv) resultDiv.style.display = 'none';
+        if (progressDiv) progressDiv.style.display = 'block';
         setProgress(10, 'Memulai update...', `Downloading ${data.total_diff} file dari GitHub...`);
 
-        fetch('<?= site_url("admin/updater/apply-online") ?>', {
+        const applyUrl = '<?= site_url("admin/updater/apply-online") ?>'.replace(/^http:\/\//i, window.location.protocol === 'https:' ? 'https://' : 'http://');
+
+        fetch(applyUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -348,8 +374,8 @@ document.addEventListener('DOMContentLoaded', function () {
             document.close();
         })
         .catch(err => {
-            progressDiv.style.display = 'none';
-            showAlert('danger', 'Update gagal: ' + err.message);
+            if (progressDiv) progressDiv.style.display = 'none';
+            showAlert('danger', '<i class="fas fa-exclamation-triangle me-2"></i>Update gagal: ' + err.message);
         });
 
         // Simulate progress while waiting

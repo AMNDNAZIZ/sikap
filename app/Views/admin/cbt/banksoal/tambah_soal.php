@@ -1,30 +1,41 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<div class="container-fluid">
-  <div class="d-flex justify-content-between align-items-center mb-3">
+<style>
+  @media (max-width: 768px) {
+    #editor {
+      min-height: 320px !important;
+    }
+    .ck-editor__editable {
+      min-height: 280px !important;
+    }
+  }
+</style>
+
+<div class="container-fluid py-2">
+  <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
     <div>
-      <h4 class="mb-0">Tambah Soal ke Bank: <?= esc($bank['code']) ?></h4>
+      <h4 class="mb-0 fw-bold">Tambah Soal ke Bank: <span class="text-primary"><?= esc($bank['code']) ?></span></h4>
       <small class="text-muted">
-        Mata pelajaran: <?= esc($bank['subject_name'] ?? '-') ?> | Level: <?= esc($bank['level']) ?>
+        Mata pelajaran: <strong><?= esc($bank['subject_name'] ?? '-') ?></strong> &bull; Level: <strong><?= esc($bank['level']) ?></strong>
       </small>
     </div>
-    <a href="<?= site_url('admin/cbt/banksoal/detail/' . $bank['id']) ?>" class="btn btn-outline-secondary">
-      <i class="bi bi-arrow-left"></i> Kembali
+    <a href="<?= site_url('admin/cbt/banksoal/detail/' . $bank['id']) ?>" class="btn btn-outline-secondary btn-sm px-3 py-2">
+      <i class="bi bi-arrow-left me-1"></i> Kembali
     </a>
   </div>
 
-  <div class="card shadow-sm">
+  <div class="card border-0 shadow-sm" style="border-radius: 12px;">
     <div class="card-body">
       <form id="formAddSoal" method="post" action="<?= site_url('admin/cbt/banksoal/saveParsedSoal/' . $bank['id']) ?>">
         <?= csrf_field() ?>
 
         <div class="mb-3">
           <label class="form-label fw-bold">Paste Soal dari Word</label>
-          <textarea id="editor" name="raw_text" style="min-height: 600px;"></textarea>
+          <textarea id="editor" name="raw_text" style="min-height: 500px;"></textarea>
           <small class="text-muted d-block mt-2">
             Format contoh:
-            <pre class="bg-light p-2 rounded mt-2">
+            <pre class="bg-light p-2 rounded mt-2" style="font-size: 0.85rem; overflow-x: auto;">
 Soal:1)Warna bendera Indonesia adalah ....
 A:Putih Merah
 B:Merah Putih
@@ -51,12 +62,12 @@ Kunci:esai
           </small>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center mt-3">
-          <button type="button" id="btnPreview" class="btn btn-info">
-            <i class="bi bi-eye"></i> Preview Parsing
+        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2 mt-3">
+          <button type="button" id="btnPreview" class="btn btn-info text-white py-2 px-3 shadow-sm">
+            <i class="bi bi-eye me-1"></i> Preview Parsing
           </button>
-          <button type="submit" id="btnSave" class="btn btn-success">
-            <i class="bi bi-save"></i> Simpan Semua Soal
+          <button type="submit" id="btnSave" class="btn btn-success py-2 px-4 shadow-sm fw-semibold">
+            <i class="bi bi-save me-1"></i> Simpan Semua Soal
           </button>
         </div>
       </form>
