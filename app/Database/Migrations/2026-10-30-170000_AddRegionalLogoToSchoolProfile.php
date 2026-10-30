@@ -32,3 +32,4 @@ class AddRegionalLogoToSchoolProfile extends Migration
         }
     }
 }
+
