@@ -10,6 +10,7 @@ class School extends BaseController
     public function index()
     {
         require_permission('school.manage');
+        $this->ensureRegionalLogoColumnExists();
 
         $model = new SchoolModel();
         $data['school'] = $model->first() ?: []; // hanya 1 baris
@@ -19,6 +20,7 @@ class School extends BaseController
     public function update()
     {
         require_permission('school.manage');
+        $this->ensureRegionalLogoColumnExists();
 
         $model = new SchoolModel();
         $id = $this->request->getPost('id');
@@ -111,7 +113,12 @@ class School extends BaseController
         }
 
         if ($regionalLogoName) {
-            $data['regional_logo'] = 'uploads/logo/' . $regionalLogoName;
+            $db = \Config\Database::connect();
+            if ($db->fieldExists('regional_logo', 'school_profile')) {
+                $data['regional_logo'] = 'uploads/logo/' . $regionalLogoName;
+            } else {
+                log_message('warning', 'Column regional_logo not found in school_profile, skipping field to prevent database error.');
+            }
         }
 
         if ($visionImageName) {
@@ -137,5 +144,29 @@ class School extends BaseController
         cache()->delete('school_status');
 
         return redirect()->to('/admin/school')->with('success', 'Identitas sekolah berhasil disimpan');
+    }
+
+    /**
+     * Memastikan kolom regional_logo tersedia di tabel school_profile secara otomatis (self-healing)
+     */
+    private function ensureRegionalLogoColumnExists(): void
+    {
+        try {
+            $db = \Config\Database::connect();
+            if (!$db->fieldExists('regional_logo', 'school_profile')) {
+                $forge = \Config\Database::forge();
+                $forge->addColumn('school_profile', [
+                    'regional_logo' => [
+                        'type'       => 'VARCHAR',
+                        'constraint' => 255,
+                        'null'       => true,
+                        'default'    => null,
+                        'after'      => 'logo',
+                    ],
+                ]);
+            }
+        } catch (\Throwable $e) {
+            log_message('warning', '[School] Auto-add regional_logo column notice: ' . $e->getMessage());
+        }
     }
 }
