@@ -411,6 +411,9 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('surat-keluar', 'SuratKeluar::index', $auth127);
     $routes->get('surat-keluar/create', 'SuratKeluar::create', $auth127);
     $routes->post('surat-keluar/store', 'SuratKeluar::store', $auth127);
+    $routes->get('surat-keluar/edit/(:num)', 'SuratKeluar::edit/$1', $auth127);
+    $routes->post('surat-keluar/update/(:num)', 'SuratKeluar::update/$1', $auth127);
+    $routes->get('surat-keluar/duplicate/(:num)', 'SuratKeluar::duplicate/$1', $auth127);
     $routes->get('surat-keluar/detail/(:num)', 'SuratKeluar::detail/$1', $auth127);
     $routes->get('surat-keluar/download-pdf/(:num)', 'SuratKeluar::downloadPdf/$1', $auth127);
     $routes->get('surat-keluar/download/(:num)', 'SuratKeluar::downloadPdf/$1', $auth127);
@@ -420,6 +423,11 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('surat-keluar/create-eksternal', 'SuratKeluar::createEksternal', $auth127);
     $routes->post('surat-keluar/store-eksternal', 'SuratKeluar::storeEksternal', $auth127);
     $routes->get('surat-keluar/view-pdf/(:num)', 'SuratKeluar::viewPdf/$1', $auth127);
+
+    // Template Surat Keluar
+    $routes->get('surat-keluar/template/list', 'SuratKeluarTemplate::getTemplates', $auth127);
+    $routes->post('surat-keluar/template/save', 'SuratKeluarTemplate::saveAsTemplate', $auth127);
+    $routes->post('surat-keluar/template/delete/(:num)', 'SuratKeluarTemplate::deleteTemplate/$1', $auth127);
 
     // Agenda Surat
     $routes->get('agenda-surat', 'AgendaSurat::index', $auth127);

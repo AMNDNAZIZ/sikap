@@ -19,10 +19,20 @@ $isRevoked = $letter['status'] === 'revoked';
       <i class="bi bi-arrow-left me-1"></i>Kembali
     </a>
     <?php if (!$isRevoked): ?>
+      <a href="<?= base_url('admin/surat-keluar/edit/' . $letter['id']) ?>"
+         class="btn btn-primary btn-sm">
+        <i class="bi bi-pencil-square me-1"></i>Edit Surat
+      </a>
       <a href="<?= base_url('admin/surat-keluar/download/' . $letter['id']) ?>"
          class="btn btn-success btn-sm" id="btn-download-pdf">
         <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
       </a>
+    <?php endif; ?>
+    <a href="<?= base_url('admin/surat-keluar/duplicate/' . $letter['id']) ?>"
+       class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-copy me-1"></i>Salin Naskah
+    </a>
+    <?php if (!$isRevoked): ?>
       <button type="button" class="btn btn-danger btn-sm" id="btn-revoke-open"
               data-bs-toggle="modal" data-bs-target="#modal-revoke">
         <i class="bi bi-x-circle me-1"></i>Cabut Surat
@@ -78,6 +88,16 @@ $isRevoked = $letter['status'] === 'revoked';
               <span class="badge bg-danger">Dicabut</span>
             <?php else: ?>
               <span class="badge bg-success">Aktif ✓</span>
+            <?php endif; ?>
+          </td></tr>
+          <?php if (!empty($letter['classification_code'])): ?>
+          <tr><th>Klasifikasi</th><td class="font-monospace text-primary"><?= esc($letter['classification_code']) ?></td></tr>
+          <?php endif; ?>
+          <tr><th>Format Kop</th><td>
+            <?php if ((int)($letter['use_kop'] ?? 1) === 1): ?>
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle"><i class="bi bi-image me-1"></i>KOP Digital Dicetak</span>
+            <?php else: ?>
+              <span class="badge bg-secondary-subtle text-secondary border"><i class="bi bi-printer me-1"></i>Kertas Kop Fisik (Margin 3.5cm)</span>
             <?php endif; ?>
           </td></tr>
         </table>
@@ -212,6 +232,42 @@ $isRevoked = $letter['status'] === 'revoked';
         </table>
       </div>
     </div>
+
+    <?php if (!empty($audit_logs)): ?>
+    <div class="card border-0 shadow-sm mt-4">
+      <div class="card-header bg-light fw-semibold py-2 d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-clock-history me-2 text-primary"></i>Riwayat Revisi Naskah</span>
+        <span class="badge bg-secondary-subtle text-secondary rounded-pill" style="font-size:0.7rem;"><?= count($audit_logs) ?> revisi</span>
+      </div>
+      <div class="card-body p-3">
+        <div class="timeline small">
+          <?php foreach ($audit_logs as $log): ?>
+            <div class="d-flex gap-2 mb-3 align-items-start border-bottom pb-2">
+              <span class="badge rounded-circle bg-primary bg-opacity-10 text-primary p-1 mt-1">
+                <i class="bi bi-check2"></i>
+              </span>
+              <div class="flex-grow-1">
+                <div class="fw-semibold text-dark" style="font-size:0.78rem;">
+                  <?= esc(ucwords(str_replace('_', ' ', $log['action']))) ?>
+                </div>
+                <small class="text-muted d-block" style="font-size:0.7rem;">
+                  <?= date('d M Y, H:i', strtotime($log['created_at'])) ?>
+                </small>
+                <?php if (!empty($log['changes'])): ?>
+                  <?php $changes = json_decode($log['changes'], true); ?>
+                  <?php if (is_array($changes) && !empty($changes['before']['subject']) && !empty($changes['after']['subject']) && $changes['before']['subject'] !== $changes['after']['subject']): ?>
+                    <small class="text-secondary d-block mt-1 font-monospace" style="font-size:0.68rem;">
+                      Perihal baru: <?= esc($changes['after']['subject']) ?>
+                    </small>
+                  <?php endif; ?>
+                <?php endif; ?>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    </div>
+    <?php endif; ?>
   </div>
 </div>
 

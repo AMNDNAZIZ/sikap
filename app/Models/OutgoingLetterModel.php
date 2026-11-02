@@ -19,6 +19,7 @@ class OutgoingLetterModel extends Model
         'letter_number',
         'issued_at',
         'letter_type',
+        'classification_code',
         'subject',
         'sifat',
         'recipient_type',
@@ -28,6 +29,8 @@ class OutgoingLetterModel extends Model
         'is_multi_recipient',
         'recipients',
         'letter_data',
+        'use_kop',
+        'template_id',
         'is_external',
         'external_notes',
         'reference_incoming_id',
@@ -134,11 +137,26 @@ class OutgoingLetterModel extends Model
     }
 
     /**
-     * Build formatted letter number: 045/PK.01.01/2026
+     * Convert integer month to Roman numeral
      */
-    public static function buildLetterNumber(int $seq, int $year, int $padding = 3): string
+    public static function monthToRoman(int $month): string
     {
-        return str_pad((string) $seq, $padding, '0', STR_PAD_LEFT) . '/PK.01.01/' . $year;
+        $map = [
+            1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V', 6 => 'VI',
+            7 => 'VII', 8 => 'VIII', 9 => 'IX', 10 => 'X', 11 => 'XI', 12 => 'XII'
+        ];
+        return $map[$month] ?? 'I';
+    }
+
+    /**
+     * Build formatted letter number: [seq]/[code]/[year] or customizable
+     */
+    public static function buildLetterNumber(int $seq, int $year, int $padding = 3, ?string $code = null, ?int $month = null): string
+    {
+        $code = !empty($code) ? trim($code) : 'PK.01.01';
+        $seqPadded = str_pad((string) $seq, $padding, '0', STR_PAD_LEFT);
+
+        return $seqPadded . '/' . $code . '/' . $year;
     }
 
     /**

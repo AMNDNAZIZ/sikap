@@ -101,6 +101,17 @@ class SuratKeluar extends BaseController
         $nextSeq = ($seqRow['last_sequence'] ?? 0) + 1;
         $nextLetterNumber = OutgoingLetterModel::buildLetterNumber($nextSeq, $year, $padding);
 
+        // Ambil bank template surat dinamis
+        $templateModel = new \App\Models\LetterTemplateModel();
+        $templates     = $templateModel->getActiveTemplates();
+        $duplicatedLetter = session()->getFlashdata('duplicated_letter');
+        if (!$duplicatedLetter && $this->request->getGet('duplicated_from')) {
+            $src = $this->model->find((int)$this->request->getGet('duplicated_from'));
+            if ($src) {
+                $duplicatedLetter = $this->model->decodeJson($src);
+            }
+        }
+
         return view('admin/surat/keluar/create', [
             'title'              => 'Buat Surat Keluar',
             'letter_types'       => self::LETTER_TYPES,
@@ -113,6 +124,8 @@ class SuratKeluar extends BaseController
             'active_year'        => $activeYear,
             'active_classes'     => $activeClasses,
             'next_letter_number' => $nextLetterNumber,
+            'templates'          => $templates,
+            'duplicated_letter'  => $duplicatedLetter,
         ]);
     }
 
@@ -155,6 +168,7 @@ class SuratKeluar extends BaseController
         $numberMode  = $this->request->getPost('number_mode') ?? 'auto';
         $nomorManual = trim($this->request->getPost('nomor_surat_manual') ?? '');
         $year        = (int) date('Y', strtotime($this->request->getPost('issued_at')));
+        $classificationCode = trim($this->request->getPost('classification_code') ?? '');
 
         if ($numberMode === 'manual' || !empty($nomorManual)) {
             if (empty($nomorManual)) {
@@ -170,7 +184,7 @@ class SuratKeluar extends BaseController
         } else {
             $seq      = $this->model->getNextSequenceNumber($year);
             $padding  = (int) ($settings->getValue('letter_number_padding') ?? 3);
-            $letterNo = OutgoingLetterModel::buildLetterNumber($seq, $year, $padding);
+            $letterNo = OutgoingLetterModel::buildLetterNumber($seq, $year, $padding, $classificationCode ?: null);
         }
 
         // UUID
@@ -178,6 +192,8 @@ class SuratKeluar extends BaseController
 
         // Kumpulkan letter_data spesifik per jenis surat
         $letterData = $this->extractLetterData($letterType);
+        $useKop     = (int) ($this->request->getPost('use_kop') ?? 1);
+        $templateId = $this->request->getPost('template_id') ?: null;
 
         // Multi-recipient (untuk lomba)
         $isMulti    = $letterType === 'keterangan_lomba';
@@ -208,6 +224,7 @@ class SuratKeluar extends BaseController
             'letter_number'           => $letterNo,
             'issued_at'               => $this->request->getPost('issued_at'),
             'letter_type'             => $letterType,
+            'classification_code'     => $classificationCode ?: null,
             'subject'                 => $this->request->getPost('subject'),
             'sifat'                   => $this->request->getPost('sifat') ?: 'Biasa',
             'recipient_type'          => $this->request->getPost('recipient_type') ?: 'siswa',
@@ -217,6 +234,8 @@ class SuratKeluar extends BaseController
             'is_multi_recipient'      => $isMulti ? 1 : 0,
             'recipients'              => $recipients,
             'letter_data'             => json_encode($letterData),
+            'use_kop'                 => $useKop,
+            'template_id'             => $templateId,
             'is_external'             => 0,
             'principal_name_snapshot' => $principalName,
             'principal_nip_snapshot'  => $principalNip,
@@ -242,6 +261,167 @@ class SuratKeluar extends BaseController
     }
 
     /**
+     * Form Edit Surat Keluar
+     */
+    public function edit(int $id)
+    {
+        $letter = $this->model->find($id);
+        if (!$letter) {
+            return redirect()->to(base_url('admin/surat-keluar'))->with('error', 'Surat tidak ditemukan.');
+        }
+
+        if ($letter['status'] === 'revoked') {
+            return redirect()->to(base_url('admin/surat-keluar/detail/' . $id))
+                             ->with('error', 'Surat yang sudah dicabut tidak dapat diedit.');
+        }
+
+        $letter = $this->model->decodeJson($letter);
+
+        $students = (new StudentModel())->findAll();
+        $teachers = (new TeacherModel())->findAll();
+        $settings = new SettingsModel();
+        $school   = (new SchoolModel())->first();
+        $pInfo    = $this->getPrincipalInfo($school, $settings);
+
+        $pdfGen        = new PdfGenerator();
+        $kopBase64     = $pdfGen->getKopBase64();
+        $activeYear    = $settings->getValue('active_school_year') ?? (date('Y') . '/' . (date('Y') + 1));
+        $activeClasses = (new ClassModel())->where('is_active', 1)->orderBy('name', 'ASC')->findAll();
+        $templates     = (new \App\Models\LetterTemplateModel())->getActiveTemplates();
+
+        return view('admin/surat/keluar/edit', [
+            'title'          => 'Edit Surat — ' . $letter['letter_number'],
+            'letter'         => $letter,
+            'letter_types'   => self::LETTER_TYPES,
+            'students'       => $students,
+            'teachers'       => $teachers,
+            'school'         => $school,
+            'principal_name' => $pInfo['name'],
+            'principal_nip'  => $pInfo['nip'],
+            'kop_base64'     => $kopBase64,
+            'active_year'    => $activeYear,
+            'active_classes' => $activeClasses,
+            'templates'      => $templates,
+        ]);
+    }
+
+    /**
+     * Simpan Perubahan Edit Surat Keluar
+     */
+    public function update(int $id)
+    {
+        $letter = $this->model->find($id);
+        if (!$letter) {
+            return redirect()->to(base_url('admin/surat-keluar'))->with('error', 'Surat tidak ditemukan.');
+        }
+
+        if ($letter['status'] === 'revoked') {
+            return redirect()->to(base_url('admin/surat-keluar/detail/' . $id))
+                             ->with('error', 'Surat yang sudah dicabut tidak dapat diedit.');
+        }
+
+        $letter = $this->model->decodeJson($letter);
+        $letterType = $letter['letter_type'];
+
+        $rules = [
+            'subject'        => 'required|min_length[5]',
+            'issued_at'      => 'required|valid_date',
+            'recipient_name' => 'required|min_length[3]',
+        ];
+
+        if ($letterType === 'surat_custom') {
+            $rules['body_html']    = 'required';
+            $rules['header_style'] = 'required|in_list[tengah,kiri_kanan]';
+        }
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        $session     = session();
+        $userSession = $session->get('user');
+        $userId      = is_array($userSession) ? ($userSession['id'] ?? '1') : ($session->get('user_id') ?? '1');
+
+        $school   = (new SchoolModel())->first();
+        $settings = new SettingsModel();
+
+        // Kumpulkan data terupdate
+        $letterData      = $this->extractLetterData($letterType);
+        $recipientDetail = $this->extractRecipientDetail();
+        $useKop          = (int) ($this->request->getPost('use_kop') ?? 1);
+        $templateId      = $this->request->getPost('template_id') ?: null;
+        $classificationCode = trim($this->request->getPost('classification_code') ?? '');
+
+        $updateData = [
+            'issued_at'           => $this->request->getPost('issued_at'),
+            'subject'             => $this->request->getPost('subject'),
+            'sifat'               => $this->request->getPost('sifat') ?: 'Biasa',
+            'recipient_name'      => $this->request->getPost('recipient_name'),
+            'recipient_detail'    => json_encode($recipientDetail),
+            'letter_data'         => json_encode($letterData),
+            'use_kop'             => $useKop,
+            'template_id'         => $templateId,
+        ];
+
+        if (!empty($classificationCode)) {
+            $updateData['classification_code'] = $classificationCode;
+        }
+
+        // Catat Audit Trail sebelum & sesudah
+        if ($this->model->db->tableExists('letter_audit_logs')) {
+            $this->model->db->table('letter_audit_logs')->insert([
+                'user_id'     => (string) $userId,
+                'action'      => 'update_letter',
+                'entity_type' => 'outgoing_letter',
+                'entity_id'   => $id,
+                'before_data' => json_encode([
+                    'subject'          => $letter['subject'],
+                    'issued_at'        => $letter['issued_at'],
+                    'recipient_name'   => $letter['recipient_name'],
+                    'recipient_detail' => $letter['recipient_detail'],
+                    'letter_data'      => $letter['letter_data'],
+                    'use_kop'          => $letter['use_kop'] ?? 1,
+                ]),
+                'after_data'  => json_encode($updateData),
+                'ip_address'  => $this->request->getIPAddress(),
+                'created_at'  => date('Y-m-d H:i:s'),
+            ]);
+        }
+
+        $this->model->update($id, $updateData);
+
+        // Regenerasi file PDF
+        $pdfResult = $this->generateAndSavePdf($id, $letter['qr_code_id'], $school, $settings);
+        if ($pdfResult) {
+            $this->model->update($id, [
+                'pdf_path'        => $pdfResult['path'],
+                'pdf_url'         => $pdfResult['url'],
+                'file_size_bytes' => $pdfResult['size'],
+            ]);
+        }
+
+        return redirect()->to(base_url('admin/surat-keluar/detail/' . $id))
+                         ->with('success', 'Surat <strong>' . esc($letter['letter_number']) . '</strong> berhasil diperbarui dan PDF telah digenerate ulang!');
+    }
+
+    /**
+     * Duplikat / Salin Surat
+     */
+    public function duplicate(int $id)
+    {
+        $letter = $this->model->find($id);
+        if (!$letter) {
+            return redirect()->to(base_url('admin/surat-keluar'))->with('error', 'Surat tidak ditemukan.');
+        }
+
+        $letter = $this->model->decodeJson($letter);
+        session()->setFlashdata('duplicated_letter', $letter);
+
+        return redirect()->to(base_url('admin/surat-keluar/create?duplicated_from=' . $id))
+                         ->with('info', 'Konten surat berhasil disalin. Silakan periksa kembali dan sesuaikan nomor atau tanggal jika diperlukan.');
+    }
+
+    /**
      * Detail surat
      */
     public function detail(int $id)
@@ -261,11 +441,22 @@ class SuratKeluar extends BaseController
             $processedBody = $this->processPlaceholders($bodyHtml, $letter, $school, $settings);
         }
 
+        // Ambil riwayat audit log jika tabel ada
+        $auditLogs = [];
+        if ($this->model->db->tableExists('letter_audit_logs')) {
+            $auditLogs = $this->model->db->table('letter_audit_logs')
+                ->where('entity_id', $id)
+                ->where('entity_type', 'outgoing_letter')
+                ->orderBy('created_at', 'DESC')
+                ->get()->getResultArray();
+        }
+
         return view('admin/surat/keluar/detail', [
             'title'          => 'Detail Surat — ' . $letter['letter_number'],
             'letter'         => $letter,
             'letter_types'   => self::LETTER_TYPES,
             'processed_body' => $processedBody,
+            'audit_logs'     => $auditLogs,
         ]);
     }
 
@@ -368,15 +559,24 @@ class SuratKeluar extends BaseController
             ->findAll();
 
         $result = array_map(fn($s) => [
-            'id'         => $s['id'],
-            'text'       => $s['name'] . ' — NISN: ' . $s['nisn'] . ' (Kelas: ' . ($s['class_name'] ?? '-') . ')',
-            'nisn'       => $s['nisn'],
-            'nik'        => $s['nik'] ?? '',
-            'ttl'        => ($s['birth_place'] ?? '') . ', ' . ($s['birth_date'] ?? ''),
-            'birth_date' => $s['birth_date'] ?? '',
-            'kelas'      => $s['class_name'] ?? '',
-            'name'       => $s['name'],
-            'alamat'     => $s['address'] ?? '',
+            'id'               => $s['id'],
+            'text'             => $s['name'] . ' — NISN: ' . $s['nisn'] . ' (Kelas: ' . ($s['class_name'] ?? '-') . ')',
+            'nisn'             => $s['nisn'],
+            'nis'              => $s['nis'] ?? '',
+            'nik'              => $s['nik'] ?? '',
+            'gender'           => ($s['gender'] ?? 'L') === 'L' ? 'Laki-laki' : 'Perempuan',
+            'ttl'              => ($s['birth_place'] ?? '') . (!empty($s['birth_place']) && !empty($s['birth_date']) ? ', ' : '') . ($s['birth_date'] ?? ''),
+            'birth_date'       => $s['birth_date'] ?? '',
+            'kelas'            => $s['class_name'] ?? '',
+            'name'             => $s['name'],
+            'alamat'           => $s['address'] ?? '',
+            'nama_ayah'        => $s['father_name'] ?? '',
+            'pekerjaan_ayah'   => $s['father_job'] ?? '',
+            'penghasilan_ayah' => $s['father_income'] ?? '',
+            'nama_ibu'         => $s['mother_name'] ?? '',
+            'pekerjaan_ibu'    => $s['mother_job'] ?? '',
+            'nama_wali'        => $s['guardian_name'] ?? '',
+            'alamat_ortu'      => $s['parent_address'] ?: ($s['address'] ?? ''),
         ], $students);
 
         return $this->response->setJSON($result);
@@ -391,14 +591,17 @@ class SuratKeluar extends BaseController
         $teachers = (new TeacherModel())->like('name', $q)->orLike('nip', $q)->limit(10)->findAll();
 
         $result = array_map(fn($t) => [
-            'id'      => $t['id'],
-            'text'    => $t['name'] . ' — NIP: ' . ($t['nip'] ?? '-'),
-            'nip'     => $t['nip'] ?? '',
-            'nik'     => $t['nik'] ?? '',
-            'jabatan' => $t['functional_position'] ?: 'Guru',
-            'name'    => $t['name'],
-            'phone'   => $t['phone'] ?? '',
-            'address' => $t['address'] ?? '',
+            'id'                 => $t['id'],
+            'text'               => $t['name'] . ' — NIP: ' . ($t['nip'] ?? '-') . ' (' . ($t['functional_position'] ?: 'Guru') . ')',
+            'nip'                => $t['nip'] ?? '',
+            'nik'                => $t['nik'] ?? '',
+            'nuptk'              => $t['nuptk'] ?? '',
+            'jabatan'            => $t['functional_position'] ?: 'Guru',
+            'pangkat_golongan'   => $t['rank_grade'] ?? '',
+            'status_kepegawaian' => $t['employment_status'] ?: 'Pegawai Tetap / PNS',
+            'name'               => $t['name'],
+            'phone'              => $t['phone'] ?? '',
+            'address'            => $t['address'] ?? '',
         ], $teachers);
 
         return $this->response->setJSON($result);
@@ -466,8 +669,11 @@ class SuratKeluar extends BaseController
                 'event_agenda' => $post['event_agenda'] ?? '',
             ],
             'surat_custom' => [
-                'header_style' => $post['header_style'] ?? 'tengah',
-                'body_html'    => isset($post['body_html']) ? strip_tags($post['body_html'], '<p><a><strong><em><u><s><br><table><thead><tbody><tr><td><th><ul><ol><li><h1><h2><h3><h4><h5><h6><span><div><hr>') : '',
+                'header_style'          => $post['header_style'] ?? 'tengah',
+                'body_html'             => isset($post['body_html']) ? strip_tags($post['body_html'], '<p><a><strong><em><u><s><br><table><thead><tbody><tr><td><th><ul><ol><li><h1><h2><h3><h4><h5><h6><span><div><hr><kbd><mark><sub><sup><del><ins>') : '',
+                'hari_tanggal_kegiatan' => $post['hari_tanggal_kegiatan'] ?? '',
+                'waktu_kegiatan'        => $post['waktu_kegiatan'] ?? '',
+                'tempat_kegiatan'       => $post['tempat_kegiatan'] ?? '',
             ],
             'surat_eksternal' => [
                 'original_filename' => $post['original_filename'] ?? '',
@@ -484,13 +690,26 @@ class SuratKeluar extends BaseController
     {
         $post = $this->request->getPost();
         return array_filter([
-            'nisn'    => $post['nisn'] ?? null,
-            'nik'     => $post['nik'] ?? null,
-            'ttl'     => $post['ttl'] ?? null,
-            'kelas'   => $post['kelas'] ?? null,
-            'nip'     => $post['nip'] ?? null,
-            'jabatan' => $post['jabatan'] ?? null,
-        ]);
+            'nisn'               => $post['nisn'] ?? null,
+            'nis'                => $post['nis'] ?? null,
+            'nik'                => $post['nik'] ?? null,
+            'gender'             => $post['gender'] ?? null,
+            'ttl'                => $post['ttl'] ?? null,
+            'kelas'              => $post['kelas'] ?? null,
+            'alamat'             => $post['alamat_domisili'] ?? $post['alamat'] ?? null,
+            'nama_ayah'          => $post['nama_ayah'] ?? null,
+            'pekerjaan_ayah'     => $post['pekerjaan_ayah'] ?? null,
+            'penghasilan_ayah'   => $post['penghasilan_ayah'] ?? null,
+            'nama_ibu'           => $post['nama_ibu'] ?? null,
+            'pekerjaan_ibu'      => $post['pekerjaan_ibu'] ?? null,
+            'nama_wali'          => $post['nama_wali'] ?? null,
+            'alamat_ortu'        => $post['alamat_ortu'] ?? null,
+            'nip'                => $post['nip'] ?? null,
+            'nuptk'              => $post['nuptk'] ?? null,
+            'jabatan'            => $post['jabatan'] ?? null,
+            'pangkat_golongan'   => $post['pangkat_golongan'] ?? null,
+            'status_kepegawaian' => $post['status_kepegawaian'] ?? null,
+        ], fn($v) => $v !== null && $v !== '');
     }
 
     private function generateAndSavePdf(int $letterId, string $qrCodeId, ?array $school, SettingsModel $settings): ?array
@@ -531,11 +750,14 @@ class SuratKeluar extends BaseController
 
             $activeYear = $settings->getValue('active_school_year') ?? (date('Y') . '/' . (date('Y') + 1));
 
+            $useKop = (int) ($letter['use_kop'] ?? 1);
+
             $viewData = [
                 'letter'      => $letter,
                 'school'      => $school,
                 'qr_data_url' => $qrDataUrl,
                 'active_year' => $activeYear,
+                'use_kop'     => $useKop,
             ];
 
             if ($letter['letter_type'] === 'surat_custom') {
@@ -552,15 +774,15 @@ class SuratKeluar extends BaseController
             $fullPath    = $dir . $filename;
             $viewName    = 'admin/surat/pdf_templates/' . $letter['letter_type'];
 
-            // Gunakan PdfGenerator (inject KOP otomatis dari settings)
+            // Gunakan PdfGenerator (inject KOP otomatis dari settings HANYA jika use_kop = 1)
             $pdfGen  = new PdfGenerator();
             $kopB64  = $pdfGen->getKopBase64();
-            $viewData['kop_base64'] = $kopB64; // agar template bisa pakai juga jika perlu
+            $viewData['kop_base64'] = $kopB64;
 
             $html = view($viewName, $viewData);
 
-            // Inject KOP ke <body> persis seperti PdfGenerator::stream()
-            if ($kopB64) {
+            // Inject KOP ke <body> HANYA jika use_kop bernilai 1
+            if ($kopB64 && $useKop === 1) {
                 $kopHtml = '<div style="width:100%;text-align:center;margin-bottom:4px;">'
                     . '<img src="' . $kopB64 . '" style="width:100%;height:auto;display:block;margin:0 auto;" />'
                     . '</div>'
@@ -616,19 +838,37 @@ class SuratKeluar extends BaseController
         }
 
         $placeholders = [
-            '{nama_penerima}'      => $recName,
-            '{nisn}'               => $recipientDetail['nisn'] ?? '-',
-            '{kelas}'              => $recipientDetail['kelas'] ?? '-',
-            '{ttl}'                => $recipientDetail['ttl'] ?? '-',
-            '{nip}'                => $recipientDetail['nip'] ?? '-',
-            '{jabatan}'            => $recipientDetail['jabatan'] ?? '-',
-            '{nomor_surat}'        => $letter['letter_number'] ?? '-',
-            '{tanggal_surat}'      => !empty($letter['issued_at']) ? date('d F Y', strtotime($letter['issued_at'])) : '-',
-            '{tahun_pelajaran}'    => $activeYear,
-            '{kepala_sekolah}'     => $letter['principal_name_snapshot'] ?? '-',
-            '{nip_kepala_sekolah}' => $letter['principal_nip_snapshot'] ?? '-',
-            '{nama_sekolah}'       => $school['name'] ?? '-',
-            '{alamat_sekolah}'     => $school['address'] ?? '-',
+            '{nama_penerima}'       => $recName,
+            '{nisn}'                => $recipientDetail['nisn'] ?? '-',
+            '{nis}'                 => $recipientDetail['nis'] ?? '-',
+            '{nik}'                 => $recipientDetail['nik'] ?? '-',
+            '{jenis_kelamin}'       => $recipientDetail['gender'] ?? '-',
+            '{kelas}'               => $recipientDetail['kelas'] ?? '-',
+            '{ttl}'                 => $recipientDetail['ttl'] ?? '-',
+            '{alamat}'              => $recipientDetail['alamat'] ?? '-',
+            '{nama_ayah}'           => $recipientDetail['nama_ayah'] ?? '-',
+            '{pekerjaan_ayah}'      => $recipientDetail['pekerjaan_ayah'] ?? '-',
+            '{penghasilan_ayah}'    => $recipientDetail['penghasilan_ayah'] ?? '-',
+            '{nama_ibu}'            => $recipientDetail['nama_ibu'] ?? '-',
+            '{pekerjaan_ibu}'       => $recipientDetail['pekerjaan_ibu'] ?? '-',
+            '{nama_wali}'           => $recipientDetail['nama_wali'] ?? '-',
+            '{alamat_ortu}'         => $recipientDetail['alamat_ortu'] ?? ($recipientDetail['alamat'] ?? '-'),
+            '{nip}'                 => $recipientDetail['nip'] ?? '-',
+            '{nuptk}'               => $recipientDetail['nuptk'] ?? '-',
+            '{jabatan}'             => $recipientDetail['jabatan'] ?? '-',
+            '{pangkat_golongan}'    => $recipientDetail['pangkat_golongan'] ?? '-',
+            '{status_kepegawaian}'  => $recipientDetail['status_kepegawaian'] ?? '-',
+            '{nomor_surat}'         => $letter['letter_number'] ?? '-',
+            '{tanggal_surat}'       => !empty($letter['issued_at']) ? date('d F Y', strtotime($letter['issued_at'])) : '-',
+            '{tahun_pelajaran}'     => $activeYear,
+            '{kepala_sekolah}'      => $letter['principal_name_snapshot'] ?? '-',
+            '{nip_kepala_sekolah}'  => $letter['principal_nip_snapshot'] ?? '-',
+            '{nama_sekolah}'        => $school['name'] ?? '-',
+            '{alamat_sekolah}'      => $school['address'] ?? '-',
+            '{hari_tanggal_kegiatan}' => $ld['hari_tanggal_kegiatan'] ?? ($ld['event_date'] ?? '-'),
+            '{waktu_kegiatan}'        => $ld['waktu_kegiatan'] ?? ($ld['event_time'] ?? '-'),
+            '{tempat_kegiatan}'       => $ld['tempat_kegiatan'] ?? ($ld['event_venue'] ?? '-'),
+            '{sifat}'                 => $letter['sifat'] ?? 'Biasa',
         ];
 
         // Format Indonesian Date for {tanggal_surat}
@@ -642,6 +882,34 @@ class SuratKeluar extends BaseController
             $engDate = date('d F Y', strtotime($letter['issued_at']));
             $indDate = strtr($engDate, $months);
             $placeholders['{tanggal_surat}'] = $indDate;
+        }
+
+        // Generate dynamic table for multi-recipients if {tabel_penerima} is used
+        if (str_contains($bodyHtml, '{tabel_penerima}')) {
+            $tabelHtml = '';
+            if (!empty($letter['recipients']) && is_array($letter['recipients'])) {
+                $tabelHtml = '<table class="tbl-bordered" style="width:100%; border-collapse:collapse; margin:10px 0; font-size:13px;">';
+                $tabelHtml .= '<thead><tr><th style="width:30px; text-align:center;">No</th><th>Nama Lengkap</th><th>NISN / NIP</th><th>Kelas / Jabatan</th><th>Keterangan</th></tr></thead><tbody>';
+                foreach ($letter['recipients'] as $idx => $r) {
+                    $no = $idx + 1;
+                    $rName = esc($r['name'] ?? '-');
+                    $rCode = esc($r['nisn'] ?? $r['nip'] ?? '-');
+                    $rRole = esc($r['kelas'] ?? $r['jabatan'] ?? '-');
+                    $rKet  = esc($r['cabang'] ?? $r['keterangan'] ?? '-');
+                    $tabelHtml .= "<tr><td style=\"text-align:center;\">{$no}</td><td>{$rName}</td><td>{$rCode}</td><td>{$rRole}</td><td>{$rKet}</td></tr>";
+                }
+                $tabelHtml .= '</tbody></table>';
+            } elseif (!empty($letter['recipient_name']) && str_contains($letter['recipient_name'], '|')) {
+                $names = array_filter(array_map('trim', explode('|', $letter['recipient_name'])));
+                $tabelHtml = '<table class="tbl-bordered" style="width:100%; border-collapse:collapse; margin:10px 0; font-size:13px;">';
+                $tabelHtml .= '<thead><tr><th style="width:30px; text-align:center;">No</th><th>Nama Penerima</th></tr></thead><tbody>';
+                foreach ($names as $idx => $n) {
+                    $no = $idx + 1;
+                    $tabelHtml .= "<tr><td style=\"text-align:center;\">{$no}</td><td>" . esc($n) . "</td></tr>";
+                }
+                $tabelHtml .= '</tbody></table>';
+            }
+            $bodyHtml = str_replace('{tabel_penerima}', $tabelHtml, $bodyHtml);
         }
 
         foreach ($placeholders as $placeholder => $value) {
