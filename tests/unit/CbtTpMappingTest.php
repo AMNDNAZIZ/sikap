@@ -157,5 +157,90 @@ class CbtTpMappingTest extends TestCase
         $this->assertEquals(2, $resC['semester']);
         $this->assertContains(4, $resC['target_levels']);
     }
+
+    /**
+     * Uji 4: Penilaian tipe soal kompleks (PGK & BS) tidak gagal karena variasi urutan / trailing comma
+     */
+    public function testCalculateNormalizedScoreHandlesComplexTypesAndOrderInvariance()
+    {
+        // 1. PG biasa: 'B' vs 'B' => 1.0, '2' vs 'B' => 1.0
+        $this->assertEquals(1.0, \App\Services\Cbt\Analysis\CbtTpAnalysisService::calculateNormalizedScore('pg', 'B', 'B'));
+        $this->assertEquals(1.0, \App\Services\Cbt\Analysis\CbtTpAnalysisService::calculateNormalizedScore('pg', '2', 'B'));
+        $this->assertEquals(0.0, \App\Services\Cbt\Analysis\CbtTpAnalysisService::calculateNormalizedScore('pg', 'A', 'B'));
+
+        // 2. PG Kompleks: 'B,A,D' vs 'A,B,D' (urutan acak siswa tetap 100%)
+        $this->assertEquals(1.0, \App\Services\Cbt\Analysis\CbtTpAnalysisService::calculateNormalizedScore('pg_kompleks', 'B,A,D', 'A,B,D'));
+        $this->assertEquals(1.0, \App\Services\Cbt\Analysis\CbtTpAnalysisService::calculateNormalizedScore('pgk', 'D,B,C', 'B,C,D'));
+
+        // 3. Benar-Salah: 'S,B,,,' vs 'S,B' (trailing comma pada jawaban CBT tetap 100%)
+        $this->assertEquals(1.0, \App\Services\Cbt\Analysis\CbtTpAnalysisService::calculateNormalizedScore('benar_salah', 'S,B,,,', 'S,B'));
+        $this->assertEquals(1.0, \App\Services\Cbt\Analysis\CbtTpAnalysisService::calculateNormalizedScore('bs', 'B,S,S,B,', 'B,S,S,B'));
+    }
+
+    /**
+     * Uji 5: Rekonsiliasi matematis penguasaan TP siswa selaras dengan perolehan skor ujian objektif
+     */
+    public function testAnalyzeFromDataProducesConsistentMasteryMatchingExamScore()
+    {
+        $service = new \App\Services\Cbt\Analysis\CbtTpAnalysisService();
+
+        $testConfig = [
+            'test_id'       => 10,
+            'name'          => 'Ujian Formatif Matematika',
+            'subject_name'  => 'Matematika',
+            'passing_grade' => 75.0,
+            'tp_definitions' => [
+                ['tp_id' => 1, 'tp_code' => 'TP 1', 'threshold' => 75.0],
+                ['tp_id' => 2, 'tp_code' => 'TP 2', 'threshold' => 75.0],
+            ],
+        ];
+
+        // 4 soal objektif: 2 untuk TP 1, 2 untuk TP 2
+        $items = [
+            ['item_id' => 1, 'type' => 'pg', 'tp_id' => 1, 'key' => 'A', 'score' => 1.0],
+            ['item_id' => 2, 'type' => 'pg', 'tp_id' => 1, 'key' => 'B', 'score' => 1.0],
+            ['item_id' => 3, 'type' => 'pg_kompleks', 'tp_id' => 2, 'key' => 'A,B,D', 'score' => 1.0],
+            ['item_id' => 4, 'type' => 'benar_salah', 'tp_id' => 2, 'key' => 'B,S', 'score' => 1.0],
+        ];
+
+        // Sesi siswa: Siswa 1 menjawab semua benar dengan variasi urutan jawaban
+        $sessions = [
+            [
+                'id'             => 101,
+                'student_id'     => 1,
+                'student_name'   => 'Siswa Unggul',
+                'nisn'           => '12345',
+                'class_name'     => 'Kelas 6A',
+                'status'         => 'FINISHED',
+                'question_order' => json_encode([1, 2, 3, 4]),
+                'score'          => 80.0,
+                'final_score'    => 80.0,
+            ]
+        ];
+
+        $answers = [
+            ['session_id' => 101, 'student_id' => 1, 'question_id' => 1, 'answer' => 'A'],
+            ['session_id' => 101, 'student_id' => 1, 'question_id' => 2, 'answer' => 'B'],
+            ['session_id' => 101, 'student_id' => 1, 'question_id' => 3, 'answer' => 'B,D,A'],
+            ['session_id' => 101, 'student_id' => 1, 'question_id' => 4, 'answer' => 'B,S,'],
+        ];
+
+        $result = $service->analyzeFromData($testConfig, $items, $sessions, $answers);
+
+        $st = $result['student_analysis'][0];
+        $this->assertEquals('Siswa Unggul', $st['nama_siswa']);
+        $this->assertEquals(80.0, $st['exam_score']);
+
+        // Capaian TP 1 harus 100% dan TP 2 harus 100% (tidak boleh < 70% padahal nilai ujian 80)
+        $this->assertEquals(100.0, $st['tp_evaluations'][1]['student_percentage']);
+        $this->assertEquals('MASTERED', $st['tp_evaluations'][1]['status']);
+
+        $this->assertEquals(100.0, $st['tp_evaluations'][2]['student_percentage']);
+        $this->assertEquals('MASTERED', $st['tp_evaluations'][2]['status']);
+
+        $this->assertContains('TP 1', $st['mastered_tps']);
+        $this->assertContains('TP 2', $st['mastered_tps']);
+        $this->assertEmpty($st['needs_improvement_tps']);
+    }
 }
 

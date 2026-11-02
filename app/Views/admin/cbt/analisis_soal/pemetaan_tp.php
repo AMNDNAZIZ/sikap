@@ -594,6 +594,20 @@
             return;
         }
 
+        // Pastikan seluruh pilihan dropdown yang ada di tabel terserap ke currentMappings
+        document.querySelectorAll('.select-tp').forEach(select => {
+            const qid = parseInt(select.getAttribute('data-qid'));
+            const val = select.value ? parseInt(select.value) : null;
+            if (val && !currentMappings[qid]) {
+                currentMappings[qid] = {
+                    tp_id: val,
+                    confidence: 100.0,
+                    reasoning: 'Pilihan guru',
+                    mapping_source: 'manual'
+                };
+            }
+        });
+
         const mappedTotal = Object.keys(currentMappings).length;
         if (mappedTotal === 0) {
             if (!confirm('Belum ada butir soal yang dipetakan ke TP. Apakah Anda yakin ingin menyimpan tanpa pemetaan soal?')) {
@@ -602,8 +616,12 @@
             }
         }
 
-        // Set value input hidden mappings
+        // Set value input hidden mappings dan active TPs
         document.getElementById('hiddenMappings').value = JSON.stringify(currentMappings);
+        const hiddenTpInput = document.getElementById('hiddenSelectedTpIds');
+        if (hiddenTpInput) {
+            hiddenTpInput.value = JSON.stringify(activeTps.map(tp => tp.id));
+        }
     });
 
     function showAlert(type, message) {

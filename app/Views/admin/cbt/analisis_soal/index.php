@@ -213,6 +213,7 @@
                                     <tr>
                                         <th class="ps-3" style="width: 50px;">No</th>
                                         <th style="min-width: 180px;">Nama Siswa</th>
+                                        <th class="text-center" style="min-width: 90px;">Nilai Ujian</th>
                                         <th style="min-width: 100px;">Status Ujian</th>
                                         <?php foreach ($tpDefinitions as $tp): ?>
                                             <th class="text-center" style="min-width: 120px;" title="<?= esc($tp['deskripsi']) ?>">
@@ -234,6 +235,15 @@
                                                 <span class="text-muted" style="font-size: 0.7rem;">
                                                     NISN: <?= esc($st['nisn']) ?> <?= !empty($st['kelas']) && $st['kelas'] !== '-' ? '· Kelas: ' . esc($st['kelas']) : '' ?>
                                                 </span>
+                                            </td>
+                                            <td class="text-center">
+                                                <?php if (!$st['has_attempted']): ?>
+                                                    <span class="text-muted">-</span>
+                                                <?php elseif (isset($st['exam_score']) && $st['exam_score'] !== null): ?>
+                                                    <span class="fw-bold text-dark"><?= number_format((float)$st['exam_score'], 1) ?></span>
+                                                <?php else: ?>
+                                                    <span class="text-muted">-</span>
+                                                <?php endif; ?>
                                             </td>
                                             <td>
                                                 <?php if (!$st['has_attempted']): ?>

@@ -51,6 +51,72 @@ class CbtTpAnalysisService
     }
 
     /**
+     * Hitung skor normalisasi (0.0 sampai 1.0) untuk butir soal objektif.
+     * Mendukung PG biasa, PG Kompleks (PGK), dan Benar-Salah (BS).
+     */
+    public static function calculateNormalizedScore(string $type, string $studentAns, string $correctAns): float
+    {
+        $type = strtolower(str_replace(' ', '_', $type));
+        $studentAns = trim($studentAns);
+        $correctAns = trim($correctAns);
+
+        if ($studentAns === '' || $correctAns === '') {
+            return 0.0;
+        }
+
+        // Pilihan Ganda Tunggal (PG)
+        if (in_array($type, ['pg', 'pilihan_ganda', 'multiple_choice'], true)) {
+            $isCorrect = (strtoupper($studentAns) === strtoupper($correctAns));
+            if (!$isCorrect) {
+                $numToLetter = ['1' => 'A', '2' => 'B', '3' => 'C', '4' => 'D', '5' => 'E'];
+                if (isset($numToLetter[$correctAns]) && strtoupper($studentAns) === $numToLetter[$correctAns]) {
+                    return 1.0;
+                }
+                if (isset($numToLetter[$studentAns]) && $numToLetter[$studentAns] === strtoupper($correctAns)) {
+                    return 1.0;
+                }
+            }
+            return $isCorrect ? 1.0 : 0.0;
+        }
+
+        // Pilihan Ganda Kompleks (PGK)
+        if ($type === 'pg_kompleks' || $type === 'pgk') {
+            $correctArr = array_values(array_filter(array_map('trim', explode(',', strtoupper($correctAns)))));
+            $studentArr = array_values(array_filter(array_map('trim', explode(',', strtoupper($studentAns)))));
+            $cSel = count(array_intersect($studentArr, $correctArr));
+            $iSel = count(array_diff($studentArr, $correctArr));
+            $tCorr = count($correctArr);
+            $raw = $cSel - (0.5 * $iSel);
+            return ($tCorr > 0) ? (float)max(0.0, $raw / $tCorr) : 0.0;
+        }
+
+        // Benar-Salah (BS)
+        if ($type === 'benar_salah' || $type === 'bs') {
+            $cArr = array_values(array_filter(array_map('trim', explode(',', strtoupper($correctAns)))));
+            $sRaw = explode(',', strtoupper($studentAns));
+            $sArr = [];
+            foreach ($sRaw as $v) {
+                $tv = trim($v);
+                if ($tv !== '') {
+                    $sArr[] = $tv;
+                }
+            }
+            $matches = 0;
+            $tItems = count($cArr);
+            for ($i = 0; $i < $tItems; $i++) {
+                $std = $sArr[$i] ?? '';
+                $key = $cArr[$i] ?? '';
+                if ($std !== '' && $std === $key) {
+                    $matches++;
+                }
+            }
+            return ($tItems > 0) ? (float)($matches / $tItems) : 0.0;
+        }
+
+        return 0.0;
+    }
+
+    /**
      * Dapatkan koneksi database secara aman.
      */
     protected function getDb(): BaseConnection
@@ -241,7 +307,7 @@ class CbtTpAnalysisService
                 'question_text' => $q['raw_text'] ?? ($q['question_text'] ?? ''),
                 'type'          => $type,
                 'tp_id'         => $assignedTpId,
-                'key'           => $q['correct_option'] ?? '',
+                'key'           => !empty($q['correct_option']) ? $q['correct_option'] : ($q['correct_answer'] ?? ''),
                 'score'         => (float)($q['score'] ?? 1.0),
                 'is_void'       => $isVoid,
             ];
@@ -424,43 +490,62 @@ class CbtTpAnalysisService
                 $pendingEssayStudentsCount++;
             }
 
-            // Evaluasi per butir soal untuk siswa ini
-            $studentItemBreakdown = [];
+            // Identifikasi butir soal yang disajikan untuk sesi siswa ini
+            $sessionQOrder = !empty($session['question_order']) ? json_decode((string)$session['question_order'], true) : [];
+            $presentedQids = [];
+            if (is_array($sessionQOrder) && !empty($sessionQOrder)) {
+                $presentedQids = array_map('intval', $sessionQOrder);
+            } elseif (!empty($studentAnswers)) {
+                $presentedQids = array_map('intval', array_keys($studentAnswers));
+            } else {
+                $presentedQids = array_map('intval', array_keys($decoratedItems));
+            }
+
+            // Hitung butir soal objektif valid yang disajikan untuk siswa ini
+            $studentActiveObjItems = [];
             foreach ($decoratedItems as $itemId => $item) {
                 $type = strtolower((string)($item['type'] ?? 'pg'));
                 if ($type === 'esai' || !empty($item['is_void'])) {
-                    continue; // OD-PATH-B isolation & abaikan soal void
+                    continue;
                 }
+                if (in_array((int)$itemId, $presentedQids, true)) {
+                    $studentActiveObjItems[(int)$itemId] = $item;
+                }
+            }
 
-                $key = (string)($item['key'] ?? '');
-                $givenAnswer = (string)($studentAnswers[$itemId] ?? '');
-                $isCorrect = false;
-
-                if ($givenAnswer !== '' && $key !== '') {
-                    $cleanAns = trim(strtoupper($givenAnswer));
-                    $cleanKey = trim(strtoupper($key));
-                    $isCorrect = ($cleanAns === $cleanKey);
-                    // Dukung pemetaan angka 1-5 ke A-E jika kunci berupa angka
-                    if (!$isCorrect) {
-                        $numToLetter = ['1' => 'A', '2' => 'B', '3' => 'C', '4' => 'D', '5' => 'E'];
-                        if (isset($numToLetter[$cleanKey]) && $cleanAns === $numToLetter[$cleanKey]) {
-                            $isCorrect = true;
-                        } elseif (isset($numToLetter[$cleanAns]) && $numToLetter[$cleanAns] === $cleanKey) {
-                            $isCorrect = true;
-                        }
+            // Jika siswa belum disajikan soal (misal belum ujian), gunakan semua soal objektif sebagai acuan struktur
+            if (empty($studentActiveObjItems)) {
+                foreach ($decoratedItems as $itemId => $item) {
+                    $type = strtolower((string)($item['type'] ?? 'pg'));
+                    if ($type !== 'esai' && empty($item['is_void'])) {
+                        $studentActiveObjItems[(int)$itemId] = $item;
                     }
                 }
+            }
 
-                $earnedWeight = $isCorrect ? $item['resolved_weight'] : 0.0;
+            $studentTotalObj = count($studentActiveObjItems);
+            // Bobot per butir soal objektif agar total skor objektif siswa berskala 100%
+            $studentWeightPerItem = $studentTotalObj > 0 ? (100.0 / $studentTotalObj) : 0.0;
+
+            // Evaluasi per butir soal untuk siswa ini menggunakan engine scoring CBT terpadu
+            $studentItemBreakdown = [];
+            foreach ($studentActiveObjItems as $itemId => $item) {
+                $type = strtolower((string)($item['type'] ?? 'pg'));
+                $key = (string)($item['key'] ?? '');
+                $givenAnswer = (string)($studentAnswers[$itemId] ?? '');
+
+                $normScore = self::calculateNormalizedScore($type, $givenAnswer, $key);
+                $earnedWeight = $normScore * $studentWeightPerItem;
 
                 $studentItemBreakdown[] = [
-                    'item_id'        => $itemId,
-                    'tp_id'          => $item['tp_id'] ?? null,
-                    'weight'         => $item['resolved_weight'],
-                    'earned_weight'  => $earnedWeight,
-                    'weighted_score' => $earnedWeight,
-                    'is_void'        => !empty($item['is_void']),
-                    'is_correct'     => $isCorrect,
+                    'item_id'          => $itemId,
+                    'tp_id'            => $item['tp_id'] ?? null,
+                    'weight'           => $studentWeightPerItem,
+                    'earned_weight'    => $earnedWeight,
+                    'weighted_score'   => $earnedWeight,
+                    'is_void'          => !empty($item['is_void']),
+                    'is_correct'       => ($normScore >= 0.7),
+                    'normalized_score' => $normScore,
                 ];
             }
 
@@ -550,6 +635,7 @@ class CbtTpAnalysisService
                 'nama_siswa'             => $studentName,
                 'nisn'                   => $nisn,
                 'kelas'                  => $className,
+                'exam_score'             => ($session['final_score'] ?? ($session['total_score'] ?? ($session['score'] ?? null))),
                 'has_attempted'          => $hasAttempted,
                 'is_essay_pending'       => $isEssayPending,
                 'pending_essay_count'    => $pendingEssayCount,
@@ -630,7 +716,7 @@ class CbtTpAnalysisService
                     $topTp = [
                         'tp_id'      => $tpId,
                         'tp_code'    => $tpDef['tp_code'],
-                        'deskripsi'  => $tpDef['deskripsi'],
+                        'deskripsi'  => $tpDef['deskripsi'] ?? '',
                         'percentage' => $crMurni,
                     ];
                 }
@@ -639,7 +725,7 @@ class CbtTpAnalysisService
                     $lowestTp = [
                         'tp_id'      => $tpId,
                         'tp_code'    => $tpDef['tp_code'],
-                        'deskripsi'  => $tpDef['deskripsi'],
+                        'deskripsi'  => $tpDef['deskripsi'] ?? '',
                         'percentage' => $crMurni,
                     ];
                 }
@@ -648,7 +734,7 @@ class CbtTpAnalysisService
             $tpClassMetrics[$tpId] = [
                 'tp_id'                => $tpId,
                 'tp_code'              => $tpDef['tp_code'],
-                'deskripsi'            => $tpDef['deskripsi'],
+                'deskripsi'            => $tpDef['deskripsi'] ?? '',
                 'threshold'            => $threshold,
                 'valid_question_count' => $validQuestionsForTp,
                 's_max'                => round($sMaxForTp, 2),
