@@ -1,6 +1,51 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 <style>
+  .transition-all {
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  .hover-translate-y:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px -10px rgba(15, 23, 42, 0.08) !important;
+  }
+  .btn:active {
+    transform: scale(0.98) !important;
+  }
+  .placeholder-btn {
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    background: #ffffff;
+    border-color: #cbd5e1 !important;
+    color: #334155 !important;
+  }
+  .placeholder-btn:hover {
+    background: #f8fafc !important;
+    border-color: #0d6efd !important;
+    color: #0d6efd !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(13, 110, 253, 0.12);
+  }
+  .type-radio-label {
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 0.75rem 0.85rem;
+    cursor: pointer;
+    background: #ffffff;
+  }
+  .btn-check:checked + .type-radio-label {
+    border-color: #0d6efd !important;
+    background-color: #f0f7ff !important;
+    color: #0d6efd !important;
+    box-shadow: 0 0 0 1px #0d6efd;
+  }
+  .type-radio-label:hover {
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
+  }
+  #preview-letter-paper {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 12px 32px -4px rgba(15, 23, 42, 0.25) !important;
+    border-radius: 4px;
+  }
   .autocomplete-suggestions {
     position: absolute;
     top: 100%;
@@ -33,16 +78,20 @@
   }
 </style>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<!-- ===== TOP HEADER ===== -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
   <div>
-    <h2 class="h4 fw-bold mb-0"><i class="bi bi-envelope-plus me-2 text-primary"></i>Buat Surat Keluar</h2>
-    <small class="text-muted">Pilih jenis surat dan isi field yang diperlukan</small>
+    <div class="d-inline-flex align-items-center gap-1.5 px-2.5 py-0.5 rounded-pill bg-primary-subtle text-primary border border-primary-subtle text-uppercase tracking-wider fw-semibold mb-1" style="font-size:0.65rem; letter-spacing:0.06em;">
+      <i class="bi bi-pencil-square"></i> Registrasi Surat Keluar
+    </div>
+    <h2 class="h4 fw-bold mb-0 text-dark">Penerbitan Surat Keluar Resmi</h2>
+    <small class="text-muted">Pilih format dinas atau susun naskah kustom dengan editor otomatisasi data</small>
   </div>
   <div class="d-flex gap-2">
-    <a href="<?= base_url('admin/surat-keluar/create-eksternal') ?>" class="btn btn-outline-info btn-sm">
+    <a href="<?= base_url('admin/surat-keluar/create-eksternal') ?>" class="btn btn-outline-info btn-sm rounded-pill px-3 shadow-xs">
       <i class="bi bi-upload me-1"></i>Upload PDF Eksternal
     </a>
-    <a href="<?= base_url('admin/surat-keluar') ?>" class="btn btn-outline-secondary btn-sm">
+    <a href="<?= base_url('admin/surat-keluar') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-xs">
       <i class="bi bi-arrow-left me-1"></i>Kembali
     </a>
   </div>
@@ -67,26 +116,36 @@
     <!-- Kolom Kiri: Form Utama -->
     <div class="col-lg-8">
 
-      <!-- Pilih Jenis Surat -->
-      <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-primary text-white fw-semibold py-2">
-          <i class="bi bi-list-ul me-2"></i>1. Pilih Jenis Surat
+      <!-- Pilih Jenis Surat (Double-Bezel Container) -->
+      <div class="card border-0 shadow-xs rounded-3 mb-4 overflow-hidden">
+        <div class="card-header bg-white py-3 border-bottom d-flex align-items-center gap-2">
+          <span class="badge rounded-circle bg-primary bg-opacity-10 text-primary p-2">
+            <i class="bi bi-grid-fill fs-6"></i>
+          </span>
+          <div>
+            <h6 class="fw-bold mb-0 text-dark">1. Pilih Format / Jenis Surat</h6>
+            <small class="text-muted" style="font-size:0.75rem;">Pilih template format baku surat yang akan diterbitkan</small>
+          </div>
         </div>
-        <div class="card-body">
+        <div class="card-body p-3">
           <div class="row row-cols-2 row-cols-md-3 g-2" id="letter-type-selector">
             <?php foreach ($letter_types as $code => $label): ?>
               <div class="col">
                 <input type="radio" class="btn-check" name="letter_type" id="type_<?= $code ?>"
                        value="<?= $code ?>" autocomplete="off"
                        <?= old('letter_type') === $code ? 'checked' : '' ?>>
-                <label class="btn btn-outline-primary w-100 text-start" for="type_<?= $code ?>" style="font-size:0.82rem;">
-                  <?= $label ?>
+                <label class="type-radio-label w-100 d-flex align-items-center gap-2" for="type_<?= $code ?>">
+                  <span class="rounded-circle bg-light d-flex align-items-center justify-content-center p-1" style="width:24px; height:24px; min-width:24px;">
+                    <i class="bi bi-file-earmark-text text-primary" style="font-size:12px;"></i>
+                  </span>
+                  <span class="fw-medium text-truncate" style="font-size:0.8rem;"><?= $label ?></span>
                 </label>
               </div>
             <?php endforeach; ?>
           </div>
-          <div id="no-type-warning" class="text-danger mt-2 small" style="display:none;">
-            ⚠️ Pilih jenis surat terlebih dahulu.
+          <div id="no-type-warning" class="alert alert-danger py-2 px-3 small rounded-3 mt-3 d-inline-flex align-items-center gap-2 mb-0" style="display:none;">
+            <i class="bi bi-exclamation-circle-fill text-danger"></i>
+            <span>Silakan tentukan salah satu format jenis surat terlebih dahulu.</span>
           </div>
         </div>
       </div>
@@ -628,17 +687,20 @@
             
             <!-- Quick Actions Toolbar: Bank Template & Simpan Template -->
             <div class="d-flex align-items-center gap-2 flex-wrap">
-              <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 shadow-xs" id="btn-open-bank-template" data-bs-toggle="modal" data-bs-target="#modal-bank-template">
-                <i class="bi bi-collection me-1"></i>Pilih Template Dinas
+              <button type="button" class="btn btn-sm btn-primary rounded-pill ps-3 pe-2 py-1.5 d-flex align-items-center gap-2 shadow-xs" id="btn-open-bank-template" data-bs-toggle="modal" data-bs-target="#modal-bank-template">
+                <span class="fw-semibold">Pilih Template Dinas</span>
+                <span class="rounded-circle bg-white bg-opacity-25 d-flex align-items-center justify-content-center" style="width:20px; height:20px;">
+                  <i class="bi bi-collection text-white" style="font-size:11px;"></i>
+                </span>
               </button>
-              <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="btn-open-save-template" data-bs-toggle="modal" data-bs-target="#modal-save-template">
+              <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 shadow-xs" id="btn-open-save-template" data-bs-toggle="modal" data-bs-target="#modal-save-template">
                 <i class="bi bi-bookmark-plus me-1"></i>Simpan sbg Template
               </button>
               <div id="draft-status-wrapper" class="d-inline-flex align-items-center">
-                <span id="draft-status-pill" class="badge rounded-pill bg-light text-secondary border px-2 py-1" style="font-size:0.72rem;">
-                  <i class="bi bi-check2-circle text-success me-1"></i><span id="draft-status-text">Auto-draft siap</span>
+                <span id="draft-status-pill" class="badge rounded-pill bg-light text-secondary border px-2.5 py-1 d-flex align-items-center gap-1" style="font-size:0.72rem;">
+                  <i class="bi bi-check2-circle text-success"></i><span id="draft-status-text">Auto-draft siap</span>
                 </span>
-                <button type="button" class="btn btn-link btn-sm text-decoration-none py-0 px-1 text-primary small" id="btn-restore-draft" style="display:none; font-size:0.72rem;">
+                <button type="button" class="btn btn-link btn-sm text-decoration-none py-0 px-2 text-primary small fw-semibold" id="btn-restore-draft" style="display:none; font-size:0.72rem;">
                   Pulihkan
                 </button>
               </div>
@@ -686,21 +748,31 @@
                     <small class="fw-bold text-dark d-flex align-items-center">
                       <i class="bi bi-lightning-charge-fill text-warning me-1"></i>Variabel Data Otomatis (Klik untuk menyisipkan ke kursor editor):
                     </small>
-                    <ul class="nav nav-pills nav-pills-sm" id="placeholder-tabs" role="tablist">
+                    <ul class="nav nav-pills nav-pills-sm p-1 bg-slate-100 rounded-pill border border-slate-200/60" id="placeholder-tabs" role="tablist" style="background:#f1f5f9;">
                       <li class="nav-item" role="presentation">
-                        <button class="nav-link active py-0 px-2" style="font-size:0.75rem;" id="tab-siswa-pill" data-bs-toggle="pill" data-bs-target="#pill-siswa" type="button" role="tab">🎓 Siswa</button>
+                        <button class="nav-link active rounded-pill py-1 px-2.5 d-flex align-items-center gap-1.5 fw-semibold" style="font-size:0.73rem;" id="tab-siswa-pill" data-bs-toggle="pill" data-bs-target="#pill-siswa" type="button" role="tab">
+                          <i class="bi bi-mortarboard text-primary"></i> Siswa
+                        </button>
                       </li>
                       <li class="nav-item" role="presentation">
-                        <button class="nav-link py-0 px-2" style="font-size:0.75rem;" id="tab-ortu-pill" data-bs-toggle="pill" data-bs-target="#pill-ortu" type="button" role="tab">👨‍👩‍👧 Orang Tua</button>
+                        <button class="nav-link rounded-pill py-1 px-2.5 d-flex align-items-center gap-1.5 fw-semibold" style="font-size:0.73rem;" id="tab-ortu-pill" data-bs-toggle="pill" data-bs-target="#pill-ortu" type="button" role="tab">
+                          <i class="bi bi-people text-warning"></i> Orang Tua
+                        </button>
                       </li>
                       <li class="nav-item" role="presentation">
-                        <button class="nav-link py-0 px-2" style="font-size:0.75rem;" id="tab-guru-pill" data-bs-toggle="pill" data-bs-target="#pill-guru" type="button" role="tab">👨‍🏫 Guru/Tendik</button>
+                        <button class="nav-link rounded-pill py-1 px-2.5 d-flex align-items-center gap-1.5 fw-semibold" style="font-size:0.73rem;" id="tab-guru-pill" data-bs-toggle="pill" data-bs-target="#pill-guru" type="button" role="tab">
+                          <i class="bi bi-person-workspace text-success"></i> Guru/Tendik
+                        </button>
                       </li>
                       <li class="nav-item" role="presentation">
-                        <button class="nav-link py-0 px-2" style="font-size:0.75rem;" id="tab-instansi-pill" data-bs-toggle="pill" data-bs-target="#pill-instansi" type="button" role="tab">🏛️ Sekolah</button>
+                        <button class="nav-link rounded-pill py-1 px-2.5 d-flex align-items-center gap-1.5 fw-semibold" style="font-size:0.73rem;" id="tab-instansi-pill" data-bs-toggle="pill" data-bs-target="#pill-instansi" type="button" role="tab">
+                          <i class="bi bi-bank text-secondary"></i> Sekolah
+                        </button>
                       </li>
                       <li class="nav-item" role="presentation">
-                        <button class="nav-link py-0 px-2" style="font-size:0.75rem;" id="tab-surat-pill" data-bs-toggle="pill" data-bs-target="#pill-surat" type="button" role="tab">📅 Surat &amp; Tabel</button>
+                        <button class="nav-link rounded-pill py-1 px-2.5 d-flex align-items-center gap-1.5 fw-semibold" style="font-size:0.73rem;" id="tab-surat-pill" data-bs-toggle="pill" data-bs-target="#pill-surat" type="button" role="tab">
+                          <i class="bi bi-table text-danger"></i> Surat &amp; Tabel
+                        </button>
                       </li>
                     </ul>
                   </div>
@@ -810,38 +882,54 @@
       </div><!-- end #section-dynamic -->
     </div>
 
-    <!-- Kolom Kanan: Preview & Submit -->
+    <!-- Kolom Kanan: Preview & Submit (Double-Bezel Sidebar) -->
     <div class="col-lg-4">
-      <div class="card border-0 shadow-sm sticky-top" style="top:80px;">
-        <div class="card-header bg-light fw-semibold py-2">
-          <i class="bi bi-info-circle me-2"></i>Info Surat
+      <div class="card border-0 shadow-xs rounded-3 sticky-top overflow-hidden" style="top:80px;">
+        <div class="card-header bg-white py-3 border-bottom d-flex align-items-center gap-2">
+          <span class="badge rounded-circle bg-primary bg-opacity-10 text-primary p-2">
+            <i class="bi bi-info-circle fs-6"></i>
+          </span>
+          <div>
+            <h6 class="fw-bold mb-0 text-dark">Ringkasan &amp; Legalitas</h6>
+            <small class="text-muted" style="font-size:0.75rem;">Verifikasi data sebelum penerbitan berkas</small>
+          </div>
         </div>
-        <div class="card-body">
-          <div class="mb-2 d-flex justify-content-between">
-            <small class="text-muted">Nomor Surat</small>
-            <span class="fw-semibold text-primary font-monospace">Auto-generate</span>
+        <div class="card-body p-3">
+          <div class="p-2.5 rounded-3 bg-light mb-3 border border-slate-100">
+            <div class="mb-2 d-flex justify-content-between align-items-center">
+              <small class="text-muted">Nomor Registrasi</small>
+              <span class="fw-semibold text-primary font-monospace small">Auto-generate</span>
+            </div>
+            <div class="mb-2 d-flex justify-content-between align-items-center">
+              <small class="text-muted">Penandatangan</small>
+              <span class="fw-semibold small text-dark"><?= esc($principal_name) ?></span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+              <small class="text-muted">NIP Kepala Sekolah</small>
+              <span class="fw-semibold font-monospace small text-dark"><?= esc($principal_nip) ?></span>
+            </div>
           </div>
-          <div class="mb-2 d-flex justify-content-between">
-            <small class="text-muted">Ditandatangani</small>
-            <span class="fw-semibold"><?= esc($principal_name) ?></span>
+
+          <div id="selected-type-badge" class="alert alert-info py-2 px-3 small rounded-3 d-flex align-items-center gap-2 mb-3" style="display:none;">
+            <i class="bi bi-check-circle-fill text-info"></i>
+            <span id="selected-type-label" class="fw-semibold"></span>
           </div>
-          <div class="mb-3 d-flex justify-content-between">
-            <small class="text-muted">NIP</small>
-            <span class="fw-semibold font-monospace"><?= esc($principal_nip) ?></span>
-          </div>
-          <div id="selected-type-badge" class="alert alert-info py-2 small" style="display:none;">
-            <i class="bi bi-check-circle me-1"></i><span id="selected-type-label"></span>
-          </div>
-          <hr>
+
           <!-- Tombol Preview (hanya untuk surat_custom) -->
-          <button type="button" class="btn btn-outline-info w-100 mb-2" id="btn-preview-surat" style="display:none;">
-            <i class="bi bi-eye me-2"></i>Preview Surat
+          <button type="button" class="btn btn-outline-info w-100 rounded-pill py-2 d-flex align-items-center justify-content-center gap-2 mb-2 shadow-xs" id="btn-preview-surat" style="display:none;">
+            <i class="bi bi-eye"></i><span class="fw-semibold">Lihat Draf Lembar Surat</span>
           </button>
-          <button type="submit" class="btn btn-primary w-100" id="btn-submit-surat" disabled>
-            <i class="bi bi-send me-2"></i>Buat Surat &amp; Generate PDF
+
+          <!-- Submit CTA with Button-in-Button -->
+          <button type="submit" class="btn btn-primary w-100 rounded-pill py-2.5 d-flex align-items-center justify-content-center gap-2 shadow-xs" id="btn-submit-surat" disabled>
+            <span class="fw-semibold">Buat Surat &amp; Generate PDF</span>
+            <span class="rounded-circle bg-white bg-opacity-25 d-flex align-items-center justify-content-center" style="width:22px; height:22px;">
+              <i class="bi bi-send-fill text-white" style="font-size:11px;"></i>
+            </span>
           </button>
-          <a href="<?= base_url('admin/surat-keluar') ?>" class="btn btn-outline-secondary w-100 mt-2">
-            Batal
+          
+          <a href="<?= base_url('admin/surat-keluar') ?>" class="btn btn-outline-secondary w-100 rounded-pill py-2 mt-2 small">
+            Batal &amp; Kembali
           </a>
         </div>
       </div>
@@ -900,13 +988,13 @@
                   <h6 class="fw-bold mb-1 text-dark" style="font-size:0.9rem;"><?= esc($tpl['title']) ?></h6>
                   <p class="text-muted small mb-3" style="font-size:0.75rem;">
                     Perihal: <em><?= esc($tpl['default_subject']) ?></em><br>
-                    Header: <?= $tpl['header_style'] === 'tengah' ? '📄 Judul Tengah' : '📋 Kiri-Kanan' ?>
+                    Header: <?= $tpl['header_style'] === 'tengah' ? '<i class="bi bi-align-center me-1"></i>Judul Tengah' : '<i class="bi bi-columns-gap me-1"></i>Kiri-Kanan' ?>
                   </p>
                   <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top">
                     <small class="text-muted" style="font-size:0.7rem;">
                       <i class="bi bi-check2-circle text-success me-1"></i>Format Resmi
                     </small>
-                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-3 btn-apply-template"
+                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-3 btn-apply-template shadow-xs"
                             data-id="<?= $tpl['id'] ?>"
                             data-title="<?= esc($tpl['title']) ?>"
                             data-subject="<?= esc($tpl['default_subject']) ?>"
@@ -980,34 +1068,47 @@
   </div>
 </div>
 
-<!-- Modal Preview Surat -->
+<!-- Modal Preview Surat (Realistic Studio A4 Desk) -->
 <div class="modal fade" id="modal-preview-surat" tabindex="-1" aria-labelledby="modalPreviewLabel">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-0">
-        <h5 class="modal-title" id="modalPreviewLabel">
-          <i class="bi bi-eye me-2 text-info"></i>Preview Surat
-          <span class="badge bg-warning text-dark ms-2 fw-normal" style="font-size:0.7rem;">PREVIEW — Bukan Dokumen Resmi</span>
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <div class="modal-header border-bottom py-3 px-4 bg-white d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle bg-info bg-opacity-10 text-info p-2 d-flex align-items-center justify-content-center" style="width:36px; height:36px;">
+            <i class="bi bi-eye fs-6"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold text-dark fs-6 mb-0" id="modalPreviewLabel">Studio Simulasi Cetak Naskah Dinas</h5>
+            <small class="text-muted">Tata letak lembar cetak A4 sesuai standar kearsipan</small>
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge rounded-pill bg-warning-subtle text-dark border border-warning-subtle px-3 py-1 font-monospace" style="font-size:0.72rem;">
+            <i class="bi bi-shield-exclamation me-1 text-warning"></i>DRAF PREVIEW
+          </span>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
       </div>
-      <div class="modal-body p-0 bg-secondary bg-opacity-10">
-        <!-- Letter paper container -->
-        <div style="max-width:794px; margin:20px auto; background:#fff; box-shadow:0 2px 12px rgba(0,0,0,.15); padding:40px 50px; min-height:400px; font-family:'Times New Roman',Times,serif; font-size:14px; line-height:1.6;" id="preview-letter-paper">
+      <div class="modal-body p-4" style="background:#0f172a;">
+        <!-- Letter paper container with realistic multi-layered paper drop shadow -->
+        <div style="max-width:794px; margin:0 auto; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.2), 0 20px 40px -15px rgba(0,0,0,0.5); padding:44px 54px; min-height:500px; font-family:'Times New Roman',Times,serif; font-size:14px; line-height:1.6; border-radius:3px;" id="preview-letter-paper">
           <div id="preview-kop-area"></div>
           <div id="preview-header-area"></div>
           <div id="preview-body-area"></div>
-          <div id="preview-footer-note" style="margin-top:40px; border-top:1px dashed #ccc; padding-top:12px; color:#888; font-size:12px; font-family:Arial,sans-serif; text-align:center;">
-            <i>⚠️ QR Code verifikasi dan tanda tangan Kepala Sekolah akan muncul di PDF final</i>
+          <div id="preview-footer-note" style="margin-top:40px; border-top:1px dashed #e2e8f0; padding-top:16px; text-align:center;">
+            <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-light border text-muted" style="font-size:0.75rem; font-family:Arial,sans-serif;">
+              <i class="bi bi-shield-check text-success"></i>
+              <span>Dokumen final akan memuat QR Code verifikasi publik dan Tanda Tangan resmi Kepala Sekolah.</span>
+            </div>
           </div>
         </div>
       </div>
-      <div class="modal-footer justify-content-between">
-        <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Placeholder telah diisi dengan data form saat ini. Nomor surat digenerate otomatis saat submit.</small>
+      <div class="modal-footer justify-content-between bg-white border-top py-3 px-4">
+        <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Seluruh variabel telah terisi otomatis sesuai formulir naskah saat ini.</small>
         <div class="d-flex gap-2">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-          <button type="button" class="btn btn-primary" data-bs-dismiss="modal" id="btn-from-preview-submit">
-            <i class="bi bi-send me-1"></i>Lanjut Generate PDF
+          <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">Tutup</button>
+          <button type="button" class="btn btn-primary btn-sm rounded-pill px-4 shadow-xs" data-bs-dismiss="modal" id="btn-from-preview-submit">
+            <i class="bi bi-send me-1"></i>Lanjut Terbitkan PDF
           </button>
         </div>
       </div>
@@ -2101,7 +2202,7 @@ $('#btn-submit-save-template').on('click', function() {
 
         const t = res.template;
         const catBadge = t.category === 'siswa' ? 'bg-primary-subtle text-primary' : (t.category === 'guru' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-dark');
-        const styleLabel = t.header_style === 'tengah' ? '📄 Judul Tengah' : '📋 Kiri-Kanan';
+        const styleLabel = t.header_style === 'tengah' ? '<i class="bi bi-align-center me-1"></i>Judul Tengah' : '<i class="bi bi-columns-gap me-1"></i>Kiri-Kanan';
         
         const cardHtml = `
           <div class="col-md-6 template-item" data-category="${escHtml(t.category)}" data-title="${escHtml(t.title.toLowerCase())}">

@@ -1,6 +1,32 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
+<style>
+  .transition-all {
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  .hover-translate-y:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px -10px rgba(15, 23, 42, 0.08) !important;
+  }
+  .btn:active {
+    transform: scale(0.98) !important;
+  }
+  .placeholder-btn {
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    background: #ffffff;
+    border-color: #cbd5e1 !important;
+    color: #334155 !important;
+  }
+  .placeholder-btn:hover {
+    background: #f8fafc !important;
+    border-color: #0d6efd !important;
+    color: #0d6efd !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(13, 110, 253, 0.12);
+  }
+</style>
+
 <?php
 $typeName = $letter_types[$letter['letter_type']] ?? $letter['letter_type'];
 $ld       = $letter['letter_data'] ?? [];
@@ -253,21 +279,31 @@ $recType  = $letter['recipient_type'] ?? 'siswa';
                     <small class="fw-bold text-dark d-flex align-items-center">
                       <i class="bi bi-lightning-charge-fill text-warning me-1"></i>Variabel Data Otomatis (Klik untuk menyisipkan ke kursor editor):
                     </small>
-                    <ul class="nav nav-pills nav-pills-sm" id="placeholder-tabs" role="tablist">
+                    <ul class="nav nav-pills nav-pills-sm p-1 bg-slate-100 rounded-pill border border-slate-200/60" id="placeholder-tabs" role="tablist" style="background:#f1f5f9;">
                       <li class="nav-item" role="presentation">
-                        <button class="nav-link active py-0 px-2" style="font-size:0.75rem;" id="tab-siswa-pill" data-bs-toggle="pill" data-bs-target="#pill-siswa" type="button" role="tab">🎓 Siswa</button>
+                        <button class="nav-link active rounded-pill py-1 px-2.5 d-flex align-items-center gap-1.5 fw-semibold" style="font-size:0.73rem;" id="tab-siswa-pill" data-bs-toggle="pill" data-bs-target="#pill-siswa" type="button" role="tab">
+                          <i class="bi bi-mortarboard text-primary"></i> Siswa
+                        </button>
                       </li>
                       <li class="nav-item" role="presentation">
-                        <button class="nav-link py-0 px-2" style="font-size:0.75rem;" id="tab-ortu-pill" data-bs-toggle="pill" data-bs-target="#pill-ortu" type="button" role="tab">👨‍👩‍👧 Orang Tua</button>
+                        <button class="nav-link rounded-pill py-1 px-2.5 d-flex align-items-center gap-1.5 fw-semibold" style="font-size:0.73rem;" id="tab-ortu-pill" data-bs-toggle="pill" data-bs-target="#pill-ortu" type="button" role="tab">
+                          <i class="bi bi-people text-warning"></i> Orang Tua
+                        </button>
                       </li>
                       <li class="nav-item" role="presentation">
-                        <button class="nav-link py-0 px-2" style="font-size:0.75rem;" id="tab-guru-pill" data-bs-toggle="pill" data-bs-target="#pill-guru" type="button" role="tab">👨‍🏫 Guru/Tendik</button>
+                        <button class="nav-link rounded-pill py-1 px-2.5 d-flex align-items-center gap-1.5 fw-semibold" style="font-size:0.73rem;" id="tab-guru-pill" data-bs-toggle="pill" data-bs-target="#pill-guru" type="button" role="tab">
+                          <i class="bi bi-person-workspace text-success"></i> Guru/Tendik
+                        </button>
                       </li>
                       <li class="nav-item" role="presentation">
-                        <button class="nav-link py-0 px-2" style="font-size:0.75rem;" id="tab-instansi-pill" data-bs-toggle="pill" data-bs-target="#pill-instansi" type="button" role="tab">🏛️ Sekolah</button>
+                        <button class="nav-link rounded-pill py-1 px-2.5 d-flex align-items-center gap-1.5 fw-semibold" style="font-size:0.73rem;" id="tab-instansi-pill" data-bs-toggle="pill" data-bs-target="#pill-instansi" type="button" role="tab">
+                          <i class="bi bi-bank text-secondary"></i> Sekolah
+                        </button>
                       </li>
                       <li class="nav-item" role="presentation">
-                        <button class="nav-link py-0 px-2" style="font-size:0.75rem;" id="tab-surat-pill" data-bs-toggle="pill" data-bs-target="#pill-surat" type="button" role="tab">📅 Surat &amp; Tabel</button>
+                        <button class="nav-link rounded-pill py-1 px-2.5 d-flex align-items-center gap-1.5 fw-semibold" style="font-size:0.73rem;" id="tab-surat-pill" data-bs-toggle="pill" data-bs-target="#pill-surat" type="button" role="tab">
+                          <i class="bi bi-table text-danger"></i> Surat &amp; Tabel
+                        </button>
                       </li>
                     </ul>
                   </div>
@@ -639,7 +675,7 @@ $recType  = $letter['recipient_type'] ?? 'siswa';
                   <h6 class="fw-bold mb-1 text-dark" style="font-size:0.9rem;"><?= esc($tpl['title']) ?></h6>
                   <p class="text-muted small mb-3" style="font-size:0.75rem;">
                     Perihal: <em><?= esc($tpl['default_subject']) ?></em><br>
-                    Header: <?= $tpl['header_style'] === 'tengah' ? '📄 Judul Tengah' : '📋 Kiri-Kanan' ?>
+                    Header: <?= $tpl['header_style'] === 'tengah' ? '<i class="bi bi-align-center me-1"></i>Judul Tengah' : '<i class="bi bi-columns-gap me-1"></i>Kiri-Kanan' ?>
                   </p>
                   <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top">
                     <small class="text-muted" style="font-size:0.7rem;">
@@ -719,32 +755,45 @@ $recType  = $letter['recipient_type'] ?? 'siswa';
   </div>
 </div>
 
-<!-- Modal Preview Surat (Realistic A4) -->
+<!-- Modal Preview Surat (Realistic Studio A4 Desk) -->
 <div class="modal fade" id="modal-preview-surat" tabindex="-1" aria-labelledby="modalPreviewLabel">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-0">
-        <h5 class="modal-title" id="modalPreviewLabel">
-          <i class="bi bi-eye me-2 text-info"></i>Preview Hasil Perubahan Naskah
-          <span class="badge bg-warning text-dark ms-2 fw-normal" style="font-size:0.7rem;">SIMULASI A4</span>
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <div class="modal-header border-bottom py-3 px-4 bg-white d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle bg-info bg-opacity-10 text-info p-2 d-flex align-items-center justify-content-center" style="width:36px; height:36px;">
+            <i class="bi bi-eye fs-6"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold text-dark fs-6 mb-0" id="modalPreviewLabel">Simulasi Pembaruan Naskah Cetak</h5>
+            <small class="text-muted">Pratinjau lembar A4 sebelum pembaruan berkas PDF disimpan</small>
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge rounded-pill bg-warning-subtle text-dark border border-warning-subtle px-3 py-1 font-monospace" style="font-size:0.72rem;">
+            <i class="bi bi-shield-exclamation me-1 text-warning"></i>DRAF PREVIEW
+          </span>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
       </div>
-      <div class="modal-body p-0 bg-secondary bg-opacity-10">
-        <div style="max-width:794px; margin:20px auto; background:#fff; box-shadow:0 2px 14px rgba(0,0,0,.18); padding:40px 50px; min-height:480px; font-family:'Times New Roman',Times,serif; font-size:14px; line-height:1.6;" id="preview-letter-paper">
+      <div class="modal-body p-4" style="background:#0f172a;">
+        <div style="max-width:794px; margin:0 auto; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.2), 0 20px 40px -15px rgba(0,0,0,0.5); padding:44px 54px; min-height:480px; font-family:'Times New Roman',Times,serif; font-size:14px; line-height:1.6; border-radius:3px;" id="preview-letter-paper">
           <div id="preview-kop-area"></div>
           <div id="preview-header-area"></div>
           <div id="preview-body-area"></div>
-          <div id="preview-footer-note" style="margin-top:40px; border-top:1px dashed #ccc; padding-top:12px; color:#888; font-size:12px; font-family:Arial,sans-serif; text-align:center;">
-            <i>⚠️ QR Code verifikasi dan tanda tangan Kepala Sekolah akan disisipkan di PDF final</i>
+          <div id="preview-footer-note" style="margin-top:40px; border-top:1px dashed #e2e8f0; padding-top:16px; text-align:center;">
+            <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-light border text-muted" style="font-size:0.75rem; font-family:Arial,sans-serif;">
+              <i class="bi bi-shield-check text-success"></i>
+              <span>Dokumen final akan memuat QR Code verifikasi publik dan Tanda Tangan resmi Kepala Sekolah.</span>
+            </div>
           </div>
         </div>
       </div>
-      <div class="modal-footer justify-content-between">
-        <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Nomor surat tetap terjaga. File PDF akan digenerate ulang saat disimpan.</small>
+      <div class="modal-footer justify-content-between bg-white border-top py-3 px-4">
+        <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Nomor surat dan QR verification UUID tetap dipertahankan.</small>
         <div class="d-flex gap-2">
-          <button type="button" class="btn btn-secondary rounded-pill px-3" data-bs-dismiss="modal">Tutup</button>
-          <button type="button" class="btn btn-primary rounded-pill px-3" data-bs-dismiss="modal" id="btn-from-preview-submit">
+          <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">Tutup</button>
+          <button type="button" class="btn btn-primary btn-sm rounded-pill px-4 shadow-xs" data-bs-dismiss="modal" id="btn-from-preview-submit">
             <i class="bi bi-check2-circle me-1"></i>Simpan Perubahan
           </button>
         </div>
