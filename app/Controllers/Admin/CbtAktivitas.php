@@ -2483,7 +2483,15 @@ class CbtAktivitas extends BaseController
 
         $assessmentType = (string)($this->request->getPost('assessment_type') ?? 'formatif');
         $selectedAtpIds = (array)($this->request->getPost('selected_atp_ids') ?? []);
-        $selectedTpIds  = (array)($this->request->getPost('selected_tp_ids') ?? []);
+        
+        $selectedTpIdsRaw = $this->request->getPost('selected_tp_ids_json') ?? $this->request->getPost('selected_tp_ids');
+        $selectedTpIds = [];
+        if (is_string($selectedTpIdsRaw)) {
+            $selectedTpIds = json_decode($selectedTpIdsRaw, true) ?: [];
+        } elseif (is_array($selectedTpIdsRaw)) {
+            $selectedTpIds = $selectedTpIdsRaw;
+        }
+
         $mappingsRaw    = $this->request->getPost('mappings');
 
         $mappings = [];

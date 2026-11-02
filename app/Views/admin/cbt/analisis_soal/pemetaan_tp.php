@@ -44,6 +44,7 @@
         <?= csrf_field() ?>
         <input type="hidden" name="assessment_type" id="hiddenAssessmentType" value="<?= esc($assessment_type) ?>">
         <input type="hidden" name="mappings" id="hiddenMappings" value="">
+        <input type="hidden" name="selected_tp_ids_json" id="hiddenSelectedTpIds" value="">
 
         <!-- =========================================================================
              LANGKAH 1: PENENTUAN JENIS ASESMEN & PEMILIHAN LINGKUP MATERI DARI ATP

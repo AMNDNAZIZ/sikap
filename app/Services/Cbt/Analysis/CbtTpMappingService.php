@@ -43,6 +43,28 @@ class CbtTpMappingService
             ->where('ts.id', $testId)
             ->get()->getRowArray();
 
+        if (!$test && $db->tableExists('cbt_question_banks')) {
+            $qb = $db->table('cbt_question_banks qb')
+                ->select('qb.id as bank_id, qb.code as bank_code, qb.subject_id, qb.level as bank_level, qb.teacher_id, s.name as subject_name')
+                ->join('subjects s', 's.id = qb.subject_id', 'left')
+                ->where('qb.id', $testId)
+                ->get()->getRowArray();
+            if ($qb) {
+                $test = [
+                    'id'           => $testId,
+                    'test_id'      => $testId,
+                    'bank_id'      => $qb['bank_id'],
+                    'bank_code'    => $qb['bank_code'],
+                    'bank_level'   => $qb['bank_level'],
+                    'subject_id'   => $qb['subject_id'],
+                    'subject_name' => $qb['subject_name'] ?? 'Mata Pelajaran',
+                    'exam_name'    => 'Ujian CBT (' . $qb['bank_code'] . ')',
+                    'class_codes'  => '',
+                    'semester'     => 1,
+                ];
+            }
+        }
+
         if (!$test) {
             throw new \RuntimeException("Ujian CBT #{$testId} tidak ditemukan.");
         }
@@ -597,6 +619,27 @@ class CbtTpMappingService
     ): array {
         $db = $this->getDb();
         $now = date('Y-m-d H:i:s');
+
+        // Jaminan integritas: Jika selectedTpIds kosong tetapi ada pemetaan butir soal, ambil dari pemetaan
+        if (empty($selectedTpIds) && !empty($mappings)) {
+            foreach ($mappings as $m) {
+                if (!empty($m['tp_id'])) {
+                    $selectedTpIds[] = (int)$m['tp_id'];
+                }
+            }
+            $selectedTpIds = array_values(array_unique(array_filter($selectedTpIds)));
+        }
+
+        // Jika masih kosong dan selectedAtpIds ada, ambil seluruh TP dari ATP tersebut
+        if (empty($selectedTpIds) && !empty($selectedAtpIds) && $db !== null && $db->tableExists('tujuan_pembelajaran')) {
+            $tps = $db->table('tujuan_pembelajaran')
+                ->whereIn('atp_id', $selectedAtpIds)
+                ->get()->getResultArray();
+            foreach ($tps as $tpRow) {
+                $selectedTpIds[] = (int)$tpRow['id'];
+            }
+            $selectedTpIds = array_values(array_unique(array_filter($selectedTpIds)));
+        }
 
         // 1. Simpan / Update cbt_test_tp_configs
         if ($db->tableExists('cbt_test_tp_configs')) {

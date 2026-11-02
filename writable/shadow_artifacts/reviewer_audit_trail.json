@@ -4286,5 +4286,37 @@
             "sk_issuer": "ADMIN",
             "ratification_time": "2026-11-02 08:17:34"
         }
+    },
+    {
+        "audit_id": "AUD_E48BD5FC609C9ABF",
+        "sequence_number": 157,
+        "timestamp": "2026-11-02 09:14:30",
+        "timestamp_iso": "2026-11-02T09:14:30+01:00",
+        "reviewer_id": "admin",
+        "case_id": "REV_501_2b6231cb77",
+        "status_before": "ACKNOWLEDGEMENT_REQUIRED",
+        "status_after": "RESOLVED",
+        "decision": "ACKNOWLEDGE_POLICY_DIFF",
+        "decision_id": "DEC-ROUND-01",
+        "reason": "Minor rounding difference (0.02) within tolerance of 0.05",
+        "evidence_reference": "Minor rounding difference (0.02) within tolerance of 0.05",
+        "policy_version": "V3.29A-STAGE_F3A",
+        "previous_record_hash": "4b0b74ac0b8632243962eff0fd7d9b141ccf1bb6b7c8600396eacb9be1c265a8",
+        "record_hash": "6003763bf98c9e207f2b20197d5b269da9e1277c173a8cae2bd4b71ff72e8123",
+        "extra_context": {
+            "category": "ROUNDING_DIFFERENCE",
+            "sanctioned_action": "ACKNOWLEDGE_POLICY_DIFF",
+            "decision_id": "DEC-ROUND-01",
+            "legacy_score": 49.98,
+            "v3_score": 50,
+            "delta": 0.02,
+            "notes": "Rounding difference delta 0.02 acknowledged within 0.05 tolerance under DEC-ROUND-01 without mutating scores.",
+            "selected_session_id": null,
+            "owner_approval_ref": null,
+            "sk_number": null,
+            "sk_date": "2026-11-02",
+            "sk_issuer": "ADMIN",
+            "ratification_time": "2026-11-02 09:14:30"
+        }
     }
 ]

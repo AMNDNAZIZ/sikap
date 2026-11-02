@@ -80,6 +80,29 @@ class CbtTpAnalysisService
             ->where('ts.id', $testId)
             ->get()->getRowArray();
 
+        // Fallback untuk ujian legacy/langsung via bank soal
+        if (!$test && $db->tableExists('cbt_question_banks')) {
+            $qb = $db->table('cbt_question_banks qb')
+                ->select('qb.id as bank_id, qb.code as bank_code, qb.subject_id, qb.level as bank_level, qb.teacher_id, s.name as subject_name')
+                ->join('subjects s', 's.id = qb.subject_id', 'left')
+                ->where('qb.id', $testId)
+                ->get()->getRowArray();
+            if ($qb) {
+                $test = [
+                    'id'           => $testId,
+                    'test_id'      => $testId,
+                    'bank_id'      => $qb['bank_id'],
+                    'bank_code'    => $qb['bank_code'],
+                    'bank_level'   => $qb['bank_level'],
+                    'subject_id'   => $qb['subject_id'],
+                    'subject_name' => $qb['subject_name'] ?? 'Mata Pelajaran',
+                    'exam_name'    => 'Ujian CBT (' . $qb['bank_code'] . ')',
+                    'class_codes'  => '',
+                    'semester'     => 1,
+                ];
+            }
+        }
+
         if (!$test) {
             throw new \RuntimeException("Ujian CBT #{$testId} tidak ditemukan.");
         }
@@ -137,6 +160,14 @@ class CbtTpAnalysisService
             foreach ($explicitMappings as $em) {
                 $qid = (int)$em['question_id'];
                 $tpMap[$qid] = (int)$em['tp_id'];
+            }
+        }
+
+        // Jika selectedTpIds belum terisi tetapi soal sudah dipetakan, ambil TP unik dari pemetaan
+        if (empty($selectedTpIds) && !empty($tpMap)) {
+            $selectedTpIds = array_values(array_unique(array_filter(array_map('intval', $tpMap))));
+            if (!empty($selectedTpIds)) {
+                $isConfigured = true;
             }
         }
 
@@ -221,15 +252,20 @@ class CbtTpAnalysisService
         }
 
         // 5. Ambil data sesi pengerjaan siswa
-        $sessions = $db->table('cbt_sessions s')
-            ->select('s.*, st.name as student_name, st.nisn, st.nis, c.name as class_name,
+        $sessionQuery = $db->table('cbt_sessions s')
+            ->select('s.*, st.name as student_name, st.nisn, st.nis, 
+                      COALESCE(c.name, c_sr.name, "-") as class_name,
                       sc.score_pg, sc.score_esai, sc.final_score, sc.pending_essay_count, sc.publication_eligibility')
             ->join('students st', 'st.id = s.student_id', 'left')
             ->join('classes c', 'c.id = st.class_id', 'left')
+            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
+            ->join('classes c_sr', 'c_sr.id = sr.class_id', 'left')
             ->join('cbt_session_scores_v3 sc', 'sc.session_id = s.id', 'left')
             ->where('s.test_id', $testId)
-            ->orderBy('st.name', 'ASC')
-            ->get()->getResultArray();
+            ->groupBy('s.id')
+            ->orderBy('st.name', 'ASC');
+
+        $sessions = $sessionQuery->get()->getResultArray();
 
         // 6. Ambil jawaban seluruh siswa untuk test ini
         $answers = [];
@@ -237,6 +273,28 @@ class CbtTpAnalysisService
             $answers = $db->table('cbt_answers')
                 ->where('test_id', $testId)
                 ->get()->getResultArray();
+        }
+
+        // Fallback: Jika sessions belum ada tetapi ada jawaban siswa di cbt_answers
+        if (empty($sessions) && !empty($answers) && $db->tableExists('students')) {
+            $studentIds = array_unique(array_filter(array_column($answers, 'student_id')));
+            if (!empty($studentIds)) {
+                $students = $db->table('students')
+                    ->whereIn('id', $studentIds)
+                    ->get()->getResultArray();
+                foreach ($students as $st) {
+                    $sessions[] = [
+                        'id'           => (int)$st['id'],
+                        'student_id'   => (int)$st['id'],
+                        'student_name' => $st['name'],
+                        'nisn'         => $st['nisn'] ?? '-',
+                        'nis'          => $st['nis'] ?? '-',
+                        'class_name'   => '-',
+                        'status'       => 'FINISHED',
+                        'started_at'   => date('Y-m-d H:i:s'),
+                    ];
+                }
+            }
         }
 
         $testConfig = [
@@ -319,15 +377,21 @@ class CbtTpAnalysisService
             ]);
         }
 
-        // Kelompokkan jawaban berdasarkan session_id
+        // Kelompokkan jawaban berdasarkan session_id dan student_id
         $answersBySession = [];
+        $answersByStudent = [];
         foreach ($answers as $ans) {
             $sessId = (int)($ans['session_id'] ?? 0);
+            $studId = (int)($ans['student_id'] ?? 0);
             $qid = (int)($ans['question_id'] ?? ($ans['item_id'] ?? 0));
-            if (!isset($answersBySession[$sessId])) {
-                $answersBySession[$sessId] = [];
+            $ansText = (string)($ans['answer'] ?? ($ans['student_answer'] ?? ''));
+
+            if ($sessId > 0) {
+                $answersBySession[$sessId][$qid] = $ansText;
             }
-            $answersBySession[$sessId][$qid] = $ans['answer'] ?? ($ans['student_answer'] ?? '');
+            if ($studId > 0) {
+                $answersByStudent[$studId][$qid] = $ansText;
+            }
         }
 
         // =========================================================================
@@ -348,16 +412,17 @@ class CbtTpAnalysisService
             $sessionStatus = strtoupper((string)($session['status'] ?? ($session['session_status'] ?? 'SUBMITTED')));
             $pendingEssayCount = (int)($session['pending_essay_count'] ?? 0);
 
+            // Cari jawaban siswa (prioritas session_id, fallback ke student_id)
+            $studentAnswers = $answersBySession[$sessionId] ?? ($answersByStudent[$studentId] ?? []);
+
             // Siswa yang belum ujian atau absen
             $isAbsentOrUnattempted = in_array($sessionStatus, ['ABSENT', 'NOT_ATTEMPTED', 'BELUM_MENGERJAKAN'], true);
-            $hasAttempted = !$isAbsentOrUnattempted && !empty($session['started_at']);
+            $hasAttempted = !$isAbsentOrUnattempted && (!empty($session['started_at']) || !empty($studentAnswers) || in_array($sessionStatus, ['FINISHED', 'SUBMITTED', 'ACTIVE'], true));
 
             $isEssayPending = ($pendingEssayCount > 0);
             if ($isEssayPending) {
                 $pendingEssayStudentsCount++;
             }
-
-            $studentAnswers = $answersBySession[$sessionId] ?? [];
 
             // Evaluasi per butir soal untuk siswa ini
             $studentItemBreakdown = [];
@@ -372,7 +437,18 @@ class CbtTpAnalysisService
                 $isCorrect = false;
 
                 if ($givenAnswer !== '' && $key !== '') {
-                    $isCorrect = (trim(strtoupper($givenAnswer)) === trim(strtoupper($key)));
+                    $cleanAns = trim(strtoupper($givenAnswer));
+                    $cleanKey = trim(strtoupper($key));
+                    $isCorrect = ($cleanAns === $cleanKey);
+                    // Dukung pemetaan angka 1-5 ke A-E jika kunci berupa angka
+                    if (!$isCorrect) {
+                        $numToLetter = ['1' => 'A', '2' => 'B', '3' => 'C', '4' => 'D', '5' => 'E'];
+                        if (isset($numToLetter[$cleanKey]) && $cleanAns === $numToLetter[$cleanKey]) {
+                            $isCorrect = true;
+                        } elseif (isset($numToLetter[$cleanAns]) && $numToLetter[$cleanAns] === $cleanKey) {
+                            $isCorrect = true;
+                        }
+                    }
                 }
 
                 $earnedWeight = $isCorrect ? $item['resolved_weight'] : 0.0;
