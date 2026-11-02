@@ -62,6 +62,7 @@ class CbtTpMappingService
 
         if ($db->tableExists('alur_tujuan_pembelajaran') && $subjectId > 0) {
             $atpQuery = $db->table('alur_tujuan_pembelajaran')
+                ->select('alur_tujuan_pembelajaran.*')
                 ->where('alur_tujuan_pembelajaran.subject_id', $subjectId);
 
             $hasLevelFilter = false;
@@ -96,6 +97,7 @@ class CbtTpMappingService
                 // Fallback 1: Jika dengan filter semester kosong, coba filter level kelas saja
                 if ($testSemester !== null && $hasLevelFilter) {
                     $fallbackQuery = $db->table('alur_tujuan_pembelajaran')
+                        ->select('alur_tujuan_pembelajaran.*')
                         ->where('alur_tujuan_pembelajaran.subject_id', $subjectId)
                         ->join('classes c_atp', 'c_atp.id = alur_tujuan_pembelajaran.class_id', 'left');
 
@@ -120,6 +122,7 @@ class CbtTpMappingService
                 // Fallback 2: Jika masih kosong, muat seluruh materi mapel
                 if (empty($rawAtp)) {
                     $rawAtp = $db->table('alur_tujuan_pembelajaran')
+                        ->select('alur_tujuan_pembelajaran.*')
                         ->where('subject_id', $subjectId)
                         ->orderBy('semester', 'ASC')
                         ->orderBy('urutan', 'ASC')
@@ -301,12 +304,17 @@ class CbtTpMappingService
         $targetClassNames = [];
 
         if (!empty($targetClassTokens) && $db !== null && $db->tableExists('classes')) {
-            $matchedClasses = $db->table('classes')
-                ->groupStart()
+            $numericTokens = array_values(array_filter($targetClassTokens, 'is_numeric'));
+            $classBuilder = $db->table('classes');
+            if (!empty($numericTokens)) {
+                $classBuilder->groupStart()
                     ->whereIn('name', $targetClassTokens)
-                    ->orWhereIn('id', array_filter($targetClassTokens, 'is_numeric'))
-                ->groupEnd()
-                ->get()->getResultArray();
+                    ->orWhereIn('id', array_map('intval', $numericTokens))
+                ->groupEnd();
+            } else {
+                $classBuilder->whereIn('name', $targetClassTokens);
+            }
+            $matchedClasses = $classBuilder->get()->getResultArray();
 
             foreach ($matchedClasses as $c) {
                 $targetClassIds[] = (int)$c['id'];
