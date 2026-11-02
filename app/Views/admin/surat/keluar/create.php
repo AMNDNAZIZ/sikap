@@ -137,6 +137,28 @@
               </div>
             </div>
 
+            <!-- Opsi KOP Surat & Kode Klasifikasi -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Pencetakan KOP Surat</label>
+              <div class="form-check form-switch mt-1">
+                <input class="form-check-input" type="checkbox" role="switch" name="use_kop" id="use_kop" value="1" checked>
+                <label class="form-check-label small" for="use_kop">
+                  <i class="bi bi-file-earmark-image me-1 text-primary"></i>Cetak KOP Digital Sekolah
+                </label>
+              </div>
+              <small class="text-muted d-block" style="font-size:0.72rem;">
+                Hilangkan centang jika Anda mencetak pada kertas berkop fisik resmi sekolah (blanko cetak dinas).
+              </small>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" for="classification_code">Kode Klasifikasi <span class="text-muted fw-normal">(Kearsipan)</span></label>
+              <input type="text" name="classification_code" id="classification_code" class="form-control font-monospace"
+                     placeholder="cth: PK.01.01 atau 421.2" value="<?= old('classification_code', 'PK.01.01') ?>">
+              <small class="text-muted d-block" style="font-size:0.72rem;">
+                Default: PK.01.01 (atau sesuaikan dengan nomor klasifikasi dinas).
+              </small>
+            </div>
+
             <div class="col-12">
               <label class="form-label fw-semibold" for="subject">Perihal / Keperluan <span class="text-danger">*</span></label>
               <input type="text" name="subject" id="subject" class="form-control"
@@ -169,26 +191,57 @@
             <!-- Detail Data Siswa (Visible & Editable) -->
             <div id="siswa-detail-fields" class="mt-3 p-3 bg-light rounded border" style="display:none;">
               <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="fw-bold mb-0 text-secondary" style="font-size:0.82rem;"><i class="bi bi-card-text me-1"></i>Detail Data Siswa</h6>
-                <small class="text-muted" style="font-size: 0.72rem;">(Auto-filled, dapat diedit jika manual)</small>
+                <h6 class="fw-bold mb-0 text-secondary" style="font-size:0.82rem;"><i class="bi bi-card-text me-1"></i>Detail Data Siswa &amp; Orang Tua</h6>
+                <small class="text-muted" style="font-size: 0.72rem;">(Auto-filled, dapat disesuaikan)</small>
               </div>
               <div class="row g-2">
-                <div class="col-md-6">
+                <div class="col-md-3">
                   <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">NISN</label>
                   <input type="text" name="nisn" id="f_nisn" class="form-control form-control-sm" placeholder="NISN Siswa">
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-3">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">NIS</label>
+                  <input type="text" name="nis" id="f_nis" class="form-control form-control-sm" placeholder="NIS Lokal">
+                </div>
+                <div class="col-md-3">
                   <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">NIK</label>
                   <input type="text" name="nik" id="f_nik" class="form-control form-control-sm" placeholder="NIK Siswa">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Jenis Kelamin</label>
+                  <input type="text" name="gender" id="f_gender" class="form-control form-control-sm" placeholder="Laki-laki / Perempuan">
                 </div>
                 <div class="col-md-6">
                   <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Tempat, Tanggal Lahir</label>
                   <input type="text" name="ttl" id="f_ttl" class="form-control form-control-sm" placeholder="Tempat, YYYY-MM-DD">
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Kelas</label>
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Kelas / Rombel</label>
                   <input type="text" name="kelas" id="f_kelas" class="form-control form-control-sm" placeholder="Kelas Siswa">
                 </div>
+                <!-- Data Orang Tua (Untuk surat keringanan biaya / beasiswa) -->
+                <div class="col-md-4">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Nama Ayah / Wali</label>
+                  <input type="text" name="nama_ayah" id="f_nama_ayah" class="form-control form-control-sm" placeholder="Nama Ayah / Wali">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Pekerjaan Ayah</label>
+                  <input type="text" name="pekerjaan_ayah" id="f_pekerjaan_ayah" class="form-control form-control-sm" placeholder="Pekerjaan">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Penghasilan Ayah</label>
+                  <input type="text" name="penghasilan_ayah" id="f_penghasilan_ayah" class="form-control form-control-sm" placeholder="Penghasilan">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Nama Ibu</label>
+                  <input type="text" name="nama_ibu" id="f_nama_ibu" class="form-control form-control-sm" placeholder="Nama Ibu Kandung">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Pekerjaan Ibu</label>
+                  <input type="text" name="pekerjaan_ibu" id="f_pekerjaan_ibu" class="form-control form-control-sm" placeholder="Pekerjaan Ibu">
+                </div>
+                <input type="hidden" name="nama_wali" id="f_nama_wali">
+                <input type="hidden" name="alamat_ortu" id="f_alamat_ortu">
               </div>
             </div>
           </div>
@@ -206,7 +259,7 @@
             <div id="guru-detail-fields" class="mt-3 p-3 bg-light rounded border" style="display:none;">
               <div class="d-flex justify-content-between align-items-center mb-2">
                 <h6 class="fw-bold mb-0 text-secondary" style="font-size:0.82rem;"><i class="bi bi-card-text me-1"></i>Detail Data Guru</h6>
-                <small class="text-muted" style="font-size: 0.72rem;">(Auto-filled, dapat diedit jika manual)</small>
+                <small class="text-muted" style="font-size: 0.72rem;">(Auto-filled, dapat disesuaikan)</small>
               </div>
               <div class="row g-2">
                 <div class="col-md-6">
@@ -214,10 +267,23 @@
                   <input type="text" name="nip" id="f_nip" class="form-control form-control-sm" placeholder="NIP Guru">
                 </div>
                 <div class="col-md-6">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">NUPTK</label>
+                  <input type="text" name="nuptk" id="f_nuptk" class="form-control form-control-sm" placeholder="NUPTK Guru">
+                </div>
+                <div class="col-md-4">
                   <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Jabatan</label>
                   <input type="text" name="jabatan" id="f_jabatan" class="form-control form-control-sm" placeholder="Jabatan Guru">
                 </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Pangkat / Golongan</label>
+                  <input type="text" name="pangkat_golongan" id="f_pangkat_golongan" class="form-control form-control-sm" placeholder="cth: Penata Muda / III a">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small fw-semibold mb-1" style="font-size: 0.75rem;">Status Kepegawaian</label>
+                  <input type="text" name="status_kepegawaian" id="f_status_kepegawaian" class="form-control form-control-sm" placeholder="PNS / PPPK / Honorer">
+                </div>
               </div>
+            </div>
             </div>
           </div>
 
@@ -549,22 +615,52 @@
 
         <!-- H: Surat Custom / Dinamis -->
         <div class="card border-0 shadow-sm mb-4 dynamic-section" data-type="surat_custom" style="display:none;">
-          <div class="card-header bg-light fw-semibold py-2"><i class="bi bi-envelope-paper-fill me-2"></i>Isi dan Format Surat Custom</div>
-          <div class="card-body row g-3">
+          <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge rounded-circle bg-primary bg-opacity-10 text-primary p-2">
+                <i class="bi bi-envelope-paper-fill fs-6"></i>
+              </span>
+              <div>
+                <h6 class="fw-bold mb-0 text-dark">Format &amp; Isi Surat Dinamis</h6>
+                <small class="text-muted" style="font-size:0.75rem;">Susun isi surat kustom dengan editor visual &amp; bank template naskah dinas</small>
+              </div>
+            </div>
             
+            <!-- Quick Actions Toolbar: Bank Template & Simpan Template -->
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 shadow-xs" id="btn-open-bank-template" data-bs-toggle="modal" data-bs-target="#modal-bank-template">
+                <i class="bi bi-collection me-1"></i>Pilih Template Dinas
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="btn-open-save-template" data-bs-toggle="modal" data-bs-target="#modal-save-template">
+                <i class="bi bi-bookmark-plus me-1"></i>Simpan sbg Template
+              </button>
+              <div id="draft-status-wrapper" class="d-inline-flex align-items-center">
+                <span id="draft-status-pill" class="badge rounded-pill bg-light text-secondary border px-2 py-1" style="font-size:0.72rem;">
+                  <i class="bi bi-check2-circle text-success me-1"></i><span id="draft-status-text">Auto-draft siap</span>
+                </span>
+                <button type="button" class="btn btn-link btn-sm text-decoration-none py-0 px-1 text-primary small" id="btn-restore-draft" style="display:none; font-size:0.72rem;">
+                  Pulihkan
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="card-body row g-3">
+            <input type="hidden" name="template_id" id="selected_template_id" value="">
+
             <div class="col-md-6">
               <label class="form-label fw-semibold">Gaya Header Kop Surat <span class="text-danger">*</span></label>
               <div class="d-flex gap-3 mt-1">
                 <div class="form-check">
                   <input class="form-check-input" type="radio" name="header_style" id="style_tengah" value="tengah" checked>
                   <label class="form-check-label small" for="style_tengah">
-                    <i class="bi bi-align-center me-1"></i>Tengah (Judul di Tengah)
+                    <i class="bi bi-align-center me-1 text-primary"></i>Tengah (Judul di Tengah)
                   </label>
                 </div>
                 <div class="form-check">
                   <input class="form-check-input" type="radio" name="header_style" id="style_kiri_kanan" value="kiri_kanan">
                   <label class="form-check-label small" for="style_kiri_kanan">
-                    <i class="bi bi-columns-gap me-1"></i>Kiri-Kanan (Nomor & Kepada)
+                    <i class="bi bi-columns-gap me-1 text-primary"></i>Kiri-Kanan (Nomor &amp; Kepada)
                   </label>
                 </div>
               </div>
@@ -582,31 +678,101 @@
               </select>
             </div>
 
-            <!-- Placeholders Panel -->
+            <!-- Placeholders Panel (Categorized Tabs) -->
             <div class="col-12">
-              <div class="card border border-primary border-opacity-25 bg-light-subtle">
+              <div class="card border border-secondary-subtle bg-light-subtle rounded-3">
+                <div class="card-header bg-white py-2 px-3 border-bottom">
+                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <small class="fw-bold text-dark d-flex align-items-center">
+                      <i class="bi bi-lightning-charge-fill text-warning me-1"></i>Variabel Data Otomatis (Klik untuk menyisipkan ke kursor editor):
+                    </small>
+                    <ul class="nav nav-pills nav-pills-sm" id="placeholder-tabs" role="tablist">
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link active py-0 px-2" style="font-size:0.75rem;" id="tab-siswa-pill" data-bs-toggle="pill" data-bs-target="#pill-siswa" type="button" role="tab">🎓 Siswa</button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link py-0 px-2" style="font-size:0.75rem;" id="tab-ortu-pill" data-bs-toggle="pill" data-bs-target="#pill-ortu" type="button" role="tab">👨‍👩‍👧 Orang Tua</button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link py-0 px-2" style="font-size:0.75rem;" id="tab-guru-pill" data-bs-toggle="pill" data-bs-target="#pill-guru" type="button" role="tab">👨‍🏫 Guru/Tendik</button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link py-0 px-2" style="font-size:0.75rem;" id="tab-instansi-pill" data-bs-toggle="pill" data-bs-target="#pill-instansi" type="button" role="tab">🏛️ Sekolah</button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link py-0 px-2" style="font-size:0.75rem;" id="tab-surat-pill" data-bs-toggle="pill" data-bs-target="#pill-surat" type="button" role="tab">📅 Surat &amp; Tabel</button>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
                 <div class="card-body py-2 px-3">
-                  <small class="fw-bold text-secondary d-block mb-1"><i class="bi bi-patch-question me-1 text-primary"></i>Klik badge untuk menyisipkan variabel data otomatis (Placeholder):</small>
-                  <div class="d-flex flex-wrap gap-1" id="placeholder-container">
-                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{nama_penerima}" style="font-size:0.75rem;">{nama_penerima}</button>
-                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{nisn}" style="font-size:0.75rem;">{nisn}</button>
-                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{kelas}" style="font-size:0.75rem;">{kelas}</button>
-                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{ttl}" style="font-size:0.75rem;">{ttl}</button>
-                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{nip}" style="font-size:0.75rem;">{nip}</button>
-                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{jabatan}" style="font-size:0.75rem;">{jabatan}</button>
-                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{nomor_surat}" style="font-size:0.75rem;">{nomor_surat}</button>
-                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{tanggal_surat}" style="font-size:0.75rem;">{tanggal_surat}</button>
-                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{tahun_pelajaran}" style="font-size:0.75rem;">{tahun_pelajaran}</button>
-                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{kepala_sekolah}" style="font-size:0.75rem;">{kepala_sekolah}</button>
-                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{nip_kepala_sekolah}" style="font-size:0.75rem;">{nip_kepala_sekolah}</button>
-                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{nama_sekolah}" style="font-size:0.75rem;">{nama_sekolah}</button>
-                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2 placeholder-btn" data-placeholder="{alamat_sekolah}" style="font-size:0.75rem;">{alamat_sekolah}</button>
+                  <div class="tab-content" id="placeholderTabContent">
+                    <!-- Tab Siswa -->
+                    <div class="tab-pane fade show active" id="pill-siswa" role="tabpanel">
+                      <div class="d-flex flex-wrap gap-1">
+                        <button type="button" class="btn btn-outline-primary btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{nama_penerima}" style="font-size:0.73rem;">{nama_penerima}</button>
+                        <button type="button" class="btn btn-outline-primary btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{nisn}" style="font-size:0.73rem;">{nisn}</button>
+                        <button type="button" class="btn btn-outline-primary btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{nis}" style="font-size:0.73rem;">{nis}</button>
+                        <button type="button" class="btn btn-outline-primary btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{nik}" style="font-size:0.73rem;">{nik}</button>
+                        <button type="button" class="btn btn-outline-primary btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{kelas}" style="font-size:0.73rem;">{kelas}</button>
+                        <button type="button" class="btn btn-outline-primary btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{ttl}" style="font-size:0.73rem;">{ttl}</button>
+                        <button type="button" class="btn btn-outline-primary btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{jenis_kelamin}" style="font-size:0.73rem;">{jenis_kelamin}</button>
+                        <button type="button" class="btn btn-outline-primary btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{alamat}" style="font-size:0.73rem;">{alamat}</button>
+                      </div>
+                    </div>
+                    <!-- Tab Ortu -->
+                    <div class="tab-pane fade" id="pill-ortu" role="tabpanel">
+                      <div class="d-flex flex-wrap gap-1">
+                        <button type="button" class="btn btn-outline-warning text-dark btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{nama_ayah}" style="font-size:0.73rem;">{nama_ayah}</button>
+                        <button type="button" class="btn btn-outline-warning text-dark btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{pekerjaan_ayah}" style="font-size:0.73rem;">{pekerjaan_ayah}</button>
+                        <button type="button" class="btn btn-outline-warning text-dark btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{penghasilan_ayah}" style="font-size:0.73rem;">{penghasilan_ayah}</button>
+                        <button type="button" class="btn btn-outline-warning text-dark btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{nama_ibu}" style="font-size:0.73rem;">{nama_ibu}</button>
+                        <button type="button" class="btn btn-outline-warning text-dark btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{pekerjaan_ibu}" style="font-size:0.73rem;">{pekerjaan_ibu}</button>
+                        <button type="button" class="btn btn-outline-warning text-dark btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{nama_wali}" style="font-size:0.73rem;">{nama_wali}</button>
+                        <button type="button" class="btn btn-outline-warning text-dark btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{alamat_ortu}" style="font-size:0.73rem;">{alamat_ortu}</button>
+                      </div>
+                    </div>
+                    <!-- Tab Guru -->
+                    <div class="tab-pane fade" id="pill-guru" role="tabpanel">
+                      <div class="d-flex flex-wrap gap-1">
+                        <button type="button" class="btn btn-outline-success btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{nama_penerima}" style="font-size:0.73rem;">{nama_penerima}</button>
+                        <button type="button" class="btn btn-outline-success btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{nip}" style="font-size:0.73rem;">{nip}</button>
+                        <button type="button" class="btn btn-outline-success btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{nuptk}" style="font-size:0.73rem;">{nuptk}</button>
+                        <button type="button" class="btn btn-outline-success btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{jabatan}" style="font-size:0.73rem;">{jabatan}</button>
+                        <button type="button" class="btn btn-outline-success btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{pangkat_golongan}" style="font-size:0.73rem;">{pangkat_golongan}</button>
+                        <button type="button" class="btn btn-outline-success btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{status_kepegawaian}" style="font-size:0.73rem;">{status_kepegawaian}</button>
+                        <button type="button" class="btn btn-outline-success btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{alamat}" style="font-size:0.73rem;">{alamat}</button>
+                      </div>
+                    </div>
+                    <!-- Tab Sekolah -->
+                    <div class="tab-pane fade" id="pill-instansi" role="tabpanel">
+                      <div class="d-flex flex-wrap gap-1">
+                        <button type="button" class="btn btn-outline-secondary btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{nama_sekolah}" style="font-size:0.73rem;">{nama_sekolah}</button>
+                        <button type="button" class="btn btn-outline-secondary btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{alamat_sekolah}" style="font-size:0.73rem;">{alamat_sekolah}</button>
+                        <button type="button" class="btn btn-outline-secondary btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{kepala_sekolah}" style="font-size:0.73rem;">{kepala_sekolah}</button>
+                        <button type="button" class="btn btn-outline-secondary btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{nip_kepala_sekolah}" style="font-size:0.73rem;">{nip_kepala_sekolah}</button>
+                        <button type="button" class="btn btn-outline-secondary btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{tahun_pelajaran}" style="font-size:0.73rem;">{tahun_pelajaran}</button>
+                      </div>
+                    </div>
+                    <!-- Tab Surat & Tabel -->
+                    <div class="tab-pane fade" id="pill-surat" role="tabpanel">
+                      <div class="d-flex flex-wrap gap-1">
+                        <button type="button" class="btn btn-outline-danger btn-xs py-1 px-2 placeholder-btn rounded-pill fw-semibold" data-placeholder="{tabel_penerima}" style="font-size:0.73rem;" title="Sisipkan tabel multi-penerima otomatis">
+                          <i class="bi bi-table me-1"></i>{tabel_penerima}
+                        </button>
+                        <button type="button" class="btn btn-outline-dark btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{nomor_surat}" style="font-size:0.73rem;">{nomor_surat}</button>
+                        <button type="button" class="btn btn-outline-dark btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{tanggal_surat}" style="font-size:0.73rem;">{tanggal_surat}</button>
+                        <button type="button" class="btn btn-outline-dark btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{hari_tanggal_kegiatan}" style="font-size:0.73rem;">{hari_tanggal_kegiatan}</button>
+                        <button type="button" class="btn btn-outline-dark btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{waktu_kegiatan}" style="font-size:0.73rem;">{waktu_kegiatan}</button>
+                        <button type="button" class="btn btn-outline-dark btn-xs py-1 px-2 placeholder-btn rounded-pill" data-placeholder="{tempat_kegiatan}" style="font-size:0.73rem;">{tempat_kegiatan}</button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- CKEditor -->
+            <!-- CKEditor Container -->
             <div class="col-12">
               <label class="form-label fw-semibold">Isi Surat <span class="text-danger">*</span></label>
 
@@ -629,12 +795,12 @@
 
               <!-- Hidden input to hold the actual value on submit -->
               <input type="hidden" name="body_html" id="body_html_hidden">
-              <div id="editor-surat-custom-container" style="min-height: 300px;">
+              <div id="editor-surat-custom-container" style="min-height: 320px;">
                 <div id="editor-surat-custom"></div>
               </div>
               <small class="text-muted mt-1 d-block" style="font-size:0.73rem;">
                 <i class="bi bi-info-circle me-1"></i>
-                Gunakan <kbd>Shift+Enter</kbd> untuk ganti baris tanpa jarak. Gunakan tombol <strong>Spasi Paragraf</strong> di atas untuk mengatur jarak setiap paragraf secara berbeda.
+                Gunakan <kbd>Shift+Enter</kbd> untuk ganti baris tanpa jarak. Seluruh format dan variabel di atas akan dirender akurat di lembar PDF resmi.
               </small>
             </div>
 
@@ -682,6 +848,137 @@
     </div>
   </div>
 </form>
+
+<!-- Modal Bank Template Surat Dinas -->
+<div class="modal fade" id="modal-bank-template" tabindex="-1" aria-labelledby="modalBankTemplateLabel">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom py-3">
+        <div>
+          <h5 class="modal-title fw-bold" id="modalBankTemplateLabel">
+            <i class="bi bi-collection text-primary me-2"></i>Bank Template Surat Dinas
+          </h5>
+          <small class="text-muted">Pilih template standar naskah dinas sekolah untuk langsung diterapkan ke editor</small>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3 bg-light">
+        <!-- Search & Filter Controls -->
+        <div class="row g-2 mb-3">
+          <div class="col-md-7">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+              <input type="text" id="search-template-input" class="form-control" placeholder="Cari nama template surat...">
+            </div>
+          </div>
+          <div class="col-md-5">
+            <div class="btn-group btn-group-sm w-100" role="group">
+              <button type="button" class="btn btn-outline-secondary btn-template-filter active" data-category="all">Semua</button>
+              <button type="button" class="btn btn-outline-secondary btn-template-filter" data-category="siswa">Siswa</button>
+              <button type="button" class="btn btn-outline-secondary btn-template-filter" data-category="guru">Guru</button>
+              <button type="button" class="btn btn-outline-secondary btn-template-filter" data-category="undangan">Undangan</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Template Cards Grid -->
+        <div class="row g-3" id="template-card-grid">
+          <?php if (!empty($templates)): ?>
+            <?php foreach ($templates as $tpl): ?>
+              <div class="col-md-6 template-item" data-category="<?= esc($tpl['category']) ?>" data-title="<?= esc(strtolower($tpl['title'])) ?>">
+                <div class="card h-100 border-0 shadow-xs rounded-3 p-3 bg-white template-card-hover transition-all">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="badge rounded-pill <?= $tpl['category'] === 'siswa' ? 'bg-primary-subtle text-primary' : ($tpl['category'] === 'guru' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-dark') ?>" style="font-size:0.7rem;">
+                      <?= ucfirst($tpl['category']) ?>
+                    </span>
+                    <?php if ($tpl['is_system']): ?>
+                      <span class="badge rounded-pill bg-light text-muted border" style="font-size:0.68rem;"><i class="bi bi-shield-check me-1"></i>Bawaan Sistem</span>
+                    <?php else: ?>
+                      <span class="badge rounded-pill bg-info-subtle text-info border" style="font-size:0.68rem;"><i class="bi bi-person-check me-1"></i>Kustom Sekolah</span>
+                    <?php endif; ?>
+                  </div>
+                  <h6 class="fw-bold mb-1 text-dark" style="font-size:0.9rem;"><?= esc($tpl['title']) ?></h6>
+                  <p class="text-muted small mb-3" style="font-size:0.75rem;">
+                    Perihal: <em><?= esc($tpl['default_subject']) ?></em><br>
+                    Header: <?= $tpl['header_style'] === 'tengah' ? '📄 Judul Tengah' : '📋 Kiri-Kanan' ?>
+                  </p>
+                  <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top">
+                    <small class="text-muted" style="font-size:0.7rem;">
+                      <i class="bi bi-check2-circle text-success me-1"></i>Format Resmi
+                    </small>
+                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-3 btn-apply-template"
+                            data-id="<?= $tpl['id'] ?>"
+                            data-title="<?= esc($tpl['title']) ?>"
+                            data-subject="<?= esc($tpl['default_subject']) ?>"
+                            data-style="<?= esc($tpl['header_style']) ?>"
+                            data-body="<?= esc($tpl['body_html']) ?>">
+                      <i class="bi bi-check-lg me-1"></i>Terapkan
+                    </button>
+                  </div>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          <?php else: ?>
+            <div class="col-12 text-center py-4 text-muted">
+              <i class="bi bi-folder2-open fs-2 d-block mb-2"></i>
+              Belum ada template surat yang tersedia.
+            </div>
+          <?php endif; ?>
+        </div>
+      </div>
+      <div class="modal-footer border-top py-2">
+        <button type="button" class="btn btn-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Simpan Template Baru -->
+<div class="modal fade" id="modal-save-template" tabindex="-1" aria-labelledby="modalSaveTemplateLabel">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom py-3">
+        <div>
+          <h5 class="modal-title fw-bold" id="modalSaveTemplateLabel">
+            <i class="bi bi-bookmark-plus text-primary me-2"></i>Simpan Naskah Sebagai Template Baru
+          </h5>
+          <small class="text-muted">Simpan draf teks di editor saat ini agar dapat digunakan kembali oleh staf lain</small>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <form id="form-save-template">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Judul Template <span class="text-danger">*</span></label>
+            <input type="text" id="tpl-save-title" class="form-control form-control-sm" placeholder="cth: Surat Keterangan Observasi Mahasiswa" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Kategori Template <span class="text-danger">*</span></label>
+            <select id="tpl-save-category" class="form-select form-select-sm">
+              <option value="siswa">Kesiswaan (Siswa)</option>
+              <option value="guru">Kepegawaian (Guru / Tendik)</option>
+              <option value="undangan">Undangan / Wali Murid</option>
+              <option value="umum">Umum</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Perihal Default <span class="text-danger">*</span></label>
+            <input type="text" id="tpl-save-subject" class="form-control form-control-sm" placeholder="cth: SURAT KETERANGAN OBSERVASI" required>
+          </div>
+          <div class="alert alert-info py-2 small mb-0" style="font-size:0.75rem;">
+            <i class="bi bi-info-circle me-1"></i>Isi surat yang sedang aktif di CKEditor beserta format tata letaknya akan disimpan ke database template sekolah.
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer border-top py-2">
+        <button type="button" class="btn btn-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">Batal</button>
+        <button type="button" class="btn btn-primary btn-sm rounded-pill px-3" id="btn-submit-save-template">
+          <i class="bi bi-check-circle me-1"></i>Simpan Template
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Modal Preview Surat -->
 <div class="modal fade" id="modal-preview-surat" tabindex="-1" aria-labelledby="modalPreviewLabel">
@@ -758,15 +1055,23 @@ function initCKEditor() {
       toolbar: {
         items: [
           'undo', 'redo', '|',
+          'sourceEditing', '|',
           'heading', '|',
-          'bold', 'italic', 'underline', 'strikethrough', '|',
-          'fontSize', 'fontColor', 'fontBackgroundColor', '|',
-          'insertTable', 'blockQuote', 'horizontalLine', '|',
-          'bulletedList', 'numberedList', 'outdent', 'indent', '|',
+          'fontFamily', 'fontSize', 'fontColor', 'fontBackgroundColor', 'highlight', '|',
+          'bold', 'italic', 'underline', 'strikethrough', 'subscript', 'superscript', '|',
           'alignment', '|',
-          'removeFormat'
+          'bulletedList', 'numberedList', 'todoList', 'outdent', 'indent', '|',
+          'insertTable', 'blockQuote', 'specialCharacters', 'horizontalLine', 'pageBreak', '|',
+          'link', 'removeFormat'
         ],
         shouldNotGroupWhenFull: true
+      },
+      list: {
+        properties: {
+          styles: true,
+          startIndex: true,
+          reversed: true
+        }
       },
       table: {
         contentToolbar: [
@@ -778,7 +1083,8 @@ function initCKEditor() {
           { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
           { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
           { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
-          { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
+          { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' },
+          { model: 'heading4', view: 'h4', title: 'Heading 4', class: 'ck-heading_heading4' }
         ]
       },
       removePlugins: [
@@ -791,17 +1097,42 @@ function initCKEditor() {
         'PasteFromOfficeEnhanced', 'CaseChange', 'WideSidebar', 'ExportPdf', 'ExportWord'
       ],
       fontSize: {
-        options: [9, 11, 13, 'default', 17, 19, 21, 24],
+        options: [ 9, 10, 11, 12, 13, 14, 'default', 16, 18, 20, 22, 24, 28, 32 ],
         supportAllValues: true
       },
       fontFamily: {
         options: [
           'default',
           'Arial, Helvetica, sans-serif',
+          'Courier New, Courier, monospace',
+          'Georgia, serif',
+          'Lucida Sans Unicode, Lucida Grande, sans-serif',
+          'Tahoma, Geneva, sans-serif',
           'Times New Roman, Times, serif',
-          'Courier New, Courier, monospace'
+          'Trebuchet MS, Helvetica, sans-serif',
+          'Verdana, Geneva, sans-serif'
         ],
         supportAllValues: true
+      },
+      fontColor: {
+        columns: 5,
+        documentColors: 10
+      },
+      fontBackgroundColor: {
+        columns: 5,
+        documentColors: 10
+      },
+      link: {
+        decorators: {
+          openInNewTab: {
+            mode: 'manual',
+            label: 'Buka di tab baru',
+            attributes: {
+              target: '_blank',
+              rel: 'noopener noreferrer'
+            }
+          }
+        }
       },
       htmlSupport: {
         allow: [{ name: /.*/, attributes: true, classes: true, styles: true }]
@@ -810,7 +1141,7 @@ function initCKEditor() {
     .then(editor => {
       editorInstance = editor;
       editor.editing.view.change(writer => {
-        writer.setStyle('min-height', '320px', editor.editing.view.document.getRoot());
+        writer.setStyle('min-height', '340px', editor.editing.view.document.getRoot());
       });
 
       // Show custom spacing toolbar once editor is ready
@@ -1075,8 +1406,11 @@ $('#recipient_search_siswa').on('input', function() {
       if (data.length > 0) {
         data.forEach(s => {
           list.append(`<a href="#" class="list-group-item list-group-item-action py-2 px-3 small siswa-item"
-            data-id="${s.id}" data-name="${s.name}" data-nisn="${s.nisn}"
-            data-nik="${s.nik}" data-ttl="${s.ttl}" data-kelas="${s.kelas}" data-alamat="${s.alamat}">
+            data-id="${s.id}" data-name="${s.name}" data-nisn="${s.nisn}" data-nis="${s.nis || ''}"
+            data-nik="${s.nik || ''}" data-gender="${s.gender || ''}" data-ttl="${s.ttl || ''}" data-kelas="${s.kelas || ''}"
+            data-alamat="${s.alamat || ''}" data-ayah="${s.nama_ayah || ''}" data-job-ayah="${s.pekerjaan_ayah || ''}"
+            data-inc-ayah="${s.penghasilan_ayah || ''}" data-ibu="${s.nama_ibu || ''}" data-job-ibu="${s.pekerjaan_ibu || ''}"
+            data-wali="${s.nama_wali || ''}" data-alamat-ortu="${s.alamat_ortu || ''}">
             <i class="bi bi-person me-2"></i><strong>${s.name}</strong> <span class="text-muted ms-1">(NISN: ${s.nisn} - Kelas: ${s.kelas})</span>
           </a>`);
         });
@@ -1096,10 +1430,19 @@ $(document).on('click', '.siswa-item', function(e) {
   const name = d.name || item.attr('data-name');
   const id = d.id || item.attr('data-id');
   const nisn = d.nisn || item.attr('data-nisn') || '';
+  const nis = d.nis || item.attr('data-nis') || '';
   const nik = d.nik || item.attr('data-nik') || '';
+  const gender = d.gender || item.attr('data-gender') || '';
   const ttl = d.ttl || item.attr('data-ttl') || '';
   const kelas = d.kelas || item.attr('data-kelas') || '';
   const alamat = d.alamat || item.attr('data-alamat') || '';
+  const ayah = d.ayah || item.attr('data-ayah') || '';
+  const jobAyah = d.jobAyah || item.attr('data-job-ayah') || '';
+  const incAyah = d.incAyah || item.attr('data-inc-ayah') || '';
+  const ibu = d.ibu || item.attr('data-ibu') || '';
+  const jobIbu = d.jobIbu || item.attr('data-job-ibu') || '';
+  const wali = d.wali || item.attr('data-wali') || '';
+  const alamatOrtu = d.alamatOrtu || item.attr('data-alamat-ortu') || alamat;
 
   $('#recipient_name').val(name);
   $('#recipient_ref_id').val(id);
@@ -1107,10 +1450,19 @@ $(document).on('click', '.siswa-item', function(e) {
   $('#siswa-autocomplete-result').empty().hide();
   
   $('#f_nisn').val(nisn);
+  $('#f_nis').val(nis);
   $('#f_nik').val(nik);
+  $('#f_gender').val(gender);
   $('#f_ttl').val(ttl);
   $('#f_kelas').val(kelas);
   $('#f_alamat').val(alamat);
+  $('#f_nama_ayah').val(ayah);
+  $('#f_pekerjaan_ayah').val(jobAyah);
+  $('#f_penghasilan_ayah').val(incAyah);
+  $('#f_nama_ibu').val(ibu);
+  $('#f_pekerjaan_ibu').val(jobIbu);
+  $('#f_nama_wali').val(wali);
+  $('#f_alamat_ortu').val(alamatOrtu);
   
   // Prefill dynamic sections if present
   $('input[name="alamat_domisili"]').val(alamat);
@@ -1149,7 +1501,9 @@ $('#recipient_search_guru').on('input', function() {
         data.forEach(t => {
           list.append(`<a href="#" class="list-group-item list-group-item-action py-2 px-3 small guru-item"
             data-id="${t.id}" data-name="${t.name}" data-nip="${t.nip}"
-            data-nik="${t.nik}" data-jabatan="${t.jabatan}" data-phone="${t.phone}" data-address="${t.address}">
+            data-nik="${t.nik}" data-nuptk="${t.nuptk || ''}" data-jabatan="${t.jabatan}"
+            data-pangkat="${t.pangkat_golongan || ''}" data-status="${t.status_kepegawaian || ''}"
+            data-phone="${t.phone}" data-address="${t.address}">
             <i class="bi bi-person-badge me-2"></i><strong>${t.name}</strong> <span class="text-muted ms-1">(NIP: ${t.nip || '-'} - ${t.jabatan})</span>
           </a>`);
         });
@@ -1170,7 +1524,10 @@ $(document).on('click', '.guru-item', function(e) {
   const id = d.id || item.attr('data-id');
   const nip = d.nip || item.attr('data-nip') || '';
   const nik = d.nik || item.attr('data-nik') || '';
+  const nuptk = d.nuptk || item.attr('data-nuptk') || '';
   const jabatan = d.jabatan || item.attr('data-jabatan') || 'Guru';
+  const pangkat = d.pangkat || item.attr('data-pangkat') || '';
+  const status = d.status || item.attr('data-status') || '';
   const phone = d.phone || item.attr('data-phone') || '';
   const address = d.address || item.attr('data-address') || '';
 
@@ -1180,7 +1537,10 @@ $(document).on('click', '.guru-item', function(e) {
   $('#guru-autocomplete-result').empty().hide();
   
   $('#f_nip').val(nip);
+  $('#f_nuptk').val(nuptk);
   $('#f_jabatan').val(jabatan);
+  $('#f_pangkat_golongan').val(pangkat);
+  $('#f_status_kepegawaian').val(status);
 
   // Auto pre-fill sub-form fields for Keterangan Mengajar
   $('input[name="nik_guru"]').val(nik);
@@ -1549,6 +1909,10 @@ $(document).on('click', '.placeholder-btn', function(e) {
   e.preventDefault();
   const placeholder = $(this).data('placeholder');
   if (editorInstance) {
+    if (editorInstance.plugins.has('SourceEditing') && editorInstance.plugins.get('SourceEditing').isSourceEditingMode) {
+      alert('Kembalikan ke mode visual terlebih dahulu (klik tombol </> Source pada toolbar) untuk menyisipkan variabel.');
+      return;
+    }
     editorInstance.model.change(writer => {
       const insertPosition = editorInstance.model.document.selection.getFirstPosition();
       if (insertPosition) {
@@ -1572,6 +1936,283 @@ $('#form-surat-keluar').on('submit', function(e) {
       return false;
     }
   }
+});
+
+// ─── Bank Template & Auto-Draft Handlers ─────────────────────────────────────
+
+// Toast Notification Helper (Minimalist & High-end)
+function showToastNotification(msg, type = 'success') {
+  let toastContainer = document.getElementById('sikap-toast-container');
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.id = 'sikap-toast-container';
+    toastContainer.style.position = 'fixed';
+    toastContainer.style.bottom = '24px';
+    toastContainer.style.right = '24px';
+    toastContainer.style.zIndex = '99999';
+    toastContainer.style.display = 'flex';
+    toastContainer.style.flexDirection = 'column';
+    toastContainer.style.gap = '8px';
+    document.body.appendChild(toastContainer);
+  }
+
+  const toast = document.createElement('div');
+  const bgClass = type === 'success' ? 'bg-dark text-white' : (type === 'info' ? 'bg-primary text-white' : 'bg-danger text-white');
+  toast.className = `p-3 rounded-3 shadow-lg ${bgClass} d-flex align-items-center gap-2`;
+  toast.style.fontSize = '0.85rem';
+  toast.style.minWidth = '280px';
+  toast.style.transition = 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+  toast.style.boxShadow = '0 12px 30px -4px rgba(0, 0, 0, 0.25)';
+  const icon = type === 'success' ? 'check-circle-fill text-success' : (type === 'info' ? 'info-circle-fill text-info' : 'exclamation-circle-fill text-warning');
+  toast.innerHTML = `<i class="bi bi-${icon} fs-5"></i> <div>${msg}</div>`;
+
+  toastContainer.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(12px)';
+    setTimeout(() => toast.remove(), 350);
+  }, 3800);
+}
+
+// 1. Filter Kategori Template di Modal
+$('.btn-template-filter').on('click', function() {
+  $('.btn-template-filter').removeClass('active btn-primary').addClass('btn-outline-secondary');
+  $(this).addClass('active btn-primary').removeClass('btn-outline-secondary');
+  const cat = $(this).data('category');
+  filterTemplates(cat, $('#search-template-input').val().toLowerCase().trim());
+});
+
+// 2. Search Input Template di Modal
+$('#search-template-input').on('input', function() {
+  const cat = $('.btn-template-filter.active').data('category') || 'all';
+  filterTemplates(cat, $(this).val().toLowerCase().trim());
+});
+
+function filterTemplates(cat, search) {
+  let visibleCount = 0;
+  $('.template-item').each(function() {
+    const itemCat = $(this).data('category');
+    const itemTitle = $(this).data('title') || '';
+    const matchCat = (cat === 'all' || itemCat === cat);
+    const matchSearch = (!search || itemTitle.includes(search));
+    if (matchCat && matchSearch) {
+      $(this).show();
+      visibleCount++;
+    } else {
+      $(this).hide();
+    }
+  });
+
+  if (visibleCount === 0) {
+    if (!$('#empty-template-filter-msg').length) {
+      $('#template-card-grid').append(`
+        <div class="col-12 text-center py-4 text-muted" id="empty-template-filter-msg">
+          <i class="bi bi-search fs-3 d-block mb-2 text-secondary opacity-50"></i>
+          Tidak ada template yang cocok dengan pencarian / filter ini.
+        </div>
+      `);
+    } else {
+      $('#empty-template-filter-msg').show();
+    }
+  } else {
+    $('#empty-template-filter-msg').hide();
+  }
+}
+
+// 3. Terapkan Template ke Editor
+$(document).on('click', '.btn-apply-template', function() {
+  const id      = $(this).data('id');
+  const title   = $(this).data('title');
+  const subject = $(this).data('subject');
+  const style   = $(this).data('style') || 'tengah';
+  const body    = $(this).data('body') || '';
+
+  if (editorInstance && editorInstance.getData().trim().length > 20) {
+    if (!confirm(`Terapkan template "${title}"?\nPerhatian: Isi teks di editor saat ini akan ditimpa dengan draf template.`)) {
+      return;
+    }
+  }
+
+  // Set subject, template_id, dan header style
+  if (subject) $('#subject').val(subject);
+  $('#selected_template_id').val(id);
+  $(`input[name="header_style"][value="${style}"]`).prop('checked', true);
+
+  // Set editor body
+  if (editorInstance) {
+    editorInstance.setData(body);
+  }
+
+  // Tutup modal
+  const modalEl = document.getElementById('modal-bank-template');
+  const modal = bootstrap.Modal.getInstance(modalEl);
+  if (modal) modal.hide();
+
+  showToastNotification(`Template <strong>${escHtml(title)}</strong> berhasil diterapkan!`, 'success');
+});
+
+// 4. Simpan Sebagai Template Baru
+$('#btn-submit-save-template').on('click', function() {
+  const title    = $('#tpl-save-title').val().trim();
+  const category = $('#tpl-save-category').val();
+  const subject  = $('#tpl-save-subject').val().trim();
+  const style    = $('input[name="header_style"]:checked').val() || 'tengah';
+  const body     = editorInstance ? editorInstance.getData() : '';
+
+  if (!title) {
+    alert('Judul template naskah wajib diisi.');
+    $('#tpl-save-title').focus();
+    return;
+  }
+  if (!subject) {
+    alert('Perihal default wajib diisi.');
+    $('#tpl-save-subject').focus();
+    return;
+  }
+  if (!body.trim() || body.trim() === '<p>&nbsp;</p>') {
+    alert('Isi surat di editor masih kosong. Tulis draf naskah terlebih dahulu sebelum disimpan.');
+    return;
+  }
+
+  const btn = $(this);
+  btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Menyimpan...');
+
+  const csrfName = typeof CSRF_NAME !== 'undefined' ? CSRF_NAME : '<?= csrf_token() ?>';
+  const csrfHash = typeof CSRF_HASH !== 'undefined' ? CSRF_HASH : ($('meta[name="<?= csrf_token() ?>"]').attr('content') || '<?= csrf_hash() ?>');
+
+  $.ajax({
+    url: '<?= base_url('admin/surat-keluar/template/save') ?>',
+    type: 'POST',
+    data: {
+      title: title,
+      category: category,
+      header_style: style,
+      default_subject: subject,
+      body_html: body,
+      [csrfName]: csrfHash
+    },
+    dataType: 'json',
+    success: function(res) {
+      btn.prop('disabled', false).html('<i class="bi bi-check-circle me-1"></i>Simpan Template');
+      if (res.status === 'success') {
+        const saveModal = bootstrap.Modal.getInstance(document.getElementById('modal-save-template'));
+        if (saveModal) saveModal.hide();
+        $('#form-save-template')[0].reset();
+
+        const t = res.template;
+        const catBadge = t.category === 'siswa' ? 'bg-primary-subtle text-primary' : (t.category === 'guru' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-dark');
+        const styleLabel = t.header_style === 'tengah' ? '📄 Judul Tengah' : '📋 Kiri-Kanan';
+        
+        const cardHtml = `
+          <div class="col-md-6 template-item" data-category="${escHtml(t.category)}" data-title="${escHtml(t.title.toLowerCase())}">
+            <div class="card h-100 border-0 shadow-xs rounded-3 p-3 bg-white template-card-hover transition-all">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <span class="badge rounded-pill ${catBadge}" style="font-size:0.7rem;">${escHtml(t.category.toUpperCase())}</span>
+                <span class="badge rounded-pill bg-info-subtle text-info border" style="font-size:0.68rem;"><i class="bi bi-person-check me-1"></i>Kustom Sekolah</span>
+              </div>
+              <h6 class="fw-bold mb-1 text-dark" style="font-size:0.9rem;">${escHtml(t.title)}</h6>
+              <p class="text-muted small mb-3" style="font-size:0.75rem;">
+                Perihal: <em>${escHtml(t.default_subject)}</em><br>
+                Header: ${styleLabel}
+              </p>
+              <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top">
+                <small class="text-muted" style="font-size:0.7rem;"><i class="bi bi-check2-circle text-success me-1"></i>Format Resmi</small>
+                <button type="button" class="btn btn-primary btn-sm rounded-pill px-3 btn-apply-template"
+                        data-id="${t.id}"
+                        data-title="${escHtml(t.title)}"
+                        data-subject="${escHtml(t.default_subject)}"
+                        data-style="${escHtml(t.header_style)}"
+                        data-body="${escHtml(t.body_html)}">
+                  <i class="bi bi-check-lg me-1"></i>Terapkan
+                </button>
+              </div>
+            </div>
+          </div>`;
+        $('#template-card-grid').prepend(cardHtml);
+        showToastNotification(res.message, 'success');
+      } else {
+        alert(res.message || 'Gagal menyimpan template.');
+      }
+    },
+    error: function(xhr) {
+      btn.prop('disabled', false).html('<i class="bi bi-check-circle me-1"></i>Simpan Template');
+      let msg = 'Terjadi kendala saat menyimpan template.';
+      if (xhr.responseJSON && xhr.responseJSON.errors) {
+        msg = Object.values(xhr.responseJSON.errors).join('\n');
+      }
+      alert(msg);
+    }
+  });
+});
+
+// 5. Auto-Draft via localStorage (Penyimpanan Draf Otomatis)
+const DRAFT_KEY = 'sikap_surat_custom_draft';
+
+function initAutoDraft() {
+  const saved = localStorage.getItem(DRAFT_KEY);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed.body_html && parsed.body_html.trim().length > 15) {
+        $('#btn-restore-draft').show();
+        $('#draft-status-pill').removeClass('bg-light text-secondary').addClass('bg-warning-subtle text-warning border-warning');
+        $('#draft-status-text').html(`Ada draf (${parsed.time_label || 'sebelumnya'})`);
+      }
+    } catch (e) {
+      console.warn('Draft parsing warning:', e);
+    }
+  }
+
+  $('#btn-restore-draft').on('click', function() {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    try {
+      const d = JSON.parse(raw);
+      if (d.subject && !$('#subject').val()) $('#subject').val(d.subject);
+      if (d.header_style) $(`input[name="header_style"][value="${d.header_style}"]`).prop('checked', true);
+      if (editorInstance && d.body_html) {
+        editorInstance.setData(d.body_html);
+      }
+      $('#btn-restore-draft').hide();
+      $('#draft-status-pill').removeClass('bg-warning-subtle text-warning border-warning').addClass('bg-success-subtle text-success border-success');
+      $('#draft-status-text').text('Draf dipulihkan');
+      showToastNotification('Draf lokal berhasil dipulihkan ke editor!', 'info');
+    } catch (e) {
+      alert('Gagal memulihkan draf tersimpan.');
+    }
+  });
+
+  // Autosave setiap 10 detik jika sedang di mode surat_custom
+  setInterval(() => {
+    if (selectedType !== 'surat_custom' || !editorInstance) return;
+    const bodyData = editorInstance.getData();
+    if (!bodyData || bodyData.trim().length < 15) return;
+
+    const now = new Date();
+    const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ':' + String(now.getSeconds()).padStart(2, '0');
+    const draftPayload = {
+      subject: $('#subject').val(),
+      header_style: $('input[name="header_style"]:checked').val() || 'tengah',
+      body_html: bodyData,
+      time_label: timeStr,
+      saved_at: Date.now()
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draftPayload));
+    $('#draft-status-pill').removeClass('bg-warning-subtle text-warning border-warning').addClass('bg-light text-secondary');
+    $('#draft-status-text').text(`Tersimpan lokal ${timeStr}`);
+  }, 10000);
+
+  // Bersihkan draft jika submit berhasil
+  $('#form-surat-keluar').on('submit', function() {
+    if (selectedType === 'surat_custom') {
+      localStorage.removeItem(DRAFT_KEY);
+    }
+  });
+}
+
+// Inisialisasi Auto-Draft saat halaman siap
+$(document).ready(function() {
+  initAutoDraft();
 });
 
 // Toggle manual vs auto letter number input
@@ -1647,17 +2288,26 @@ $('#btn-preview-surat').on('click', function() {
 
   const tanggalSurat = formatIndoDate(issuedAt);
 
-  // ── Render KOP ──
+  // ── Render KOP (Respect use_kop switch) ──
+  const useKop = $('#use_kop').is(':checked');
   let kopHtml = '';
-  if (KOP_BASE64) {
-    kopHtml = `<div style="width:100%;text-align:center;margin-bottom:4px;">
-                 <img src="${KOP_BASE64}" style="width:100%;height:auto;display:block;margin:0 auto;">
-               </div>
-               <div style="border-top:2px solid #000;margin-top:5px;margin-bottom:20px;"></div>`;
+  if (useKop) {
+    if (KOP_BASE64) {
+      kopHtml = `<div style="width:100%;text-align:center;margin-bottom:4px;">
+                   <img src="${KOP_BASE64}" style="width:100%;height:auto;display:block;margin:0 auto;">
+                 </div>
+                 <div style="border-top:2px solid #000;margin-top:5px;margin-bottom:20px;"></div>`;
+    } else {
+      kopHtml = `<div style="border:1px dashed #bbb;padding:15px;text-align:center;color:#aaa;margin-bottom:20px;font-family:Arial,sans-serif;font-size:12px;">
+                   [KOP Surat — ${escHtml(SCHOOL_NAME)}]<br><small>KOP belum di-upload di pengaturan sekolah</small>
+                 </div>`;
+    }
   } else {
-    kopHtml = `<div style="border:1px dashed #bbb;padding:15px;text-align:center;color:#aaa;margin-bottom:20px;font-family:Arial,sans-serif;font-size:12px;">
-                 [KOP Surat — ${escHtml(SCHOOL_NAME)}]<br><small>KOP belum di-upload di pengaturan sekolah</small>
-               </div>`;
+    kopHtml = `
+      <div style="height:3.5cm; border:1px dashed #cbd5e1; background:#f8fafc; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#64748b; font-size:12px; margin-bottom:24px; font-family:Arial,sans-serif; padding:12px;">
+        <div style="font-weight:bold; display:flex; align-items:center; margin-bottom:4px;"><i class="bi bi-printer me-2 fs-5"></i>Margin Atas 3.5 cm (Kertas Kop Cetak Fisik)</div>
+        <div style="font-size:11px; opacity:0.85;">KOP digital tidak dicetak agar pas dengan blanko kop naskah dinas resmi sekolah.</div>
+      </div>`;
   }
 
   let headerHtml = '';
@@ -1676,22 +2326,129 @@ $('#btn-preview-surat').on('click', function() {
       recNameForPlaceholder = recNameForPlaceholder.split(/\s*\|\s*/).filter(Boolean).join(', ');
     }
 
+    // Extended recipient fields
+    const nis         = $('#f_nis').val() || '-';
+    const nik         = $('#f_nik').val() || '-';
+    const gender      = $('#f_gender').val() || '-';
+    const namaAyah    = $('#f_nama_ayah').val() || '-';
+    const pekAyah     = $('#f_pekerjaan_ayah').val() || '-';
+    const hasilAyah   = $('#f_penghasilan_ayah').val() || '-';
+    const namaIbu     = $('#f_nama_ibu').val() || '-';
+    const pekIbu      = $('#f_pekerjaan_ibu').val() || '-';
+    const namaWali    = $('#f_nama_wali').val() || '-';
+    const alamatOrtu  = $('#f_alamat_ortu').val() || (alamat !== '-' ? alamat : '-');
+
+    // Extended teacher fields
+    const nuptk       = $('#f_nuptk').val() || '-';
+    const pangkatGol  = $('#f_pangkat_golongan').val() || '-';
+    const statusPeg   = $('#f_status_kepegawaian').val() || '-';
+
+    // Kegiatan & Tanggal fields
+    const eventDate   = $('input[name="event_date"]').val() || $('input[name="activity_date"]').val();
+    const eventDay    = $('input[name="event_day"]').val() || '';
+    const hariTgl     = eventDate ? (eventDay ? eventDay + ', ' : '') + formatIndoDate(eventDate) : '-';
+    const eventTime   = $('input[name="event_time"]').val() || $('input[name="activity_time"]').val() || '-';
+    const eventVenue  = $('input[name="event_venue"]').val() || $('input[name="activity_venue"]').val() || '-';
+
+    // Generate {tabel_penerima} for preview
+    let tabelPenerimaHtml = '';
+    const rtype = $('#custom_recipient_type').val();
+    if (rtype === 'multi_guru') {
+      let rows = '';
+      $('#multi-guru-tags .multi-guru-pill').each(function(idx) {
+        const name    = $(this).data('name') || '-';
+        const nipVal  = $(this).data('nip') || '-';
+        const nuptkVal= $(this).data('nuptk') || '-';
+        const jabVal  = $(this).data('jabatan') || '-';
+        const pgtVal  = $(this).data('pangkat') || '-';
+        const code    = nipVal !== '-' ? nipVal : (nuptkVal !== '-' ? nuptkVal : '-');
+        rows += `<tr>
+          <td style="text-align:center; padding:5px 6px;">${idx + 1}</td>
+          <td style="padding:5px 6px;"><strong>${escHtml(name)}</strong></td>
+          <td style="text-align:center; padding:5px 6px;">${escHtml(code)}</td>
+          <td style="padding:5px 6px;">${escHtml(pgtVal)}</td>
+          <td style="padding:5px 6px;">${escHtml(jabVal)}</td>
+        </tr>`;
+      });
+      tabelPenerimaHtml = `
+        <table style="width:100%; border-collapse:collapse; margin:14px 0; font-size:13px;" border="1">
+          <thead><tr style="background:#f2f2f2;"><th style="width:32px; text-align:center; padding:5px;">No</th><th style="padding:5px;">Nama Lengkap</th><th style="text-align:center; padding:5px;">NIP / NUPTK</th><th style="padding:5px;">Pangkat/Gol</th><th style="padding:5px;">Jabatan</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5" style="text-align:center; padding:8px; color:#888;">(Belum ada guru yang ditambahkan)</td></tr>'}</tbody>
+        </table>`;
+    } else if (rtype === 'multi_siswa') {
+      let rows = '';
+      $('#multi-siswa-tags .multi-siswa-pill').each(function(idx) {
+        const name    = $(this).data('name') || '-';
+        const nisnVal = $(this).data('nisn') || '-';
+        const nisVal  = $(this).data('nis') || '-';
+        const klsVal  = $(this).data('kelas') || '-';
+        const ttlVal  = $(this).data('ttl') || '-';
+        const code    = nisnVal !== '-' ? nisnVal : (nisVal !== '-' ? nisVal : '-');
+        rows += `<tr>
+          <td style="text-align:center; padding:5px 6px;">${idx + 1}</td>
+          <td style="padding:5px 6px;"><strong>${escHtml(name)}</strong></td>
+          <td style="text-align:center; padding:5px 6px;">${escHtml(code)}</td>
+          <td style="text-align:center; padding:5px 6px;">${escHtml(klsVal)}</td>
+          <td style="padding:5px 6px;">${escHtml(ttlVal)}</td>
+        </tr>`;
+      });
+      tabelPenerimaHtml = `
+        <table style="width:100%; border-collapse:collapse; margin:14px 0; font-size:13px;" border="1">
+          <thead><tr style="background:#f2f2f2;"><th style="width:32px; text-align:center; padding:5px;">No</th><th style="padding:5px;">Nama Siswa</th><th style="text-align:center; padding:5px;">NISN / NIS</th><th style="text-align:center; padding:5px;">Kelas</th><th style="padding:5px;">Tempat, Tgl Lahir</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5" style="text-align:center; padding:8px; color:#888;">(Belum ada siswa yang ditambahkan)</td></tr>'}</tbody>
+        </table>`;
+    } else if (rtype === 'eksternal') {
+      const rawText = $('#recipient_name_eksternal').val() || '';
+      const lines = rawText.split('\n').map(s => s.trim()).filter(Boolean);
+      let rows = '';
+      lines.forEach((line, idx) => {
+        rows += `<tr>
+          <td style="text-align:center; padding:5px 6px;">${idx + 1}</td>
+          <td style="padding:5px 6px;">${escHtml(line)}</td>
+        </tr>`;
+      });
+      tabelPenerimaHtml = `
+        <table style="width:100%; border-collapse:collapse; margin:14px 0; font-size:13px;" border="1">
+          <thead><tr style="background:#f2f2f2;"><th style="width:36px; text-align:center; padding:5px;">No</th><th style="padding:5px;">Nama / Instansi Penerima</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="2" style="text-align:center; padding:8px; color:#888;">(Belum ada daftar penerima)</td></tr>'}</tbody>
+        </table>`;
+    }
+
     // Ganti semua placeholder
     let processedBody = rawBodyHtml;
     const map = {
-      '{nama_penerima}':      recNameForPlaceholder,
-      '{nisn}':               nisn,
-      '{kelas}':              kelas,
-      '{ttl}':                ttl,
-      '{nip}':                nip,
-      '{jabatan}':            jabatan,
-      '{nomor_surat}':        displayLetterNo,
-      '{tanggal_surat}':      tanggalSurat,
-      '{tahun_pelajaran}':    ACTIVE_YEAR || '-',
-      '{kepala_sekolah}':     PRINCIPAL_NAME || '-',
-      '{nip_kepala_sekolah}': PRINCIPAL_NIP  || '-',
-      '{nama_sekolah}':       SCHOOL_NAME    || '-',
-      '{alamat_sekolah}':     SCHOOL_ADDRESS || '-',
+      '{nama_penerima}':        recNameForPlaceholder,
+      '{nisn}':                 nisn,
+      '{nis}':                  nis,
+      '{nik}':                  nik,
+      '{jenis_kelamin}':        gender,
+      '{kelas}':                kelas,
+      '{ttl}':                  ttl,
+      '{alamat}':               alamat,
+      '{nama_ayah}':            namaAyah,
+      '{pekerjaan_ayah}':       pekAyah,
+      '{penghasilan_ayah}':     hasilAyah,
+      '{nama_ibu}':             namaIbu,
+      '{pekerjaan_ibu}':        pekIbu,
+      '{nama_wali}':            namaWali,
+      '{alamat_ortu}':          alamatOrtu,
+      '{nip}':                  nip,
+      '{nuptk}':                nuptk,
+      '{jabatan}':              jabatan,
+      '{pangkat_golongan}':     pangkatGol,
+      '{status_kepegawaian}':   statusPeg,
+      '{nomor_surat}':          displayLetterNo,
+      '{tanggal_surat}':        tanggalSurat,
+      '{tahun_pelajaran}':      ACTIVE_YEAR || '-',
+      '{kepala_sekolah}':       PRINCIPAL_NAME || '-',
+      '{nip_kepala_sekolah}':   PRINCIPAL_NIP  || '-',
+      '{nama_sekolah}':         SCHOOL_NAME    || '-',
+      '{alamat_sekolah}':       SCHOOL_ADDRESS || '-',
+      '{hari_tanggal_kegiatan}':hariTgl,
+      '{waktu_kegiatan}':        eventTime,
+      '{tempat_kegiatan}':       eventVenue,
+      '{sifat}':                 sifat,
+      '{tabel_penerima}':        tabelPenerimaHtml,
     };
     for (const [key, val] of Object.entries(map)) {
       processedBody = processedBody.split(key).join(val);
@@ -2122,6 +2879,25 @@ $('#btn-preview-surat').on('click', function() {
       #preview-body-area table.data-tabel, #preview-body-area table.data-tabel td { border: none !important; padding: 2px 0 !important; }
       #preview-body-area table.data-tabel td.label { width: 160px; }
       #preview-body-area table.data-tabel td.colon { width: 14px; text-align: center; }
+      #preview-body-area .page-break {
+        border-top: 2px dashed #94a3b8;
+        margin: 24px 0;
+        position: relative;
+        text-align: center;
+      }
+      #preview-body-area .page-break::after {
+        content: "--- Batas Halaman Cetak (Page Break) ---";
+        font-size: 11px;
+        color: #64748b;
+        background: #fff;
+        padding: 0 10px;
+        position: relative;
+        top: -9px;
+      }
+      #preview-body-area sub { vertical-align: sub; font-size: 0.8em; }
+      #preview-body-area sup { vertical-align: super; font-size: 0.8em; }
+      #preview-body-area .todo-list { list-style-type: none; padding-left: 5px; }
+      #preview-body-area .todo-list li { margin-bottom: 4px; }
     </style>`;
 
   // ── Inject ke modal ──
@@ -2137,5 +2913,40 @@ $('#btn-preview-surat').on('click', function() {
 $('#btn-from-preview-submit').on('click', function() {
   $('#btn-submit-surat').trigger('click');
 });
+
+<?php if (!empty($duplicated_letter)): ?>
+// Pre-fill data duplikasi surat
+$(document).ready(function() {
+  const dupType = <?= json_encode($duplicated_letter['letter_type'] ?? '') ?>;
+  if (dupType) {
+    const radio = $(`input[name="letter_type"][value="${dupType}"]`);
+    if (radio.length) {
+      radio.prop('checked', true).trigger('change');
+    }
+  }
+  $('#subject').val(<?= json_encode($duplicated_letter['subject'] ?? '') ?>);
+  $('#sifat').val(<?= json_encode($duplicated_letter['sifat'] ?? 'Biasa') ?>);
+  $('#classification_code').val(<?= json_encode($duplicated_letter['classification_code'] ?? '') ?>);
+  const useKopVal = <?= json_encode((int)($duplicated_letter['use_kop'] ?? 1)) ?>;
+  $('#use_kop').prop('checked', useKopVal === 1);
+
+  <?php if (($duplicated_letter['letter_type'] ?? '') === 'surat_custom'): ?>
+    const dupBody = <?= json_encode($duplicated_letter['letter_data']['body_html'] ?? '') ?>;
+    const dupStyle = <?= json_encode($duplicated_letter['letter_data']['header_style'] ?? 'tengah') ?>;
+    $(`input[name="header_style"][value="${dupStyle}"]`).prop('checked', true);
+    
+    let ckAttempts = 0;
+    const checkCk = setInterval(() => {
+      ckAttempts++;
+      if (editorInstance) {
+        editorInstance.setData(dupBody);
+        clearInterval(checkCk);
+      } else if (ckAttempts > 30) {
+        clearInterval(checkCk);
+      }
+    }, 150);
+  <?php endif; ?>
+});
+<?php endif; ?>
 </script>
 <?= $this->endSection() ?>
