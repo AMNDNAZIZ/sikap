@@ -1,39 +1,56 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
+<style>
+  .transition-all {
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  .hover-translate-y:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px -10px rgba(15, 23, 42, 0.08) !important;
+  }
+  .btn:active {
+    transform: scale(0.98) !important;
+  }
+</style>
+
 <?php
 $typeName = $letter_types[$letter['letter_type']] ?? $letter['letter_type'];
 $ld = $letter['letter_data'] ?? [];
 $isRevoked = $letter['status'] === 'revoked';
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+<!-- ===== TOP HEADER ===== -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
   <div>
-    <h2 class="h4 fw-bold mb-0">
-      <i class="bi bi-envelope-paper me-2 text-primary"></i><?= esc($letter['letter_number']) ?>
+    <div class="d-inline-flex align-items-center gap-1.5 px-2.5 py-0.5 rounded-pill bg-primary-subtle text-primary border border-primary-subtle text-uppercase tracking-wider fw-semibold mb-1" style="font-size:0.65rem; letter-spacing:0.06em;">
+      <i class="bi bi-file-earmark-check"></i> Lembar Verifikasi Naskah
+    </div>
+    <h2 class="h4 fw-bold mb-0 text-dark font-monospace">
+      <?= esc($letter['letter_number']) ?>
     </h2>
-    <small class="text-muted"><?= esc($typeName) ?></small>
+    <small class="text-muted"><?= esc($typeName) ?> &bull; Diterbitkan <?= date('d F Y', strtotime($letter['issued_at'])) ?></small>
   </div>
   <div class="d-flex gap-2 flex-wrap">
-    <a href="<?= base_url('admin/surat-keluar') ?>" class="btn btn-outline-secondary btn-sm">
+    <a href="<?= base_url('admin/surat-keluar') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-xs">
       <i class="bi bi-arrow-left me-1"></i>Kembali
     </a>
     <?php if (!$isRevoked): ?>
       <a href="<?= base_url('admin/surat-keluar/edit/' . $letter['id']) ?>"
-         class="btn btn-primary btn-sm">
+         class="btn btn-primary btn-sm rounded-pill px-3 shadow-xs">
         <i class="bi bi-pencil-square me-1"></i>Edit Surat
       </a>
       <a href="<?= base_url('admin/surat-keluar/download/' . $letter['id']) ?>"
-         class="btn btn-success btn-sm" id="btn-download-pdf">
+         class="btn btn-success btn-sm rounded-pill px-3 shadow-xs" id="btn-download-pdf">
         <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
       </a>
     <?php endif; ?>
     <a href="<?= base_url('admin/surat-keluar/duplicate/' . $letter['id']) ?>"
-       class="btn btn-outline-primary btn-sm">
+       class="btn btn-outline-primary btn-sm rounded-pill px-3 shadow-xs">
       <i class="bi bi-copy me-1"></i>Salin Naskah
     </a>
     <?php if (!$isRevoked): ?>
-      <button type="button" class="btn btn-danger btn-sm" id="btn-revoke-open"
+      <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 shadow-xs" id="btn-revoke-open"
               data-bs-toggle="modal" data-bs-target="#modal-revoke">
         <i class="bi bi-x-circle me-1"></i>Cabut Surat
       </button>
@@ -85,9 +102,13 @@ $isRevoked = $letter['status'] === 'revoked';
           </td></tr>
           <tr><th>Status</th><td>
             <?php if ($isRevoked): ?>
-              <span class="badge bg-danger">Dicabut</span>
+              <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1">
+                <i class="bi bi-x-circle-fill me-1"></i>Dicabut
+              </span>
             <?php else: ?>
-              <span class="badge bg-success">Aktif ✓</span>
+              <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1">
+                <i class="bi bi-check-circle-fill me-1"></i>Aktif
+              </span>
             <?php endif; ?>
           </td></tr>
           <?php if (!empty($letter['classification_code'])): ?>
@@ -149,7 +170,7 @@ $isRevoked = $letter['status'] === 'revoked';
       <div class="card-header bg-light fw-semibold py-2">
         <i class="bi bi-file-richtext me-2"></i>Preview Isi Surat Custom
         <span class="badge bg-secondary ms-2 fw-normal" style="font-size:0.75rem;">
-          <?= ($letter['letter_data']['header_style'] ?? 'tengah') === 'tengah' ? '📄 Header Tengah' : '📋 Header Kiri-Kanan' ?>
+          <?= ($letter['letter_data']['header_style'] ?? 'tengah') === 'tengah' ? '<i class="bi bi-align-center me-1"></i>Header Tengah' : '<i class="bi bi-columns-gap me-1"></i>Header Kiri-Kanan' ?>
         </span>
       </div>
       <div class="card-body">
