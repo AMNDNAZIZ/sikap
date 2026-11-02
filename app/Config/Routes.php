@@ -835,6 +835,9 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('cbt/aktivitas/unduhNilai/(:num)', 'CbtAktivitas::unduhNilai/$1', $auth123);
     $routes->get('cbt/aktivitas/exportNilai/(:num)', 'CbtAktivitas::exportNilai/$1', $auth123);
     $routes->get('cbt/aktivitas/analisis/(:num)', 'CbtAktivitas::analisisSoal/$1', $auth123);
+    $routes->get('cbt/aktivitas/pemetaan-tp/(:num)', 'CbtAktivitas::pemetaanTp/$1', $auth123);
+    $routes->post('cbt/aktivitas/pemetaan-tp/ai-match/(:num)', 'CbtAktivitas::aiMatchTp/$1', $auth123);
+    $routes->post('cbt/aktivitas/pemetaan-tp/save/(:num)', 'CbtAktivitas::simpanPemetaanTp/$1', $auth123);
     $routes->get('cbt/aktivitas/analisis/download/(:num)', 'CbtAktivitas::analisisDownload/$1', $auth123);
     $routes->get('cbt/aktivitas/analisisjawaban/download/(:num)', 'CbtAktivitas::downloadAnalisis/$1', $auth123);
     $routes->get('cbt/aktivitas/laporan/(:num)', 'CbtAktivitas::laporanJawaban/$1', $auth123);

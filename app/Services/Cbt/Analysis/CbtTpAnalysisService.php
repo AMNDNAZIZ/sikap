@@ -114,13 +114,45 @@ class CbtTpAnalysisService
             }
         }
 
+        // Ambil konfigurasi pemetaan materi & TP (Formatif / Sumatif) jika telah diselaraskan
+        $tpConfig = null;
+        $selectedTpIds = [];
+        $isConfigured = false;
+        if ($db->tableExists('cbt_test_tp_configs')) {
+            $tpConfig = $db->table('cbt_test_tp_configs')->where('test_id', $testId)->get()->getRowArray();
+            if ($tpConfig && !empty($tpConfig['selected_tp_ids'])) {
+                $decoded = json_decode($tpConfig['selected_tp_ids'], true);
+                if (is_array($decoded) && !empty($decoded)) {
+                    $selectedTpIds = array_map('intval', $decoded);
+                    $isConfigured = true;
+                }
+            }
+        }
+
+        // Ambil pemetaan eksplisit dari tabel cbt_test_tp_mappings
+        if ($db->tableExists('cbt_test_tp_mappings')) {
+            $explicitMappings = $db->table('cbt_test_tp_mappings')
+                ->where('test_id', $testId)
+                ->get()->getResultArray();
+            foreach ($explicitMappings as $em) {
+                $qid = (int)$em['question_id'];
+                $tpMap[$qid] = (int)$em['tp_id'];
+            }
+        }
+
         // 3. Ambil daftar Tujuan Pembelajaran (TP) untuk mata pelajaran ini
         $subjectId = (int)($test['subject_id'] ?? 0);
         $tps = [];
         if ($db->tableExists('tujuan_pembelajaran') && $subjectId > 0) {
-            $tps = $db->table('tujuan_pembelajaran')
-                ->where('subject_id', $subjectId)
-                ->orderBy('kode_tp', 'ASC')
+            $tpQuery = $db->table('tujuan_pembelajaran')
+                ->where('subject_id', $subjectId);
+
+            // Jika guru telah memilih TP tertentu (Formatif/Sumatif), batasi hanya pada TP tersebut!
+            if ($isConfigured && !empty($selectedTpIds)) {
+                $tpQuery->whereIn('id', $selectedTpIds);
+            }
+
+            $tps = $tpQuery->orderBy('kode_tp', 'ASC')
                 ->orderBy('id', 'ASC')
                 ->get()->getResultArray();
         }
@@ -215,6 +247,13 @@ class CbtTpAnalysisService
             'class_codes'    => $test['class_codes'] ?? '',
             'passing_grade'  => self::THRESHOLD_REMEDIAL,
             'tp_definitions' => $tpDefinitions,
+            'tp_mapping_info'=> [
+                'is_configured'   => $isConfigured,
+                'assessment_type' => $tpConfig['assessment_type'] ?? null,
+                'selected_atp_ids'=> !empty($tpConfig['selected_atp_ids']) ? (json_decode($tpConfig['selected_atp_ids'], true) ?: []) : [],
+                'selected_tp_ids' => $selectedTpIds,
+                'total_mapped'    => count($tpMap),
+            ],
         ];
 
         return $this->analyzeFromData($testConfig, $items, $sessions, $answers);
@@ -574,6 +613,13 @@ class CbtTpAnalysisService
             'valid_items_count'=> count($activeObjectiveItems),
             'student_analysis' => $studentReports,
             'class_analysis'   => $classAnalysis,
+            'tp_mapping_info'  => $testConfig['tp_mapping_info'] ?? [
+                'is_configured'   => false,
+                'assessment_type' => null,
+                'selected_atp_ids'=> [],
+                'selected_tp_ids' => [],
+                'total_mapped'    => 0,
+            ],
             'analyzed_at'      => date('Y-m-d H:i:s'),
         ];
     }

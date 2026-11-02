@@ -27,6 +27,9 @@
                 </p>
             </div>
             <div class="d-flex gap-2 align-self-start align-self-md-center flex-wrap">
+                <a href="<?= base_url('admin/cbt/aktivitas/pemetaan-tp/' . $test['test_id']) ?>" class="btn btn-warning btn-sm text-dark fw-bold shadow-sm">
+                    <i class="bi bi-robot me-1"></i> Penyelarasan TP (AI)
+                </a>
                 <a href="<?= base_url('admin/cbt/aktivitas') ?>" class="btn btn-light btn-sm text-primary fw-semibold shadow-sm">
                     <i class="bi bi-arrow-left me-1"></i> Daftar Ujian
                 </a>
@@ -39,6 +42,47 @@
             </div>
         </div>
     </div>
+
+    <!-- Status Penyelarasan Materi & TP (AI-Assisted Assessment) -->
+    <?php if (empty($tpMappingInfo['is_configured'])): ?>
+        <div class="alert alert-info border-0 shadow-sm d-flex flex-column flex-md-row justify-content-between align-items-md-center p-3 mb-4 gap-3" style="border-radius: 10px;">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-info-circle-fill fs-3 me-3 text-info"></i>
+                <div>
+                    <strong class="d-block text-dark">Ujian Ini Belum Diselaraskan dengan Lingkup Materi (ATP)</strong>
+                    <span class="small text-muted">
+                        Saat ini sistem menampilkan Tujuan Pembelajaran (TP) secara umum. Lakukan penyelarasan materi (Formatif/Sumatif) dan pemetaan butir soal berbantuan AI agar analisis penguasaan TP 100% akurat.
+                    </span>
+                </div>
+            </div>
+            <a href="<?= base_url('admin/cbt/aktivitas/pemetaan-tp/' . $test['test_id']) ?>" class="btn btn-primary btn-sm fw-bold shadow-sm text-nowrap align-self-start align-self-md-center">
+                <i class="bi bi-robot me-1"></i> Selaraskan dengan AI
+            </a>
+        </div>
+    <?php else: ?>
+        <div class="alert alert-light border border-success border-opacity-25 shadow-sm d-flex flex-column flex-md-row justify-content-between align-items-md-center p-3 mb-4 gap-3" style="border-radius: 10px;">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-check-circle-fill fs-3 me-3 text-success"></i>
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                        <strong class="text-dark">Asesmen <?= ucfirst(esc($tpMappingInfo['assessment_type'] ?? 'formatif')) ?> Terpetakan</strong>
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-0.5">
+                            <?= count($tpDefinitions) ?> TP Terpilih dari ATP
+                        </span>
+                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-0.5">
+                            <?= esc($tpMappingInfo['total_mapped'] ?? 0) ?> Soal Terpetakan
+                        </span>
+                    </div>
+                    <span class="small text-muted">
+                        Analisis dihitung secara spesifik berdasarkan Tujuan Pembelajaran yang dipilih dari materi ATP guru.
+                    </span>
+                </div>
+            </div>
+            <a href="<?= base_url('admin/cbt/aktivitas/pemetaan-tp/' . $test['test_id']) ?>" class="btn btn-outline-primary btn-sm fw-semibold shadow-sm text-nowrap align-self-start align-self-md-center">
+                <i class="bi bi-gear me-1"></i> Ubah Penyelarasan TP
+            </a>
+        </div>
+    <?php endif; ?>
 
     <!-- Alert: Koreksi Esai Belum Selesai (DEC-ESS-01) -->
     <?php if (!empty($classAnalysis['has_pending_essays'])): ?>

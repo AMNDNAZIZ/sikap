@@ -2402,11 +2402,125 @@ class CbtAktivitas extends BaseController
                 'tpDefinitions'    => $analysisResult['tp_definitions'],
                 'studentAnalysis'  => $analysisResult['student_analysis'],
                 'classAnalysis'    => $analysisResult['class_analysis'],
+                'tpMappingInfo'    => $analysisResult['tp_mapping_info'] ?? [],
                 'analysisResult'   => $analysisResult,
             ]);
         } catch (\Throwable $e) {
             log_message('error', 'Analisis TP error: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Kendala memuat analisis: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Halaman Penyelarasan Materi & Pemetaan Butir Soal ke TP (Berbantuan AI)
+     */
+    public function pemetaanTp($testId)
+    {
+        $mappingService = new \App\Services\Cbt\Analysis\CbtTpMappingService($this->db);
+        try {
+            $context = $mappingService->getTestContext((int)$testId);
+            return view('admin/cbt/analisis_soal/pemetaan_tp', $context);
+        } catch (\Throwable $e) {
+            log_message('error', 'Pemetaan TP error: ' . $e->getMessage());
+            return redirect()->to(base_url('admin/cbt/aktivitas/analisis/' . $testId))
+                ->with('error', 'Gagal memuat halaman pemetaan TP: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Endpoint AJAX: Jalankan Analisis & Pencocokan Butir Soal ke TP dengan AI
+     */
+    public function aiMatchTp($testId)
+    {
+        $mappingService = new \App\Services\Cbt\Analysis\CbtTpMappingService($this->db);
+
+        $assessmentType = (string)($this->request->getPost('assessment_type') ?? 'formatif');
+        $selectedAtpIds = (array)($this->request->getPost('selected_atp_ids') ?? []);
+        $selectedTpIds  = (array)($this->request->getPost('selected_tp_ids') ?? []);
+
+        // Ambil konfigurasi AI pengguna / guru yang sedang login
+        $user = session()->get('user');
+        $apiKey = '';
+        $aiProvider = 'gemini';
+        if ($user) {
+            if ($user['role_id'] == 3 && !empty($user['related_id'])) {
+                $teacher = $this->db->table('teachers')->where('id', $user['related_id'])->get()->getRowArray();
+                $apiKey = $teacher['gemini_api_key'] ?? '';
+                $aiProvider = $teacher['ai_provider'] ?? 'gemini';
+            } else {
+                $userData = $this->db->table('users')->where('id', $user['id'])->get()->getRowArray();
+                $apiKey = $userData['gemini_api_key'] ?? '';
+                $aiProvider = $userData['ai_provider'] ?? 'gemini';
+            }
+        }
+        $apiKey = $apiKey ?: (getenv('GEMINI_API_KEY') ?: ($_ENV['GEMINI_API_KEY'] ?? ''));
+
+        try {
+            $result = $mappingService->matchQuestionsWithAi(
+                (int)$testId,
+                $assessmentType,
+                $selectedAtpIds,
+                $selectedTpIds,
+                $apiKey,
+                $aiProvider
+            );
+            return $this->response->setJSON($result);
+        } catch (\Throwable $e) {
+            log_message('error', 'AI Match TP error: ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setJSON([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat pemetaan AI: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Endpoint: Simpan Konfigurasi Asesmen & Pemetaan Butir Soal ke TP
+     */
+    public function simpanPemetaanTp($testId)
+    {
+        $mappingService = new \App\Services\Cbt\Analysis\CbtTpMappingService($this->db);
+
+        $assessmentType = (string)($this->request->getPost('assessment_type') ?? 'formatif');
+        $selectedAtpIds = (array)($this->request->getPost('selected_atp_ids') ?? []);
+        $selectedTpIds  = (array)($this->request->getPost('selected_tp_ids') ?? []);
+        $mappingsRaw    = $this->request->getPost('mappings');
+
+        $mappings = [];
+        if (is_string($mappingsRaw)) {
+            $mappings = json_decode($mappingsRaw, true) ?: [];
+        } elseif (is_array($mappingsRaw)) {
+            $mappings = $mappingsRaw;
+        }
+
+        $user = session()->get('user');
+        $userId = $user['id'] ?? null;
+
+        try {
+            $result = $mappingService->saveMapping(
+                (int)$testId,
+                $assessmentType,
+                $selectedAtpIds,
+                $selectedTpIds,
+                $mappings,
+                $userId
+            );
+
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON($result);
+            }
+
+            return redirect()->to(base_url('admin/cbt/aktivitas/analisis/' . $testId))
+                ->with('success', 'Penyelarasan materi asesmen dan pemetaan butir soal ke TP berhasil disimpan.');
+        } catch (\Throwable $e) {
+            log_message('error', 'Simpan pemetaan TP error: ' . $e->getMessage());
+            if ($this->request->isAJAX()) {
+                return $this->response->setStatusCode(500)->setJSON([
+                    'success' => false,
+                    'message' => 'Gagal menyimpan pemetaan: ' . $e->getMessage(),
+                ]);
+            }
+            return redirect()->back()->with('error', 'Gagal menyimpan pemetaan: ' . $e->getMessage());
         }
     }
 
