@@ -1,0 +1,41 @@
+{
+    "is_ready": true,
+    "database_masked": "cbt****",
+    "user_masked": "cbt****",
+    "server_version": "10.4.32-MariaDB",
+    "snapshot_timestamp": "2026-11-01 00:00:00",
+    "snapshot_checksum": "SNAPSHOT_CHECKSUM_UNVERIFIED",
+    "snapshot_details": {
+        "hash_algorithm": "SHA-256",
+        "status": "SNAPSHOT_CHECKSUM_UNVERIFIED",
+        "file_path": null,
+        "file_size_bytes": null,
+        "file_timestamp": null,
+        "checksum": null,
+        "calculation_method": null,
+        "reason": "Physical SQL dump file was not provided or mounted; evaluated using representative in-memory dataset."
+    },
+    "execution_modes": {
+        "UNIT_TESTED": true,
+        "MOCK_ADAPTER_TESTED": true,
+        "MARIADB_INTEGRATION_TESTED": false,
+        "REAL_SNAPSHOT_EXECUTED": false,
+        "ZERO_DML_DATABASE_VERIFIED": false,
+        "ZERO_DML_MOCK_GUARD_VERIFIED": true
+    },
+    "is_select_only": true,
+    "privilege_violations": [],
+    "is_production_blocked": false,
+    "guard_summary": {
+        "total_reads_executed": 0,
+        "violations_blocked": 0,
+        "is_clean_read_only": true,
+        "recent_audit_log": []
+    },
+    "prerequisites_for_real_database_execution": {
+        "mariadb_service": "Start MariaDB 10.4.32 daemon on host or dedicated test container",
+        "network_binding": "Allow local TCP socket connection (e.g. 127.0.0.1:3306) outside restricted sandbox",
+        "snapshot_mount": "Import verified physical snapshot SQL dump into isolated non-production schema (e.g. cbt_shadow_snapshot)",
+        "read_only_user": "Create dedicated user with GRANT SELECT ON cbt_shadow_snapshot.* only, blocking all DDL/DML"
+    }
+}

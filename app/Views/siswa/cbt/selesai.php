@@ -50,8 +50,13 @@
                   </div>
                   <div class="col-md-5 text-center text-md-end">
                     <div class="score-circle">
-                      <div class="score-value"><?= number_format($calculated_total ?? 0, 1) ?></div>
-                      <div class="score-label">POIN TOTAL</div>
+                      <?php if ($calculated_total !== null): ?>
+                        <div class="score-value"><?= number_format($calculated_total, 1) ?></div>
+                        <div class="score-label">POIN TOTAL</div>
+                      <?php else: ?>
+                        <div class="score-value fs-4 text-warning"><i class="bi bi-hourglass-split"></i></div>
+                        <div class="score-label text-warning small fw-bold">MENUNGGU KOREKSI ESAI</div>
+                      <?php endif; ?>
                     </div>
                   </div>
                 </div>
@@ -63,9 +68,9 @@
                   <table class="table table-finish align-middle mb-0">
                     <thead>
                       <tr>
-                        <th class="ps-4">Kategori</th>
-                        <th class="text-center">Benar / Raw</th>
-                        <th class="text-end pe-4">Kontribusi</th>
+                        <th class="ps-4">Bentuk Soal</th>
+                        <th class="text-center">Jumlah Benar</th>
+                        <th class="text-end pe-4">Nilai Diperoleh</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -100,7 +105,11 @@
                       <tr class="table-active-row">
                         <td colspan="2" class="ps-4 fw-bold text-uppercase ls-1">Skor Akhir Terakumulasi</td>
                         <td class="text-end pe-4">
-                          <span class="total-badge"><?= number_format($calculated_total ?? 0, 2) ?></span>
+                          <?php if ($calculated_total !== null): ?>
+                            <span class="total-badge"><?= number_format($calculated_total, 2) ?></span>
+                          <?php else: ?>
+                            <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i> Menunggu Koreksi Esai</span>
+                          <?php endif; ?>
                         </td>
                       </tr>
                     </tfoot>

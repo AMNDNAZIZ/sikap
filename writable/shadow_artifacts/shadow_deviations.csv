@@ -1,0 +1,9 @@
+PseudonymousStudentID,TestID,SessionID,LegacyScore,V3Score,Delta,IsComparable,Categories,Notes
+STD_1274C1585A67,501,1001,100,100,0,YES,EXACT_MATCH,
+STD_9B40210CA3F5,501,1002,49.98,50,0.02,YES,ROUNDING_DIFFERENCE,"Minor rounding difference (0.02) within tolerance of 0.05"
+STD_A16B91B62ACB,501,,0,NULL,NULL,NO,LEGACY_ZERO_FALLBACK,"Legacy treated student absence as score 0.0, while V3 preserved null/unattempted status; Non-comparable: one or both scores are null (void test, incomplete grading, or absent)"
+STD_F4B369B93F88,501,1004,0,0,0,YES,EXACT_MATCH,
+STD_267C39C46365,502,1005,80,80,0,YES,EXACT_MATCH,
+STD_A1C048B42B28,502,1006,75,NULL,NULL,NO,ESSAY_POLICY_DIFFERENCE|PUBLICATION_ELIGIBILITY_DIFFERENCE,"V3 withheld gradebook score in PENDING_ESSAY status while legacy published partial score; excluded from numerical score comparison; Non-comparable: one or both scores are null (void test, incomplete grading, or absent)"
+STD_C08503E2E9EE,503,1008,90,NULL,NULL,NO,ATTEMPT_SELECTION_DIFFERENCE|PUBLICATION_ELIGIBILITY_DIFFERENCE,"V3 requires manual selection for ambiguous retakes, while legacy may have picked arbitrary session; Non-comparable: one or both scores are null (void test, incomplete grading, or absent)"
+STD_7B5939E895CC,503,1009,0,NULL,NULL,NO,LEGACY_ZERO_FALLBACK,"Legacy treated student absence as score 0.0, while V3 preserved null/unattempted status; Non-comparable: one or both scores are null (void test, incomplete grading, or absent)"

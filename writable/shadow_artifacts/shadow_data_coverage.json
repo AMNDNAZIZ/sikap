@@ -1,0 +1,16 @@
+{
+    "single_finished_session": true,
+    "multiple_retakes": true,
+    "reset_or_incomplete": true,
+    "absent_students": true,
+    "legitimate_zero_score": true,
+    "void_questions": true,
+    "pilihan_ganda_only": true,
+    "essay_questions": true,
+    "essay_graded": true,
+    "essay_ungraded": true,
+    "gradebook_identical": false,
+    "gradebook_different": false,
+    "manual_teacher_scores": false,
+    "insufficient_sources": false
+}

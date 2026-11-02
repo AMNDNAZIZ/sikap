@@ -2394,127 +2394,20 @@ class CbtAktivitas extends BaseController
 
     public function analisisSoal($testId)
     {
-        $db = $this->db;
-
-        // ambil info test
-        $test = $db->table('cbt_test_status ts')
-            ->select('ts.*, qb.code AS bank_code, s.name AS subject_name, en.name AS exam_name')
-            ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'left')
-            ->join('subjects s', 's.id = qb.subject_id', 'left')
-            ->join('cbt_exam_names en', 'en.id = ts.exam_name_id', 'left')
-            ->where('ts.id', $testId)
-            ->get()->getRowArray();
-
-        if (!$test) {
-            return redirect()->back()->with('error', 'Data ujian tidak ditemukan.');
+        $service = new \App\Services\Cbt\Analysis\CbtTpAnalysisService($this->db);
+        try {
+            $analysisResult = $service->analyzeTest((int)$testId);
+            return view('admin/cbt/analisis_soal/index', [
+                'test'             => $analysisResult['test_config'],
+                'tpDefinitions'    => $analysisResult['tp_definitions'],
+                'studentAnalysis'  => $analysisResult['student_analysis'],
+                'classAnalysis'    => $analysisResult['class_analysis'],
+                'analysisResult'   => $analysisResult,
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'Analisis TP error: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Kendala memuat analisis: ' . $e->getMessage());
         }
-
-        // ambil semua soal di bank
-        $questions = $db->table('cbt_questions')
-            ->where('bank_id', $test['bank_id'])
-            ->orderBy('id', 'ASC')
-            ->get()
-            ->getResultArray();
-
-        // ambil statistik jawaban untuk PG biasa (berdasarkan test_id)
-        $answersStats = $db->table('cbt_answers ca')
-            ->select('ca.question_id, COUNT(*) AS total,
-                     SUM(CASE WHEN q.correct_option = ca.answer THEN 1 ELSE 0 END) AS benar')
-            ->join('cbt_questions q', 'q.id = ca.question_id', 'left')
-            ->where('ca.test_id', $testId)
-            ->whereIn('q.question_type', ['pg', 'pilihan_ganda', 'multiple_choice'])
-            ->groupBy('ca.question_id')
-            ->get()
-            ->getResultArray();
-
-        $statsMap = [];
-        foreach ($answersStats as $r) {
-            $statsMap[$r['question_id']] = $r;
-        }
-
-        // statistik untuk PG Kompleks & Benar Salah
-        $multiAnswers = $db->table('cbt_answers ca')
-            ->select('ca.question_id, ca.answer, q.correct_option, q.question_type')
-            ->join('cbt_questions q', 'q.id = ca.question_id', 'left')
-            ->where('ca.test_id', $testId)
-            ->whereIn('q.question_type', ['pg_kompleks', 'benar_salah'])
-            ->get()
-            ->getResultArray();
-
-        $multiStats = [];
-        foreach ($multiAnswers as $ans) {
-            $qid = $ans['question_id'];
-            $type = $ans['question_type'];
-            if (!isset($multiStats[$qid])) {
-                $multiStats[$qid] = ['total' => 0, 'benar' => 0];
-            }
-            $multiStats[$qid]['total']++;
-
-            $correctStr = $ans['correct_option'] ?? '';
-            $studentStr = $ans['answer'] ?? '';
-
-            if (!empty($correctStr) && !empty($studentStr)) {
-                $correctArr = explode(',', $correctStr);
-                $studentArr = explode(',', $studentStr);
-                $score = 0;
-
-                if ($type === 'pg_kompleks') {
-                    $cSel = count(array_intersect($studentArr, $correctArr));
-                    $iSel = count(array_diff($studentArr, $correctArr));
-                    $tCorr = count($correctArr);
-                    $raw = $cSel - (0.5 * $iSel);
-                    $score = ($tCorr > 0) ? (max(0, $raw) / $tCorr) : 0;
-                } else { // benar_salah
-                    $matches = 0;
-                    $tItems = count($correctArr);
-                    for ($i = 0; $i < $tItems; $i++) {
-                        if (isset($studentArr[$i]) && $studentArr[$i] === $correctArr[$i])
-                            $matches++;
-                    }
-                    $score = ($tItems > 0) ? ($matches / $tItems) : 0;
-                }
-
-                // Threshold 70% untuk dianggap "benar" di analisis
-                if ($score >= 0.7) {
-                    $multiStats[$qid]['benar']++;
-                }
-            }
-        }
-
-        foreach ($multiStats as $qid => $stat) {
-            $statsMap[$qid] = $stat;
-        }
-
-        $result = [];
-        foreach ($questions as $i => $q) {
-            $qid = $q['id'];
-            $total = (int) ($statsMap[$qid]['total'] ?? 0);
-            $benar = (int) ($statsMap[$qid]['benar'] ?? 0);
-            $analisis = '-';
-            if ($total > 0) {
-                $persen = $benar / $total;
-                if ($persen <= (1 / 3))
-                    $analisis = 'Susah';
-                elseif ($persen <= (2 / 3))
-                    $analisis = 'Sedang';
-                else
-                    $analisis = 'Mudah';
-            }
-
-            $result[] = [
-                'no' => $i + 1,
-                'question' => $q['raw_text'] ?? ($q['question_text'] ?? ($q['question'] ?? '')),
-                'type' => strtolower($q['question_type'] ?? 'pg'),
-                'total' => $total,
-                'benar' => $benar,
-                'analisis' => $analisis
-            ];
-        }
-
-        return view('admin/cbt/analisis_soal/index', [
-            'test' => $test,
-            'data' => $result
-        ]);
     }
 
     public function analisisDownload($testId)

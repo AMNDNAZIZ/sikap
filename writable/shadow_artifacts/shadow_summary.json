@@ -1,0 +1,135 @@
+{
+    "total_cases_examined": 8,
+    "total_comparable_cases": 4,
+    "total_non_comparable_cases": 4,
+    "total_eligible_cases": 4,
+    "exact_match_count": 3,
+    "exact_match_percentage": 37.5,
+    "exact_match_pct_comparable": 75,
+    "exact_match_pct_eligible": 75,
+    "score_difference_count": 0,
+    "score_difference_percentage": 0,
+    "score_difference_pct_comparable": 0,
+    "score_difference_pct_eligible": 0,
+    "rounding_difference_count": 1,
+    "percentage_breakdown": {
+        "denominators": {
+            "total_examined": 8,
+            "total_comparable": 4,
+            "total_eligible": 4,
+            "explanation": {
+                "total_examined": "Total student cases evaluated across all subjects (N=8)",
+                "total_comparable": "Pairs with valid, complete scores on both legacy and V3 (N=4)",
+                "total_eligible": "Cases eligible for gradebook publication in V3 (N=4)"
+            }
+        },
+        "exact_match": {
+            "count": 3,
+            "pct_of_total": 37.5,
+            "pct_of_comparable": 75,
+            "pct_of_eligible": 75
+        },
+        "rounding_difference": {
+            "count": 1,
+            "pct_of_total": 12.5,
+            "pct_of_comparable": 25,
+            "pct_of_eligible": 25
+        },
+        "score_difference": {
+            "count": 0,
+            "pct_of_total": 0,
+            "pct_of_comparable": 0,
+            "pct_of_eligible": 0
+        }
+    },
+    "category_distribution": {
+        "EXACT_MATCH": 3,
+        "ROUNDING_DIFFERENCE": 1,
+        "SCORE_DIFFERENCE": 0,
+        "WEIGHT_DIFFERENCE": 0,
+        "VOID_POLICY_DIFFERENCE": 0,
+        "UNANSWERED_POLICY_DIFFERENCE": 0,
+        "ESSAY_POLICY_DIFFERENCE": 1,
+        "ATTEMPT_SELECTION_DIFFERENCE": 1,
+        "LEGACY_ZERO_FALLBACK": 2,
+        "NO_VALID_QUESTIONS": 0,
+        "INSUFFICIENT_EVIDENCE": 0,
+        "INTEGRITY_STATUS_DIFFERENCE": 0,
+        "LEGACY_UNVERIFIABLE": 0,
+        "INSUFFICIENT_SOURCE_DATA": 0,
+        "PUBLICATION_ELIGIBILITY_DIFFERENCE": 2
+    },
+    "publication_eligibility": {
+        "status_match_count": 6,
+        "status_difference_count": 2,
+        "v3_status_distribution": {
+            "ELIGIBLE": 4,
+            "ABSENT": 2,
+            "PENDING_ESSAY": 1,
+            "AMBIGUOUS_ATTEMPTS": 1
+        },
+        "legacy_status_distribution": {
+            "PUBLISHED": 6,
+            "ABSENT_ZERO_FALLBACK": 2
+        }
+    },
+    "mae": 0.005,
+    "rmse": 0.01,
+    "max_delta": 0.02,
+    "min_delta": 0,
+    "legacy_zero_fallback_count": 2,
+    "ambiguous_retake_count": 1,
+    "void_test_count": 0,
+    "incomplete_essay_count": 1,
+    "legacy_unverifiable_count": 0,
+    "generated_at": "2026-11-01 07:00:45",
+    "subject_breakdowns": {
+        "1": {
+            "subject_id": 1,
+            "subject_name": "Matematika",
+            "metrics": {
+                "sample_size_n": 3,
+                "comparable_count": 3,
+                "mae": 0.0067,
+                "rmse": 0.0115,
+                "median_absolute_error": 0,
+                "percentile_90_absolute_error": 0.02,
+                "max_absolute_error": 0.02,
+                "min_absolute_error": 0,
+                "percentile_method": "Nearest Rank Method: index = ceil(0.90 * N) - 1 (0-based indexing)"
+            }
+        },
+        "2": {
+            "subject_id": 2,
+            "subject_name": "Bahasa Indonesia",
+            "metrics": {
+                "sample_size_n": 1,
+                "comparable_count": 1,
+                "mae": 0,
+                "rmse": 0,
+                "median_absolute_error": 0,
+                "percentile_90_absolute_error": 0,
+                "max_absolute_error": 0,
+                "min_absolute_error": 0,
+                "percentile_method": "Nearest Rank Method: index = ceil(0.90 * N) - 1 (0-based indexing)"
+            }
+        },
+        "3": {
+            "subject_id": 3,
+            "subject_name": "Ilmu Pengetahuan Alam",
+            "metrics": {
+                "sample_size_n": 0,
+                "comparable_count": 0,
+                "mae": null,
+                "rmse": null,
+                "median_absolute_error": null,
+                "percentile_90_absolute_error": null,
+                "max_absolute_error": null,
+                "min_absolute_error": null,
+                "percentile_method": "Nearest Rank Method: index = ceil(0.90 * N) - 1 (0-based indexing)"
+            }
+        }
+    },
+    "median_absolute_error": 0,
+    "percentile_90_absolute_error": 0.02
+}

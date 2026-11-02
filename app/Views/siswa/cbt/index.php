@@ -690,7 +690,7 @@ if (!empty($user['related_id'])) {
       <?php endif; ?>
       <div class="school-info">
         <h4><?= esc($school['name'] ?? 'Sistem CBT') ?></h4>
-        <p><i class="bi bi-geo-alt"></i> Computer Based Test - Portal Ujian Online</p>
+        <p><i class="bi bi-geo-alt"></i> Portal Ujian Berbasis Komputer</p>
       </div>
     </div>
 
@@ -746,7 +746,7 @@ if (!empty($user['related_id'])) {
               <i class="bi bi-gender-ambiguous"></i>
             </div>
             <div class="info-content">
-              <div class="info-label">Gender</div>
+              <div class="info-label">Jenis Kelamin</div>
               <div class="info-value"><?= ($student['gender'] ?? 'L') == 'L' ? 'Laki-laki' : 'Perempuan' ?></div>
             </div>
           </div>

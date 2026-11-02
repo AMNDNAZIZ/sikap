@@ -32,6 +32,7 @@ class Cbt extends BaseController
     protected $scoringService;
     protected $sessionService;
     protected $questionService;
+    protected $pipelineService;
 
     public function __construct()
     {
@@ -47,6 +48,7 @@ class Cbt extends BaseController
         $this->scoringService = new CbtScoringService();
         $this->sessionService = new CbtSessionService();
         $this->questionService = new CbtQuestionService();
+        $this->pipelineService = new \App\Services\Cbt\Pipeline\CbtExecutionPipelineService();
 
         helper('cache');
     }
@@ -283,10 +285,29 @@ class Cbt extends BaseController
         $answers = $this->parseAnswersPayload($answersInput);
 
         if (empty($answers)) {
-            return $this->respond(['status' => 'ok', 'saved' => 0]);
+            return $this->respond([
+                'status'    => 'ok',
+                'saved'     => 0,
+                'succeeded' => [],
+                'failed'    => [],
+                'conflicts' => []
+            ]);
         }
 
-        // Save using service
+        // Extract expected_version map if client tracked CAS versions
+        $expectedVersions = [];
+        if (is_array($answersInput)) {
+            foreach ($answersInput as $item) {
+                if (is_array($item)) {
+                    $qid = $item['question_id'] ?? $item['qid'] ?? null;
+                    if ($qid !== null && isset($item['expected_version']) && $item['expected_version'] !== null) {
+                        $expectedVersions[(int)$qid] = (int)$item['expected_version'];
+                    }
+                }
+            }
+        }
+
+        // Save using service (legacy layer)
         $result = $this->answerService->saveBulkAnswers($studentId, $testId, $answers);
 
         if (!$result['success']) {
@@ -296,11 +317,42 @@ class Cbt extends BaseController
 
         log_message('info', "[CBT::saveAnswersBulk] Success - Student: $studentId, Test: $testId, Saved: " . ($result['data']['count'] ?? 0) . " answers");
 
+        $succeeded = [];
+        $failed = [];
+        $conflicts = [];
+
+        // 🔹 V3 Assessment Intelligence Pipeline Sync with CAS & Partial Batch Distinction
+        foreach ($answers as $qid => $ansVal) {
+            $expVer = $expectedVersions[$qid] ?? null;
+            $syncRes = $this->syncToV3Pipeline((int)$session['id'], (int)$studentId, (int)$qid, $ansVal, $expVer);
+            if ($syncRes['status'] === 'saved') {
+                $succeeded[] = (int)$qid;
+            } elseif ($syncRes['status'] === 'conflict') {
+                $conflicts[] = [
+                    'question_id'   => (int)$qid,
+                    'incident_type' => 'STALE_VERSION_CONFLICT',
+                    'message'       => $syncRes['message'] ?? 'CAS Concurrency Conflict'
+                ];
+            } else {
+                $failed[] = [
+                    'question_id'   => (int)$qid,
+                    'incident_type' => 'SERVER_PERSISTENCE_FAILURE',
+                    'error'         => $syncRes['message'] ?? 'Sync failed'
+                ];
+            }
+        }
+
         // Update last_activity with throttling
         helper('cbt');
         update_last_activity_throttled($studentId, $testId, 30);
 
-        return $this->respond(['status' => 'ok', 'saved' => $result['data']['count'] ?? 0]);
+        return $this->respond([
+            'status'    => 'ok',
+            'saved'     => count($succeeded),
+            'succeeded' => $succeeded,
+            'failed'    => $failed,
+            'conflicts' => $conflicts
+        ]);
     }
 
     /**
@@ -382,7 +434,7 @@ class Cbt extends BaseController
     public function getTimerSync()
     {
         if (!$this->request->isAJAX()) {
-            return $this->failUnauthorized('Invalid request');
+            return $this->failUnauthorized('Permintaan tidak sah.');
         }
 
         $studentId = $this->getStudentId();
@@ -675,6 +727,9 @@ class Cbt extends BaseController
             return $this->response->setStatusCode(500)->setJSON(['error' => $result['message']]);
         }
 
+        // 🔹 V3 Assessment Intelligence Pipeline Sync
+        $v3Res = $this->syncToV3Pipeline((int)$session['id'], (int)$studentId, (int)$questionId, $answer);
+
         // Update last_activity with throttling (30 seconds interval)
         helper('cbt');
         update_last_activity_throttled($studentId, $testId, 30);
@@ -686,7 +741,12 @@ class Cbt extends BaseController
             'question_id' => $questionId
         ])->first();
 
-        return $this->response->setJSON(['status' => 'ok', 'saved' => $saved]);
+        return $this->response->setJSON([
+            'status' => 'ok',
+            'saved' => $saved,
+            'v3_status' => $v3Res['status'] ?? 'saved',
+            'v3_version' => $v3Res['version'] ?? 1
+        ]);
     }
 
     // =========================
@@ -1019,6 +1079,9 @@ class Cbt extends BaseController
         try {
             $this->sessionModel->update($session['id'], $updateData);
             
+            // 🔹 V3 Assessment Intelligence Pipeline Finish (DEC-ESS-01 & Audit Chaining)
+            $this->syncFinishToV3Pipeline((int)$session['id'], (int)$testId);
+
             // 🔹 FIX: Clear active_test session to prevent redirect loop
             // When exam is finished, remove active_test so dashboard doesn't redirect back to exam
             if (session()->get('active_test') == $testId) {
@@ -1036,6 +1099,85 @@ class Cbt extends BaseController
         } catch (\Throwable $e) {
             log_message('error', '[CBT::internalSubmit] session update failed: ' . $e->getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Synchronize student answer to CBT V3 Assessment Intelligence Pipeline.
+     * Incorporates CAS expectedVersion, classifies monitoring incidents, and prevents auto-reset.
+     *
+     * @return array [success => bool, status => 'saved'|'conflict'|'failed', version => int|null, message => string|null]
+     */
+    protected function syncToV3Pipeline(int $sessionId, int $studentId, int $questionId, $answer, ?int $expectedVersion = null): array
+    {
+        try {
+            $q = $this->questionModel->find($questionId);
+            if ($q) {
+                $qType = strtolower($q['question_type'] ?? 'pg');
+                $correctKey = $q['correct_option'] ?? null;
+                $weight = (float)($q['score'] ?? 1.0);
+                $res = $this->pipelineService->submitAnswer(
+                    $sessionId,
+                    $questionId,
+                    $studentId,
+                    $qType,
+                    $answer,
+                    $correctKey,
+                    $weight,
+                    $expectedVersion
+                );
+                return [
+                    'success' => true,
+                    'status'  => 'saved',
+                    'version' => $res['answer_version'] ?? 1,
+                    'message' => 'Answer synchronized to V3 pipeline'
+                ];
+            }
+            return [
+                'success' => false,
+                'status'  => 'failed',
+                'version' => null,
+                'message' => "Question ID {$questionId} not found"
+            ];
+        } catch (\Throwable $e) {
+            $msg = $e->getMessage();
+            if (str_contains($msg, 'Concurrency Conflict') || str_contains($msg, 'modified')) {
+                // Classify monitoring incident as STALE_VERSION_CONFLICT / MULTI_TAB_CONFLICT
+                log_message('notice', "[MONITORING::INCIDENT][STALE_VERSION_CONFLICT] Student {$studentId}, Session {$sessionId}, QID {$questionId}: {$msg}. Investigatory flag only - NO SESSION RESET.");
+                return [
+                    'success' => false,
+                    'status'  => 'conflict',
+                    'version' => null,
+                    'message' => $msg
+                ];
+            }
+
+            log_message('error', "[MONITORING::INCIDENT][SERVER_PERSISTENCE_FAILURE] Student {$studentId}, Session {$sessionId}, QID {$questionId}: {$msg}");
+            return [
+                'success' => false,
+                'status'  => 'failed',
+                'version' => null,
+                'message' => $msg
+            ];
+        }
+    }
+
+    /**
+     * Finalize CBT V3 session, enforce DEC-ESS-01 gating, and record cryptographic audit trail.
+     */
+    protected function syncFinishToV3Pipeline(int $sessionId, int $testId): void
+    {
+        try {
+            $test = $this->testModel->find($testId);
+            $bankId = $test['bank_id'] ?? 0;
+            $questions = $this->questionModel->where('bank_id', $bankId)->findAll();
+            $itemTypesMap = [];
+            foreach ($questions as $q) {
+                $itemTypesMap[(int)$q['id']] = strtolower($q['question_type'] ?? 'pg');
+            }
+            $this->pipelineService->finishSession($sessionId, $itemTypesMap);
+        } catch (\Throwable $e) {
+            log_message('error', '[CBT::syncFinishToV3Pipeline] V3 Finish Warning: ' . $e->getMessage());
         }
     }
 
@@ -1441,7 +1583,24 @@ class Cbt extends BaseController
         $nilaiBs = ($totalCountBs > 0) ? ($totalEarnedBs / $totalCountBs) * 100 : 0;
         $nilaiEsai = (float) ($session['essay_score'] ?? 0);
 
-        $finalScore = round(
+        // DEC-ESS-01 Enforcement: Final score remains NULL while essays are pending review
+        $isEssayPending = false;
+        if ($totalCountEsai > 0) {
+            if ($session['essay_score'] === null || $session['essay_score'] === '') {
+                $isEssayPending = true;
+            }
+            try {
+                $db = db_connect();
+                if ($db->tableExists('cbt_session_scores_v3')) {
+                    $v3Score = $db->table('cbt_session_scores_v3')->where('session_id', $session['id'])->get()->getRowArray();
+                    if ($v3Score && $v3Score['final_score'] === null) {
+                        $isEssayPending = true;
+                    }
+                }
+            } catch (\Throwable) {}
+        }
+
+        $finalScore = $isEssayPending ? null : round(
             ($nilaiPg * ($bobotPg / 100)) +
             ($nilaiPgk * ($bobotPgk / 100)) +
             ($nilaiBs * ($bobotBs / 100)) +
@@ -1452,6 +1611,7 @@ class Cbt extends BaseController
         return [
             'score' => $finalScore,
             'final_score' => $finalScore,
+            'is_essay_pending' => $isEssayPending,
             'correct' => $totalEarnedPg, // Backward compatibility
             'correct_pg' => $totalEarnedPg,
             'correct_pgk' => $totalEarnedPgk,
@@ -1671,12 +1831,29 @@ class Cbt extends BaseController
         $stats['bs']['contribution'] = $stats['bs']['score'] * ($stats['bs']['weight'] / 100);
         $stats['esai']['contribution'] = $stats['esai']['score'] * ($stats['esai']['weight'] / 100);
 
-        $calculatedTotal = $stats['pg']['contribution'] + $stats['pgk']['contribution'] + $stats['bs']['contribution'] + $stats['esai']['contribution'];
+        // DEC-ESS-01 Enforcement: Final score remains NULL while essays are pending review
+        $isEssayPending = false;
+        if ($stats['esai']['total'] > 0) {
+            if ($session['essay_score'] === null || $session['essay_score'] === '') {
+                $isEssayPending = true;
+            }
+            try {
+                if ($db->tableExists('cbt_session_scores_v3')) {
+                    $v3Score = $db->table('cbt_session_scores_v3')->where('session_id', $session['id'])->get()->getRowArray();
+                    if ($v3Score && $v3Score['final_score'] === null) {
+                        $isEssayPending = true;
+                    }
+                }
+            } catch (\Throwable) {}
+        }
+
+        $calculatedTotal = $isEssayPending ? null : ($stats['pg']['contribution'] + $stats['pgk']['contribution'] + $stats['bs']['contribution'] + $stats['esai']['contribution']);
 
         return view('siswa/cbt/selesai', [
             'test' => $test,
             'session' => $session,
             'stats' => $stats,
+            'is_essay_pending' => $isEssayPending,
             'calculated_total' => $calculatedTotal
         ]);
     }
@@ -2485,7 +2662,7 @@ class Cbt extends BaseController
     public function refreshCsrf()
     {
         if (!$this->request->isAJAX()) {
-            return $this->failUnauthorized('Invalid request');
+            return $this->failUnauthorized('Permintaan tidak sah.');
         }
 
         // Get current CSRF token

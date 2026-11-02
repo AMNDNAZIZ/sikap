@@ -158,6 +158,35 @@ class Database extends Config
     //    ];
 
     /**
+     * Staging Rehearsal Database Connection (ESPATA CBT V3.35)
+     * Strictly isolated from operational / production database.
+     */
+    public array $staging = [
+        'DSN'          => '',
+        'hostname'     => '127.0.0.1',
+        'username'     => 'root',
+        'password'     => '',
+        'database'     => 'espata_cbt_staging_rehearsal',
+        'DBDriver'     => 'MySQLi',
+        'DBPrefix'     => '',
+        'pConnect'     => false,
+        'DBDebug'      => true,
+        'charset'      => 'utf8mb4',
+        'DBCollat'     => 'utf8mb4_general_ci',
+        'swapPre'      => '',
+        'encrypt'      => false,
+        'compress'     => false,
+        'strictOn'     => false,
+        'failover'     => [],
+        'port'         => 3306,
+        'dateFormat'   => [
+            'date'     => 'Y-m-d',
+            'datetime' => 'Y-m-d H:i:s',
+            'time'     => 'H:i:s',
+        ],
+    ];
+
+    /**
      * This database connection is used when running PHPUnit database tests.
      *
      * @var array<string, mixed>

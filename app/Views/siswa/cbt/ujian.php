@@ -1799,8 +1799,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     let isOnline = navigator.onLine;
     let offlineNotificationShown = false;
 
-    // Function to queue answer for offline mode
-    const queueOfflineAnswer = (qid, answer) => {
+    // Function to queue answer for offline mode with CAS expectedVersion tracking
+    const queueOfflineAnswer = (qid, answer, expectedVersion) => {
       const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
 
       // Update or add answer in queue
@@ -1808,16 +1808,20 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       if (existingIndex >= 0) {
         queue[existingIndex].answer = answer;
         queue[existingIndex].timestamp = Date.now();
+        if (typeof expectedVersion !== 'undefined' && expectedVersion !== null) {
+          queue[existingIndex].expected_version = expectedVersion;
+        }
       } else {
         queue.push({
           question_id: qid,
           answer: answer,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          expected_version: expectedVersion || null
         });
       }
 
       localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-      console.log('[OFFLINE] Answer queued:', qid, answer);
+      console.log('[OFFLINE] Answer queued:', qid, answer, 'expected_version:', expectedVersion);
     };
 
     /**
@@ -1875,7 +1879,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       return answers;
     };
 
-    // Function to flush offline queue when back online
+    // Function to flush offline queue when back online with partial batch resilience
     const flushOfflineQueue = (retryCount) => {
       if (typeof retryCount === 'undefined') retryCount = 0;
       
@@ -1914,10 +1918,30 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         })
         .then(function(res) {
           if (res.status === 'ok') {
-            // Clear queue on success
-            localStorage.removeItem(OFFLINE_QUEUE_KEY);
-            showSaveStatus('saved', 'Tersinkronkan (' + queue.length + ')');
-            console.log('[OFFLINE] Queue flushed successfully');
+            // Partial batch success handling: Only remove successfully confirmed items!
+            if (res.succeeded && Array.isArray(res.succeeded) && res.succeeded.length > 0) {
+              const succeededSet = new Set(res.succeeded.map(id => String(id)));
+              const remainingQueue = queue.filter(item => !succeededSet.has(String(item.question_id)));
+              if (remainingQueue.length > 0) {
+                localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remainingQueue));
+              } else {
+                localStorage.removeItem(OFFLINE_QUEUE_KEY);
+              }
+            } else if (res.saved > 0 && (!res.failed || res.failed.length === 0) && (!res.conflicts || res.conflicts.length === 0)) {
+              localStorage.removeItem(OFFLINE_QUEUE_KEY);
+            }
+
+            // Differentiate status messages and handle conflicts without resetting session
+            if (res.conflicts && res.conflicts.length > 0) {
+              console.warn('[OFFLINE] CAS conflicts detected during bulk sync:', res.conflicts);
+              showSaveStatus('warning', res.conflicts.length + ' jawaban telah diperbarui');
+            } else if (res.failed && res.failed.length > 0) {
+              console.warn('[OFFLINE] Some items failed to sync:', res.failed);
+              showSaveStatus('error', res.failed.length + ' jawaban belum terkirim');
+            } else {
+              showSaveStatus('saved', 'Terkirim ke server (' + (res.saved || queue.length) + ')');
+              console.log('[OFFLINE] Queue flushed successfully');
+            }
           } else {
             throw new Error(res.message || 'Sync failed');
           }
@@ -1929,22 +1953,22 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
           if (retryCount < MAX_RETRIES) {
             var delay = RETRY_DELAY * Math.pow(2, retryCount);
             console.log('[OFFLINE] Retrying in', delay, 'ms');
-            showSaveStatus('error', 'Gagal sinkronisasi, mencoba lagi...');
+            showSaveStatus('error', 'Sedang menghubungkan kembali...');
 
             setTimeout(function() {
               flushOfflineQueue(retryCount + 1);
             }, delay);
           } else {
-            showSaveStatus('error', 'Gagal sinkronisasi setelah ' + MAX_RETRIES + ' percobaan');
+            showSaveStatus('error', 'Belum terhubung ke server setelah ' + MAX_RETRIES + 'x percobaan');
 
             // Show manual retry option
             Swal.fire({
-              title: 'Sinkronisasi Gagal',
-              text: 'Jawaban offline gagal disinkronkan. Coba lagi?',
-              icon: 'error',
+              title: 'Pengiriman Tertunda',
+              text: 'Jawaban yang tersimpan di perangkat belum dapat dikirimkan ke server karena kendala jaringan. Coba kirim kembali sekarang?',
+              icon: 'warning',
               showCancelButton: true,
-              confirmButtonText: 'Coba Lagi',
-              cancelButtonText: 'Nanti'
+              confirmButtonText: 'Coba Kirim Kembali',
+              cancelButtonText: 'Nanti Saja'
             }).then(function(result) {
               if (result.isConfirmed) {
                 flushOfflineQueue(0); // Reset retry count
@@ -1962,8 +1986,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
       // Show notification
       Swal.fire({
-        title: 'Koneksi Kembali',
-        text: 'Koneksi internet tersambung kembali. Menyinkronkan jawaban...',
+        title: 'Koneksi Terhubung Kembali',
+        text: 'Koneksi internet Anda telah aktif kembali. Mengirim jawaban yang tersimpan...',
         icon: 'success',
         timer: 2000,
         showConfirmButton: false
@@ -3199,11 +3223,11 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             // Session expired or unauthorized
             if (response.status === 403 || response.status === 401) {
               Swal.fire({
-                title: 'Sesi Berakhir',
-                text: 'Sesi ujian Anda telah berakhir atau akun Anda digunakan di perangkat lain. Jawaban Anda saat ini telah disimpan secara offline.',
+                title: 'Waktu Ujian Berakhir',
+                text: 'Sesi ujian Anda telah berakhir atau akun Anda aktif di perangkat lain. Seluruh jawaban Anda tetap tersimpan dengan aman pada perangkat ini.',
                 icon: 'warning',
                 allowOutsideClick: false,
-                confirmButtonText: 'Login Ulang'
+                confirmButtonText: 'Masuk Kembali'
               }).then(() => {
                 window.location.reload();
               });
@@ -3211,7 +3235,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             }
             
             // For other errors (500, 504, etc.), treat as network failure and save offline
-            throw new Error('Server error: ' + response.status);
+            throw new Error('Gangguan server: ' + response.status);
           }
           return response.json();
         })
@@ -3227,7 +3251,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             queueOfflineAnswer(qid, val);
           } else {
             console.error('[SAVE] Unknown response:', data);
-            showSaveStatus('error', 'Gagal menyimpan');
+            showSaveStatus('error', 'Belum tersimpan');
             // Queue answer as fallback
             queueOfflineAnswer(qid, val);
           }
@@ -3236,7 +3260,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
           console.error("[SAVE] Network Failure:", err);
           // Queue answer for retry
           queueOfflineAnswer(qid, val);
-          showSaveStatus('error', 'Koneksi gagal (tersimpan offline)');
+          showSaveStatus('saved', 'Tersimpan di perangkat');
         });
     };
 

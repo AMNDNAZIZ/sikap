@@ -312,7 +312,11 @@
       <div class="col-md-5 text-center">
         <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 1px;">Skor Akhir</div>
         <div class="score-big-display">
-          <span class="score-number"><?= esc($score) ?></span>
+          <?php if (!empty($is_essay_pending) || $score === null): ?>
+            <span class="badge bg-warning text-dark px-3 py-2 fs-6"><i class="bi bi-hourglass-split me-1"></i> Menunggu Koreksi Esai</span>
+          <?php else: ?>
+            <span class="score-number"><?= esc($score) ?></span>
+          <?php endif; ?>
         </div>
       </div>
     </div>

@@ -59,9 +59,12 @@ class DotEnv
             return null;
         }
 
-        // Ensure the file is readable
-        if (! is_readable($this->path)) {
-            throw new InvalidArgumentException("The .env file is not readable: {$this->path}");
+        // Ensure the file is readable (fallback to fopen for Windows sandbox AccessCheck compatibility)
+        if (! is_readable($this->path) && ! ($fh = @fopen($this->path, 'r'))) {
+            throw new \InvalidArgumentException("The .env file is not readable: {$this->path}");
+        }
+        if (isset($fh) && is_resource($fh)) {
+            fclose($fh);
         }
 
         $vars = [];

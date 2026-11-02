@@ -175,9 +175,12 @@
         <ul class="nav flex-column ms-3">
           <li><a class="nav-link <?= url_is('admin/cbt/examname*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/examname') ?>"><i class="bi bi-card-text me-1"></i> <span class="label">Nama Ujian</span></a></li>
           <li><a class="nav-link <?= url_is('admin/cbt/banksoal*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/banksoal') ?>"><i class="bi bi-folder-check me-1"></i> <span class="label">Bank Soal</span></a></li>
-          <li><a class="nav-link <?= url_is('admin/administrasi-guru/soal-ai*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/soal-ai') ?>"><i class="bi bi-cpu me-1"></i> <span class="label">Generate Soal AI</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/administrasi-guru/soal-ai*') ? 'active' : '' ?>" href="<?= base_url('admin/administrasi-guru/soal-ai') ?>"><i class="bi bi-cpu me-1"></i> <span class="label">Buat Soal Berbantuan AI</span></a></li>
           <li><a class="nav-link <?= url_is('admin/cbt/teststatus*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/teststatus') ?>"><i class="bi bi-display me-1"></i> <span class="label">Status &amp; Pengawasan Tes</span></a></li>
           <li><a class="nav-link <?= url_is('admin/cbt/aktivitas*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/aktivitas') ?>"><i class="bi bi-lightning me-1"></i> <span class="label">Aktivitas Ujian</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/cbt/bap*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/bap') ?>"><i class="bi bi-journal-check me-1"></i> <span class="label">Berita Acara (BAP) Ujian</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/cbt/review*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/review') ?>"><i class="bi bi-shield-exclamation me-1"></i> <span class="label">Peninjauan Ujian &amp; Susulan</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/cbt/report*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/report') ?>"><i class="bi bi-file-earmark-bar-graph me-1"></i> <span class="label">Laporan &amp; Rekap Nilai CBT</span></a></li>
           <li><a class="nav-link <?= url_is('admin/cbt/convertnilai*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/convertnilai') ?>"><i class="bi bi-calculator me-1"></i> <span class="label">Konversi Nilai</span></a></li>
         </ul>
       </div>

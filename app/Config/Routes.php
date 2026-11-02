@@ -858,6 +858,27 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('cbt/import-mandiri/save', 'CbtConvertNilai::saveCbtMandiri', $auth123);
     $routes->get('cbt/import-mandiri/atp/(:num)', 'CbtConvertNilai::getAtpBySubject/$1', $auth123);
 
+    // Stage F3C: CBT Reviewer Workflow & Verification Gate Interface (Admin, Principal, Teacher)
+    $routes->get('cbt/review', 'CbtReview::index', $auth123);
+    $routes->get('cbt/review/detail/(:segment)', 'CbtReview::detail/$1', $auth123);
+    $routes->post('cbt/review/preview', 'CbtReview::preview', $auth123);
+    $routes->post('cbt/review/apply', 'CbtReview::apply', $auth123);
+    $routes->get('cbt/review/audit-trail', 'CbtReview::auditTrail', $auth123);
+
+    // Iteration 2: Digital BAP (Berita Acara Pelaksanaan Ujian)
+    $routes->get('cbt/bap', 'CbtBap::index', $auth123);
+    $routes->get('cbt/bap/form/(:num)/(:any)', 'CbtBap::form/$1/$2', $auth123);
+    $routes->post('cbt/bap/save-draft', 'CbtBap::saveDraft', $auth123);
+    $routes->post('cbt/bap/submit', 'CbtBap::submit', $auth123);
+    $routes->get('cbt/bap/view/(:num)', 'CbtBap::view/$1', $auth123);
+    $routes->get('cbt/bap/discrepancies/(:num)', 'CbtBap::discrepancies/$1', $auth123);
+
+    // Iteration 3: Assessment Finalization & Gradebook Integration Report
+    $routes->get('cbt/report', 'CbtAssessmentReport::index', $auth123);
+    $routes->get('cbt/report/detail/(:num)', 'CbtAssessmentReport::detail/$1', $auth123);
+    $routes->post('cbt/report/publish', 'CbtAssessmentReport::publishSingle', $auth123);
+    $routes->post('cbt/report/publish-batch', 'CbtAssessmentReport::publishBatch', $auth123);
+
     // ── Kuis Mandiri (Admin, Kepsek, Guru) ─────────────────────────────
     $routes->get('quiz',                     'Quiz::index',          $auth123);
     $routes->get('quiz/create',              'Quiz::create',         $auth123);

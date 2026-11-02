@@ -83,9 +83,18 @@ class CbtAktivitasEssay extends BaseController
             return '<div class="alert alert-danger">Tes tidak ditemukan.</div>';
         }
 
+        // Ambil data sesi siswa
+        $session = $db->table('cbt_sessions')
+            ->select('id, score, status')
+            ->where('test_id', $testId)
+            ->where('student_id', $studentId)
+            ->get()
+            ->getRowArray();
+        $sessionId = $session['id'] ?? null;
+
         // Ambil soal esai dan jawaban siswa
         $soal = $db->table('cbt_questions q')
-            ->select('q.id, q.question_text, a.answer, a.score')
+            ->select('q.id, q.question_text, a.id AS answer_id, a.answer, a.score')
             ->join('cbt_answers a', 'a.question_id = q.id AND a.student_id = ' . (int) $studentId, 'left')
             ->where('q.bank_id', $test['bank_id'])
             ->whereIn('q.question_type', ['esai', 'essay'])
@@ -97,11 +106,35 @@ class CbtAktivitasEssay extends BaseController
             return '<div class="alert alert-warning">Tidak ada soal esai pada tes ini.</div>';
         }
 
+        // Ambil riwayat revisi penilaian esai (V3 Append-Only History)
+        $hasV3Grades = $db->tableExists('cbt_essay_grades_v3');
+        $pendingCount = 0;
+
+        foreach ($soal as $k => $s) {
+            $ansId = (int)($s['answer_id'] ?? 0);
+            $revisions = [];
+            if ($hasV3Grades && $ansId > 0) {
+                $revisions = $db->table('cbt_essay_grades_v3 eg')
+                    ->select('eg.*, u.nama_lengkap AS grader_name, u.username AS grader_username')
+                    ->join('users u', 'u.id = eg.grader_id', 'left')
+                    ->where('eg.answer_id', $ansId)
+                    ->orderBy('eg.version_number', 'ASC')
+                    ->get()
+                    ->getResultArray();
+            }
+            $soal[$k]['revisions'] = $revisions;
+            if ($s['score'] === null || $s['score'] === '') {
+                $pendingCount++;
+            }
+        }
+
         // Kirim data ke view modal
         return view('admin/cbt/aktivitas/modal_nilai_esai', [
             'test_id' => $testId,
             'student_id' => $studentId,
+            'session_id' => $sessionId,
             'bobot_esai' => $test['bobot_esai'] ?? 0,
+            'pending_count' => $pendingCount,
             'soal' => $soal
         ]);
     }
@@ -114,36 +147,100 @@ class CbtAktivitasEssay extends BaseController
         $testId = $this->request->getPost('test_id');
         $studentId = $this->request->getPost('student_id');
         $nilaiSoal = $this->request->getPost('scores'); // array: [question_id => nilai_per_soal]
+        $feedbackSoal = $this->request->getPost('feedbacks') ?? []; // array: [question_id => catatan_guru]
 
         $db = $this->db;
+        $userSession = session('user') ?? [];
+        $graderId = (int)($userSession['id'] ?? session('user_id') ?? 1);
 
         // Ambil bobot esai & nilai PG siswa
         $test = $db->table('cbt_test_status')
-            ->select('bobot_esai')
+            ->select('bank_id, bobot_esai')
             ->where('id', $testId)
             ->get()
             ->getRowArray();
 
         $session = $db->table('cbt_sessions')
-            ->select('score')
+            ->select('id, score')
             ->where('test_id', $testId)
             ->where('student_id', $studentId)
             ->get()
             ->getRowArray();
 
+        $sessionId = $session['id'] ?? null;
         $bobotEsai = $test['bobot_esai'] ?? 0;
         $nilaiPg = $session['score'] ?? 0;
 
-        // Simpan nilai tiap soal esai di cbt_answers.score
-        $totalNilaiEsai = 0;
-        $jumlahSoal = count($nilaiSoal);
+        $hasV3Grades = $db->tableExists('cbt_essay_grades_v3');
+        $hasV3Scores = $db->tableExists('cbt_session_scores_v3');
+        $hasV3Audit  = $db->tableExists('cbt_audit_trail_v3');
 
-        foreach ($nilaiSoal as $qid => $nilai) {
-            $totalNilaiEsai += floatval($nilai);
-            $db->table('cbt_answers')
-                ->where('question_id', $qid)
-                ->where('student_id', $studentId)
-                ->update(['score' => $nilai]);
+        // Simpan nilai tiap soal esai dan catat revisi append-only
+        $totalNilaiEsai = 0;
+        $jumlahSoal = is_array($nilaiSoal) ? count($nilaiSoal) : 0;
+        $pendingCount = 0;
+
+        if (is_array($nilaiSoal)) {
+            foreach ($nilaiSoal as $qid => $nilai) {
+                if ($nilai === '' || $nilai === null) {
+                    $pendingCount++;
+                    continue;
+                }
+
+                $scoreVal = floatval($nilai);
+                $totalNilaiEsai += $scoreVal;
+
+                // 1. Update legacy cbt_answers
+                $db->table('cbt_answers')
+                    ->where('question_id', $qid)
+                    ->where('student_id', $studentId)
+                    ->update(['score' => $scoreVal]);
+
+                // 2. Append-Only Revision in cbt_essay_grades_v3
+                if ($hasV3Grades && $sessionId) {
+                    $ansRow = $db->table('cbt_answers')
+                        ->where('question_id', $qid)
+                        ->where('student_id', $studentId)
+                        ->get()
+                        ->getRowArray();
+                    $ansId = (int)($ansRow['id'] ?? $qid);
+
+                    // Demote prior active versions
+                    $db->table('cbt_essay_grades_v3')
+                        ->where('answer_id', $ansId)
+                        ->where('is_current_confirmed', 1)
+                        ->update(['is_current_confirmed' => 0]);
+
+                    // Get next version number
+                    $latestVer = $db->table('cbt_essay_grades_v3')
+                        ->where('answer_id', $ansId)
+                        ->selectMax('version_number')
+                        ->get()
+                        ->getRowArray();
+                    $nextVer = ((int)($latestVer['version_number'] ?? 0)) + 1;
+
+                    $feedback = !empty($feedbackSoal[$qid]) ? trim($feedbackSoal[$qid]) : null;
+
+                    $db->table('cbt_essay_grades_v3')->insert([
+                        'answer_id'            => $ansId,
+                        'session_id'           => $sessionId,
+                        'grader_id'            => $graderId,
+                        'version_number'       => $nextVer,
+                        'score_awarded'        => $scoreVal,
+                        'feedback'             => $feedback,
+                        'is_current_confirmed' => 1,
+                        'graded_at'            => date('Y-m-d H:i:s'),
+                    ]);
+
+                    // Update cbt_answers_v3 if exists
+                    if ($db->tableExists('cbt_answers_v3')) {
+                        $db->table('cbt_answers_v3')
+                            ->where('session_id', $sessionId)
+                            ->where('student_id', $studentId)
+                            ->update(['allocated_score' => $scoreVal]);
+                    }
+                }
+            }
         }
 
         // Rata-rata nilai esai dalam skala 100
@@ -164,15 +261,68 @@ class CbtAktivitasEssay extends BaseController
                 'total_score' => $totalScore
             ]);
 
+        // Enforce DEC-ESS-01 on cbt_session_scores_v3
+        $publicationEligible = ($pendingCount === 0);
+        if ($hasV3Scores && $sessionId) {
+            $existingScoreV3 = $db->table('cbt_session_scores_v3')->where('session_id', $sessionId)->get()->getRowArray();
+            $payloadScore = [
+                'session_id'              => $sessionId,
+                'score_pg'                => $nilaiPg,
+                'score_esai'              => $publicationEligible ? $essayScore : null,
+                'final_score'             => $publicationEligible ? $totalScore : null,
+                'report_score'            => $publicationEligible ? $totalScore : null,
+                'pending_essay_count'     => $pendingCount,
+                'publication_eligibility' => $publicationEligible ? 1 : 0,
+                'updated_at'              => date('Y-m-d H:i:s'),
+            ];
+
+            if ($existingScoreV3) {
+                $db->table('cbt_session_scores_v3')->where('session_id', $sessionId)->update($payloadScore);
+            } else {
+                $payloadScore['calculated_at'] = date('Y-m-d H:i:s');
+                $db->table('cbt_session_scores_v3')->insert($payloadScore);
+            }
+        }
+
+        // Append HMAC Audit Trail log
+        if ($hasV3Audit && $sessionId) {
+            try {
+                $auditModel = new \App\Models\CbtAuditTrailV3Model();
+                $auditModel->appendLog(
+                    'ESSAY_GRADED',
+                    'cbt_essay_grades_v3',
+                    (string)$sessionId,
+                    (int)$graderId,
+                    'TEACHER',
+                    [
+                        'test_id'                 => $testId,
+                        'student_id'              => $studentId,
+                        'session_id'              => $sessionId,
+                        'pending_count'           => $pendingCount,
+                        'publication_eligibility' => $publicationEligible ? 1 : 0,
+                        'essay_score'             => $essayScore,
+                        'total_score'             => $publicationEligible ? $totalScore : null,
+                    ]
+                );
+            } catch (\Throwable $e) {
+                log_message('error', '[CbtAktivitasEssay] Audit trail log failed: ' . $e->getMessage());
+            }
+        }
+
         return $this->response->setJSON([
             'status' => 'success',
-            'message' => 'Nilai esai berhasil disimpan',
+            'message' => 'Nilai esai dan riwayat revisi berhasil disimpan.',
             'nilai' => [
-                'rata_esai' => $essayScore,
-                'bobot' => $bobotEsai,
+                'rata_esai'   => $essayScore,
+                'bobot'       => $bobotEsai,
                 'essay_score' => $essayScore,
-                'pg' => $nilaiPg,
-                'total' => $totalScore,
+                'pg'          => $nilaiPg,
+                'total'       => $totalScore,
+            ],
+            'dec_ess_01' => [
+                'pending_essay_count'  => $pendingCount,
+                'publication_eligible' => $publicationEligible,
+                'final_score'          => $publicationEligible ? $totalScore : null,
             ],
         ]);
     }
