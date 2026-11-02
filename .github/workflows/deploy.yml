@@ -27,11 +27,11 @@ jobs:
             set -e
             cd /home/mabq7713/repo_ci4
 
-            echo "=== [1/4] Pulling latest code ==="
+            echo "=== [1/6] Pulling latest code ==="
             git checkout main
             git pull origin main
 
-            echo "=== [2/4] Installing Composer dependencies ==="
+            echo "=== [2/6] Installing Composer dependencies ==="
             # Cari path PHP yang tersedia
             PHP_BIN=$(which php 2>/dev/null || which php82 2>/dev/null || ls /opt/cpanel/ea-php*/root/usr/bin/php 2>/dev/null | tail -1 || echo "php")
             echo "Using PHP: $PHP_BIN"
@@ -45,13 +45,26 @@ jobs:
             # Jalankan composer install
             $PHP_BIN /home/mabq7713/composer.phar install --no-dev --optimize-autoloader --no-interaction
 
-            echo "=== [3/4] Triggering cPanel deployment (copy to public_html) ==="
-            uapi VersionControlDeployment create repository_root=/home/mabq7713/repo_ci4
+            echo "=== [3/6] Deploying files to public_html ==="
+            DEPLOYPATH=/home/mabq7713/public_html
+            /bin/cp -Rf app $DEPLOYPATH/
+            /bin/cp -Rf public/* $DEPLOYPATH/public/ 2>/dev/null || true
+            /bin/cp -Rf system $DEPLOYPATH/
+            /bin/cp -Rf vendor $DEPLOYPATH/
+            /bin/cp -f index.php $DEPLOYPATH/
+            /bin/cp -f spark $DEPLOYPATH/
+            if [ -f .htaccess ]; then
+              /bin/cp -f .htaccess $DEPLOYPATH/.htaccess
+            fi
+            echo '{"deploy_time":"'$(date +'%Y-%m-%d %H:%M:%S %Z')'","commit_hash":"'$(git rev-parse --short HEAD)'","author":"'$(git log -1 --pretty=%an)'","message":"'$(git log -1 --pretty=%s | tr -d '"' | tr -d '\\')'"}' > $DEPLOYPATH/public/deploy_status.json
 
-            echo "=== [4/5] Running database migrations ==="
+            echo "=== [4/6] Running database migrations ==="
             $PHP_BIN /home/mabq7713/public_html/spark migrate
 
-            echo "=== [5/6] Regenerating license and security hashes ==="
+            echo "=== [5/6] Seeding default letter templates ==="
+            $PHP_BIN /home/mabq7713/public_html/spark db:seed LetterTemplateSeeder || true
+
+            echo "=== [6/6] Regenerating license and security hashes ==="
             $PHP_BIN /home/mabq7713/public_html/spark license:rehash
 
-            echo "=== [6/6] Done! ==="
+            echo "=== Deployment Finished Successfully! ==="
