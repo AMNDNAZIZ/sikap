@@ -317,15 +317,25 @@ class CbtTpAnalysisService
             }
         }
 
+        // Dapatkan tahun ajaran aktif
+        $activeYearId = 0;
+        $activeYearLabel = '';
+        if ($db->tableExists('academic_years')) {
+            $ay = $db->table('academic_years')->where('is_active', 1)->get()->getRowArray();
+            if (!$ay) {
+                $ay = $db->table('academic_years')->orderBy('start_date', 'DESC')->get()->getRowArray();
+            }
+            if ($ay) {
+                $activeYearId = (int) ($ay['id'] ?? 0);
+                $activeYearLabel = (string) ($ay['year'] ?? '');
+            }
+        }
+
         // 5. Ambil data sesi pengerjaan siswa
         $sessionQuery = $db->table('cbt_sessions s')
             ->select('s.*, st.name as student_name, st.nisn, st.nis, 
-                      COALESCE(c.name, c_sr.name, "-") as class_name,
                       sc.score_pg, sc.score_esai, sc.final_score, sc.pending_essay_count, sc.publication_eligibility')
             ->join('students st', 'st.id = s.student_id', 'left')
-            ->join('classes c', 'c.id = st.class_id', 'left')
-            ->join('student_records sr', 'sr.student_id = st.id AND sr.status = "aktif"', 'left')
-            ->join('classes c_sr', 'c_sr.id = sr.class_id', 'left')
             ->join('cbt_session_scores_v3 sc', 'sc.session_id = s.id', 'left')
             ->where('s.test_id', $testId)
             ->groupBy('s.id')
@@ -363,12 +373,55 @@ class CbtTpAnalysisService
             }
         }
 
+        // 7. Resolusi kelas siswa akurat sesuai Tahun Ajaran Aktif
+        $allStudentIds = array_values(array_unique(array_filter(array_map('intval', array_column($sessions, 'student_id')))));
+        $classMap = $this->resolveStudentClasses($allStudentIds, $activeYearId);
+        foreach ($sessions as &$sess) {
+            $sid = (int)($sess['student_id'] ?? 0);
+            $sess['class_name'] = $classMap[$sid] ?? ($sess['class_name'] ?? '-');
+        }
+        unset($sess);
+
+        // Resolusi sasaran kelas ujian jika belum terdefinisi
+        if (empty($test['class_codes'])) {
+            if (!empty($tpConfig['selected_atp_ids']) && $db->tableExists('alur_tujuan_pembelajaran') && $db->tableExists('classes')) {
+                $atpIds = json_decode((string)$tpConfig['selected_atp_ids'], true) ?: [];
+                if (!empty($atpIds)) {
+                    $atpClasses = $db->table('alur_tujuan_pembelajaran atp')
+                        ->select('c.name as class_name')
+                        ->join('classes c', 'c.id = atp.class_id', 'inner')
+                        ->whereIn('atp.id', $atpIds)
+                        ->get()->getResultArray();
+                    $classNames = array_unique(array_filter(array_column($atpClasses, 'class_name')));
+                    if (!empty($classNames)) {
+                        $test['class_codes'] = implode(', ', $classNames);
+                    }
+                }
+            }
+            if (empty($test['class_codes']) && $db->tableExists('cbt_bap_documents_v3')) {
+                $bapDoc = $db->table('cbt_bap_documents_v3')
+                    ->where('test_id', $testId)
+                    ->orderBy('id', 'DESC')
+                    ->get()->getRowArray();
+                if (!empty($bapDoc['room_code'])) {
+                    $test['class_codes'] = $bapDoc['room_code'];
+                }
+            }
+            if (empty($test['class_codes']) && !empty($classMap)) {
+                $uniqueClasses = array_unique(array_filter(array_values($classMap), fn($c) => $c !== '-'));
+                if (!empty($uniqueClasses)) {
+                    $test['class_codes'] = implode(', ', $uniqueClasses);
+                }
+            }
+        }
+
         $testConfig = [
             'test_id'        => $testId,
             'name'           => $test['exam_name'] ?? ('Ujian #' . $testId),
             'subject_name'   => $test['subject_name'] ?? 'Mata Pelajaran',
             'bank_code'      => $test['bank_code'] ?? '-',
             'class_codes'    => $test['class_codes'] ?? '',
+            'academic_year'  => $activeYearLabel,
             'passing_grade'  => self::THRESHOLD_REMEDIAL,
             'tp_definitions' => $tpDefinitions,
             'tp_mapping_info'=> [
@@ -784,5 +837,110 @@ class CbtTpAnalysisService
             ],
             'analyzed_at'      => date('Y-m-d H:i:s'),
         ];
+    }
+
+    /**
+     * Resolusi nama kelas siswa berdasarkan Tahun Ajaran Aktif.
+     *
+     * Prioritas:
+     * 1. Record di student_records pada tahun ajaran aktif dengan status 'aktif'.
+     * 2. Record di student_records pada tahun ajaran aktif (apapun statusnya, misal 'lulus').
+     * 3. Record terbaru di student_records dengan status 'aktif'.
+     * 4. Field class_id langsung pada tabel students.
+     * 5. '-' jika tidak ditemukan.
+     *
+     * @param array $studentIds Daftar ID siswa
+     * @param int $activeYearId ID tahun ajaran aktif (0 = auto-resolve)
+     * @return array Map [student_id => class_name]
+     */
+    public function resolveStudentClasses(array $studentIds, int $activeYearId = 0): array
+    {
+        $studentIds = array_values(array_unique(array_filter(array_map('intval', $studentIds))));
+        if (empty($studentIds)) {
+            return [];
+        }
+
+        $db = $this->getDb();
+        $classMap = [];
+
+        if ($activeYearId === 0 && $db->tableExists('academic_years')) {
+            $ay = $db->table('academic_years')->where('is_active', 1)->get()->getRowArray();
+            if (!$ay) {
+                $ay = $db->table('academic_years')->orderBy('start_date', 'DESC')->get()->getRowArray();
+            }
+            if ($ay) {
+                $activeYearId = (int) ($ay['id'] ?? 0);
+            }
+        }
+
+        if ($db->tableExists('student_records') && $db->tableExists('classes')) {
+            // Level 1: Tahun ajaran aktif dengan status 'aktif'
+            if ($activeYearId > 0) {
+                $rows = $db->table('student_records sr')
+                    ->select('sr.student_id, c.name as class_name')
+                    ->join('classes c', 'c.id = sr.class_id', 'inner')
+                    ->whereIn('sr.student_id', $studentIds)
+                    ->where('sr.academic_year_id', $activeYearId)
+                    ->where('sr.status', 'aktif')
+                    ->get()->getResultArray();
+                foreach ($rows as $r) {
+                    $classMap[(int)$r['student_id']] = $r['class_name'];
+                }
+            }
+
+            // Level 2: Tahun ajaran aktif (apapun statusnya)
+            $missing = array_diff($studentIds, array_keys($classMap));
+            if (!empty($missing) && $activeYearId > 0) {
+                $rows = $db->table('student_records sr')
+                    ->select('sr.student_id, c.name as class_name')
+                    ->join('classes c', 'c.id = sr.class_id', 'inner')
+                    ->whereIn('sr.student_id', $missing)
+                    ->where('sr.academic_year_id', $activeYearId)
+                    ->get()->getResultArray();
+                foreach ($rows as $r) {
+                    $sid = (int)$r['student_id'];
+                    if (!isset($classMap[$sid])) {
+                        $classMap[$sid] = $r['class_name'];
+                    }
+                }
+            }
+
+            // Level 3: Record terbaru dengan status 'aktif'
+            $missing = array_diff($studentIds, array_keys($classMap));
+            if (!empty($missing)) {
+                $rows = $db->table('student_records sr')
+                    ->select('sr.student_id, c.name as class_name')
+                    ->join('classes c', 'c.id = sr.class_id', 'inner')
+                    ->whereIn('sr.student_id', $missing)
+                    ->where('sr.status', 'aktif')
+                    ->orderBy('sr.academic_year_id', 'DESC')
+                    ->orderBy('sr.id', 'DESC')
+                    ->get()->getResultArray();
+                foreach ($rows as $r) {
+                    $sid = (int)$r['student_id'];
+                    if (!isset($classMap[$sid])) {
+                        $classMap[$sid] = $r['class_name'];
+                    }
+                }
+            }
+        }
+
+        // Level 4: Fallback ke students.class_id
+        $missing = array_diff($studentIds, array_keys($classMap));
+        if (!empty($missing) && $db->tableExists('students') && $db->tableExists('classes')) {
+            $rows = $db->table('students st')
+                ->select('st.id as student_id, c.name as class_name')
+                ->join('classes c', 'c.id = st.class_id', 'inner')
+                ->whereIn('st.id', $missing)
+                ->get()->getResultArray();
+            foreach ($rows as $r) {
+                $sid = (int)$r['student_id'];
+                if (!isset($classMap[$sid])) {
+                    $classMap[$sid] = $r['class_name'];
+                }
+            }
+        }
+
+        return $classMap;
     }
 }

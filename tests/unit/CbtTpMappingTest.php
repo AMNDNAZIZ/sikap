@@ -242,5 +242,16 @@ class CbtTpMappingTest extends TestCase
         $this->assertContains('TP 2', $st['mastered_tps']);
         $this->assertEmpty($st['needs_improvement_tps']);
     }
+
+    /**
+     * Uji 6: resolveStudentClasses menangani daftar ID kosong dengan aman
+     */
+    public function testResolveStudentClassesHandlesEmptyListSafely()
+    {
+        $service = new \App\Services\Cbt\Analysis\CbtTpAnalysisService();
+        $res = $service->resolveStudentClasses([]);
+        $this->assertIsArray($res);
+        $this->assertEmpty($res);
+    }
 }
 

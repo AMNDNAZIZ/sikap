@@ -24,6 +24,10 @@
                         <span class="mx-2">·</span>
                         <i class="bi bi-people me-1"></i> Sasaran Kelas: <strong><?= esc($test['class_codes']) ?></strong>
                     <?php endif; ?>
+                    <?php if (!empty($test['academic_year'])): ?>
+                        <span class="mx-2">·</span>
+                        <i class="bi bi-calendar-check me-1"></i> Tahun Ajaran: <strong><?= esc($test['academic_year']) ?></strong>
+                    <?php endif; ?>
                 </p>
             </div>
             <div class="d-flex gap-2 align-self-start align-self-md-center flex-wrap">
