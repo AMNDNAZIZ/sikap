@@ -116,5 +116,46 @@ class CbtTpMappingTest extends TestCase
         $this->assertContains($mappings[11]['tp_id'], [201, 202]);
         $this->assertContains($mappings[12]['tp_id'], [201, 202]);
     }
+
+    /**
+     * Uji 3: Ekstraksi penjadwalan ujian (Level Kelas & Semester) dari data cbt_test_status
+     */
+    public function testResolveTestSchedulingExtractsLevelAndSemesterAccurately()
+    {
+        // Kasus A: SD dengan format "Kelas 6A, Kelas 6B", semester 1
+        $testA = [
+            'id'          => 1,
+            'class_codes' => 'Kelas 6A, Kelas 6B',
+            'semester'    => 1,
+            'bank_level'  => 'SD',
+        ];
+        $resA = $this->mappingService->resolveTestScheduling($testA);
+        $this->assertEquals(1, $resA['semester']);
+        $this->assertEquals('Semester 1', $resA['semester_label']);
+        $this->assertContains(6, $resA['target_levels']);
+        $this->assertEquals('Kelas 6', $resA['level_label']);
+
+        // Kasus B: SMP Romawi VII, semester "Ganjil"
+        $testB = [
+            'id'          => 2,
+            'class_codes' => json_encode(['VII A', 'VII B']),
+            'semester'    => 'Ganjil',
+            'bank_level'  => 'SMP',
+        ];
+        $resB = $this->mappingService->resolveTestScheduling($testB);
+        $this->assertEquals(1, $resB['semester']);
+        $this->assertContains(7, $resB['target_levels']);
+
+        // Kasus C: Semester Genap (2)
+        $testC = [
+            'id'          => 3,
+            'class_codes' => 'Kelas 4',
+            'semester'    => 'Genap',
+            'bank_level'  => 4,
+        ];
+        $resC = $this->mappingService->resolveTestScheduling($testC);
+        $this->assertEquals(2, $resC['semester']);
+        $this->assertContains(4, $resC['target_levels']);
+    }
 }
 

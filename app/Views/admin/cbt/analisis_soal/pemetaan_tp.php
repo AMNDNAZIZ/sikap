@@ -21,7 +21,9 @@
                     <span class="mx-2">·</span>
                     <i class="bi bi-book me-1"></i> Mapel: <strong><?= esc($test['subject_name'] ?? 'Mata Pelajaran') ?></strong>
                     <span class="mx-2">·</span>
-                    <i class="bi bi-upc me-1"></i> Bank: <strong><?= esc($test['bank_code'] ?? '-') ?></strong>
+                    <i class="bi bi-mortarboard me-1"></i> Sasaran: <strong><?= esc($scheduling['level_label'] ?? 'Kelas') ?></strong>
+                    <span class="mx-2">·</span>
+                    <i class="bi bi-calendar3 me-1"></i> <strong><?= esc($scheduling['semester_label'] ?? 'Semester') ?></strong>
                     <span class="mx-2">·</span>
                     <i class="bi bi-question-circle me-1"></i> <strong><?= count($questions) ?> Butir Soal</strong>
                 </p>
@@ -102,13 +104,29 @@
                         </span>
                     </div>
 
+                    <!-- Indikator Filter Otomatis Berdasarkan Jadwal Ujian -->
+                    <div class="alert alert-light border border-primary border-opacity-25 d-flex align-items-center justify-content-between p-2.5 px-3 mb-3 small" style="border-radius: 8px;">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-funnel-fill text-primary me-2"></i>
+                            <span>
+                                Materi otomatis difilter sesuai jadwal ujian: 
+                                <strong><?= esc($scheduling['level_label'] ?? 'Kelas') ?></strong> · <strong><?= esc($scheduling['semester_label'] ?? 'Semester') ?></strong>
+                            </span>
+                        </div>
+                        <?php if (!empty($scheduling['target_class_names'])): ?>
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">
+                                <?= esc(implode(', ', $scheduling['target_class_names'])) ?>
+                            </span>
+                        <?php endif; ?>
+                    </div>
+
                     <?php if (empty($atp_list)): ?>
                         <div class="alert alert-warning border-0 d-flex align-items-center p-3" style="border-radius: 8px;">
                             <i class="bi bi-exclamation-circle fs-4 me-3 text-warning"></i>
                             <div>
-                                <strong class="d-block text-dark">Data ATP Belum Ditemukan</strong>
+                                <strong class="d-block text-dark">Data ATP untuk <?= esc($scheduling['level_label'] ?? 'Kelas') ?> <?= esc($scheduling['semester_label'] ?? '') ?> Belum Ditemukan</strong>
                                 <span class="small text-muted">
-                                    Belum ada data Alur Tujuan Pembelajaran (ATP) untuk mata pelajaran ini. Silakan buat ATP terlebih dahulu pada menu <strong>Administrasi Guru &gt; Analisis ATP</strong>.
+                                    Belum ada data Alur Tujuan Pembelajaran (ATP) yang didaftarkan guru untuk tingkat kelas dan semester ini. Silakan buat ATP terlebih dahulu pada menu <strong>Administrasi Guru &gt; Analisis ATP</strong>.
                                 </span>
                             </div>
                         </div>

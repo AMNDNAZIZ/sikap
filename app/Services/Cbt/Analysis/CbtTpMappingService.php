@@ -19,9 +19,9 @@ class CbtTpMappingService
         $this->db = $db;
     }
 
-    protected function getDb(): BaseConnection
+    protected function getDb(): ?BaseConnection
     {
-        if ($this->db === null) {
+        if ($this->db === null && class_exists('\Config\Database') && function_exists('config')) {
             $this->db = \Config\Database::connect();
         }
         return $this->db;
@@ -50,38 +50,82 @@ class CbtTpMappingService
         $subjectId = (int)($test['subject_id'] ?? 0);
         $bankId = (int)($test['bank_id'] ?? 0);
 
-        // Ekstrak level kelas dari bank_level atau class_codes (misal: "VII A" -> 7, "VIII" -> 8, dsb.)
-        $classLevel = null;
-        if (!empty($test['bank_level'])) {
-            $classLevel = (int)$test['bank_level'];
-        } elseif (!empty($test['class_codes'])) {
-            if (preg_match('/\b(VII|VIII|IX|X|XI|XII|\d+)\b/i', $test['class_codes'], $m)) {
-                $lvlStr = strtoupper($m[1]);
-                $romanMap = ['VII' => 7, 'VIII' => 8, 'IX' => 9, 'X' => 10, 'XI' => 11, 'XII' => 12];
-                $classLevel = $romanMap[$lvlStr] ?? (int)$lvlStr;
-            }
-        }
+        // 2. Ekstrak data penjadwalan ujian (Level Kelas & Semester dari cbt_test_status)
+        $scheduling = $this->resolveTestScheduling($test);
+        $targetLevels = $scheduling['target_levels'];
+        $targetClassIds = $scheduling['target_class_ids'];
+        $testSemester = $scheduling['semester'];
 
-        // 2. Muat Daftar ATP untuk mapel ini
+        // 3. Muat Daftar ATP yang sesuai dengan Level Kelas dan Semester Terjadwal
         $atpList = [];
+        $isFilteredBySchedule = false;
+
         if ($db->tableExists('alur_tujuan_pembelajaran') && $subjectId > 0) {
             $atpQuery = $db->table('alur_tujuan_pembelajaran')
-                ->where('subject_id', $subjectId);
+                ->where('alur_tujuan_pembelajaran.subject_id', $subjectId);
 
-            if ($classLevel) {
-                // Filter jika kolom class_id atau relasi level ada
-                if ($db->fieldExists('class_id', 'alur_tujuan_pembelajaran')) {
-                    $atpQuery->join('classes c_atp', 'c_atp.id = alur_tujuan_pembelajaran.class_id', 'left');
-                    $atpQuery->groupStart()
-                        ->where('c_atp.level', $classLevel)
-                        ->orWhere('alur_tujuan_pembelajaran.class_id IS NULL')
-                        ->groupEnd();
+            $hasLevelFilter = false;
+            if (!empty($targetLevels) || !empty($targetClassIds)) {
+                $hasLevelFilter = true;
+                $atpQuery->join('classes c_atp', 'c_atp.id = alur_tujuan_pembelajaran.class_id', 'left');
+                $atpQuery->groupStart();
+                if (!empty($targetLevels)) {
+                    $atpQuery->whereIn('c_atp.level', $targetLevels);
                 }
+                if (!empty($targetClassIds)) {
+                    if (!empty($targetLevels)) {
+                        $atpQuery->orWhereIn('alur_tujuan_pembelajaran.class_id', $targetClassIds);
+                    } else {
+                        $atpQuery->whereIn('alur_tujuan_pembelajaran.class_id', $targetClassIds);
+                    }
+                }
+                $atpQuery->groupEnd();
             }
 
-            $rawAtp = $atpQuery->orderBy('semester', 'ASC')
-                ->orderBy('urutan', 'ASC')
+            if ($testSemester !== null && in_array($testSemester, [1, 2])) {
+                $atpQuery->where('alur_tujuan_pembelajaran.semester', $testSemester);
+            }
+
+            $rawAtp = $atpQuery->orderBy('alur_tujuan_pembelajaran.semester', 'ASC')
+                ->orderBy('alur_tujuan_pembelajaran.urutan', 'ASC')
                 ->get()->getResultArray();
+
+            if (!empty($rawAtp)) {
+                $isFilteredBySchedule = true;
+            } else {
+                // Fallback 1: Jika dengan filter semester kosong, coba filter level kelas saja
+                if ($testSemester !== null && $hasLevelFilter) {
+                    $fallbackQuery = $db->table('alur_tujuan_pembelajaran')
+                        ->where('alur_tujuan_pembelajaran.subject_id', $subjectId)
+                        ->join('classes c_atp', 'c_atp.id = alur_tujuan_pembelajaran.class_id', 'left');
+
+                    $fallbackQuery->groupStart();
+                    if (!empty($targetLevels)) {
+                        $fallbackQuery->whereIn('c_atp.level', $targetLevels);
+                    }
+                    if (!empty($targetClassIds)) {
+                        $fallbackQuery->orWhereIn('alur_tujuan_pembelajaran.class_id', $targetClassIds);
+                    }
+                    $fallbackQuery->groupEnd();
+
+                    $rawAtp = $fallbackQuery->orderBy('alur_tujuan_pembelajaran.semester', 'ASC')
+                        ->orderBy('alur_tujuan_pembelajaran.urutan', 'ASC')
+                        ->get()->getResultArray();
+
+                    if (!empty($rawAtp)) {
+                        $isFilteredBySchedule = true;
+                    }
+                }
+
+                // Fallback 2: Jika masih kosong, muat seluruh materi mapel
+                if (empty($rawAtp)) {
+                    $rawAtp = $db->table('alur_tujuan_pembelajaran')
+                        ->where('subject_id', $subjectId)
+                        ->orderBy('semester', 'ASC')
+                        ->orderBy('urutan', 'ASC')
+                        ->get()->getResultArray();
+                }
+            }
 
             foreach ($rawAtp as $atp) {
                 $atpId = (int)$atp['id'];
@@ -203,14 +247,110 @@ class CbtTpMappingService
         }
 
         return [
-            'test'             => $test,
-            'atp_list'         => $atpList,
-            'config'           => $config,
-            'assessment_type'  => $assessmentType,
-            'selected_atp_ids' => $selectedAtpIds,
-            'selected_tp_ids'  => $selectedTpIds,
-            'questions'        => $questions,
-            'saved_mappings'   => $savedMappings,
+            'test'                   => $test,
+            'scheduling'             => $scheduling,
+            'is_filtered_by_schedule'=> $isFilteredBySchedule,
+            'atp_list'               => $atpList,
+            'config'                 => $config,
+            'assessment_type'        => $assessmentType,
+            'selected_atp_ids'       => $selectedAtpIds,
+            'selected_tp_ids'        => $selectedTpIds,
+            'questions'              => $questions,
+            'saved_mappings'         => $savedMappings,
+        ];
+    }
+
+    /**
+     * Ekstrak data penjadwalan ujian (Semester dan Tingkat Kelas sasaran).
+     */
+    public function resolveTestScheduling(array $test): array
+    {
+        $db = $this->getDb();
+
+        // 1. Ekstrak semester dari penjadwalan
+        $rawSemester = $test['semester'] ?? null;
+        $semester = null;
+        if (!empty($rawSemester)) {
+            if (is_numeric($rawSemester)) {
+                $semester = (int)$rawSemester;
+            } elseif (stripos((string)$rawSemester, 'ganjil') !== false) {
+                $semester = 1;
+            } elseif (stripos((string)$rawSemester, 'genap') !== false) {
+                $semester = 2;
+            }
+        }
+
+        // 2. Ekstrak target kelas dari class_codes penjadwalan
+        $rawCodes = $test['class_codes'] ?? '';
+        $targetClassTokens = [];
+        if (is_string($rawCodes)) {
+            $decoded = json_decode($rawCodes, true);
+            if (is_array($decoded)) {
+                $targetClassTokens = $decoded;
+            } elseif (trim($rawCodes) !== '') {
+                $targetClassTokens = array_map('trim', explode(',', $rawCodes));
+            }
+        } elseif (is_array($rawCodes)) {
+            $targetClassTokens = $rawCodes;
+        }
+        $targetClassTokens = array_values(array_filter(array_map('trim', (array)$targetClassTokens)));
+
+        $matchedClasses = [];
+        $targetClassIds = [];
+        $targetLevels = [];
+        $targetClassNames = [];
+
+        if (!empty($targetClassTokens) && $db !== null && $db->tableExists('classes')) {
+            $matchedClasses = $db->table('classes')
+                ->groupStart()
+                    ->whereIn('name', $targetClassTokens)
+                    ->orWhereIn('id', array_filter($targetClassTokens, 'is_numeric'))
+                ->groupEnd()
+                ->get()->getResultArray();
+
+            foreach ($matchedClasses as $c) {
+                $targetClassIds[] = (int)$c['id'];
+                $targetClassNames[] = $c['name'];
+                if (!empty($c['level'])) {
+                    $targetLevels[] = (int)$c['level'];
+                }
+            }
+        }
+
+        // Jika tidak cocok via query exact, ekstrak level angka / romawi dari teks class_codes
+        if (empty($targetLevels)) {
+            foreach ($targetClassTokens as $str) {
+                if (preg_match('/\b(VII|VIII|IX|X|XI|XII)\b/i', $str, $m)) {
+                    $romanMap = ['VII' => 7, 'VIII' => 8, 'IX' => 9, 'X' => 10, 'XI' => 11, 'XII' => 12];
+                    $targetLevels[] = $romanMap[strtoupper($m[1])];
+                } elseif (preg_match('/(?:kelas\s*|\b)([1-9]|1[0-2])(?:\s*[a-zA-Z]|\b)/i', $str, $m)) {
+                    $targetLevels[] = (int)$m[1];
+                }
+            }
+        }
+
+        // Cek juga dari bank_level jika berupa angka
+        if (empty($targetLevels) && !empty($test['bank_level']) && is_numeric($test['bank_level'])) {
+            $targetLevels[] = (int)$test['bank_level'];
+        }
+
+        $targetLevels = array_values(array_unique(array_filter($targetLevels)));
+        $targetClassIds = array_values(array_unique(array_filter($targetClassIds)));
+
+        $levelLabel = !empty($targetLevels) 
+            ? 'Kelas ' . implode(', ', $targetLevels) 
+            : (!empty($test['bank_level']) ? 'Level ' . $test['bank_level'] : (!empty($targetClassNames) ? implode(', ', $targetClassNames) : 'Semua Level'));
+        
+        $semesterLabel = $semester ? 'Semester ' . $semester : 'Semua Semester';
+
+        return [
+            'semester'           => $semester,
+            'semester_label'     => $semesterLabel,
+            'target_class_ids'   => $targetClassIds,
+            'target_levels'      => $targetLevels,
+            'target_class_names' => $targetClassNames,
+            'level_label'        => $levelLabel,
+            'class_codes_raw'    => $rawCodes,
         ];
     }
 
