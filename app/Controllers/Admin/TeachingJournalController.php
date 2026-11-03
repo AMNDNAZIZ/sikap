@@ -253,7 +253,7 @@ class TeachingJournalController extends BaseController
                 $candModulQuery->where('teacher_id', $currentTeacherId);
             }
             $candModul = $candModulQuery
-                ->orderBy("FIELD(class_id, {$data['class_id']})", 'DESC')
+                ->orderBy("CASE WHEN class_id = {$data['class_id']} THEN 0 ELSE 1 END", 'ASC', false)
                 ->orderBy('updated_at', 'DESC')
                 ->first();
             if ($candModul) {
@@ -629,13 +629,13 @@ class TeachingJournalController extends BaseController
                     $matchedIds = array_column($candidateMatches, 'id');
                     $matchedModulId = (int)$candidateMatches[0]['id'];
                     // Beri prioritas modul yang cocok dengan ATP di urutan pertama
-                    $builder->orderBy("CASE WHEN ma.id IN (" . implode(',', $matchedIds) . ") THEN 0 ELSE 1 END", 'ASC');
+                    $builder->orderBy("CASE WHEN ma.id IN (" . implode(',', $matchedIds) . ") THEN 0 ELSE 1 END", 'ASC', false);
                 }
             }
         }
 
         // Prioritaskan modul dari kelas ini, lalu urutkan tanggal pembaruan terbaru
-        $builder->orderBy("FIELD(ma.class_id, {$classId})", 'DESC')
+        $builder->orderBy("CASE WHEN ma.class_id = {$classId} THEN 0 ELSE 1 END", 'ASC', false)
                 ->orderBy('ma.updated_at', 'DESC');
         $moduls = $builder->get()->getResultArray();
 
@@ -645,7 +645,7 @@ class TeachingJournalController extends BaseController
             $sem = !empty($m['semester']) ? "Sem {$m['semester']}" : "";
             $tipe = strtoupper($m['tipe'] ?? 'MANUAL');
             $date = !empty($m['updated_at']) ? date('d/m/Y', strtotime($m['updated_at'])) : '';
-            $classTag = ((int)$m['class_id'] !== $classId && !empty($m['class_name'])) ? "Kelas {$m['class_name']}" : '';
+            $classTag = ((int)$m['class_id'] !== $classId && !empty($m['class_name'])) ? (stripos($m['class_name'], 'Kelas') === 0 ? $m['class_name'] : "Kelas {$m['class_name']}") : '';
 
             $isMatchForSelectedAtp = ($matchedModulId && (int)$m['id'] === $matchedModulId);
 
@@ -1127,7 +1127,7 @@ class TeachingJournalController extends BaseController
                 $modulBuilder->where('atp.semester', $selectedSemester);
             }
 
-            $modulBuilder->orderBy("FIELD(ma.class_id, {$selectedClassId})", 'DESC')
+            $modulBuilder->orderBy("CASE WHEN ma.class_id = {$selectedClassId} THEN 0 ELSE 1 END", 'ASC', false)
                          ->orderBy('ma.updated_at', 'DESC');
             $rawModuls = $modulBuilder->get()->getResultArray();
 
@@ -1136,7 +1136,7 @@ class TeachingJournalController extends BaseController
                 $sem = !empty($rm['semester']) ? "Sem {$rm['semester']}" : "";
                 $tipe = strtoupper($rm['tipe'] ?? 'MANUAL');
                 $date = !empty($rm['updated_at']) ? date('d/m/Y', strtotime($rm['updated_at'])) : '';
-                $classTag = ((int)$rm['class_id'] !== (int)$selectedClassId && !empty($rm['class_name'])) ? "Kelas {$rm['class_name']}" : '';
+                $classTag = ((int)$rm['class_id'] !== (int)$selectedClassId && !empty($rm['class_name'])) ? (stripos($rm['class_name'], 'Kelas') === 0 ? $rm['class_name'] : "Kelas {$rm['class_name']}") : '';
                 $label = implode(' | ', array_filter([$materi, $sem, $tipe, $classTag, $date]));
 
                 $data['moduls'][] = [
@@ -1941,7 +1941,7 @@ class TeachingJournalController extends BaseController
                             ->whereIn('class_id', $classIdsAtLevel)
                             ->where('subject_id', $orphan['subject_id'])
                             ->where('teacher_id', $orphan['teacher_id'])
-                            ->orderBy("FIELD(class_id, {$orphan['class_id']})", 'DESC')
+                            ->orderBy("CASE WHEN class_id = {$orphan['class_id']} THEN 0 ELSE 1 END", 'ASC', false)
                             ->orderBy('updated_at', 'DESC')
                             ->get()->getRowArray();
 
