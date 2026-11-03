@@ -365,6 +365,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                             atpSelect.appendChild(option);
                         });
+                        // Jika ATP sudah terpilih secara otomatis (mode edit), segarkan modul yang cocok
+                        if (atpSelect.value) {
+                            loadModulList();
+                        }
                     })
                     .catch(error => console.error('Error loading ATPs:', error));
             } else {
@@ -501,8 +505,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (savedModulId) {
                     matchedModul = data.moduls.find(m => String(m.id) === String(savedModulId));
                 }
-                if (!matchedModul && atpId) {
-                    matchedModul = data.moduls.find(m => String(m.atp_id) === String(atpId));
+                // Jika server mengirimkan ID modul yang cocok dari pencocokan ATP / Lingkup Materi
+                if (!matchedModul && data.matched_modul_id) {
+                    matchedModul = data.moduls.find(m => String(m.id) === String(data.matched_modul_id));
+                }
+                if (!matchedModul && atpId && data.moduls.length > 0) {
+                    matchedModul = data.moduls.find(m => String(m.atp_id) === String(atpId)) || data.moduls[0];
                 }
                 if (!matchedModul && data.moduls.length === 1 && !savedModulId) {
                     matchedModul = data.moduls[0];
@@ -512,6 +520,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     modulSelect.value = matchedModul.id;
                     if (hiddenModulInput) hiddenModulInput.value = matchedModul.id;
                     loadModulMeetings(matchedModul.id, savedPertemuanKe);
+                } else if (!savedModulId) {
+                    if (hiddenModulInput) hiddenModulInput.value = '';
+                    if (hiddenPertemuanInput) hiddenPertemuanInput.value = '';
+                    loadModulMeetings(null);
                 }
             })
             .catch(err => {
@@ -690,14 +702,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const singleAtp = document.getElementById('atp_id');
     if (singleAtp) {
         singleAtp.addEventListener('change', function() {
-            const targetAtpId = this.value;
-            if (targetAtpId && currentModuls.length > 0 && modulSelect) {
-                const match = currentModuls.find(m => String(m.atp_id) === String(targetAtpId));
-                if (match && modulSelect.value !== String(match.id)) {
-                    modulSelect.value = match.id;
-                    loadModulMeetings(match.id);
-                }
-            }
+            loadModulList();
         });
     }
 

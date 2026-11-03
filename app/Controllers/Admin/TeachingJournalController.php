@@ -542,14 +542,17 @@ class TeachingJournalController extends BaseController
 
         $classLevel = $classInfo['level'] ?? null;
         $classIdsAtLevel = [$classId];
-        if ($classLevel !== null) {
+        if ($classLevel !== null && $classLevel !== '') {
             $cRows = $this->db->table('classes')
                 ->select('id')
                 ->where('level', $classLevel)
                 ->get()->getResultArray();
             if (!empty($cRows)) {
-                $classIdsAtLevel = array_column($cRows, 'id');
+                $classIdsAtLevel = array_map('intval', array_column($cRows, 'id'));
             }
+        }
+        if (!in_array($classId, $classIdsAtLevel, true)) {
+            $classIdsAtLevel[] = $classId;
         }
 
         $builder = $this->db->table('modul_ajar ma')
@@ -573,32 +576,61 @@ class TeachingJournalController extends BaseController
                     ->first();
                 if ($assignment) {
                     $teacherId = (int)$assignment['teacher_id'];
+                } elseif (!empty($classInfo['teacher_id'])) {
+                    $teacherId = (int)$classInfo['teacher_id'];
                 }
             }
             if ($teacherId > 0) {
-                $builder->where('ma.teacher_id', $teacherId);
+                // Jika guru pengampu memiliki modul tersimpan, utamakan filter ke guru tersebut
+                $hasTeacherModul = (clone $builder)->where('ma.teacher_id', $teacherId)->countAllResults();
+                if ($hasTeacherModul > 0) {
+                    $builder->where('ma.teacher_id', $teacherId);
+                }
             }
         }
 
         // Filter opsional berdasarkan ATP jika dipilih
+        $matchedModulId = null;
         if ($atpId) {
             $selectedAtp = $this->db->table('alur_tujuan_pembelajaran')->where('id', $atpId)->get()->getRowArray();
-            if ($selectedAtp && !empty($selectedAtp['lingkup_materi'])) {
-                // Temukan semua atp_id selevel dengan lingkup materi & semester yang cocok
-                $matchingAtpRows = $this->db->table('alur_tujuan_pembelajaran')
+            if ($selectedAtp) {
+                $materiClean = trim($selectedAtp['lingkup_materi'] ?? '');
+                $sem = !empty($selectedAtp['semester']) ? (int)$selectedAtp['semester'] : null;
+
+                $atpQuery = $this->db->table('alur_tujuan_pembelajaran')
                     ->select('id')
                     ->whereIn('class_id', $classIdsAtLevel)
-                    ->where('subject_id', $subjectId)
-                    ->where('lingkup_materi', $selectedAtp['lingkup_materi'])
-                    ->where('semester', $selectedAtp['semester'])
-                    ->get()->getResultArray();
+                    ->where('subject_id', $subjectId);
+
+                if (!empty($materiClean)) {
+                    $atpQuery->groupStart()
+                        ->where('TRIM(lingkup_materi)', $materiClean)
+                        ->orLike('lingkup_materi', $materiClean, 'both')
+                    ->groupEnd();
+                }
+
+                $matchingAtpRows = $atpQuery->get()->getResultArray();
                 $matchingAtpIds = array_column($matchingAtpRows, 'id');
                 if (!in_array($atpId, $matchingAtpIds)) {
                     $matchingAtpIds[] = $atpId;
                 }
-                $builder->whereIn('ma.atp_id', $matchingAtpIds);
-            } else {
-                $builder->where('ma.atp_id', $atpId);
+
+                // Cek modul kandidat yang cocok dengan lingkup materi ini
+                $matchTestQuery = (clone $builder);
+                $matchTestQuery->groupStart()
+                    ->whereIn('ma.atp_id', $matchingAtpIds);
+                if (!empty($materiClean)) {
+                    $matchTestQuery->orWhere('TRIM(atp.lingkup_materi)', $materiClean);
+                }
+                $matchTestQuery->groupEnd();
+
+                $candidateMatches = $matchTestQuery->get()->getResultArray();
+                if (!empty($candidateMatches)) {
+                    $matchedIds = array_column($candidateMatches, 'id');
+                    $matchedModulId = (int)$candidateMatches[0]['id'];
+                    // Beri prioritas modul yang cocok dengan ATP di urutan pertama
+                    $builder->orderBy("CASE WHEN ma.id IN (" . implode(',', $matchedIds) . ") THEN 0 ELSE 1 END", 'ASC');
+                }
             }
         }
 
@@ -615,6 +647,8 @@ class TeachingJournalController extends BaseController
             $date = !empty($m['updated_at']) ? date('d/m/Y', strtotime($m['updated_at'])) : '';
             $classTag = ((int)$m['class_id'] !== $classId && !empty($m['class_name'])) ? "Kelas {$m['class_name']}" : '';
 
+            $isMatchForSelectedAtp = ($matchedModulId && (int)$m['id'] === $matchedModulId);
+
             $labelParts = array_filter([$materi, $sem, $tipe, $classTag, $date]);
             $label = implode(' | ', $labelParts);
 
@@ -627,13 +661,15 @@ class TeachingJournalController extends BaseController
                 'tipe'       => $m['tipe'] ?? 'manual',
                 'updated_at' => $m['updated_at'] ?? null,
                 'label'      => $label,
+                'is_matched' => $isMatchForSelectedAtp,
             ];
         }
 
         return $this->response->setJSON([
-            'success' => true,
-            'moduls'  => $result,
-            'message' => empty($result) ? 'Tidak ada Modul Ajar yang sesuai untuk kelas dan mata pelajaran ini.' : 'Daftar modul berhasil dimuat.',
+            'success'          => true,
+            'matched_modul_id' => $matchedModulId,
+            'moduls'           => $result,
+            'message'          => empty($result) ? 'Tidak ada Modul Ajar yang sesuai untuk kelas dan mata pelajaran ini.' : 'Daftar modul berhasil dimuat.',
         ]);
     }
 

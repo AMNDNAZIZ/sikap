@@ -102,5 +102,29 @@ class ModulAjarCrossClassDetectionTest extends TestCase
         $isValidModul = $matchClass && $matchTeacher;
         $this->assertFalse($isValidModul, 'Cross-teacher modul access must be rejected');
     }
-}
 
+    /**
+     * Test detection of Modul Ajar matching by Lingkup Materi when ATP IDs differ between parallel classes.
+     */
+    public function testLingkupMateriMatchingAcrossDifferentAtpIds()
+    {
+        // 6A has ATP 12 with "Operasi Hitung Pecahan"
+        $atp6A = ['id' => 12, 'class_id' => 1, 'subject_id' => 5, 'lingkup_materi' => 'Operasi Hitung Pecahan', 'semester' => 1];
+        // 6B has ATP 45 with "Operasi Hitung Pecahan"
+        $atp6B = ['id' => 45, 'class_id' => 2, 'subject_id' => 5, 'lingkup_materi' => 'Operasi Hitung Pecahan ', 'semester' => 1];
+
+        // Modul was created in 6A referencing ATP 12
+        $modul6A = ['id' => 101, 'atp_id' => 12, 'class_id' => 1, 'subject_id' => 5, 'lingkup_materi' => 'Operasi Hitung Pecahan'];
+
+        // When user in 6B selects ATP 45:
+        $selectedAtpId = 45;
+        $materiSelected = trim($atp6B['lingkup_materi']);
+
+        // Direct ID match fails
+        $this->assertNotEquals($modul6A['atp_id'], $selectedAtpId);
+
+        // Lingkup Materi semantic match succeeds
+        $isMatched = (trim($modul6A['lingkup_materi']) === $materiSelected);
+        $this->assertTrue($isMatched, 'Modul Ajar from 6A should match selection in 6B via trimmed Lingkup Materi');
+    }
+}
