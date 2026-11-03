@@ -1,6 +1,6 @@
 {
     "version": "2.0.5",
-    "generated": "2026-11-04 02:02:37",
+    "generated": "2026-11-04 06:06:10",
     "last_update": "2026-10-29 00:00",
     "total_files": 1137,
     "files": {
@@ -144,7 +144,7 @@
         "app/Controllers/Admin/TeacherAttendance.php": "7e7b633fba2b2677de73bd4c47c47661",
         "app/Controllers/Admin/Teachers.php": "bdd721f599794b8f286302e5334ba707",
         "app/Controllers/Admin/TeachingAssignments.php": "d7e81b76e49292d601c91188c6ff4a96",
-        "app/Controllers/Admin/TeachingJournalController.php": "c0465de77fd1de828ee775b6f0775874",
+        "app/Controllers/Admin/TeachingJournalController.php": "d99cdc8c5cf7ccaddd5b6ff5e13e5c3c",
         "app/Controllers/Admin/Tugas.php": "9d5f7655e98030106612dc56e0ed174a",
         "app/Controllers/Admin/Updater.php": "8e9abec2cf3d3a5986554ab5981a3d40",
         "app/Controllers/Admin/User.php": "0013484725042d665f33a92b4426a78d",
