@@ -4574,5 +4574,37 @@
             "sk_issuer": "ADMIN",
             "ratification_time": "2026-11-03 05:14:51"
         }
+    },
+    {
+        "audit_id": "AUD_177DA1272F8D9253",
+        "sequence_number": 166,
+        "timestamp": "2026-11-03 06:50:03",
+        "timestamp_iso": "2026-11-03T06:50:03+01:00",
+        "reviewer_id": "principal_01",
+        "case_id": "REV_RET_502_acb0b70a",
+        "status_before": "OWNER_DECISION_REQUIRED",
+        "status_after": "RESOLVED",
+        "decision": "SELECT_ATTEMPT",
+        "decision_id": "DEC-RET-01",
+        "reason": "Sesi ke-2 disahkan berdasarkan SK Pengulangan Resmi akibat kendala teknis.",
+        "evidence_reference": "2 exam sessions logged for candidate under DEC-RET-01",
+        "policy_version": "V3.29A-STAGE_F3A",
+        "previous_record_hash": "3f7d15342faea442350f263ce17cc498dbfde6155a9f80e401b702243a1b3778",
+        "record_hash": "3802be15ed6590ebe2aaad84960d73fe3ed32a13304d49effbd96c5aa635cdda",
+        "extra_context": {
+            "category": "RETAKE_ANOMALY",
+            "sanctioned_action": "SELECT_ATTEMPT",
+            "decision_id": "DEC-RET-01",
+            "legacy_score": null,
+            "v3_score": null,
+            "delta": null,
+            "notes": "Attempt resolved explicitly to session 1012 under DEC-RET-01 via owner approval ref 'SK-KUR-2026-009'.",
+            "selected_session_id": 1012,
+            "owner_approval_ref": "SK-KUR-2026-009",
+            "sk_number": "SK-KUR-2026-009",
+            "sk_date": "2026-11-03",
+            "sk_issuer": "ADMIN",
+            "ratification_time": "2026-11-03 06:50:03"
+        }
     }
 ]

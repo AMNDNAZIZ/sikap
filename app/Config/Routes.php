@@ -577,6 +577,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('erapor/save', 'Erapor::save', $auth123);
     $routes->post('erapor/save-tp-settings', 'Erapor::saveTpSettings', $auth123);
     $routes->post('erapor/generate-desc', 'Erapor::generateDesc', $auth123);
+    $routes->post('erapor/polish-desc', 'Erapor::polishStudentDesc', $auth123);
 
     // Wizard Import Leger — Admin (1) & Guru (3)
     $routes->get('erapor/import',         'Erapor::importForm',    ['filter' => 'auth:1,3']);

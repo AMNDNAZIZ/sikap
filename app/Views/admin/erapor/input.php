@@ -119,8 +119,11 @@
           🎯 Atur TP Acuan (Level <?= esc($classLevel) ?>)
           <span class="badge bg-primary ms-1" id="badge-tp-count"><?= count($activeSelectedTps) ?> TP Dipilih</span>
         </button>
-        <button type="button" class="btn btn-primary btn-sm" id="btn-generate-desc" title="Generate otomatis deskripsi capaian seluruh siswa berdasarkan pilihan TP Maksimal & Minimal">
-          ⚡ Generate Deskripsi Otomatis
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-generate-desc" title="Generate otomatis deskripsi capaian seluruh siswa dengan formula standar (Cepat & Tanpa AI)">
+          ⚡ Generate Standar
+        </button>
+        <button type="button" class="btn btn-primary btn-sm fw-semibold shadow-sm" id="btn-generate-ai" title="Koreksi typo, ejaan PUEBI, dan susun deskripsi seluruh siswa menggunakan AI (Sangat Hemat Token)">
+          <i class="bi bi-stars text-warning me-1"></i> Generate Cerdas (AI)
         </button>
       </div>
     </div>
@@ -270,10 +273,15 @@
                               rows="4"
                               placeholder="Deskripsi capaian kompetensi..."><?= esc($stu['desc'] ?? '') ?></textarea>
                     <div class="d-flex justify-content-between align-items-center mt-1 flex-shrink-0">
-                      <small class="text-muted fst-italic" style="font-size:0.72rem;">* Otomatis terupdate saat ceklis TP berubah</small>
-                      <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none btn-generate-single" data-student="<?= $stu['id'] ?>" title="Generate ulang deskripsi siswa ini">
-                        <i class="bi bi-magic me-1"></i>Regenerate
-                      </button>
+                      <small class="text-muted fst-italic" style="font-size:0.72rem;">* Otomatis saat ceklis TP berubah</small>
+                      <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none btn-generate-single" data-student="<?= $stu['id'] ?>" title="Generate ulang deskripsi siswa ini">
+                          <i class="bi bi-magic me-1"></i>Regenerate
+                        </button>
+                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-primary btn-polish-single fw-semibold" data-student="<?= $stu['id'] ?>" title="Poles & sempurnakan tata bahasa kalimat siswa ini dengan AI">
+                          <i class="bi bi-stars text-warning me-0.5"></i>Poles AI
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </td>
@@ -570,16 +578,24 @@ $(function() {
     });
   });
 
-  // ── Generate Deskripsi Otomatis (Global) ────────────────────────────
-  $('#btn-generate-desc').on('click', function() {
-    var btn = $(this);
+  // ── Generate Deskripsi Otomatis (Standar vs AI) ────────────────────
+  function runGenerateDesc(useAi, btnElement) {
+    var btn = $(btnElement);
     var oldText = btn.html();
-    btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Mengolah Deskripsi...');
+    var loadingText = useAi
+      ? '<span class="spinner-border spinner-border-sm me-1 text-warning"></span> AI Memeriksa Bahasa & TP...'
+      : '<span class="spinner-border spinner-border-sm me-1"></span> Mengolah Deskripsi...';
+    btn.prop('disabled', true).html(loadingText);
+
+    var postData = $('#erapor-form').serializeArray();
+    if (useAi) {
+      postData.push({ name: 'use_ai', value: '1' });
+    }
 
     $.ajax({
       url: "<?= site_url('admin/erapor/generate-desc') ?>",
       type: 'POST',
-      data: $('#erapor-form').serialize(),
+      data: postData,
       dataType: 'json',
       success: function(res) {
         if (res.status === 'success' && res.descriptions) {
@@ -587,26 +603,90 @@ $(function() {
           $.each(res.descriptions, function(studentId, descText) {
             var target = $('#desc_' + studentId);
             if (target.length) {
-              target.val(descText).addClass('border-primary');
-              setTimeout(function() { target.removeClass('border-primary'); }, 2000);
+              target.val(descText).addClass(useAi ? 'border-primary border-2' : 'border-primary');
+              setTimeout(function() { target.removeClass('border-primary border-2'); }, 2500);
               count++;
             }
           });
+          var aiNote = res.ai_message || '';
+          var icon = useAi ? '<i class="bi bi-stars text-warning me-1 fs-5"></i>' : '<i class="fas fa-magic me-1"></i>';
           $('#save-alert')
             .removeClass('d-none alert-danger')
             .addClass('alert-success')
-            .html('<i class="fas fa-magic me-1"></i> Berhasil menghasilkan deskripsi capaian otomatis untuk ' + count + ' siswa! Silakan review dan klik <strong>Simpan Nilai & Deskripsi</strong>.');
+            .html(icon + ' Berhasil menghasilkan deskripsi capaian untuk <strong>' + count + ' siswa</strong>!' + aiNote + ' Silakan review dan klik <strong>Simpan Nilai & Deskripsi</strong>.');
           setTimeout(adjustAllDescHeights, 50);
           window.scrollTo({top: 0, behavior: 'smooth'});
         } else {
           alert(res.message || 'Gagal menghasilkan deskripsi.');
         }
       },
-      error: function() {
-        alert('Terjadi kesalahan koneksi saat memproses deskripsi.');
+      error: function(xhr) {
+        var msg = 'Terjadi kesalahan saat memproses deskripsi otomatis.';
+        if (xhr.responseJSON && xhr.responseJSON.message) {
+          msg = xhr.responseJSON.message;
+        } else if (xhr.responseText && xhr.responseText.length < 200) {
+          msg += ' (' + xhr.responseText + ')';
+        }
+        alert(msg);
       },
       complete: function() {
         btn.prop('disabled', false).html(oldText);
+      }
+    });
+  }
+
+  $('#btn-generate-desc').on('click', function() {
+    runGenerateDesc(false, this);
+  });
+
+  $('#btn-generate-ai').on('click', function() {
+    runGenerateDesc(true, this);
+  });
+
+  // ── Poles Deskripsi Per Siswa dengan AI (On-Demand) ─────────────────
+  $(document).on('click', '.btn-polish-single', function() {
+    var btn = $(this);
+    var studentId = btn.data('student');
+    var targetTextarea = $('#desc_' + studentId);
+    var currentText = targetTextarea.val().trim();
+
+    if (!currentText) {
+      alert('Teks deskripsi siswa ini masih kosong. Silakan tentukan TP atau klik Regenerate terlebih dahulu.');
+      return;
+    }
+
+    var oldHtml = btn.html();
+    btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm text-primary"></span>');
+
+    $.ajax({
+      url: "<?= site_url('admin/erapor/polish-desc') ?>",
+      type: 'POST',
+      dataType: 'json',
+      data: {
+        student_id: studentId,
+        description: currentText,
+        '<?= csrf_token() ?>': '<?= csrf_hash() ?>'
+      },
+      success: function(res) {
+        if (res.status === 'success' && res.polished) {
+          targetTextarea.val(res.polished).addClass('border-success border-2');
+          setTimeout(function() {
+            targetTextarea.removeClass('border-success border-2');
+          }, 3000);
+          adjustRowDescHeight(targetTextarea.closest('tr'));
+        } else {
+          alert(res.message || 'Gagal memoles deskripsi dengan AI.');
+        }
+      },
+      error: function(xhr) {
+        var msg = 'Gagal menghubungi server untuk memoles deskripsi AI.';
+        if (xhr.responseJSON && xhr.responseJSON.message) {
+          msg = xhr.responseJSON.message;
+        }
+        alert(msg);
+      },
+      complete: function() {
+        btn.prop('disabled', false).html(oldHtml);
       }
     });
   });

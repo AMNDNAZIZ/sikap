@@ -646,158 +646,423 @@ class Erapor extends BaseController
     // =========================================================
     public function generateDesc()
     {
-        $user   = $this->currentUser();
-        $roleId = (int) ($user['role_id'] ?? 0);
-        if (!in_array($roleId, [1, 2, 3])) {
-            return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => 'Akses ditolak.']);
-        }
+        try {
+            $user   = $this->currentUser();
+            $roleId = (int) ($user['role_id'] ?? 0);
+            if (!in_array($roleId, [1, 2, 3])) {
+                return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => 'Akses ditolak.']);
+            }
 
-        $classId   = (int) $this->request->getPost('class_id');
-        $subjectId = (int) $this->request->getPost('subject_id');
-        $yearId    = (int) $this->request->getPost('year_id');
-        $semester  = (int) $this->request->getPost('semester');
+            $classId   = (int) $this->request->getPost('class_id');
+            $subjectId = (int) $this->request->getPost('subject_id');
+            $yearId    = (int) $this->request->getPost('year_id');
+            $semester  = (int) $this->request->getPost('semester');
 
-        if (!$classId || !$subjectId || !$yearId || !$semester) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Parameter tidak lengkap.']);
-        }
+            if (!$classId || !$subjectId || !$yearId || !$semester) {
+                return $this->response->setJSON(['status' => 'error', 'message' => 'Parameter tidak lengkap.']);
+            }
 
-        // Siswa aktif di kelas
-        $students = $this->db->table('student_records sr')
-            ->select('s.id, s.name')
-            ->join('students s', 's.id = sr.student_id', 'inner')
-            ->where('sr.class_id', $classId)
-            ->where('sr.academic_year_id', $yearId)
-            ->where('sr.status', 'aktif')
-            ->get()->getResultArray();
-
-        // 1. Cek pilihan student_tp dari POST atau dari database
-        $postStudentTps = $this->request->getPost('student_tp');
-        $studentTpsMap  = [];
-
-        if (is_array($postStudentTps)) {
-            $studentTpsMap = $postStudentTps;
-        } else {
-            $dbStudentTps = $this->db->table('erapor_student_tp')
-                ->where('academic_year_id', $yearId)
-                ->where('class_id', $classId)
-                ->where('subject_id', $subjectId)
-                ->where('semester', $semester)
+            // Siswa aktif di kelas
+            $students = $this->db->table('student_records sr')
+                ->select('s.id, s.name')
+                ->join('students s', 's.id = sr.student_id', 'inner')
+                ->where('sr.class_id', $classId)
+                ->where('sr.academic_year_id', $yearId)
+                ->where('sr.status', 'aktif')
                 ->get()->getResultArray();
 
-            foreach ($dbStudentTps as $str) {
-                $studentTpsMap[$str['student_id']][$str['tp_id']] = $str['type'];
+            // 1. Cek pilihan student_tp dari POST atau dari database
+            $postStudentTps = $this->request->getPost('student_tp');
+            $studentTpsMap  = [];
+
+            if (is_array($postStudentTps)) {
+                $studentTpsMap = $postStudentTps;
+            } else {
+                $dbStudentTps = $this->db->table('erapor_student_tp')
+                    ->where('academic_year_id', $yearId)
+                    ->where('class_id', $classId)
+                    ->where('subject_id', $subjectId)
+                    ->where('semester', $semester)
+                    ->get()->getResultArray();
+
+                foreach ($dbStudentTps as $str) {
+                    $studentTpsMap[$str['student_id']][$str['tp_id']] = $str['type'];
+                }
             }
-        }
 
-        // 2. Preload seluruh data TP untuk mapel ini
-        $allTpsList = $this->db->table('tujuan_pembelajaran')
-            ->where('subject_id', $subjectId)
-            ->get()->getResultArray();
-        $tpDescMap = [];
-        foreach ($allTpsList as $t) {
-            $tpDescMap[(int)$t['id']] = $t['deskripsi'] ?? '';
-        }
+            // 2. Preload seluruh data TP untuk mapel ini
+            $allTpsList = $this->db->table('tujuan_pembelajaran')
+                ->where('subject_id', $subjectId)
+                ->get()->getResultArray();
+            $tpDescMap = [];
+            foreach ($allTpsList as $t) {
+                $tpDescMap[(int)$t['id']] = $t['deskripsi'] ?? '';
+            }
 
-        $cleanTpText = function($raw) {
-            $clean = trim((string) $raw);
-            $clean = preg_replace('/^(mampu|siswa dapat|peserta didik dapat|dapat)\s+/i', '', $clean);
-            $clean = rtrim($clean, " .\t\n\r\0\x0B");
-            return lcfirst($clean);
-        };
+            // 🤖 SMART AI MASTER TP POLISH (Hanya 1x panggil API untuk 4-6 TP acuan, sangat hemat token!)
+            $useAi = (bool)$this->request->getPost('use_ai');
+            $aiMessage = '';
 
-        $descs = [];
-        $semesterLabel = $semester == 1 ? 'ganjil' : 'genap';
-
-        foreach ($students as $stu) {
-            $sid = (int) $stu['id'];
-            $stuSelections = $studentTpsMap[$sid] ?? [];
-
-            $maksList = [];
-            $minList  = [];
-
-            if (!empty($stuSelections) && is_array($stuSelections)) {
-                foreach ($stuSelections as $tpId => $type) {
-                    $tpId = (int) $tpId;
-                    $tpDesc = $tpDescMap[$tpId] ?? '';
-                    if ($tpDesc === '') continue;
-
-                    if ($type === 'maksimal') {
-                        $maksList[] = $cleanTpText($tpDesc);
-                    } elseif ($type === 'minimal') {
-                        $minList[] = $cleanTpText($tpDesc);
+            // Identifikasi TP yang aktif dipakai di kelas ini
+            $activeTpIds = [];
+            foreach ($studentTpsMap as $stuTps) {
+                if (is_array($stuTps)) {
+                    foreach (array_keys($stuTps) as $tid) {
+                        $activeTpIds[(int)$tid] = true;
                     }
                 }
             }
-
-            // Jika ada pilihan TP Maksimal atau Minimal untuk siswa ini
-            if (!empty($maksList) || !empty($minList)) {
-                $parts = [];
-                if (!empty($maksList)) {
-                    $parts[] = "Menunjukkan penguasaan yang sangat baik dalam " . implode(' dan ', $maksList) . ".";
+            if (empty($activeTpIds)) {
+                $classSettings = $this->db->table('erapor_class_tp_settings')
+                    ->where('academic_year_id', $yearId)
+                    ->where('class_id', $classId)
+                    ->where('subject_id', $subjectId)
+                    ->where('semester', $semester)
+                    ->get()->getRowArray();
+                if (!empty($classSettings['tp_ids'])) {
+                    foreach (explode(',', $classSettings['tp_ids']) as $tid) {
+                        $activeTpIds[(int)trim($tid)] = true;
+                    }
                 }
-                if (!empty($minList)) {
-                    $parts[] = "Perlu bimbingan dan peningkatan dalam " . implode(' serta ', $minList) . ".";
-                }
-                $descs[$sid] = implode(' ', $parts);
-                continue;
             }
+            $targetTpIds = array_keys($activeTpIds);
 
-            // Fallback jika belum memilih TP: gunakan skor formatif/materi atau nilai akhir
-            $materiScores = $this->db->table('material_scores ms')
-                ->select('ms.score, atp.materi, atp.tujuan_pembelajaran')
-                ->join('alur_tujuan_pembelajaran atp', 'atp.id = ms.material_id', 'inner')
-                ->where('ms.student_id', $sid)
-                ->where('atp.subject_id', $subjectId)
-                ->where('ms.score IS NOT NULL')
-                ->orderBy('ms.score', 'DESC')
-                ->get()->getResultArray();
+            if ($useAi && !empty($targetTpIds)) {
+                $aiConfig = $this->getAiConfig();
+                if (!empty($aiConfig['api_key'])) {
+                    $tpToPolish = [];
+                    foreach ($targetTpIds as $tid) {
+                        if (!empty($tpDescMap[$tid])) {
+                            $tpToPolish[(string)$tid] = $tpDescMap[$tid];
+                        }
+                    }
 
-            $existing = $this->db->table('grades')
-                ->where('student_id', $sid)
-                ->where('subject_id', $subjectId)
-                ->where('year_id', $yearId)
-                ->where('semester', $semesterLabel)
-                ->get()->getRowArray();
-            $nilaiAkhir = $existing['erapor_score'] ?? null;
+                    if (!empty($tpToPolish)) {
+                        $jsonInput = json_encode($tpToPolish, JSON_UNESCAPED_UNICODE);
+                        $prompt = "Kamu adalah pakar bahasa Indonesia dan kurikulum e-Rapor Kurikulum Merdeka.
+Berikut adalah daftar Tujuan Pembelajaran (TP) yang mungkin mengandung typo, salah ketik, atau kata pembuka mubazir.
+Tugas:
+1. Perbaiki typo, salah ketik, dan ejaan sesuai PUEBI/EYD.
+2. Buang kata mubazir di awal seperti 'siswa dapat', 'peserta didik mampu', 'mampu', 'dapat'.
+3. Jadikan frasa kompetensi baku yang mengalir alami, diawali kata kerja aktif huruf kecil (contoh: 'memahami konsep...', 'menganalisis struktur...', 'menghitung volume...').
+4. Jangan tambahkan tanda titik di akhir frasa.
 
-            if (!empty($materiScores)) {
-                $highest = $materiScores[0];
-                $lowest  = end($materiScores);
+Data input (JSON ID => Teks):
+{$jsonInput}
 
-                $topText = !empty($highest['materi']) ? trim($highest['materi']) : (!empty($highest['tujuan_pembelajaran']) ? trim($highest['tujuan_pembelajaran']) : 'materi pokok');
-                $lowText = !empty($lowest['materi']) ? trim($lowest['materi']) : (!empty($lowest['tujuan_pembelajaran']) ? trim($lowest['tujuan_pembelajaran']) : '');
+KEMBALIKAN HANYA JSON VALID TANPA MARKDOWN DAN TANPA TEKS LAIN DENGAN FORMAT:
+{\"ID\": \"frasa hasil perbaikan\"}";
 
-                $topText = rtrim($topText, " .\t\n\r\0\x0B");
-                $lowText = rtrim($lowText, " .\t\n\r\0\x0B");
-
-                $kalimat = "Menunjukkan penguasaan yang sangat baik dalam memahami " . lcfirst($topText) . ".";
-
-                if ($lowest && (float)$lowest['score'] < 75 && strcasecmp($topText, $lowText) !== 0) {
-                    $kalimat .= " Perlu bimbingan dan peningkatan dalam " . lcfirst($lowText) . ".";
-                } elseif ($lowest && ((float)$highest['score'] - (float)$lowest['score'] >= 15) && strcasecmp($topText, $lowText) !== 0) {
-                    $kalimat .= " Perlu penguatan lebih lanjut dalam " . lcfirst($lowText) . ".";
-                }
-
-                $descs[$sid] = $kalimat;
-            } else {
-                if ($nilaiAkhir !== null) {
-                    if ((float)$nilaiAkhir >= 85) {
-                        $descs[$sid] = "Menunjukkan penguasaan yang sangat baik dalam mencapai seluruh tujuan pembelajaran yang ditetapkan.";
-                    } elseif ((float)$nilaiAkhir >= 75) {
-                        $descs[$sid] = "Menunjukkan penguasaan yang baik dalam mencapai tujuan pembelajaran, pertahankan dan tingkatkan prestasi.";
-                    } else {
-                        $descs[$sid] = "Cukup menguasai materi pembelajaran, perlu pendampingan dan latihan lebih giat untuk optimalisasi capaian kompetensi.";
+                        $aiResponse = $this->callAiPrompt($prompt, $aiConfig['api_key'], $aiConfig['provider']);
+                        if (!empty($aiResponse)) {
+                            if (preg_match('/\{[\s\S]*\}/', $aiResponse, $mJson)) {
+                                $parsed = json_decode($mJson[0], true);
+                                if (is_array($parsed)) {
+                                    $pCount = 0;
+                                    foreach ($parsed as $tid => $cleanedText) {
+                                        $tid = (int)$tid;
+                                        if (isset($tpDescMap[$tid]) && !empty($cleanedText)) {
+                                            $tpDescMap[$tid] = trim((string)$cleanedText);
+                                            $pCount++;
+                                        }
+                                    }
+                                    if ($pCount > 0) {
+                                        $aiMessage = " (Disempurnakan dengan AI {$aiConfig['provider']}: {$pCount} TP acuan dibersihkan dari typo & diselaraskan EYD)";
+                                    }
+                                }
+                            }
+                        }
                     }
                 } else {
-                    $descs[$sid] = "Menunjukkan capaian pembelajaran yang baik pada semester ini.";
+                    $aiMessage = " (Catatan: API Key AI belum diatur, menggunakan pembersihan cerdas lokal)";
+                }
+            }
+
+            $cleanTpText = function($raw) {
+                $clean = trim((string) $raw);
+                $clean = preg_replace('/^(peserta didik|siswa|anak|murid)\s+(dapat|mampu|bisa)\s+/iu', '', $clean);
+                $clean = preg_replace('/^(mampu|siswa dapat|peserta didik dapat|dapat|bisa)\s+/iu', '', $clean);
+                $clean = preg_replace('/\s+/', ' ', $clean);
+                $clean = rtrim($clean, " .\t\n\r\0\x0B");
+                return lcfirst($clean);
+            };
+
+            $descs = [];
+            $semesterLabel = $semester == 1 ? 'ganjil' : 'genap';
+
+            foreach ($students as $stu) {
+                $sid = (int) $stu['id'];
+                $stuSelections = $studentTpsMap[$sid] ?? [];
+
+                $maksList = [];
+                $minList  = [];
+
+                if (!empty($stuSelections) && is_array($stuSelections)) {
+                    foreach ($stuSelections as $tpId => $type) {
+                        $tpId = (int) $tpId;
+                        $tpDesc = $tpDescMap[$tpId] ?? '';
+                        if ($tpDesc === '') continue;
+
+                        if ($type === 'maksimal') {
+                            $maksList[] = $cleanTpText($tpDesc);
+                        } elseif ($type === 'minimal') {
+                            $minList[] = $cleanTpText($tpDesc);
+                        }
+                    }
+                }
+
+                // Jika ada pilihan TP Maksimal atau Minimal untuk siswa ini
+                if (!empty($maksList) || !empty($minList)) {
+                    $parts = [];
+                    if (!empty($maksList)) {
+                        $parts[] = "Menunjukkan penguasaan yang sangat baik dalam " . implode(' dan ', $maksList) . ".";
+                    }
+                    if (!empty($minList)) {
+                        $parts[] = "Perlu bimbingan dan peningkatan dalam " . implode(' serta ', $minList) . ".";
+                    }
+                    $descs[$sid] = implode(' ', $parts);
+                    continue;
+                }
+
+                // Fallback jika belum memilih TP: gunakan skor formatif/materi atau nilai akhir
+                $materiScores = $this->db->table('material_scores ms')
+                    ->select('ms.score, atp.lingkup_materi AS materi, atp.alur_tujuan AS tujuan_pembelajaran')
+                    ->join('alur_tujuan_pembelajaran atp', 'atp.id = ms.material_id', 'left')
+                    ->where('ms.student_id', $sid)
+                    ->where('atp.subject_id', $subjectId)
+                    ->where('ms.score IS NOT NULL')
+                    ->orderBy('ms.score', 'DESC')
+                    ->get()->getResultArray();
+
+                $existing = $this->db->table('grades')
+                    ->where('student_id', $sid)
+                    ->where('subject_id', $subjectId)
+                    ->where('year_id', $yearId)
+                    ->where('semester', $semesterLabel)
+                    ->get()->getRowArray();
+                $nilaiAkhir = $existing['erapor_score'] ?? null;
+
+                if (!empty($materiScores)) {
+                    $highest = $materiScores[0];
+                    $lowest  = end($materiScores);
+
+                    $topText = !empty($highest['materi']) ? trim($highest['materi']) : (!empty($highest['tujuan_pembelajaran']) ? trim($highest['tujuan_pembelajaran']) : 'materi pokok');
+                    $lowText = !empty($lowest['materi']) ? trim($lowest['materi']) : (!empty($lowest['tujuan_pembelajaran']) ? trim($lowest['tujuan_pembelajaran']) : '');
+
+                    $topText = rtrim($topText, " .\t\n\r\0\x0B");
+                    $lowText = rtrim($lowText, " .\t\n\r\0\x0B");
+
+                    $kalimat = "Menunjukkan penguasaan yang sangat baik dalam memahami " . lcfirst($topText) . ".";
+
+                    if ($lowest && (float)$lowest['score'] < 75 && strcasecmp($topText, $lowText) !== 0) {
+                        $kalimat .= " Perlu bimbingan dan peningkatan dalam " . lcfirst($lowText) . ".";
+                    } elseif ($lowest && ((float)$highest['score'] - (float)$lowest['score'] >= 15) && strcasecmp($topText, $lowText) !== 0) {
+                        $kalimat .= " Perlu penguatan lebih lanjut dalam " . lcfirst($lowText) . ".";
+                    }
+
+                    $descs[$sid] = $kalimat;
+                } else {
+                    if ($nilaiAkhir !== null) {
+                        if ((float)$nilaiAkhir >= 85) {
+                            $descs[$sid] = "Menunjukkan penguasaan yang sangat baik dalam mencapai seluruh tujuan pembelajaran yang ditetapkan.";
+                        } elseif ((float)$nilaiAkhir >= 75) {
+                            $descs[$sid] = "Menunjukkan penguasaan yang baik dalam mencapai tujuan pembelajaran, pertahankan dan tingkatkan prestasi.";
+                        } else {
+                            $descs[$sid] = "Cukup menguasai materi pembelajaran, perlu pendampingan dan latihan lebih giat untuk optimalisasi capaian kompetensi.";
+                        }
+                    } else {
+                        $descs[$sid] = "Menunjukkan capaian pembelajaran yang baik pada semester ini.";
+                    }
+                }
+            }
+
+            return $this->response->setJSON([
+                'status'       => 'success',
+                'descriptions' => $descs,
+                'ai_message'   => $aiMessage,
+                'used_ai'      => !empty($aiMessage) && strpos($aiMessage, 'Disempurnakan') !== false,
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', '[Erapor::generateDesc] ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setJSON([
+                'status'  => 'error',
+                'message' => 'Gagal memproses deskripsi otomatis: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * ✨ POLISH STUDENT DESC (On-Demand per siswa dengan AI)
+     */
+    public function polishStudentDesc()
+    {
+        try {
+            $user = $this->currentUser();
+            $roleId = (int) ($user['role_id'] ?? 0);
+            if (!in_array($roleId, [1, 2, 3])) {
+                return $this->response->setStatusCode(403)->setJSON(['status' => 'error', 'message' => 'Akses ditolak.']);
+            }
+
+            $desc = trim((string) $this->request->getPost('description'));
+            if ($desc === '') {
+                return $this->response->setJSON(['status' => 'error', 'message' => 'Teks deskripsi kosong.']);
+            }
+
+            $aiConfig = $this->getAiConfig();
+            if (empty($aiConfig['api_key'])) {
+                return $this->response->setJSON([
+                    'status'  => 'error',
+                    'message' => 'API Key AI (' . ucfirst($aiConfig['provider']) . ') belum diatur di akun Anda. Silakan atur di menu Administrasi Guru.'
+                ]);
+            }
+
+            $prompt = "Kamu adalah pakar bahasa Indonesia dan kurikulum e-Rapor Kurikulum Merdeka.
+Berikut adalah kalimat deskripsi capaian rapor siswa yang perlu disempurnakan:
+\"{$desc}\"
+
+Tugas:
+1. Perbaiki typo, ejaan, tanda baca ganda, dan susunan kalimat agar baku sesuai PUEBI / EYD.
+2. Buat alur kalimat mengalir alami, padat, lugas, dan bernilai pedagogis positif.
+3. Tetap pertahankan format Kurikulum Merdeka (Menunjukkan penguasaan yang sangat baik dalam... / Perlu bimbingan dan peningkatan dalam...) dan substansi capaian kompetensinya.
+
+KEMBALIKAN HANYA kalimat hasil perbaikan tanpa tanda petik, tanpa pengantar, dan tanpa penutup:";
+
+            $polished = $this->callAiPrompt($prompt, $aiConfig['api_key'], $aiConfig['provider']);
+            if (!$polished) {
+                return $this->response->setJSON([
+                    'status'  => 'error',
+                    'message' => 'Gagal memanggil AI (' . ucfirst($aiConfig['provider']) . '). Periksa koneksi internet atau kuota API Anda.'
+                ]);
+            }
+
+            $polished = trim($polished, " \"'\n\r");
+
+            return $this->response->setJSON([
+                'status'   => 'success',
+                'polished' => $polished,
+                'message'  => 'Deskripsi berhasil disempurnakan dengan AI (' . ucfirst($aiConfig['provider']) . ').'
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', '[Erapor::polishStudentDesc] ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setJSON([
+                'status'  => 'error',
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Ambil konfigurasi AI pengguna / guru yang sedang login
+     */
+    private function getAiConfig(): array
+    {
+        $user = session()->get('user') ?? $this->currentUser();
+        $apiKey = '';
+        $aiProvider = 'gemini';
+
+        if ($user) {
+            if ($user['role_id'] == 3 && !empty($user['related_id'])) {
+                $teacher = $this->db->table('teachers')->where('id', $user['related_id'])->get()->getRowArray();
+                $apiKey = $teacher['gemini_api_key'] ?? '';
+                $aiProvider = $teacher['ai_provider'] ?? 'gemini';
+            } else {
+                $userData = $this->db->table('users')->where('id', $user['id'])->get()->getRowArray();
+                $apiKey = $userData['gemini_api_key'] ?? '';
+                $aiProvider = $userData['ai_provider'] ?? 'gemini';
+            }
+        }
+
+        $apiKey = $apiKey ?: (getenv('GEMINI_API_KEY') ?: ($_ENV['GEMINI_API_KEY'] ?? ''));
+
+        return [
+            'api_key'  => trim((string) $apiKey),
+            'provider' => strtolower(trim((string) $aiProvider)) ?: 'gemini',
+        ];
+    }
+
+    /**
+     * Panggil AI (Gemini / Groq) dengan prompt sederhana & hemat token
+     */
+    private function callAiPrompt(string $prompt, string $apiKey, string $aiProvider = 'gemini'): ?string
+    {
+        if (empty($apiKey)) return null;
+
+        if ($aiProvider === 'groq') {
+            $url = 'https://api.groq.com/openai/v1/chat/completions';
+            $headers = [
+                'Authorization: Bearer ' . $apiKey,
+                'Content-Type: application/json'
+            ];
+            $groqModels = [
+                'llama-3.3-70b-versatile',
+                'llama-3.1-8b-instant',
+                'qwen/qwen3.6-27b',
+                'openai/gpt-oss-20b'
+            ];
+
+            foreach ($groqModels as $model) {
+                $payload = json_encode([
+                    "model"       => $model,
+                    "messages"    => [["role" => "user", "content" => $prompt]],
+                    "temperature" => 0.3,
+                    "max_tokens"  => 2048,
+                ]);
+
+                $ch = curl_init($url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($httpCode === 200) {
+                    $resData = json_decode($response, true);
+                    $content = $resData['choices'][0]['message']['content'] ?? '';
+                    $content = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $content);
+                    return trim($content);
+                }
+            }
+        } else {
+            // Gemini (Google AI Studio)
+            $geminiModels = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+            $headers = ['Content-Type: application/json'];
+            $payload = json_encode([
+                "contents" => [
+                    ["parts" => [["text" => $prompt]]]
+                ],
+                "generationConfig" => [
+                    "maxOutputTokens" => 2048,
+                    "temperature"     => 0.3
+                ]
+            ]);
+
+            foreach ($geminiModels as $gModel) {
+                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$gModel}:generateContent?key=" . $apiKey;
+                $ch = curl_init($url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($httpCode === 200) {
+                    $resData = json_decode($response, true);
+                    $content = $resData['candidates'][0]['content']['parts'][0]['text'] ?? '';
+                    $content = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $content);
+                    return trim($content);
                 }
             }
         }
 
-        return $this->response->setJSON([
-            'status'       => 'success',
-            'descriptions' => $descs,
-        ]);
+        return null;
     }
 
     // =========================================================
