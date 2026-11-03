@@ -1,6 +1,6 @@
 {
     "version": "2.0.5",
-    "generated": "2026-11-03 20:01:07",
+    "generated": "2026-11-04 02:02:37",
     "last_update": "2026-10-29 00:00",
     "total_files": 1137,
     "files": {
@@ -144,7 +144,7 @@
         "app/Controllers/Admin/TeacherAttendance.php": "7e7b633fba2b2677de73bd4c47c47661",
         "app/Controllers/Admin/Teachers.php": "bdd721f599794b8f286302e5334ba707",
         "app/Controllers/Admin/TeachingAssignments.php": "d7e81b76e49292d601c91188c6ff4a96",
-        "app/Controllers/Admin/TeachingJournalController.php": "c68721342efc61ee35bd2d0e2f92c5c9",
+        "app/Controllers/Admin/TeachingJournalController.php": "c0465de77fd1de828ee775b6f0775874",
         "app/Controllers/Admin/Tugas.php": "9d5f7655e98030106612dc56e0ed174a",
         "app/Controllers/Admin/Updater.php": "8e9abec2cf3d3a5986554ab5981a3d40",
         "app/Controllers/Admin/User.php": "0013484725042d665f33a92b4426a78d",
@@ -835,7 +835,7 @@
         "app/Views/admin/teaching_assignments/create.php": "adeb0d068ecdf982c9f14cf1f41dac09",
         "app/Views/admin/teaching_assignments/edit.php": "1cd77899caecf87d7bbd77ea20ea4688",
         "app/Views/admin/teaching_assignments/index.php": "f2f193fcaa5261eb905214d3b88ef8ec",
-        "app/Views/admin/teaching_journal/form.php": "8bc6a2451d0a7b888efa186142641fd2",
+        "app/Views/admin/teaching_journal/form.php": "681dfc288900e31d51e08167c381e47a",
         "app/Views/admin/teaching_journal/index.php": "d20246bbdf42d2e4916280cd8f80d49d",
         "app/Views/admin/teaching_journal/monitoring.php": "3f650c6d1763d81b678a0ab0c301a867",
         "app/Views/admin/teaching_journal/monitoring_pdf.php": "3af84bfc9c6e29506e545b4179b5e668",
