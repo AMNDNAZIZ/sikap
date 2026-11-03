@@ -208,6 +208,29 @@ class CbtBankSoal extends BaseController
 
         $questions = $this->questionModel->where('bank_id', $id)->findAll();
 
+        // 🛡️ Auto-normalisasi jika ada soal yang salah terdeteksi sebagai pg_kompleks
+        // padahal kuncinya hanya berupa 1 opsi tunggal (tanpa koma)
+        $needsSync = false;
+        foreach ($questions as &$q) {
+            if ($q['question_type'] === 'pg_kompleks') {
+                $keys = array_filter(array_map('trim', explode(',', (string)($q['correct_option'] ?? ''))));
+                if (count($keys) <= 1) {
+                    $this->questionModel->update($q['id'], ['question_type' => 'pg']);
+                    $q['question_type'] = 'pg';
+                    $needsSync = true;
+                }
+            }
+        }
+        unset($q);
+
+        if ($needsSync) {
+            $this->updateBankTotals($id);
+            $bank = $this->bankModel
+                ->select('cbt_question_banks.*, subjects.name AS subject_name')
+                ->join('subjects', 'subjects.id = cbt_question_banks.subject_id', 'left')
+                ->find($id);
+        }
+
         return view('admin/cbt/banksoal/detail', [
             'title' => 'Rincian Bank Soal',
             'bank' => $bank,
@@ -325,6 +348,18 @@ class CbtBankSoal extends BaseController
         // Use first parsed question (since we're editing one question at a time)
         $q = $parsedQuestions[0];
 
+        $explicitType = $this->request->getPost('question_type');
+        $targetType = $q['type'];
+        if (!empty($explicitType) && in_array($explicitType, ['pg', 'pg_kompleks', 'benar_salah', 'esai'], true)) {
+            $targetType = $explicitType;
+        }
+
+        $correctOption = $q['key'] ?? null;
+        if ($targetType === 'pg' && !empty($correctOption) && strpos($correctOption, ',') !== false) {
+            $keyParts = array_filter(array_map('trim', explode(',', $correctOption)));
+            $correctOption = reset($keyParts);
+        }
+
         // Prepare data for update
         $data = [
             'question_text' => trim($q['question']),
@@ -333,9 +368,9 @@ class CbtBankSoal extends BaseController
             'option_c' => $q['options']['C'] ?? null,
             'option_d' => $q['options']['D'] ?? null,
             'option_e' => $q['options']['E'] ?? null,
-            'correct_option' => $q['key'] ?? null,
-            'question_type' => $q['type'],
-            'score' => $q['type'] === 'esai' ? 0 : 1,
+            'correct_option' => $correctOption,
+            'question_type' => $targetType,
+            'score' => $targetType === 'esai' ? 0 : 1,
             'media_image' => json_encode($q['images'] ?? []),
             'has_image' => !empty($q['images']) ? 1 : 0,
             'raw_text' => $rawHtml,
@@ -361,6 +396,7 @@ class CbtBankSoal extends BaseController
 
         // Update the question
         $this->questionModel->update($questionId, $data);
+        $this->updateBankTotals($bankId);
 
         return $this->response->setJSON([
             'success' => true,
@@ -588,6 +624,62 @@ class CbtBankSoal extends BaseController
         return $this->response->setJSON(['success' => true, 'message' => 'Soal berhasil diperbarui']);
     }
 
+    public function updateQuestionType()
+    {
+        if (!$this->request->isAJAX()) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Invalid request']);
+        }
+
+        $id = (int) $this->request->getPost('id');
+        $bankId = (int) $this->request->getPost('bank_id');
+        $newType = trim((string) $this->request->getPost('type'));
+
+        if (!can_access_cbt_bank($bankId)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Anda tidak memiliki akses ke bank soal ini.']);
+        }
+
+        $allowed = ['pg', 'pg_kompleks', 'benar_salah', 'esai'];
+        if (!in_array($newType, $allowed, true)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Tipe soal tidak valid.']);
+        }
+
+        $question = $this->questionModel->find($id);
+        if (!$question || (int) $question['bank_id'] !== $bankId) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Soal tidak ditemukan.']);
+        }
+
+        $data = [
+            'question_type' => $newType,
+            'updated_at'    => date('Y-m-d H:i:s'),
+        ];
+
+        // Jika diubah ke PG dan kunci memiliki koma (misal "A,B,D"), ambil hanya kunci pertama (misal "A")
+        if ($newType === 'pg' && !empty($question['correct_option'])) {
+            $keys = array_filter(array_map('trim', explode(',', (string)$question['correct_option'])));
+            if (count($keys) > 1) {
+                $data['correct_option'] = reset($keys);
+            }
+        }
+
+        $this->questionModel->update($id, $data);
+        $this->updateBankTotals($bankId);
+
+        $typeNames = [
+            'pg' => 'Pilihan Ganda (PG)',
+            'pg_kompleks' => 'PG Kompleks',
+            'benar_salah' => 'Benar / Salah',
+            'esai' => 'Esai / Uraian',
+        ];
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Tipe soal berhasil diubah menjadi ' . ($typeNames[$newType] ?? $newType),
+            'new_type' => $newType,
+            'new_type_label' => $typeNames[$newType] ?? $newType,
+            'new_key' => $data['correct_option'] ?? $question['correct_option']
+        ]);
+    }
+
     private function updateBankTotals($bankId)
     {
         $total = $this->questionModel->where('bank_id', $bankId)->countAllResults();
@@ -808,10 +900,16 @@ class CbtBankSoal extends BaseController
         // sisipkan baris baru secara otomatis di depan penandanya.
         // 1. Awal soal (Soal: 1), Soal 1), dsb)
         $clean = preg_replace('/(?<!\n)\s*(?=(?:Soal\s*[:.]?\s*\d+[\).:]?))/iu', "\n\n", $clean);
-        // 2. Kunci / Tipe / Jawaban
-        $clean = preg_replace('/(?<!\n)\s*(?=(?:Kunci\s*Jawaban|Kunci|Jawaban|Tipe|Key|Ans)\s*[:.)=])/iu', "\n", $clean);
+        // 2. Lindungi baris Kunci/Tipe agar tidak terpecah jika kunci ditulis "B." atau "(B)"
+        $clean = preg_replace_callback('/((?:Kunci\s*Jawaban|Kunci|Jawaban|Tipe|Key|Ans)\s*[:.)=][^\n]*)/iu', function($m) {
+            return "\n[[KEY_PLACEHOLDER_" . base64_encode($m[1]) . "]]";
+        }, $clean);
         // 3. Opsi A-E (harus didahului spasi atau awal baris, bukan bagian dari kata)
         $clean = preg_replace('/(?<!\n)(?<=\s|^|[>])(?=(?:[A-Ea-e]\s*[:.)]|(?:\([A-Ea-e]\))\s*[:.)]?))/iu', "\n", $clean);
+        // 4. Kembalikan baris Kunci/Tipe
+        $clean = preg_replace_callback('/\[\[KEY_PLACEHOLDER_([^\]]+)\]\]/', function($m) {
+            return base64_decode($m[1]);
+        }, $clean);
 
         $rawLines = explode("\n", $clean);
         $lines = [];
@@ -844,11 +942,12 @@ class CbtBankSoal extends BaseController
             } elseif (empty($options)) {
                 $type = 'esai';
             } else {
-                if ($type !== 'pg_kompleks') {
-                    $type = 'pg';
-                }
-                if (!empty($key) && strpos($key, ',') !== false) {
+                if (!empty($current['type_locked'])) {
+                    $type = $current['type'];
+                } elseif (!empty($key) && strpos($key, ',') !== false) {
                     $type = 'pg_kompleks';
+                } else {
+                    $type = 'pg';
                 }
             }
 
@@ -911,15 +1010,21 @@ class CbtBankSoal extends BaseController
                 continue;
             }
 
-            // 3. Deteksi Tipe Soal (Tipe: BS / PGK / Esai)
+            // 3. Deteksi Tipe Soal (Tipe: BS / PGK / PG / Esai)
             if (preg_match('/^Tipe\s*[:.)=]?\s*(.+)$/iu', $line, $mTipe)) {
                 $tipeVal = strtolower(trim($mTipe[1]));
                 if (preg_match('/(bs|benar\s*salah|benar\/salah)/', $tipeVal)) {
                     $current['type'] = 'benar_salah';
+                    $current['type_locked'] = true;
                 } elseif (preg_match('/(pgk|kompleks)/', $tipeVal)) {
                     $current['type'] = 'pg_kompleks';
+                    $current['type_locked'] = true;
                 } elseif (preg_match('/(esai|uraian)/', $tipeVal)) {
                     $current['type'] = 'esai';
+                    $current['type_locked'] = true;
+                } elseif (preg_match('/(pg|pilihan\s*ganda|tunggal|single)/', $tipeVal)) {
+                    $current['type'] = 'pg';
+                    $current['type_locked'] = true;
                 }
                 $lastOptionKey = null;
                 continue;
@@ -930,6 +1035,7 @@ class CbtBankSoal extends BaseController
                 $rawKey = trim($m[1]);
                 if (strtolower($rawKey) === 'esai') {
                     $current['type'] = 'esai';
+                    $current['type_locked'] = true;
                     $current['key'] = null;
                 } elseif ($current['type'] === 'benar_salah') {
                     $rawKey = strtoupper(preg_replace('/\s+/', '', $rawKey));
@@ -940,14 +1046,26 @@ class CbtBankSoal extends BaseController
                         $current['key'] = implode(',', $chars);
                     }
                 } else {
-                    preg_match_all('/[A-E]/i', $rawKey, $keyMatches);
-                    if (!empty($keyMatches[0])) {
-                        $uniqueKeys = array_unique(array_map('strtoupper', $keyMatches[0]));
-                        sort($uniqueKeys);
-                        $current['key'] = implode(',', $uniqueKeys);
-                        if (count($uniqueKeys) > 1) {
+                    // Ekstrak huruf kunci mandiri (word boundary) agar kata seperti "(benar)", "pembahasan", dll tidak ikut terdeteksi!
+                    preg_match_all('/\b([A-Ea-e])\b/u', $rawKey, $keyMatches);
+                    $extractedKeys = !empty($keyMatches[1]) ? array_values(array_unique(array_map('strtoupper', $keyMatches[1]))) : [];
+
+                    // Jika tidak ditemukan via word boundary tapi formatnya bersambung seperti "ACD" atau "ABD"
+                    if (empty($extractedKeys) && preg_match('/^[A-Ea-e]{1,5}$/u', $rawKey)) {
+                        $extractedKeys = array_values(array_unique(str_split(strtoupper($rawKey))));
+                    }
+
+                    if (!empty($extractedKeys)) {
+                        sort($extractedKeys);
+                        if (empty($current['type_locked']) && count($extractedKeys) > 1) {
                             $current['type'] = 'pg_kompleks';
                         }
+                        if (!empty($current['type_locked']) && $current['type'] === 'pg' && count($extractedKeys) > 1) {
+                            $extractedKeys = [reset($extractedKeys)];
+                        }
+                        $current['key'] = implode(',', $extractedKeys);
+                    } else {
+                        $current['key'] = $rawKey !== '' ? substr($rawKey, 0, 10) : null;
                     }
                 }
                 $lastOptionKey = null;

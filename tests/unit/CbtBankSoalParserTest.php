@@ -25,8 +25,14 @@ class CbtBankSoalParserTest extends TestCase
         }
 
         $clean = preg_replace('/(?<!\n)\s*(?=(?:Soal\s*[:.]?\s*\d+[\).:]?))/iu', "\n\n", $clean);
-        $clean = preg_replace('/(?<!\n)\s*(?=(?:Kunci\s*Jawaban|Kunci|Jawaban|Tipe|Key|Ans)\s*[:.)=])/iu', "\n", $clean);
+        // Lindungi baris Kunci/Tipe agar tidak terpecah jika kunci ditulis "B." atau "(B)"
+        $clean = preg_replace_callback('/((?:Kunci\s*Jawaban|Kunci|Jawaban|Tipe|Key|Ans)\s*[:.)=][^\n]*)/iu', function($m) {
+            return "\n[[KEY_PLACEHOLDER_" . base64_encode($m[1]) . "]]";
+        }, $clean);
         $clean = preg_replace('/(?<!\n)(?<=\s|^|[>])(?=(?:[A-Ea-e]\s*[:.)]|(?:\([A-Ea-e]\))\s*[:.)]?))/iu', "\n", $clean);
+        $clean = preg_replace_callback('/\[\[KEY_PLACEHOLDER_([^\]]+)\]\]/', function($m) {
+            return base64_decode($m[1]);
+        }, $clean);
 
         $rawLines = explode("\n", $clean);
         $lines = [];
@@ -59,11 +65,12 @@ class CbtBankSoalParserTest extends TestCase
             } elseif (empty($options)) {
                 $type = 'esai';
             } else {
-                if ($type !== 'pg_kompleks') {
-                    $type = 'pg';
-                }
-                if (!empty($key) && strpos($key, ',') !== false) {
+                if (!empty($current['type_locked'])) {
+                    $type = $current['type'];
+                } elseif (!empty($key) && strpos($key, ',') !== false) {
                     $type = 'pg_kompleks';
+                } else {
+                    $type = 'pg';
                 }
             }
 
@@ -127,10 +134,16 @@ class CbtBankSoalParserTest extends TestCase
                 $tipeVal = strtolower(trim($mTipe[1]));
                 if (preg_match('/(bs|benar\s*salah|benar\/salah)/', $tipeVal)) {
                     $current['type'] = 'benar_salah';
+                    $current['type_locked'] = true;
                 } elseif (preg_match('/(pgk|kompleks)/', $tipeVal)) {
                     $current['type'] = 'pg_kompleks';
+                    $current['type_locked'] = true;
                 } elseif (preg_match('/(esai|uraian)/', $tipeVal)) {
                     $current['type'] = 'esai';
+                    $current['type_locked'] = true;
+                } elseif (preg_match('/(pg|pilihan\s*ganda|tunggal|single)/', $tipeVal)) {
+                    $current['type'] = 'pg';
+                    $current['type_locked'] = true;
                 }
                 $lastOptionKey = null;
                 continue;
@@ -140,6 +153,7 @@ class CbtBankSoalParserTest extends TestCase
                 $rawKey = trim($m[1]);
                 if (strtolower($rawKey) === 'esai') {
                     $current['type'] = 'esai';
+                    $current['type_locked'] = true;
                     $current['key'] = null;
                 } elseif ($current['type'] === 'benar_salah') {
                     $rawKey = strtoupper(preg_replace('/\s+/', '', $rawKey));
@@ -150,14 +164,24 @@ class CbtBankSoalParserTest extends TestCase
                         $current['key'] = implode(',', $chars);
                     }
                 } else {
-                    preg_match_all('/[A-E]/i', $rawKey, $keyMatches);
-                    if (!empty($keyMatches[0])) {
-                        $uniqueKeys = array_unique(array_map('strtoupper', $keyMatches[0]));
-                        sort($uniqueKeys);
-                        $current['key'] = implode(',', $uniqueKeys);
-                        if (count($uniqueKeys) > 1) {
+                    preg_match_all('/\b([A-Ea-e])\b/u', $rawKey, $keyMatches);
+                    $extractedKeys = !empty($keyMatches[1]) ? array_values(array_unique(array_map('strtoupper', $keyMatches[1]))) : [];
+
+                    if (empty($extractedKeys) && preg_match('/^[A-Ea-e]{1,5}$/u', $rawKey)) {
+                        $extractedKeys = array_values(array_unique(str_split(strtoupper($rawKey))));
+                    }
+
+                    if (!empty($extractedKeys)) {
+                        sort($extractedKeys);
+                        if (empty($current['type_locked']) && count($extractedKeys) > 1) {
                             $current['type'] = 'pg_kompleks';
                         }
+                        if (!empty($current['type_locked']) && $current['type'] === 'pg' && count($extractedKeys) > 1) {
+                            $extractedKeys = [reset($extractedKeys)];
+                        }
+                        $current['key'] = implode(',', $extractedKeys);
+                    } else {
+                        $current['key'] = $rawKey !== '' ? substr($rawKey, 0, 10) : null;
                     }
                 }
                 $lastOptionKey = null;
@@ -230,5 +254,59 @@ Kunci:B";
         $this->assertEquals('pg_kompleks', $res[1]['type']);
         $this->assertEquals('B,D', $res[1]['key']);
         $this->assertEquals('benar_salah', $res[2]['type']);
+    }
+
+    public function testSingleChoiceWithExplanatoryTextDoesNotBecomePgKompleks(): void
+    {
+        // "Kunci: B (benar)" contains word "benar" (letters b, e, a). It must NOT become pg_kompleks with key A,B,E!
+        $html1 = "Soal: 1) Pecahan yang senilai dengan 3/4 adalah...
+A: 6/7
+B: 9/12
+C: 12/15
+D: 10/16
+Kunci: B (benar)";
+        $res1 = $this->parseHtml($html1);
+        $this->assertCount(1, $res1);
+        $this->assertEquals('pg', $res1[0]['type']);
+        $this->assertEquals('B', $res1[0]['key']);
+
+        // "Kunci: B. Jawaban yang tepat adalah B"
+        $html2 = "Soal: 2) Apa warna langit cerah?
+A: Merah
+B: Biru
+C: Hijau
+D: Kuning
+Kunci: B. Jawaban yang tepat adalah B";
+        $res2 = $this->parseHtml($html2);
+        $this->assertCount(1, $res2);
+        $this->assertEquals('pg', $res2[0]['type']);
+        $this->assertEquals('B', $res2[0]['key']);
+
+        // "Kunci: B - 9/12 senilai"
+        $html3 = "Soal: 3) Pecahan yang senilai...
+A: 6/7
+B: 9/12
+C: 12/15
+D: 10/16
+Kunci: B - 9/12 senilai";
+        $res3 = $this->parseHtml($html3);
+        $this->assertCount(1, $res3);
+        $this->assertEquals('pg', $res3[0]['type']);
+        $this->assertEquals('B', $res3[0]['key']);
+    }
+
+    public function testExplicitTipePgLocksToPg(): void
+    {
+        $html = "Soal: 1) Pertanyaan pilihan ganda biasa
+Tipe: PG
+A: Pilihan satu
+B: Pilihan dua
+C: Pilihan tiga
+D: Pilihan empat
+Kunci: B";
+        $res = $this->parseHtml($html);
+        $this->assertCount(1, $res);
+        $this->assertEquals('pg', $res[0]['type']);
+        $this->assertEquals('B', $res[0]['key']);
     }
 }

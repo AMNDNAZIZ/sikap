@@ -769,6 +769,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('cbt/banksoal/updateAjax', 'CbtBankSoal::updateAjax', $auth123);
     $routes->post('cbt/banksoal/addQuestionAjax', 'CbtBankSoal::addQuestionAjax', $auth123);
     $routes->post('cbt/banksoal/updateQuestionAjax', 'CbtBankSoal::updateQuestionAjax', $auth123);
+    $routes->post('cbt/banksoal/updateQuestionType', 'CbtBankSoal::updateQuestionType', $auth123);
     $routes->post('cbt/banksoal/deleteQuestionAjax', 'CbtBankSoal::deleteQuestionAjax', $auth123);
     $routes->get('cbt/banksoal/deleteAudio/(:num)/(:any)', 'CbtBankSoal::deleteAudio/$1/$2', $auth123);
     $routes->get('cbt/banksoal/backup/(:num)', 'CbtBankSoal::backup/$1', $auth123);

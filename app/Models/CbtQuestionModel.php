@@ -155,26 +155,39 @@ class CbtQuestionModel extends Model
                 if (strtolower($rawKey) === 'esai') {
                     $type = 'esai';
                 } else {
-                    // BS support: match A-E and S
-                    preg_match_all('/[A-ES]/i', $rawKey, $keyMatches);
-                    if (!empty($keyMatches[0])) {
-                        $uniqueKeys = array_unique(array_map('strtoupper', $keyMatches[0]));
-                        sort($uniqueKeys);
-                        $key = implode(',', $uniqueKeys);
+                    // Ekstrak hanya huruf mandiri A-E dan S agar kata seperti "(Benar)" tidak terbaca sebagai A, B, E
+                    preg_match_all('/\b([A-Ea-esS])\b/u', $rawKey, $keyMatches);
+                    $extractedKeys = !empty($keyMatches[1]) ? array_values(array_unique(array_map('strtoupper', $keyMatches[1]))) : [];
+                    if (empty($extractedKeys) && preg_match('/^[A-Ea-esS]{1,5}$/u', $rawKey)) {
+                        $extractedKeys = array_values(array_unique(str_split(strtoupper($rawKey))));
+                    }
 
-                        // Heuristik: Hanya anggap BS jika kuncinya HANYA berisi B dan S
-                        // PGK biasanya punya kunci A,B,C,D... jadi jangan asal detect BS jika ada A/C/D
+                    if (!empty($extractedKeys)) {
+                        sort($extractedKeys);
+                        $key = implode(',', $extractedKeys);
+
                         $hasNonBS = preg_match('/[ACDE]/i', $key);
 
-                        if (preg_match('/[BS]/i', $rawKey) && !$hasNonBS && count($uniqueKeys) > 1) {
+                        if (preg_match('/[BS]/i', $rawKey) && !$hasNonBS && count($extractedKeys) > 1) {
                             $type = 'benar_salah';
-                        } elseif (count($uniqueKeys) > 1) {
+                        } elseif (count($extractedKeys) > 1) {
                             $type = 'pg_kompleks';
+                        } else {
+                            $type = 'pg';
                         }
                     }
                 }
-            } elseif (preg_match('/^Tipe\s*[:=]\s*.*/i', $plainText)) {
-                // Skip "Tipe: BS" or similar from being added to question text
+            } elseif (preg_match('/^Tipe\s*[:=]\s*(.*)/i', $plainText, $mTipe)) {
+                $tipeVal = strtolower(trim($mTipe[1] ?? ''));
+                if (preg_match('/(bs|benar\s*salah|benar\/salah)/', $tipeVal)) {
+                    $type = 'benar_salah';
+                } elseif (preg_match('/(pgk|kompleks)/', $tipeVal)) {
+                    $type = 'pg_kompleks';
+                } elseif (preg_match('/(esai|uraian)/', $tipeVal)) {
+                    $type = 'esai';
+                } elseif (preg_match('/(pg|pilihan\s*ganda|tunggal|single)/', $tipeVal)) {
+                    $type = 'pg';
+                }
                 continue;
             }
             // Bagian dari Soal (Keep HTML)

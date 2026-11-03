@@ -153,7 +153,18 @@ window.MathJax = {
                 SOAL NO. <?= $i + 1 ?>
               </span>
               <div class="d-flex gap-1 align-items-center">
-                <span class="badge <?= $badgeColor ?> px-2 py-1"><?= $typeName ?></span>
+                <div class="dropdown">
+                  <button class="badge <?= $badgeColor ?> border-0 dropdown-toggle px-2 py-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Klik untuk ubah jenis soal">
+                    <?= $typeName ?>
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="border-radius: 10px;">
+                    <li><h6 class="dropdown-header small text-muted">Ubah Jenis Soal:</h6></li>
+                    <li><a class="dropdown-item change-question-type <?= $q['question_type'] === 'pg' ? 'active fw-bold' : '' ?>" href="javascript:void(0)" data-id="<?= $q['id'] ?>" data-bank-id="<?= $bank['id'] ?>" data-type="pg"><span class="badge bg-primary me-1.5">PG</span> Pilihan Ganda (Tunggal)</a></li>
+                    <li><a class="dropdown-item change-question-type <?= $q['question_type'] === 'pg_kompleks' ? 'active fw-bold' : '' ?>" href="javascript:void(0)" data-id="<?= $q['id'] ?>" data-bank-id="<?= $bank['id'] ?>" data-type="pg_kompleks"><span class="badge bg-info text-dark me-1.5">PGK</span> PG Kompleks</a></li>
+                    <li><a class="dropdown-item change-question-type <?= $q['question_type'] === 'benar_salah' ? 'active fw-bold' : '' ?>" href="javascript:void(0)" data-id="<?= $q['id'] ?>" data-bank-id="<?= $bank['id'] ?>" data-type="benar_salah"><span class="badge bg-warning text-dark me-1.5">B/S</span> Benar / Salah</a></li>
+                    <li><a class="dropdown-item change-question-type <?= $q['question_type'] === 'esai' ? 'active fw-bold' : '' ?>" href="javascript:void(0)" data-id="<?= $q['id'] ?>" data-bank-id="<?= $bank['id'] ?>" data-type="esai"><span class="badge bg-secondary me-1.5">Esai</span> Esai / Uraian</a></li>
+                  </ul>
+                </div>
                 <span class="badge bg-light text-dark border px-2 py-1">Skor: <?= esc($q['score']) ?></span>
               </div>
             </div>
@@ -219,16 +230,29 @@ window.MathJax = {
                 <?= strlen($q['question_text']) > 100 ? '...' : '' ?>
               </td>
               <td>
-                <?php
-                if ($q['question_type'] === 'pg_kompleks')
-                  echo 'PG Kompleks';
-                elseif ($q['question_type'] === 'pg')
-                  echo 'PG';
-                elseif ($q['question_type'] === 'benar_salah')
-                  echo 'Benar/Salah';
-                else
-                  echo 'Esai';
-                ?>
+                <div class="dropdown">
+                  <button class="btn btn-sm py-1 px-2.5 dropdown-toggle <?= $q['question_type'] === 'pg' ? 'btn-primary' : ($q['question_type'] === 'pg_kompleks' ? 'btn-info text-dark' : ($q['question_type'] === 'benar_salah' ? 'btn-warning text-dark' : 'btn-secondary')) ?> rounded-pill shadow-sm"
+                    type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Klik untuk ubah jenis soal"
+                    style="font-size: 0.78rem;">
+                    <?php
+                    if ($q['question_type'] === 'pg_kompleks')
+                      echo '<i class="bi bi-ui-checks-grid me-1"></i>PG Kompleks';
+                    elseif ($q['question_type'] === 'pg')
+                      echo '<i class="bi bi-ui-radios me-1"></i>PG';
+                    elseif ($q['question_type'] === 'benar_salah')
+                      echo '<i class="bi bi-check2-square me-1"></i>Benar/Salah';
+                    else
+                      echo '<i class="bi bi-card-text me-1"></i>Esai';
+                    ?>
+                  </button>
+                  <ul class="dropdown-menu shadow border-0" style="border-radius: 10px;">
+                    <li><h6 class="dropdown-header small text-muted">Ubah Jenis Soal:</h6></li>
+                    <li><a class="dropdown-item change-question-type <?= $q['question_type'] === 'pg' ? 'active fw-bold' : '' ?>" href="javascript:void(0)" data-id="<?= $q['id'] ?>" data-bank-id="<?= $bank['id'] ?>" data-type="pg"><span class="badge bg-primary me-1.5">PG</span> Pilihan Ganda (Tunggal)</a></li>
+                    <li><a class="dropdown-item change-question-type <?= $q['question_type'] === 'pg_kompleks' ? 'active fw-bold' : '' ?>" href="javascript:void(0)" data-id="<?= $q['id'] ?>" data-bank-id="<?= $bank['id'] ?>" data-type="pg_kompleks"><span class="badge bg-info text-dark me-1.5">PGK</span> PG Kompleks</a></li>
+                    <li><a class="dropdown-item change-question-type <?= $q['question_type'] === 'benar_salah' ? 'active fw-bold' : '' ?>" href="javascript:void(0)" data-id="<?= $q['id'] ?>" data-bank-id="<?= $bank['id'] ?>" data-type="benar_salah"><span class="badge bg-warning text-dark me-1.5">B/S</span> Benar / Salah</a></li>
+                    <li><a class="dropdown-item change-question-type <?= $q['question_type'] === 'esai' ? 'active fw-bold' : '' ?>" href="javascript:void(0)" data-id="<?= $q['id'] ?>" data-bank-id="<?= $bank['id'] ?>" data-type="esai"><span class="badge bg-secondary me-1.5">Esai</span> Esai / Uraian</a></li>
+                  </ul>
+                </div>
               </td>
               <td><?= esc($q['score']) ?></td>
               <td>
@@ -276,8 +300,11 @@ window.MathJax = {
 
         <div class="card border-0 shadow-sm">
           <div class="card-body">
-            <div class="mb-3 d-flex justify-content-between">
-              <div><strong>SOAL NO <span id="viewIndex">1</span></strong></div>
+            <div class="mb-3 d-flex justify-content-between align-items-center">
+              <div class="d-flex align-items-center gap-2">
+                <strong>SOAL NO <span id="viewIndex">1</span></strong>
+                <span id="viewTypeBadgeContainer"></span>
+              </div>
               <div><strong>Skor:</strong> <span id="viewScore"></span></div>
             </div>
 
@@ -394,6 +421,12 @@ foreach ($questions as $idx => $q) {
 
       $('#viewIndex').text(index + 1);
       $('#viewScore').text(q.score);
+
+      let typeBadge = '<span class="badge bg-primary">PG</span>';
+      if (q.type === 'pg_kompleks') typeBadge = '<span class="badge bg-info text-dark">PG Kompleks</span>';
+      else if (q.type === 'benar_salah') typeBadge = '<span class="badge bg-warning text-dark">Benar/Salah</span>';
+      else if (q.type === 'esai' || q.type === 'essay') typeBadge = '<span class="badge bg-secondary">Esai</span>';
+      $('#viewTypeBadgeContainer').html(typeBadge);
 
       function cleanRawText(html) {
         if (!html) return '';
@@ -585,6 +618,58 @@ foreach ($questions as $idx => $q) {
       $(this).addClass('active');
       const size = $(this).data('size');
       $('#viewText').removeClass('sm md lg').addClass(size);
+    });
+
+    /** ========================
+     * Ubah Jenis Soal (PG / PGK / B/S / Esai)
+     * ======================== */
+    $(document).on('click', '.change-question-type', function (e) {
+      e.preventDefault();
+      const qId = $(this).data('id');
+      const bankId = $(this).data('bank-id');
+      const newType = $(this).data('type');
+
+      Swal.fire({
+        title: 'Ubah Jenis Soal?',
+        text: 'Apakah Anda yakin ingin mengubah jenis soal ini?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Ya, Ubah',
+        cancelButtonText: 'Batal'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          $.ajax({
+            url: '<?= site_url("admin/cbt/banksoal/updateQuestionType") ?>',
+            type: 'POST',
+            dataType: 'json',
+            data: {
+              id: qId,
+              bank_id: bankId,
+              type: newType,
+              [csrfName]: csrfHash
+            },
+            success: function (res) {
+              if (res.success) {
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Berhasil',
+                  text: res.message,
+                  timer: 1200,
+                  showConfirmButton: false
+                }).then(() => {
+                  location.reload();
+                });
+              } else {
+                Swal.fire('Gagal', res.error || 'Gagal mengubah jenis soal.', 'error');
+              }
+            },
+            error: function (xhr) {
+              console.error(xhr.responseText);
+              Swal.fire('Error', 'Gagal menghubungi server.', 'error');
+            }
+          });
+        }
+      });
     });
 
     /** ========================

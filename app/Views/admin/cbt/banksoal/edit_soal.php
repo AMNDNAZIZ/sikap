@@ -31,6 +31,24 @@
         action="<?= site_url('admin/cbt/banksoal/update_soal/' . $bank['id'] . '/' . $soal['id']) ?>" method="post">
         <?= csrf_field() ?>
 
+        <div class="row g-3 mb-3 align-items-center">
+          <div class="col-md-5">
+            <label class="form-label fw-bold mb-1"><i class="bi bi-tag me-1"></i> Jenis Soal</label>
+            <select name="question_type" id="questionTypeSelect" class="form-select shadow-sm fw-medium">
+              <option value="pg" <?= ($soal['question_type'] ?? '') === 'pg' ? 'selected' : '' ?>>Pilihan Ganda (PG Tunggal)</option>
+              <option value="pg_kompleks" <?= ($soal['question_type'] ?? '') === 'pg_kompleks' ? 'selected' : '' ?>>PG Kompleks (Bisa >1 Jawaban Benar)</option>
+              <option value="benar_salah" <?= ($soal['question_type'] ?? '') === 'benar_salah' ? 'selected' : '' ?>>Benar / Salah (B/S)</option>
+              <option value="esai" <?= ($soal['question_type'] ?? '') === 'esai' ? 'selected' : '' ?>>Esai / Uraian</option>
+            </select>
+          </div>
+          <div class="col-md-7">
+            <div class="alert alert-light border py-2 px-3 mb-0 small text-muted">
+              <i class="bi bi-info-circle text-primary me-1"></i>
+              Jika soal merupakan <strong>pilihan ganda biasa</strong>, pastikan jenis soal diatur ke <strong>Pilihan Ganda (PG Tunggal)</strong>.
+            </div>
+          </div>
+        </div>
+
         <div class="mb-3">
           <label class="form-label fw-bold">Edit Soal (lengkap beserta opsi dan gambar)</label>
           <textarea id="editor" name="raw_text" style="min-height: 600px;"><?= esc($soal['raw_text'] ?? $soal['question_text']) ?></textarea>
