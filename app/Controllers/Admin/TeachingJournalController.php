@@ -237,13 +237,23 @@ class TeachingJournalController extends BaseController
         // namun catatan refleksi diawali rujukan rencana Modul Ajar (misal: "[Rencana Modul Ajar — Pertemuan X")
         if (!$modulId && !empty($data['notes']) && preg_match('/\[Rencana Modul Ajar\s*[-—]\s*Pertemuan\s*(\d+)/iu', $data['notes'], $pm)) {
             $inferredPertemuan = (int)$pm[1];
+            $targetClass = $this->classModel->find($data['class_id']);
+            $classIdsAtLevel = [$data['class_id']];
+            if ($targetClass && !empty($targetClass['level'])) {
+                $cRows = $this->db->table('classes')->select('id')->where('level', $targetClass['level'])->get()->getResultArray();
+                if (!empty($cRows)) {
+                    $classIdsAtLevel = array_column($cRows, 'id');
+                }
+            }
+
             $candModulQuery = $this->modulModel
-                ->where('class_id', $data['class_id'])
+                ->whereIn('class_id', $classIdsAtLevel)
                 ->where('subject_id', $data['subject_id']);
             if ($roleId === 3) {
                 $candModulQuery->where('teacher_id', $currentTeacherId);
             }
             $candModul = $candModulQuery
+                ->orderBy("FIELD(class_id, {$data['class_id']})", 'DESC')
                 ->orderBy('updated_at', 'DESC')
                 ->first();
             if ($candModul) {
@@ -263,8 +273,15 @@ class TeachingJournalController extends BaseController
             $isValidModul = false;
 
             if ($modul) {
-                // Kecocokan kelas & mapel
+                // Kecocokan kelas: modul berlaku di kelas pembuatannya atau kelas lain yang selevel selama gurunya sama
                 $matchClass = ((int)$modul['class_id'] === (int)$data['class_id']);
+                if (!$matchClass) {
+                    $modulClass = $this->classModel->find($modul['class_id']);
+                    $targetClass = $this->classModel->find($data['class_id']);
+                    if ($modulClass && $targetClass && (int)$modulClass['level'] === (int)$targetClass['level']) {
+                        $matchClass = true;
+                    }
+                }
                 $matchSubject = ((int)$modul['subject_id'] === (int)$data['subject_id']);
 
                 // Otorisasi guru: jika guru (role 3), modul harus miliknya sendiri
@@ -523,24 +540,71 @@ class TeachingJournalController extends BaseController
             ]);
         }
 
+        $classLevel = $classInfo['level'] ?? null;
+        $classIdsAtLevel = [$classId];
+        if ($classLevel !== null) {
+            $cRows = $this->db->table('classes')
+                ->select('id')
+                ->where('level', $classLevel)
+                ->get()->getResultArray();
+            if (!empty($cRows)) {
+                $classIdsAtLevel = array_column($cRows, 'id');
+            }
+        }
+
         $builder = $this->db->table('modul_ajar ma')
-            ->select('ma.id, ma.atp_id, ma.subject_id, ma.class_id, ma.teacher_id, ma.tipe, ma.updated_at, atp.lingkup_materi, atp.semester, atp.urutan')
+            ->select('ma.id, ma.atp_id, ma.subject_id, ma.class_id, ma.teacher_id, ma.tipe, ma.updated_at, atp.lingkup_materi, atp.semester, atp.urutan, c.name as class_name')
             ->join('alur_tujuan_pembelajaran atp', 'atp.id = ma.atp_id', 'left')
-            ->where('ma.class_id', $classId)
+            ->join('classes c', 'c.id = ma.class_id', 'left')
+            ->whereIn('ma.class_id', $classIdsAtLevel)
             ->where('ma.subject_id', $subjectId);
 
-        // Otorisasi kepemilikan guru: guru hanya dapat melihat Modul Ajar miliknya sendiri
+        // Otorisasi kepemilikan guru: modul berlaku lintas kelas se-level selama gurunya sama
         if ((int)($user['role_id'] ?? 0) === 3) {
             $teacherId = (int)($user['related_id'] ?? 0);
             $builder->where('ma.teacher_id', $teacherId);
+        } else {
+            // Admin / Kepsek: gunakan teacher_id jika disediakan, atau cari guru pengampu kelas ini
+            $teacherId = (int)$this->request->getGet('teacher_id');
+            if (!$teacherId) {
+                $assignment = $this->teachingAssignmentModel
+                    ->where('class_id', $classId)
+                    ->where('subject_id', $subjectId)
+                    ->first();
+                if ($assignment) {
+                    $teacherId = (int)$assignment['teacher_id'];
+                }
+            }
+            if ($teacherId > 0) {
+                $builder->where('ma.teacher_id', $teacherId);
+            }
         }
 
         // Filter opsional berdasarkan ATP jika dipilih
         if ($atpId) {
-            $builder->where('ma.atp_id', $atpId);
+            $selectedAtp = $this->db->table('alur_tujuan_pembelajaran')->where('id', $atpId)->get()->getRowArray();
+            if ($selectedAtp && !empty($selectedAtp['lingkup_materi'])) {
+                // Temukan semua atp_id selevel dengan lingkup materi & semester yang cocok
+                $matchingAtpRows = $this->db->table('alur_tujuan_pembelajaran')
+                    ->select('id')
+                    ->whereIn('class_id', $classIdsAtLevel)
+                    ->where('subject_id', $subjectId)
+                    ->where('lingkup_materi', $selectedAtp['lingkup_materi'])
+                    ->where('semester', $selectedAtp['semester'])
+                    ->get()->getResultArray();
+                $matchingAtpIds = array_column($matchingAtpRows, 'id');
+                if (!in_array($atpId, $matchingAtpIds)) {
+                    $matchingAtpIds[] = $atpId;
+                }
+                $builder->whereIn('ma.atp_id', $matchingAtpIds);
+            } else {
+                $builder->where('ma.atp_id', $atpId);
+            }
         }
 
-        $builder->orderBy('ma.updated_at', 'DESC');
+        // Prioritaskan modul dari kelas ini, lalu urutkan tanggal pembaruan terbaru
+        $builder->orderBy("FIELD(ma.class_id, {$classId})", 'DESC')
+                ->orderBy('ma.updated_at', 'DESC');
         $moduls = $builder->get()->getResultArray();
 
         $result = [];
@@ -549,13 +613,15 @@ class TeachingJournalController extends BaseController
             $sem = !empty($m['semester']) ? "Sem {$m['semester']}" : "";
             $tipe = strtoupper($m['tipe'] ?? 'MANUAL');
             $date = !empty($m['updated_at']) ? date('d/m/Y', strtotime($m['updated_at'])) : '';
+            $classTag = ((int)$m['class_id'] !== $classId && !empty($m['class_name'])) ? "Kelas {$m['class_name']}" : '';
 
-            $labelParts = array_filter([$materi, $sem, $tipe, $date]);
+            $labelParts = array_filter([$materi, $sem, $tipe, $classTag, $date]);
             $label = implode(' | ', $labelParts);
 
             $result[] = [
                 'id'         => (int)$m['id'],
                 'atp_id'     => $m['atp_id'] ? (int)$m['atp_id'] : null,
+                'class_id'   => (int)$m['class_id'],
                 'materi'     => $materi,
                 'semester'   => $m['semester'] ? (int)$m['semester'] : null,
                 'tipe'       => $m['tipe'] ?? 'manual',
@@ -999,10 +1065,20 @@ class TeachingJournalController extends BaseController
         // 6. Modul Ajar Options
         $data['moduls'] = [];
         if ($selectedClassId && $selectedSubjectId) {
+            $targetClass = $this->classModel->find($selectedClassId);
+            $classIdsAtLevel = [$selectedClassId];
+            if ($targetClass && !empty($targetClass['level'])) {
+                $cRows = $this->db->table('classes')->select('id')->where('level', $targetClass['level'])->get()->getResultArray();
+                if (!empty($cRows)) {
+                    $classIdsAtLevel = array_column($cRows, 'id');
+                }
+            }
+
             $modulBuilder = $this->db->table('modul_ajar ma')
-                ->select('ma.id, ma.atp_id, ma.subject_id, ma.class_id, ma.teacher_id, ma.tipe, ma.updated_at, atp.lingkup_materi, atp.semester, atp.urutan')
+                ->select('ma.id, ma.atp_id, ma.subject_id, ma.class_id, ma.teacher_id, ma.tipe, ma.updated_at, atp.lingkup_materi, atp.semester, atp.urutan, c.name as class_name')
                 ->join('alur_tujuan_pembelajaran atp', 'atp.id = ma.atp_id', 'left')
-                ->where('ma.class_id', $selectedClassId)
+                ->join('classes c', 'c.id = ma.class_id', 'left')
+                ->whereIn('ma.class_id', $classIdsAtLevel)
                 ->where('ma.subject_id', $selectedSubjectId);
 
             if ($roleId === 3) {
@@ -1015,7 +1091,8 @@ class TeachingJournalController extends BaseController
                 $modulBuilder->where('atp.semester', $selectedSemester);
             }
 
-            $modulBuilder->orderBy('ma.updated_at', 'DESC');
+            $modulBuilder->orderBy("FIELD(ma.class_id, {$selectedClassId})", 'DESC')
+                         ->orderBy('ma.updated_at', 'DESC');
             $rawModuls = $modulBuilder->get()->getResultArray();
 
             foreach ($rawModuls as $rm) {
@@ -1023,7 +1100,8 @@ class TeachingJournalController extends BaseController
                 $sem = !empty($rm['semester']) ? "Sem {$rm['semester']}" : "";
                 $tipe = strtoupper($rm['tipe'] ?? 'MANUAL');
                 $date = !empty($rm['updated_at']) ? date('d/m/Y', strtotime($rm['updated_at'])) : '';
-                $label = implode(' | ', array_filter([$materi, $sem, $tipe, $date]));
+                $classTag = ((int)$rm['class_id'] !== (int)$selectedClassId && !empty($rm['class_name'])) ? "Kelas {$rm['class_name']}" : '';
+                $label = implode(' | ', array_filter([$materi, $sem, $tipe, $classTag, $date]));
 
                 $data['moduls'][] = [
                     'id'            => (int)$rm['id'],
@@ -1105,6 +1183,10 @@ class TeachingJournalController extends BaseController
                 $journalsQuery = $this->journalModel
                     ->where('modul_id', $selectedModulId);
 
+                if ($selectedClassId) {
+                    $journalsQuery->where('class_id', $selectedClassId);
+                }
+
                 if ($roleId === 3) {
                     $journalsQuery->where('teacher_id', $currentTeacherId);
                 } elseif ($selectedTeacherId) {
@@ -1121,7 +1203,7 @@ class TeachingJournalController extends BaseController
                 // Cari juga jurnal historis pada kelas & mapel ini yang dibuat berdasarkan modul sebelum migrasi Tahap 13C
                 // (modul_id IS NULL tetapi notes diawali dengan rencana modul), terisolasi ke guru bersangkutan
                 $histQuery = $this->journalModel
-                    ->where('class_id', $modul['class_id'])
+                    ->where('class_id', $selectedClassId ?: $modul['class_id'])
                     ->where('subject_id', $modul['subject_id'])
                     ->where('modul_id IS NULL')
                     ->like('notes', '[Rencana Modul Ajar', 'after');
@@ -1308,7 +1390,15 @@ class TeachingJournalController extends BaseController
             $rekapBuilder->where('ma.teacher_id', $selectedTeacherId);
         }
         if ($selectedClassId) {
-            $rekapBuilder->where('ma.class_id', $selectedClassId);
+            $targetClass = $this->classModel->find($selectedClassId);
+            $classIdsAtLevel = [$selectedClassId];
+            if ($targetClass && !empty($targetClass['level'])) {
+                $cRows = $this->db->table('classes')->select('id')->where('level', $targetClass['level'])->get()->getResultArray();
+                if (!empty($cRows)) {
+                    $classIdsAtLevel = array_column($cRows, 'id');
+                }
+            }
+            $rekapBuilder->whereIn('ma.class_id', $classIdsAtLevel);
         }
         if ($selectedSubjectId) {
             $rekapBuilder->where('ma.subject_id', $selectedSubjectId);
@@ -1339,6 +1429,10 @@ class TeachingJournalController extends BaseController
             $jModulQuery = $this->journalModel
                 ->where('modul_id', $rm['id']);
 
+            if ($selectedClassId) {
+                $jModulQuery->where('class_id', $selectedClassId);
+            }
+
             if ($roleId === 3) {
                 $jModulQuery->where('teacher_id', $currentTeacherId);
             } elseif ($selectedTeacherId) {
@@ -1350,7 +1444,7 @@ class TeachingJournalController extends BaseController
             $jModul = $jModulQuery->findAll();
 
             $matchingNotesQuery = $this->journalModel
-                ->where('class_id', $rm['class_id'])
+                ->where('class_id', $selectedClassId ?: $rm['class_id'])
                 ->where('subject_id', $rm['subject_id'])
                 ->where('modul_id IS NULL')
                 ->like('notes', '[Rencana Modul Ajar', 'after');
@@ -1686,10 +1780,16 @@ class TeachingJournalController extends BaseController
             }
         }
 
+        $selectedClassId = (int)$this->request->getGet('class_id');
+
         // SEC-02: Query jurnal modul terisolasi ke guru bersangkutan
         $journalBuilder = $this->journalModel
             ->where('modul_id', $modulId)
             ->where('pertemuan_ke', $pertemuanKe);
+
+        if ($selectedClassId) {
+            $journalBuilder->where('class_id', $selectedClassId);
+        }
 
         if ($roleId === 3) {
             $journalBuilder->where('teacher_id', $currentTeacherId);
@@ -1706,7 +1806,7 @@ class TeachingJournalController extends BaseController
         // Jika tidak ada jurnal dengan modul_id, periksa apakah ada jurnal historis dengan notes merujuk pertemuan ini
         if (empty($journals)) {
             $candHistBuilder = $this->journalModel
-                ->where('class_id', $modul['class_id'])
+                ->where('class_id', $selectedClassId ?: $modul['class_id'])
                 ->where('subject_id', $modul['subject_id'])
                 ->where('modul_id IS NULL')
                 ->like('notes', '[Rencana Modul Ajar', 'after');
@@ -1792,10 +1892,20 @@ class TeachingJournalController extends BaseController
                 foreach ($orphans as $orphan) {
                     if (preg_match('/\[Rencana Modul Ajar\s*[-—]\s*Pertemuan\s*(\d+)/iu', $orphan['notes'], $pm)) {
                         $pNum = (int)$pm[1];
+                        $targetClass = $this->classModel->find($orphan['class_id']);
+                        $classIdsAtLevel = [$orphan['class_id']];
+                        if ($targetClass && !empty($targetClass['level'])) {
+                            $cRows = $this->db->table('classes')->select('id')->where('level', $targetClass['level'])->get()->getResultArray();
+                            if (!empty($cRows)) {
+                                $classIdsAtLevel = array_column($cRows, 'id');
+                            }
+                        }
+
                         $candModul = $this->db->table('modul_ajar')
-                            ->where('class_id', $orphan['class_id'])
+                            ->whereIn('class_id', $classIdsAtLevel)
                             ->where('subject_id', $orphan['subject_id'])
                             ->where('teacher_id', $orphan['teacher_id'])
+                            ->orderBy("FIELD(class_id, {$orphan['class_id']})", 'DESC')
                             ->orderBy('updated_at', 'DESC')
                             ->get()->getRowArray();
 

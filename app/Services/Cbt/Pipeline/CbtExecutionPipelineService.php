@@ -147,20 +147,24 @@ class CbtExecutionPipelineService
             $pendingEssayCount
         );
 
-        // 3. Record audit trail event
-        $this->auditTrailModel->appendLog(
-            'SESSION_FINISHED',
-            'cbt_session_scores_v3',
-            (string)$scoreRecord['id'],
-            $sessionId,
-            'SYSTEM',
-            [
-                'session_id'              => $sessionId,
-                'pending_essay_count'     => $pendingEssayCount,
-                'publication_eligibility' => $scoreRecord['publication_eligibility'],
-                'final_score'             => $scoreRecord['final_score'],
-            ]
-        );
+        // 3. Record audit trail event (non-blocking for mission-critical scoring)
+        try {
+            $this->auditTrailModel->appendLog(
+                'SESSION_FINISHED',
+                'cbt_session_scores_v3',
+                (string)$scoreRecord['id'],
+                $sessionId,
+                'SYSTEM',
+                [
+                    'session_id'              => $sessionId,
+                    'pending_essay_count'     => $pendingEssayCount,
+                    'publication_eligibility' => $scoreRecord['publication_eligibility'],
+                    'final_score'             => $scoreRecord['final_score'],
+                ]
+            );
+        } catch (\Throwable $e) {
+            log_message('warning', '[CbtExecutionPipelineService::finishSession] Audit trail recording failed non-fatally: ' . $e->getMessage());
+        }
 
         return $scoreRecord;
     }

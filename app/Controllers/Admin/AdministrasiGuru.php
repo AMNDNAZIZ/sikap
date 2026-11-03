@@ -1571,14 +1571,40 @@ class AdministrasiGuru extends BaseController
                         $atp['modul_source'] = null;
 
                         if ($isMultiGuru) {
-                            // Multi-guru: modul spesifik milik kelas ini
+                            // Multi-guru: 1. Cari modul spesifik milik kelas ini
                             $modul = $modulModel
                                 ->where('atp_id', $atp['id'])
                                 ->where('class_id', $classId)
                                 ->first();
+
+                            // 2. Jika belum ada modul di kelas ini, periksa apakah GURU YANG SAMA sudah membuat modul di kelas lain se-level
+                            $currentTeacherId = session()->get('user')['related_id'] ?? null;
+                            if (!$modul && $currentTeacherId) {
+                                $sameTeacherModul = $this->db->table('modul_ajar ma')
+                                    ->select('ma.*')
+                                    ->join('classes c', 'c.id = ma.class_id')
+                                    ->join('alur_tujuan_pembelajaran atp_ref', 'atp_ref.id = ma.atp_id', 'left')
+                                    ->where('c.level', $classLevel)
+                                    ->where('ma.subject_id', $subjectId)
+                                    ->where('ma.teacher_id', $currentTeacherId)
+                                    ->groupStart()
+                                        ->where('ma.atp_id', $atp['id'])
+                                        ->orGroupStart()
+                                            ->where('atp_ref.lingkup_materi', $atp['lingkup_materi'])
+                                            ->where('atp_ref.semester', $atp['semester'])
+                                        ->groupEnd()
+                                    ->groupEnd()
+                                    ->orderBy('ma.updated_at', 'DESC')
+                                    ->get()->getRowArray();
+                                if ($sameTeacherModul) {
+                                    $modul = $sameTeacherModul;
+                                    $atp['modul_inherited'] = true;
+                                }
+                            }
+
                             $atp['modul'] = $modul;
 
-                            // Jika belum punya modul, cari dari kelas lain se-level (opsi salin)
+                            // 3. Jika belum punya modul sama sekali (baik kelas ini maupun kelas lain milik guru ini), cari dari guru lain se-level (opsi salin)
                             if (!$modul) {
                                 $modulSource = $this->db->table('modul_ajar ma')
                                     ->select('ma.id, ma.class_id, c.name as class_name, ma.teacher_id')
@@ -1598,6 +1624,19 @@ class AdministrasiGuru extends BaseController
                                     ->where('atp_id', $atp['id'])
                                     ->whereIn('class_id', $classIdsAtLevel)
                                     ->first();
+
+                                // Jika tidak cocok by atp_id langsung (karena beda atp_id antar kelas), cocokkan by materi & semester
+                                if (!$modul && !empty($atp['lingkup_materi'])) {
+                                    $modul = $this->db->table('modul_ajar ma')
+                                        ->select('ma.*')
+                                        ->join('alur_tujuan_pembelajaran atp_ref', 'atp_ref.id = ma.atp_id', 'left')
+                                        ->whereIn('ma.class_id', $classIdsAtLevel)
+                                        ->where('ma.subject_id', $subjectId)
+                                        ->where('atp_ref.lingkup_materi', $atp['lingkup_materi'])
+                                        ->where('atp_ref.semester', $atp['semester'])
+                                        ->orderBy('ma.updated_at', 'DESC')
+                                        ->get()->getRowArray();
+                                }
                             }
                             // Fallback: cari spesifik kelas ini
                             if (!$modul) {

@@ -900,8 +900,8 @@ class Cbt extends BaseController
                 }
             }
 
-            // Perform actual submission
-            $success = $this->internalSubmit($studentId, $testId);
+            // Perform actual submission (defer V3 pipeline sync to post-transaction)
+            $success = $this->internalSubmit($studentId, $testId, false);
             if (!$success) {
                 $db->transRollback();
                 return $this->respond(['error' => 'Gagal menyelesaikan ujian.'], 500);
@@ -912,6 +912,11 @@ class Cbt extends BaseController
             if ($db->transStatus() === false) {
                 return $this->respond(['error' => 'Gagal menyelesaikan ujian. Silakan coba lagi.'], 500);
             }
+
+            // 🔹 V3 Assessment Intelligence Pipeline Finish (DEC-ESS-01 & Audit Chaining)
+            // Synchronize after the primary transaction commits safely so audit/scoring secondary steps
+            // NEVER abort or rollback a student's completed exam!
+            $this->syncFinishToV3Pipeline((int)$session['id'], (int)$testId);
 
             // Set session flashdata
             session()->setFlashdata('just_finished_test_id', $testId);
@@ -1051,7 +1056,7 @@ class Cbt extends BaseController
      * internalSubmit - Core logic for submitting a test (scoring + DB update)
      * Does NOT return a Response object causing side-effects.
      */
-    private function internalSubmit($studentId, $testId)
+    private function internalSubmit($studentId, $testId, bool $triggerV3Sync = true)
     {
         $session = $this->sessionModel
             ->where('student_id', $studentId)
@@ -1079,8 +1084,10 @@ class Cbt extends BaseController
         try {
             $this->sessionModel->update($session['id'], $updateData);
             
-            // 🔹 V3 Assessment Intelligence Pipeline Finish (DEC-ESS-01 & Audit Chaining)
-            $this->syncFinishToV3Pipeline((int)$session['id'], (int)$testId);
+            if ($triggerV3Sync) {
+                // 🔹 V3 Assessment Intelligence Pipeline Finish (DEC-ESS-01 & Audit Chaining)
+                $this->syncFinishToV3Pipeline((int)$session['id'], (int)$testId);
+            }
 
             // 🔹 FIX: Clear active_test session to prevent redirect loop
             // When exam is finished, remove active_test so dashboard doesn't redirect back to exam
