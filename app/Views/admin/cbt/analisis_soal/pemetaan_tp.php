@@ -462,7 +462,9 @@
             select.innerHTML = '<option value="">-- Pilih Tujuan Pembelajaran (TP) --</option>' +
                 activeTps.map(tp => {
                     const isSelected = (parseInt(currentSelected) === tp.id) ? 'selected' : '';
-                    return `<option value="${tp.id}" ${isSelected}>[${tp.kode_tp}] ${tp.lingkup_materi} - ${tp.deskripsi.substring(0, 50)}...</option>`;
+                    const desc = tp.deskripsi || tp.lingkup_materi || '';
+                    const descLabel = desc.length > 110 ? desc.substring(0, 107) + '...' : desc;
+                    return `<option value="${tp.id}" ${isSelected} title="${desc}">[${tp.kode_tp}] ${descLabel}</option>`;
                 }).join('');
         });
     }

@@ -29,11 +29,27 @@
 }
 .tp-desc-truncate {
   display: inline-block;
-  max-width: 190px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 320px;
+  line-height: 1.35;
   vertical-align: middle;
+}
+.desc-td {
+  height: 100%;
+  vertical-align: top;
+}
+.desc-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 140px;
+}
+.desc-input {
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
+  line-height: 1.45;
+  font-size: 0.83rem;
+  box-sizing: border-box;
 }
 </style>
 
@@ -246,14 +262,14 @@
                 </td>
 
                 <!-- Input Deskripsi Capaian Kompetensi -->
-                <td class="p-1">
-                  <div class="d-flex flex-column h-100">
+                <td class="p-1 desc-td">
+                  <div class="desc-container">
                     <textarea name="descriptions[<?= $stu['id'] ?>]"
                               id="desc_<?= $stu['id'] ?>"
                               class="form-control form-control-sm desc-input"
-                              rows="3"
+                              rows="4"
                               placeholder="Deskripsi capaian kompetensi..."><?= esc($stu['desc'] ?? '') ?></textarea>
-                    <div class="d-flex justify-content-between align-items-center mt-1">
+                    <div class="d-flex justify-content-between align-items-center mt-1 flex-shrink-0">
                       <small class="text-muted fst-italic" style="font-size:0.72rem;">* Otomatis terupdate saat ceklis TP berubah</small>
                       <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none btn-generate-single" data-student="<?= $stu['id'] ?>" title="Generate ulang deskripsi siswa ini">
                         <i class="bi bi-magic me-1"></i>Regenerate
@@ -409,7 +425,6 @@ $(function() {
     text = $.trim(text);
     text = text.replace(/^(mampu|siswa dapat|peserta didik dapat|dapat)\s+/i, '');
     text = text.replace(/[\.\s]+$/, '');
-    if (text.length > 85) text = text.substring(0, 82) + '...';
     return text ? (text.charAt(0).toLowerCase() + text.slice(1)) : '';
   }
 
@@ -438,8 +453,44 @@ $(function() {
       var target = $('#desc_' + stuId);
       target.val(parts.join(' ')).addClass('border-primary');
       setTimeout(function() { target.removeClass('border-primary'); }, 1200);
+      adjustRowDescHeight(target.closest('tr'));
     }
   }
+
+  // ── Penyesuaian Tinggi Textarea Mengikuti Baris Tabel ───────────────
+  function adjustRowDescHeight(tr) {
+    var row = $(tr);
+    var tpBox = row.find('.tp-table-box');
+    var descInput = row.find('.desc-input');
+    if (!descInput.length) return;
+
+    var h = tpBox.length ? tpBox.outerHeight() : 0;
+    var footer = row.find('.desc-container > div:last-child');
+    var footerH = footer.length ? footer.outerHeight(true) : 26;
+    var targetH = Math.max(140, h - footerH - 6);
+
+    descInput.css('height', targetH + 'px');
+    if (descInput[0] && descInput[0].scrollHeight > targetH) {
+      descInput.css('height', (descInput[0].scrollHeight + 4) + 'px');
+    }
+  }
+
+  function adjustAllDescHeights() {
+    $('#erapor-form tbody tr').each(function() {
+      adjustRowDescHeight(this);
+    });
+  }
+
+  // Jalankan penyesuaian tinggi saat pertama kali dimuat & saat resize
+  adjustAllDescHeights();
+  setTimeout(adjustAllDescHeights, 150);
+  setTimeout(adjustAllDescHeights, 600);
+  $(window).on('resize', adjustAllDescHeights);
+  $(window).on('load', adjustAllDescHeights);
+
+  $(document).on('input', '.desc-input', function() {
+    adjustRowDescHeight($(this).closest('tr'));
+  });
 
   // ── Sifat On/Off & Saling Eksklusif (Maksimal vs Minimal) ───────────
   $(document).on('change', '.tp-check-maks', function() {
@@ -545,6 +596,7 @@ $(function() {
             .removeClass('d-none alert-danger')
             .addClass('alert-success')
             .html('<i class="fas fa-magic me-1"></i> Berhasil menghasilkan deskripsi capaian otomatis untuk ' + count + ' siswa! Silakan review dan klik <strong>Simpan Nilai & Deskripsi</strong>.');
+          setTimeout(adjustAllDescHeights, 50);
           window.scrollTo({top: 0, behavior: 'smooth'});
         } else {
           alert(res.message || 'Gagal menghasilkan deskripsi.');

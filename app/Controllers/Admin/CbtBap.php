@@ -416,8 +416,51 @@ class CbtBap extends BaseController
         }
 
         $students = $this->studentModel->getStudentsByBap($bapId);
-        $examModel = new CbtExamNameModel();
-        $exam = $examModel->find($doc['test_id']) ?? ['name' => 'Ujian #' . $doc['test_id'], 'subject' => '-'];
+
+        $exam = null;
+        if ($db->tableExists('cbt_test_status')) {
+            $ts = $db->table('cbt_test_status ts')
+                ->select('ts.id, en.name as exam_name, s.name as subject_name, qb.code as bank_code')
+                ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'left')
+                ->join('subjects s', 's.id = qb.subject_id', 'left')
+                ->join('cbt_exam_names en', 'en.id = ts.exam_name_id', 'left')
+                ->where('ts.id', (int)$doc['test_id'])
+                ->get()->getRowArray();
+            if ($ts) {
+                $exam = [
+                    'id'      => $ts['id'],
+                    'name'    => $ts['exam_name'] ?? ('Ujian CBT (' . ($ts['bank_code'] ?? $ts['id']) . ')'),
+                    'subject' => $ts['subject_name'] ?? 'Mata Pelajaran',
+                ];
+            }
+        }
+        if (!$exam && $db->tableExists('cbt_question_banks')) {
+            $qb = $db->table('cbt_question_banks qb')
+                ->select('qb.id, qb.code as bank_code, s.name as subject_name')
+                ->join('subjects s', 's.id = qb.subject_id', 'left')
+                ->where('qb.id', (int)$doc['test_id'])
+                ->get()->getRowArray();
+            if ($qb) {
+                $exam = [
+                    'id'      => $qb['id'],
+                    'name'    => 'Ujian CBT (' . $qb['bank_code'] . ')',
+                    'subject' => $qb['subject_name'] ?? 'Mata Pelajaran',
+                ];
+            }
+        }
+        if (!$exam) {
+            $examModel = new CbtExamNameModel();
+            $found = $examModel->find($doc['test_id']);
+            $exam = $found ? [
+                'id'      => $found['id'],
+                'name'    => $found['name'],
+                'subject' => $found['subject'] ?? 'Mata Pelajaran',
+            ] : [
+                'id'      => $doc['test_id'],
+                'name'    => 'Ujian #' . $doc['test_id'],
+                'subject' => '-',
+            ];
+        }
 
         $data = [
             'title'    => "Berita Acara: {$doc['bap_number']}",

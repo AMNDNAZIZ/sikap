@@ -271,65 +271,95 @@ window.MathJax = {
         return;
       }
       const html = editorInstance.getData().trim();
-      const text = $('<div>').html(html).text().trim();
+      if (!html) return Swal.fire('Kosong', 'Silakan tempelkan soal terlebih dahulu.', 'warning');
 
-      if (!text) return Swal.fire('Kosong', 'Silakan tempelkan soal terlebih dahulu.', 'warning');
+      const btn = $(this);
+      const oldHtml = btn.html();
+      btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Mengolah Preview...');
 
-      const blocks = text.split(/Soal:\s*\d+\)/i).filter(b => b.trim() !== '');
-      const validBlocks = blocks.filter(b => b.trim().length > 30);
-      const totalBlocks = validBlocks.length;
-      let pgCount = 0, pgkCount = 0, bsCount = 0, esaiCount = 0;
-
-      validBlocks.forEach(block => {
-        const isBs = /Tipe\s*[:.)]?\s*(bs|benar\s*salah|benar\/salah)/i.test(block);
-        const kunciMatch = block.match(/Kunci\s*[:.)]?\s*([^\r\n<]*)/i);
-        const rawKey = kunciMatch ? kunciMatch[1].trim() : '';
-
-        if (isBs) {
-          bsCount++;
-        } else if (/esai/i.test(rawKey)) {
-          esaiCount++;
-        } else {
-          const keyMatches = rawKey.match(/[A-E]/gi) || [];
-          if (keyMatches.length > 1) {
-            pgkCount++;
-          } else if (keyMatches.length === 1) {
-            pgCount++;
-          } else if (!/[A-E]\s*[:.)]/i.test(block)) {
-            esaiCount++;
+      $.ajax({
+        url: '<?= site_url("admin/cbt/banksoal/parseSoal") ?>',
+        type: 'POST',
+        data: {
+          text: html,
+          bank_id: <?= (int)$bank['id'] ?>,
+          '<?= csrf_token() ?>': '<?= csrf_hash() ?>'
+        },
+        dataType: 'json',
+        success: function(res) {
+          if (!res.success || !res.preview || res.preview.length === 0) {
+            Swal.fire('Perhatian', res.error || 'Format tidak dikenali.', 'warning');
+            return;
           }
+
+          let pgCount = 0, pgkCount = 0, bsCount = 0, esaiCount = 0;
+          let previewSoals = '';
+
+          res.preview.forEach((q, idx) => {
+            if (q.type === 'pg') pgCount++;
+            else if (q.type === 'pg_kompleks') pgkCount++;
+            else if (q.type === 'benar_salah') bsCount++;
+            else esaiCount++;
+
+            let optList = '';
+            if (q.options && Object.keys(q.options).length > 0) {
+              optList = '<div class="mt-2 ps-2 border-start border-2 border-primary-subtle small">';
+              $.each(q.options, function(k, v) {
+                const isKey = (q.answer && q.answer.split(',').includes(k)) ? 'fw-bold text-success' : 'text-muted';
+                optList += `<div class="${isKey} mb-0.5"><strong>${k}:</strong> ${v}</div>`;
+              });
+              optList += '</div>';
+            }
+
+            const badgeType = q.type === 'pg' ? '<span class="badge bg-primary">PG</span>' :
+                             (q.type === 'pg_kompleks' ? '<span class="badge bg-info">PGK</span>' :
+                             (q.type === 'benar_salah' ? '<span class="badge bg-warning text-dark">BS</span>' :
+                             '<span class="badge bg-secondary">Esai</span>'));
+
+            const keyBadge = q.answer ? `<span class="badge bg-success-subtle text-success border border-success-subtle ms-1">Kunci: ${q.answer}</span>` : '';
+
+            previewSoals += `
+              <div class="mb-2.5 p-3 border rounded bg-white shadow-sm">
+                <div class="d-flex justify-content-between align-items-center mb-1.5 flex-wrap gap-1">
+                  <strong class="text-primary">Soal #${idx + 1}</strong>
+                  <div>${badgeType} ${keyBadge}</div>
+                </div>
+                <div class="text-dark small fw-medium">${q.text}</div>
+                ${optList}
+              </div>`;
+          });
+
+          const previewHtml = `
+          <div class="card shadow-sm border-0" style="border-radius: 12px;">
+            <div class="card-header bg-primary text-white py-2.5 d-flex justify-content-between align-items-center">
+              <h6 class="mb-0 fw-bold"><i class="bi bi-eye me-1"></i> Hasil Preview Parsing (${res.count} Soal Terdeteksi)</h6>
+            </div>
+            <div class="card-body">
+              <div class="row text-center mb-3 g-2">
+                <div class="col-3"><div class="p-2 border rounded bg-light"><strong>${pgCount}</strong><br><small class="text-muted">Pilihan Ganda</small></div></div>
+                <div class="col-3"><div class="p-2 border rounded bg-light"><strong>${pgkCount}</strong><br><small class="text-muted">PG Kompleks</small></div></div>
+                <div class="col-3"><div class="p-2 border rounded bg-light"><strong>${bsCount}</strong><br><small class="text-muted">Benar / Salah</small></div></div>
+                <div class="col-3"><div class="p-2 border rounded bg-light"><strong>${esaiCount}</strong><br><small class="text-muted">Esai / Uraian</small></div></div>
+              </div>
+              <div style="max-height: 480px; overflow-y: auto;" class="p-1">
+                ${previewSoals}
+              </div>
+            </div>
+          </div>`;
+
+          $('#previewResult').html(previewHtml);
+
+          if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+            MathJax.typesetPromise([document.getElementById('previewResult')]).catch(err => console.log('MathJax error:', err));
+          }
+        },
+        error: function(xhr) {
+          Swal.fire('Error', 'Gagal memproses preview parsing dari server.', 'error');
+        },
+        complete: function() {
+          btn.prop('disabled', false).html(oldHtml);
         }
       });
-
-      let previewSoals = '';
-      validBlocks.slice(0, 100).forEach((block, idx) => {
-        const plainBlock = block.replace(/<[^>]*>/g, ' ').trim();
-        const soalPreview = plainBlock.substring(0, 200) + (plainBlock.length > 200 ? '...' : '');
-        previewSoals += `<div class="mb-2 p-2 border rounded bg-light"><strong>${idx + 1}.</strong> ${soalPreview}</div>`;
-      });
-
-      const previewHtml = `
-      <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white"><h6 class="mb-0"><i class="bi bi-eye"></i> Preview Parsing</h6></div>
-        <div class="card-body">
-          <div class="row text-center mb-3">
-            <div class="col-3"><div class="p-2 border rounded bg-light"><strong>${pgCount}</strong><br><small>PG</small></div></div>
-            <div class="col-3"><div class="p-2 border rounded bg-light"><strong>${pgkCount}</strong><br><small>PGK</small></div></div>
-            <div class="col-3"><div class="p-2 border rounded bg-light"><strong>${bsCount}</strong><br><small>BS</small></div></div>
-            <div class="col-3"><div class="p-2 border rounded bg-light"><strong>${esaiCount}</strong><br><small>Esai</small></div></div>
-          </div>
-          <p class="mb-2"><strong>Total Soal:</strong> ${totalBlocks}</p>
-          <div style="max-height: 400px; overflow-y: auto;">
-            ${previewSoals}
-          </div>
-        </div>
-      </div>`;
-      $('#previewResult').html(previewHtml);
-
-      // Render MathJax pada preview
-      if (typeof MathJax !== 'undefined') {
-        MathJax.typesetPromise().catch((err) => console.log('MathJax error:', err));
-      }
     });
 
     // 🔹 Submit (Simpan Soal)

@@ -86,10 +86,10 @@
                 <div>
                     <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
                         <strong class="text-dark">Asesmen <?= ucfirst(esc($tpMappingInfo['assessment_type'] ?? 'formatif')) ?> Terpetakan</strong>
-                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-0.5">
+                        <span class="badge px-2.5 py-1" style="background-color: #ecfdf5 !important; color: #065f46 !important; border: 1px solid #a7f3d0 !important;">
                             <?= count($tpDefinitions) ?> TP Terpilih dari ATP
                         </span>
-                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-0.5">
+                        <span class="badge px-2.5 py-1" style="background-color: #eff6ff !important; color: #1e40af !important; border: 1px solid #bfdbfe !important;">
                             <?= esc($tpMappingInfo['total_mapped'] ?? 0) ?> Soal Terpetakan
                         </span>
                     </div>
@@ -126,14 +126,14 @@
                     <button class="nav-link active fw-bold px-3 py-2 d-flex align-items-center gap-2" id="tab-siswa-btn" data-bs-toggle="tab" data-bs-target="#tab-siswa" type="button" role="tab" aria-controls="tab-siswa" aria-selected="true">
                         <i class="bi bi-person-lines-fill"></i>
                         <span>1. Penguasaan TP Per Siswa</span>
-                        <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill"><?= count($studentAnalysis) ?> Siswa</span>
+                        <span class="badge rounded-pill" style="background-color: #eff6ff !important; color: #1e40af !important; border: 1px solid #bfdbfe !important;"><?= count($studentAnalysis) ?> Siswa</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link fw-bold px-3 py-2 d-flex align-items-center gap-2" id="tab-kelas-btn" data-bs-toggle="tab" data-bs-target="#tab-kelas" type="button" role="tab" aria-controls="tab-kelas" aria-selected="false">
                         <i class="bi bi-mortarboard-fill"></i>
                         <span>2. Penguasaan TP Per Kelas</span>
-                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill"><?= count($tpDefinitions) ?> TP</span>
+                        <span class="badge rounded-pill" style="background-color: #ecfdf5 !important; color: #065f46 !important; border: 1px solid #a7f3d0 !important;"><?= count($tpDefinitions) ?> TP</span>
                     </button>
                 </li>
             </ul>
@@ -257,7 +257,7 @@
                                                         <i class="bi bi-hourglass-split me-1"></i>Menunggu Esai
                                                     </span>
                                                 <?php else: ?>
-                                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
+                                                    <span class="badge" style="background-color: #ecfdf5 !important; color: #065f46 !important; border: 1px solid #a7f3d0 !important;">
                                                         <i class="bi bi-check2 me-1"></i>Lengkap
                                                     </span>
                                                 <?php endif; ?>
@@ -290,7 +290,7 @@
                                             <!-- TP Dikuasai -->
                                             <td>
                                                 <?php if (!empty($st['mastered_tps'])): ?>
-                                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
+                                                    <span class="badge" style="background-color: #ecfdf5 !important; color: #065f46 !important; border: 1px solid #a7f3d0 !important;">
                                                         <?= esc(implode(', ', $st['mastered_tps'])) ?>
                                                     </span>
                                                 <?php else: ?>
@@ -301,7 +301,7 @@
                                             <!-- TP Perlu Ditingkatkan -->
                                             <td>
                                                 <?php if (!empty($st['needs_improvement_tps'])): ?>
-                                                    <span class="badge bg-warning bg-opacity-25 text-dark border border-warning">
+                                                    <span class="badge" style="background-color: #fef3c7 !important; color: #92400e !important; border: 1px solid #fcd34d !important;">
                                                         <?= esc(implode(', ', $st['needs_improvement_tps'])) ?>
                                                     </span>
                                                 <?php else: ?>
@@ -400,8 +400,9 @@
                                 </p>
                                 <div class="d-flex flex-wrap gap-2">
                                     <?php foreach ($classAnalysis['tps_needing_reinforcement'] as $rf): ?>
-                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2.5 py-1.5 small">
-                                            <strong><?= esc($rf['tp_code']) ?></strong> (<?= number_format($rf['percentage'], 1) ?>%) — <?= esc($rf['deskripsi'] ?: 'Penguatan materi') ?>
+                                        <span class="badge px-3 py-2 text-wrap text-start rounded-pill shadow-sm" style="background-color: #fee2e2 !important; color: #991b1b !important; border: 1px solid #fca5a5 !important; font-size: 0.82rem; line-height: 1.4;">
+                                            <strong style="color: #b91c1c !important;"><?= esc($rf['tp_code']) ?> (<?= number_format($rf['percentage'], 1) ?>%)</strong>
+                                            <span style="color: #1f2937 !important;"> — <?= esc($rf['deskripsi'] ?: 'Penguatan materi') ?></span>
                                         </span>
                                     <?php endforeach; ?>
                                 </div>

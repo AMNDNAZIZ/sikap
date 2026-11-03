@@ -43,6 +43,17 @@ class CbtBapStudentV3Model extends Model
         if (!$db->tableExists($this->table)) {
             return [];
         }
+
+        $builder = $this->builder();
+        if ($db->tableExists('students')) {
+            $builder->select('cbt_bap_students_v3.*, students.name as student_name, students.nisn, students.nis')
+                ->join('students', 'students.id = cbt_bap_students_v3.student_id', 'left');
+            return $builder->where('cbt_bap_students_v3.bap_id', $bapId)
+                ->orderBy('students.name', 'ASC')
+                ->get()
+                ->getResultArray();
+        }
+
         return $this->where('bap_id', $bapId)
             ->orderBy('student_id', 'ASC')
             ->findAll();

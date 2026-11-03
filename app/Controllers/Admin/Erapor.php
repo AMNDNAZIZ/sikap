@@ -97,7 +97,11 @@ class Erapor extends BaseController
         }
 
         $activeYear = $this->yearModel->getActiveYear();
-        $yearId     = $this->request->getGet('year_id') ?? ($activeYear['id'] ?? null);
+        $yearId     = $this->request->getGet('year_id');
+        if (empty($yearId) || !is_numeric($yearId)) {
+            $yearId = $activeYear['id'] ?? null;
+        }
+        $yearId = (int) $yearId;
 
         $teacher = $this->db->table('teachers')->where('id', $teacherId)->get()->getRowArray();
         if (!$teacher) {
@@ -140,7 +144,11 @@ class Erapor extends BaseController
         $roleId = (int) ($user['role_id'] ?? 0);
 
         $activeYear = $this->yearModel->getActiveYear();
-        $yearId     = $this->request->getGet('year_id') ?? ($activeYear['id'] ?? null);
+        $yearId     = $this->request->getGet('year_id');
+        if (empty($yearId) || !is_numeric($yearId)) {
+            $yearId = $activeYear['id'] ?? null;
+        }
+        $yearId = (int) $yearId;
 
         // Validasi akses guru
         if ($roleId == 3) {
@@ -164,20 +172,23 @@ class Erapor extends BaseController
             return redirect()->back()->with('error', 'Data tidak ditemukan.');
         }
 
-        // Daftar siswa di kelas ini pada tahun ajaran yang dipilih
+        // Daftar siswa di kelas ini pada tahun ajaran yang dipilih (hanya siswa aktif)
         $students = $this->db->table('student_records sr')
             ->select('s.id, s.name, s.religion')
             ->join('students s', 's.id = sr.student_id')
             ->where('sr.class_id', $classId)
             ->where('sr.academic_year_id', $yearId)
+            ->where('sr.status', 'aktif')
             ->orderBy('s.name', 'ASC')
             ->get()->getResultArray();
 
+        // Fallback jika belum terpetakan per tahun ajaran
         if (empty($students)) {
             $students = $this->db->table('student_records sr')
                 ->select('s.id, s.name, s.religion')
                 ->join('students s', 's.id = sr.student_id')
                 ->where('sr.class_id', $classId)
+                ->where('sr.status', 'aktif')
                 ->groupBy('s.id')
                 ->orderBy('s.name', 'ASC')
                 ->get()->getResultArray();
@@ -691,9 +702,6 @@ class Erapor extends BaseController
             $clean = trim((string) $raw);
             $clean = preg_replace('/^(mampu|siswa dapat|peserta didik dapat|dapat)\s+/i', '', $clean);
             $clean = rtrim($clean, " .\t\n\r\0\x0B");
-            if (mb_strlen($clean) > 85) {
-                $clean = mb_substr($clean, 0, 82) . '...';
-            }
             return lcfirst($clean);
         };
 
@@ -759,12 +767,8 @@ class Erapor extends BaseController
                 $topText = !empty($highest['materi']) ? trim($highest['materi']) : (!empty($highest['tujuan_pembelajaran']) ? trim($highest['tujuan_pembelajaran']) : 'materi pokok');
                 $lowText = !empty($lowest['materi']) ? trim($lowest['materi']) : (!empty($lowest['tujuan_pembelajaran']) ? trim($lowest['tujuan_pembelajaran']) : '');
 
-                if (mb_strlen($topText) > 65) {
-                    $topText = mb_substr($topText, 0, 62) . '...';
-                }
-                if (mb_strlen($lowText) > 65) {
-                    $lowText = mb_substr($lowText, 0, 62) . '...';
-                }
+                $topText = rtrim($topText, " .\t\n\r\0\x0B");
+                $lowText = rtrim($lowText, " .\t\n\r\0\x0B");
 
                 $kalimat = "Menunjukkan penguasaan yang sangat baik dalam memahami " . lcfirst($topText) . ".";
 
@@ -847,7 +851,11 @@ class Erapor extends BaseController
             return redirect()->back()->with('error', 'Ukuran file melebihi batas 10 MB.');
         }
 
+        $activeYear    = $this->yearModel->getActiveYear();
         $yearId        = (int) $this->request->getPost('year_id');
+        if ($yearId <= 0) {
+            $yearId = (int) ($activeYear['id'] ?? 0);
+        }
         $semester      = $this->request->getPost('semester');
         $importAbsence = (bool) $this->request->getPost('import_absence');
 
@@ -953,6 +961,7 @@ class Erapor extends BaseController
                 ->join('students s', 's.id = sr.student_id')
                 ->where('sr.class_id', $classId)
                 ->where('sr.academic_year_id', $yearId)
+                ->where('sr.status', 'aktif')
                 ->orderBy('s.name', 'ASC')
                 ->get()->getResultArray();
 
@@ -1471,7 +1480,11 @@ class Erapor extends BaseController
         $roleId = (int) ($user['role_id'] ?? 0);
 
         $activeYear = $this->yearModel->getActiveYear();
-        $yearId     = $this->request->getGet('year_id') ?? ($activeYear['id'] ?? null);
+        $yearId     = $this->request->getGet('year_id');
+        if (empty($yearId) || !is_numeric($yearId)) {
+            $yearId = $activeYear['id'] ?? null;
+        }
+        $yearId = (int) $yearId;
 
         $class = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
         $year  = $this->db->table('academic_years')->where('id', $yearId)->get()->getRowArray();
@@ -1480,21 +1493,23 @@ class Erapor extends BaseController
             return redirect()->back()->with('error', 'Kelas atau tahun ajaran tidak ditemukan.');
         }
 
-        // Fetch students in class for specified academic year
+        // Fetch students in class for specified academic year (active only)
         $students = $this->db->table('student_records sr')
             ->select('s.id, s.name, s.nisn, s.nis')
             ->join('students s', 's.id = sr.student_id')
             ->where('sr.class_id', $classId)
             ->where('sr.academic_year_id', $yearId)
+            ->where('sr.status', 'aktif')
             ->orderBy('s.name', 'ASC')
             ->get()->getResultArray();
 
-        // Only if truly no records at all for this class (no year filter fallback)
+        // Only if truly no records at all for this class (no year filter fallback, active only)
         if (empty($students)) {
             $students = $this->db->table('student_records sr')
                 ->select('s.id, s.name, s.nisn, s.nis')
                 ->join('students s', 's.id = sr.student_id')
                 ->where('sr.class_id', $classId)
+                ->where('sr.status', 'aktif')
                 ->groupBy('s.id')
                 ->orderBy('s.name', 'ASC')
                 ->get()->getResultArray();
@@ -1650,7 +1665,11 @@ class Erapor extends BaseController
         $roleId = (int) ($user['role_id'] ?? 0);
 
         $activeYear = $this->yearModel->getActiveYear();
-        $yearId     = $this->request->getGet('year_id') ?? ($activeYear['id'] ?? null);
+        $yearId     = $this->request->getGet('year_id');
+        if (empty($yearId) || !is_numeric($yearId)) {
+            $yearId = $activeYear['id'] ?? null;
+        }
+        $yearId = (int) $yearId;
 
         // Options: Kop & Tanda Tangan
         $useKop       = $this->request->getGet('use_kop') !== '0';
@@ -1668,6 +1687,7 @@ class Erapor extends BaseController
             ->join('students s', 's.id = sr.student_id')
             ->where('sr.class_id', $classId)
             ->where('sr.academic_year_id', $yearId)
+            ->where('sr.status', 'aktif')
             ->orderBy('s.name', 'ASC')
             ->get()->getResultArray();
 
@@ -1676,6 +1696,7 @@ class Erapor extends BaseController
                 ->select('s.id, s.name, s.nisn, s.nis')
                 ->join('students s', 's.id = sr.student_id')
                 ->where('sr.class_id', $classId)
+                ->where('sr.status', 'aktif')
                 ->groupBy('s.id')
                 ->orderBy('s.name', 'ASC')
                 ->get()->getResultArray();

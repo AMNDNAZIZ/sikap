@@ -75,26 +75,37 @@
                 <thead class="table-light text-center">
                     <tr>
                         <th style="width: 5%;">No</th>
-                        <th style="width: 25%;">ID Peserta</th>
-                        <th style="width: 25%;">Status Kehadiran</th>
-                        <th style="width: 45%;">Catatan Pengawas</th>
+                        <th style="width: 35%;">Nama Siswa</th>
+                        <th style="width: 20%;">NISN / NIS</th>
+                        <th style="width: 15%;">Status Kehadiran</th>
+                        <th style="width: 25%;">Catatan Pengawas</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($students)): ?>
-                        <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada catatan siswa.</td></tr>
+                        <tr><td colspan="5" class="text-center text-muted py-3">Tidak ada catatan siswa.</td></tr>
                     <?php else: ?>
                         <?php $no = 1; foreach ($students as $st): ?>
                             <tr>
                                 <td class="text-center"><?= $no++ ?></td>
-                                <td class="fw-mono">Siswa #<?= esc($st['student_id']) ?></td>
+                                <td>
+                                    <strong class="text-dark d-block"><?= esc($st['student_name'] ?? ($st['nama_lengkap'] ?? ('Siswa #' . $st['student_id']))) ?></strong>
+                                    <span class="text-muted font-monospace" style="font-size: 0.7rem;">ID Siswa: <?= esc($st['student_id']) ?></span>
+                                </td>
+                                <td class="text-center font-monospace small">
+                                    <?= esc(!empty($st['nisn']) ? $st['nisn'] : (!empty($st['nis']) ? $st['nis'] : '-')) ?>
+                                </td>
                                 <td class="text-center">
                                     <?php if ($st['reported_status'] === 'HADIR'): ?>
                                         <span class="badge bg-success">HADIR</span>
                                     <?php elseif ($st['reported_status'] === 'TIDAK_HADIR'): ?>
                                         <span class="badge bg-danger">TIDAK HADIR</span>
+                                    <?php elseif ($st['reported_status'] === 'SAKIT'): ?>
+                                        <span class="badge bg-warning text-dark">SAKIT</span>
+                                    <?php elseif ($st['reported_status'] === 'IZIN'): ?>
+                                        <span class="badge bg-info text-dark">IZIN</span>
                                     <?php else: ?>
-                                        <span class="badge bg-warning text-dark"><?= esc($st['reported_status']) ?></span>
+                                        <span class="badge bg-secondary"><?= esc($st['reported_status']) ?></span>
                                     <?php endif; ?>
                                 </td>
                                 <td><?= esc($st['proctor_notes'] ?: '-') ?></td>
