@@ -1,6 +1,6 @@
 {
     "version": "2.0.5",
-    "generated": "2026-11-05 23:47:57",
+    "generated": "2026-11-06 06:41:38",
     "last_update": "2026-10-29 00:00",
     "total_files": 1141,
     "files": {
@@ -508,7 +508,7 @@
         "app/Services/CbtQuestionService.php": "0752c45d36f8798175fd02d097518097",
         "app/Services/CbtScoringService.php": "54590d90672e720af940d89847953af3",
         "app/Services/CbtSessionService.php": "6095c21b8ebdd6ef16faae6aa38f0a0f",
-        "app/Services/ElearningPackageGeneratorService.php": "de03d56294e2f8f445fb937efcbea070",
+        "app/Services/ElearningPackageGeneratorService.php": "2975ae26d887bcfcb7958f250caadb50",
         "app/Services/TeachingSessionContextService.php": "55d09a51d75ee4498ee8f715d006bbc1",
         "app/Traits/AuditTrailTrait.php": "eaa3033cdcf0c57f286aff04fe15ca03",
         "app/Views/Pagers/bootstrap.php": "d3f704074d26dd02c4bfbb92ca27a20e",
@@ -746,7 +746,7 @@
         "app/Views/admin/mapel_master/index.php": "8aeff95d5e01259f78f8da282eb81948",
         "app/Views/admin/materials/_html_frame.php": "df817c8511b578b16b5859ef2b25caa9",
         "app/Views/admin/materials/_slide_show.php": "7ecf4d331c5062f4945724eaf4c33869",
-        "app/Views/admin/materials/create.php": "01f926d330724d5e839927f56432d6fb",
+        "app/Views/admin/materials/create.php": "2a2750c4a9ffc634a89b81d825d472a0",
         "app/Views/admin/materials/delete.php": "a8ef76f8754650c123fdedfeea839ac8",
         "app/Views/admin/materials/edit.php": "8085626792aa3940ee3886ea4984e9f2",
         "app/Views/admin/materials/index.php": "22f3e55e55d43ba26651228a1cf6327a",
