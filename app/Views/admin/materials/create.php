@@ -894,9 +894,16 @@
               ? '<span class="badge bg-primary text-white me-1"><i class="bi bi-stars text-warning me-1"></i> AI Gemini Copilot</span>'
               : '<span class="badge bg-secondary text-white me-1"><i class="bi bi-magic me-1"></i> Smart Instructional Assistant</span>';
 
+            var typesUsed = [];
+            segmentsToRender.forEach(function(s) {
+              var tName = (s.content_type === 'video' ? 'Video' : (s.content_type === 'html' ? 'Simulasi HTML' : (s.content_type === 'link' ? 'Tautan' : (s.content_type === 'slide' ? 'Slide' : (s.content_type === 'pdf' ? 'PDF' : 'Teks')))));
+              if (typesUsed.indexOf(tName) === -1) typesUsed.push(tName);
+            });
+            var mediaSummary = typesUsed.join(', ');
+
             modulScenarioAlert.className = 'alert alert-success py-2 px-3 small mt-2 mb-0 border border-success border-opacity-25';
-            modulScenarioAlert.innerHTML = '<div class="d-flex align-items-center gap-2 mb-1">' + badgeAi + '<strong>Berhasil merancang ' + segmentsToRender.length + ' segmen aksi nyata (' + (totalEstimated || 70) + ' Menit)</strong></div>' +
-              '<div class="text-secondary smaller">Modul Ajar telah diuraikan menjadi ragam kegiatan aktif siswa: <strong>Tayangan Video, Penjelasan Teks, Simulasi HTML Interaktif, dan Refleksi</strong>. Anda dapat langsung meninjau, menguji, atau mengubah setiap langkah sebelum menyimpan.</div>';
+            modulScenarioAlert.innerHTML = '<div class="d-flex align-items-center gap-2 mb-1">' + badgeAi + '<strong>Berhasil merancang ' + segmentsToRender.length + ' langkah aksi nyata (' + (totalEstimated || 70) + ' Menit)</strong></div>' +
+              '<div class="text-secondary smaller">Alur dirancang adaptif sesuai karakteristik mata pelajaran dan durasi: <strong>' + mediaSummary + '</strong>. Anda dapat langsung meninjau, menguji, atau mengubah setiap langkah sebelum menyimpan.</div>';
             modulScenarioAlert.style.display = 'block';
           }
         })

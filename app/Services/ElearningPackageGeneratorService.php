@@ -161,12 +161,28 @@ class ElearningPackageGeneratorService extends BaseService
         }
         if ($totalMinutes < 30) $totalMinutes = 70;
 
+        // Ambil profil sekolah untuk konteks lokal
+        $schoolModel = new \App\Models\SchoolModel();
+        $schoolProfile = $schoolModel->getProfile() ?: [];
+        $schoolName = !empty($schoolProfile['name']) ? $schoolProfile['name'] : 'SD SAKASALIKA';
+        $schoolCity = !empty($schoolProfile['city_regency']) ? $schoolProfile['city_regency'] : 'Jakarta Barat';
+
         // Ambil konfigurasi API AI
         $aiConfig = $this->resolveAiKey($user);
 
         $aiGenerated = null;
         if (!empty($aiConfig['api_key'])) {
-            $aiGenerated = $this->callAiGenerator($aiConfig, $subjectName, $classLevel, $materiJudul, $meetingJudul, $meetingText, $totalMinutes);
+            $aiGenerated = $this->callAiGenerator(
+                $aiConfig,
+                $subjectName,
+                $classLevel,
+                $materiJudul,
+                $meetingJudul,
+                $meetingText,
+                $totalMinutes,
+                $schoolName,
+                $schoolCity
+            );
         }
 
         // Jika AI berhasil dan memiliki susunan segmen, gunakan hasil AI. Jika tidak, gunakan Desainer Pedagogis Cerdas.
@@ -175,9 +191,48 @@ class ElearningPackageGeneratorService extends BaseService
             $package['source'] = 'ai';
             $package['ai_provider'] = $aiConfig['provider'] ?? 'gemini';
         } else {
-            $package = $this->buildFallbackPackage($subjectName, $classLevel, $materiJudul, $pertemuanKe, $meeting, $totalMinutes);
+            $package = $this->buildFallbackPackage(
+                $subjectName,
+                $classLevel,
+                $materiJudul,
+                $pertemuanKe,
+                $meeting,
+                $totalMinutes,
+                $schoolName,
+                $schoolCity
+            );
             $package['source'] = 'smart_fallback';
         }
+
+        // Validasi dan lengkapi konfigurasi penugasan formatif pada segmen
+        $segments = $package['segments'] ?? [];
+        $hasAnyTask = false;
+        foreach ($segments as &$seg) {
+            if (!empty($seg['has_task'])) {
+                $hasAnyTask = true;
+                if (empty($seg['task_title'])) {
+                    $seg['task_title'] = 'Tugas: ' . ($seg['title'] ?? $materiJudul);
+                }
+                if (empty($seg['task_instructions'])) {
+                    $seg['task_instructions'] = 'Selesaikan kegiatan pembelajaran pada langkah ini dan kumpulkan laporan atau ringkasan hasil analisismu.';
+                }
+                if (empty($seg['task_deadline_days'])) {
+                    $seg['task_deadline_days'] = 7;
+                }
+            }
+        }
+        unset($seg);
+
+        // Jika tidak ada segmen yang menandai has_task, beri rekomendasi tugas pada segmen terakhir
+        if (!$hasAnyTask && !empty($segments)) {
+            $lastIdx = count($segments) - 1;
+            $segments[$lastIdx]['has_task'] = true;
+            $segments[$lastIdx]['task_title'] = 'Tugas Formatif: ' . ($segments[$lastIdx]['title'] ?? $materiJudul);
+            $segments[$lastIdx]['task_instructions'] = 'Tuliskan refleksi singkat mengenai topik ' . $materiJudul . ' yang telah dipelajari pada pertemuan ini, serta berikan 1 contoh penerapannya dalam kehidupan nyata di sekitar lingkungan ' . $schoolName . '.';
+            $segments[$lastIdx]['task_deadline_days'] = 7;
+        }
+
+        $package['segments'] = $segments;
 
         // Normalisasi struktur package agar seragam dan aman dikonsumsi client/UI
         $microTitle   = $package['micro_learning']['title'] ?? "Konsep Utama: {$materiJudul}";
@@ -264,80 +319,113 @@ class ElearningPackageGeneratorService extends BaseService
     /**
      * Panggil API Gemini / Groq untuk transformasi cerdas menjadi alur multi-segmen aksi nyata
      */
-    protected function callAiGenerator(array $aiConfig, string $subject, int $level, string $materi, string $pertemuan, string $scenario, int $totalMinutes = 70): ?array
-    {
-        $prompt = "Anda adalah Ahli Desain Instruksional Pembelajaran Digital (LMS) dan Spesialis Kurikulum Merdeka.
-Tugas Anda: Mengubah skenario tatap muka dari Modul Ajar menjadi 'Alur Pembelajaran Digital Aktif (E-Learning Multi-Segmen)' yang menguraikan aksi nyata siswa dengan beragam media interaktif untuk siswa kelas {$level} SD pada mata pelajaran {$subject}.
+    protected function callAiGenerator(
+        array $aiConfig,
+        string $subject,
+        int $level,
+        string $materi,
+        string $pertemuan,
+        string $scenario,
+        int $totalMinutes = 70,
+        string $schoolName = 'SD SAKASALIKA',
+        string $schoolCity = 'Jakarta Barat'
+    ): ?array {
+        $prompt = "Anda adalah Ahli Desain Instruksional Pembelajaran Digital (LMS) dan Konsultan Kurikulum Merdeka yang sangat adaptif.
+Tugas Anda: Mengubah modul ajar tatap muka menjadi 'Alur Pembelajaran Digital Aktif Berdiferensiasi (E-Learning Multi-Segmen)' yang disesuaikan secara cerdas dengan Mata Pelajaran, substansi materi, alokasi waktu nyata, dan konteks lingkungan siswa di {$schoolName} ({$schoolCity}).
 
-Informasi Pembelajaran:
-- Mata Pelajaran: {$subject} (Kelas {$level})
-- Topik Utama: {$materi}
-- Sesi Pertemuan: {$pertemuan}
+INFORMASI PEMBELAJARAN & KONTEKS SEKOLAH:
+- Satuan Pendidikan: {$schoolName} ({$schoolCity})
+- Mata Pelajaran: {$subject}
+- Tingkat / Fase: Kelas {$level} SD
+- Topik / Lingkup Materi: {$materi}
+- Sesi / Pertemuan: {$pertemuan}
 - Total Alokasi Waktu: {$totalMinutes} Menit
-- Isi Skenario dari Modul Ajar:
+- Isi Skenario / Ringkasan Modul Ajar:
 {$scenario}
 
-Instruksi Desain Instruksional:
-1. URAIKAN kegiatan belajar menjadi 3 sampai 4 SEGMEN AKSI NYATA BERAGAM MEDIA agar siswa aktif berpikir, mengamati, dan berinteraksi (bukan hanya membaca teks pasif!).
-2. PILIH tipe konten yang bervariasi dari daftar tipe yang didukung sistem:
-   - 'video': Video stimulus pengantar / apersepsi. Berikan video_url YouTube edukatif (misal: https://www.youtube.com/results?search_query=...).
-   - 'text': Penjelasan konsep mendalam yang ramah anak dengan analogi nyata, atau tantangan refleksi.
-   - 'html': Simulasi interaktif / eksperimen digital / widget kuis interaktif mandiri berbasis HTML5 + CSS + JavaScript mandiri (self-contained, siap dijalankan di iframe siswa).
-   - 'link': Tautan sumber belajar luar atau simulasi interaktif (seperti PhET atau portal edukasi).
-3. ALOKASIKAN waktu menit per segmen secara proporsional sehingga JUMLAH estimated_minutes seluruh segmen sama dengan {$totalMinutes} menit.
-4. Buat kode HTML interaktif yang fungsional, rapi, dan menarik secara visual untuk segmen tipe 'html'.
+INSTRUKSI DESAIN INSTRUKSIONAL CERDAS & KONTEKSTUAL:
+1. JUMLAH SEGMEN ADAPTIF (JANGAN KAKU HARUS 4):
+   - Tentukan jumlah langkah secara rasional sesuai alokasi waktu {$totalMinutes} menit dan kedalaman topik:
+     * Durasi Singkat (≤ 45 Menit): Cukup 2 sampai 3 segmen padat dan terarah.
+     * Durasi Standar (50 - 75 Menit): 3 sampai 4 segmen dengan alur runtut (Eksplorasi/Apersepsi, Aplikasi/Praktik, Refleksi).
+     * Durasi Panjang (≥ 80 Menit): 3 sampai 4 segmen mendalam dengan pengayaan studi mandiri/kelompok.
+   - Total durasi (estimated_minutes) dari seluruh segmen HARUS berjumlah persis atau mendekati {$totalMinutes} menit.
 
-Output HARUS berupa JSON valid murni (tanpa tanda kutip backtick ```json) dengan struktur persis berikut:
+2. PEMILIHAN & URUTAN MEDIA SESUAI KARAKTERISTIK MATA PELAJARAN:
+   - Tipe media yang didukung: 'text', 'video', 'html', 'link'.
+   - JANGAN selalu memakai pola baku [Video -> Teks -> HTML -> Teks]! Tentukan urutan dan media yang paling masuk akal bagi topik ini:
+     * Sains / IPAS / Matematika: Sangat baik menyertakan simulasi/widget interaktif ('html') yang interaktif dan fungsional (misal: eksperimen sains, pemodelan matematika/pecahan/geometri, visualisasi fenomena), atau video fenomena alam.
+     * Bahasa Indonesia / Sastra / Bahasa Inggris: Utamakan teks narasi/dialog interaktif yang memikat ('text'), video cerita/percakapan ('video'), atau kuis kartu kata ('html'). Tidak dipaksakan simulasi jika tidak relevan.
+     * Pendidikan Pancasila / IPS: Berikan teks studi kasus kontekstual kehidupan nyata di lingkungan siswa ({$schoolCity}) ('text'), video nilai sosial ('video'), dan lembar diskusi kelompok.
+     * Seni Budaya / PJOK: Utamakan video demonstrasi teknik gerak/karya ('video'), teks langkah apresiasi/praktik ('text'), dan tugas unjuk karya.
+   - Urutan media bebas dan logis secara pedagogis.
+
+3. KETERKAITAN KONTEKS LOKAL & KEHIDUPAN NYATA:
+   - Hubungkan penjelasan materi, contoh analogi, atau pertanyaan studi kasus dengan kehidupan nyata siswa di lingkungan sekolah ({$schoolName}) dan kota/daerah {$schoolCity} agar pembelajaran terasa bermakna (meaningful learning).
+
+4. PENEMPATAN PENUGASAN FORMATIF CERDAS ('has_task'):
+   - Tentukan SATU langkah yang paling strategis untuk disisipkan tagihan penugasan formatif ('has_task': true). Letakkan pada langkah aplikasi/praktik atau refleksi.
+   - Lengkapi dengan 'task_title', 'task_instructions' yang spesifik, jelas, dan ramah anak, serta 'task_deadline_days' (3-7 hari).
+   - Pada langkah lain yang tidak memerlukan tagihan tugas tertulis/unggah berkas, set 'has_task': false.
+
+5. KUALITAS KONTEN:
+   - Jika membuat segmen 'html': Buatkan kode HTML5 + CSS + JavaScript mandiri (self-contained, desain modern responsif, aman dijalankan di iframe siswa).
+   - Jika membuat segmen 'video': Berikan URL video edukatif YouTube yang relevan.
+   - Jika membuat segmen 'text': Susun penjelasan ramah anak dengan gaya Kurikulum Merdeka yang komunikatif dan memantik rasa ingin tahu.
+
+OUTPUT HARUS BERUPA JSON VALID MURNI (tanpa tanda kutip backtick ```json atau teks lain di luar kurung kurawal) dengan format:
 {
-  \"sub_judul\": \"{$pertemuan}: {$materi}\",
-  \"summary\": \"Deskripsi singkat 2-3 kalimat mengenai alur aksi belajar siswa pada pertemuan ini.\",
+  \"sub_judul\": \"{$pertemuan}: [Judul Sub Materi yang Menarik]\",
+  \"summary\": \"Ringkasan alur aksi nyata siswa pada pertemuan ini (2-3 kalimat).\",
   \"total_minutes\": {$totalMinutes},
   \"segments\": [
     {
-      \"title\": \"Langkah 1: [Judul Stimulus Apersepsi Video]\",
+      \"title\": \"Langkah 1: [Judul Langkah]\",
       \"content_type\": \"video\",
-      \"estimated_minutes\": 15,
-      \"description\": \"Aktivitas awal siswa mengamati stimulus visual.\",
-      \"video_url\": \"https://www.youtube.com/results?search_query=...\",
+      \"estimated_minutes\": 20,
+      \"description\": \"Deskripsi aktivitas siswa\",
       \"content\": \"\",
       \"content_html\": \"\",
-      \"external_link\": \"\"
+      \"video_url\": \"https://www.youtube.com/results?search_query=...\",
+      \"external_link\": \"\",
+      \"has_task\": false,
+      \"task_title\": \"\",
+      \"task_instructions\": \"\",
+      \"task_deadline_days\": 7
     },
     {
-      \"title\": \"Langkah 2: [Judul Eksplorasi Konsep Inti]\",
+      \"title\": \"Langkah 2: [Judul Langkah]\",
       \"content_type\": \"text\",
-      \"estimated_minutes\": 25,
-      \"description\": \"Siswa mendalami konsep utama secara bermakna.\",
-      \"video_url\": \"\",
-      \"content\": \"Uraian materi penjelasan konsep...\",
+      \"estimated_minutes\": 30,
+      \"description\": \"Deskripsi aktivitas siswa\",
+      \"content\": \"Penjelasan materi konsep inti...\",
       \"content_html\": \"\",
-      \"external_link\": \"\"
+      \"video_url\": \"\",
+      \"external_link\": \"\",
+      \"has_task\": false,
+      \"task_title\": \"\",
+      \"task_instructions\": \"\",
+      \"task_deadline_days\": 7
     },
     {
-      \"title\": \"Langkah 3: [Judul Simulasi / Praktik Interaktif]\",
+      \"title\": \"Langkah 3: [Judul Langkah]\",
       \"content_type\": \"html\",
       \"estimated_minutes\": 20,
-      \"description\": \"Siswa melakukan simulasi interaktif untuk menguji pemahaman.\",
-      \"video_url\": \"\",
+      \"description\": \"Deskripsi aktivitas simulasi atau uji pemahaman\",
       \"content\": \"\",
-      \"content_html\": \"<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body{font-family:sans-serif;padding:15px;background:#f8fafc;}...</style></head><body>...</body></html>\",
-      \"external_link\": \"\"
-    },
-    {
-      \"title\": \"Langkah 4: [Judul Refleksi & Diskusi Pemantik]\",
-      \"content_type\": \"text\",
-      \"estimated_minutes\": 10,
-      \"description\": \"Siswa berdiskusi dan menuliskan refleksi pemahaman.\",
+      \"content_html\": \"<!DOCTYPE html>...\",
       \"video_url\": \"\",
-      \"content\": \"Pertanyaan diskusi dan panduan refleksi...\",
-      \"content_html\": \"\",
-      \"external_link\": \"\"
+      \"external_link\": \"\",
+      \"has_task\": true,
+      \"task_title\": \"Tugas Formatif: [Judul Tugas]\",
+      \"task_instructions\": \"Instruksi jelas apa yang harus dikerjakan dan dikirim siswa...\",
+      \"task_deadline_days\": 7
     }
   ],
-  \"discussion_prompt\": \"Pertanyaan pemantik terbuka untuk memicu pemikiran kritis siswa.\",
+  \"discussion_prompt\": \"Pertanyaan pemantik terbuka untuk memicu nalar kritis siswa\",
   \"micro_learning\": {
     \"title\": \"Konsep Utama: {$materi}\",
-    \"summary_html\": \"<p>Rangkuman konsep utama dalam 2-3 paragraf ramah anak.</p>\"
+    \"summary_html\": \"<p>Rangkuman konsep utama ramah anak.</p>\"
   }
 }";
 
@@ -414,11 +502,26 @@ Output HARUS berupa JSON valid murni (tanpa tanda kutip backtick ```json) dengan
 
     /**
      * Generator Desain Instruksional Pedagogis Cerdas (Smart Fallback jika tanpa AI / offline)
-     * Menguraikan modul ajar menjadi 4 segmen aksi nyata beragam media (Video, Teks, HTML Simulasi, Refleksi)
-     * dengan alokasi waktu yang proporsional sesuai jam tatap muka modul ajar.
+     * Menguraikan modul ajar menjadi segmen aksi nyata beragam media (Video, Teks, HTML Simulasi, Refleksi)
+     * yang disesuaikan secara proporsional dengan alokasi waktu dan konteks sekolah.
      */
-    public function buildFallbackPackage(string $subject, int $level, string $materi, int $pertemuanKe, ?array $meeting, int $totalMinutes = 70): array
-    {
+    public function buildFallbackPackage(
+        string $subject,
+        int $level,
+        string $materi,
+        int $pertemuanKe,
+        ?array $meeting,
+        int $totalMinutes = 70,
+        string $schoolName = '',
+        string $schoolCity = ''
+    ): array {
+        if (empty($schoolName)) {
+            $schoolName = 'SD SAKASALIKA';
+        }
+        if (empty($schoolCity)) {
+            $schoolCity = 'Jakarta Barat';
+        }
+
         $mindfulDesc = '';
         $meaningfulDesc = '';
         $joyfulDesc = '';
@@ -456,20 +559,21 @@ Output HARUS berupa JSON valid murni (tanpa tanda kutip backtick ```json) dengan
         $searchQuery = urlencode("{$subject} {$materi} kelas {$level} sd");
         $videoUrl = "https://www.youtube.com/results?search_query={$searchQuery}";
 
-        // Teks penjelasan materi yang kaya dan terstruktur
+        // Teks penjelasan materi yang kaya dan terstruktur dengan konteks lingkungan
         $penjelasanText = "Topik: {$materi}\n\n" .
             "1. Pengantar Konsep:\n" .
-            (!empty($mindfulDesc) ? "{$mindfulDesc}\n\n" : "Pada pertemuan ini kita mempelajari konsep {$materi} secara mendalam dan bermakna.\n\n") .
+            (!empty($mindfulDesc) ? "{$mindfulDesc}\n\n" : "Pada pertemuan ini kita mempelajari konsep {$materi} yang relevan dengan kehidupan sehari-hari di sekitar lingkungan {$schoolName} ({$schoolCity}).\n\n") .
             "2. Pembahasan Inti:\n" .
             (!empty($meaningfulDesc) ? "{$meaningfulDesc}\n\n" : "Pelajari komponen-komponen utama dan fakta penting terkait materi ini bersama kelompok belajarmu.\n\n") .
             "3. Poin-Poin Penting:\n" .
             "- Pahami definisi dan prinsip dasar {$materi}.\n" .
-            "- Identifikasi contoh nyata penerapannya dalam kehidupan sehari-hari.\n" .
+            "- Identifikasi contoh nyata penerapannya dalam kehidupan sehari-hari di sekitar {$schoolName}.\n" .
             "- Diskusikan temuan menarik bersama teman sekelas.";
 
         // Widget HTML interaktif simulasi/kartu konsep mandiri
         $safeMateri = htmlspecialchars($materi, ENT_QUOTES, 'UTF-8');
         $safeSubject = htmlspecialchars($subject, ENT_QUOTES, 'UTF-8');
+        $safeSchool = htmlspecialchars($schoolName, ENT_QUOTES, 'UTF-8');
         $htmlWidget = "<!DOCTYPE html>
 <html lang=\"id\">
 <head>
@@ -494,13 +598,13 @@ Output HARUS berupa JSON valid murni (tanpa tanda kutip backtick ```json) dengan
 </head>
 <body>
 <div class=\"sim-card\">
-  <span class=\"badge-tag\">🎯 Simulasi Pemahaman Interaktif</span>
-  <h3>Uji Konsep & Aksi Nyata: {$safeMateri}</h3>
+  <span class=\"badge-tag\">🎯 Simulasi Pemahaman Interaktif • {$safeSchool}</span>
+  <h3>Uji Konsep & Aksi Nyata Siswa: {$safeMateri}</h3>
   <p class=\"lead-text\">Pilihlah tindakan atau analisis yang paling tepat untuk menguji sejauh mana kamu memahami materi ini!</p>
   
   <div class=\"action-box\">
     <div style=\"font-weight: 600; margin-bottom: 10px;\">Pertanyaan Simulasi:</div>
-    <div style=\"font-size: 0.95rem; margin-bottom: 12px;\">Manakah tindakan berikut yang paling mencerminkan penerapan konsep <strong>{$safeMateri}</strong> dalam kehidupan nyata?</div>
+    <div style=\"font-size: 0.95rem; margin-bottom: 12px;\">Manakah tindakan berikut yang paling mencerminkan penerapan konsep <strong>{$safeMateri}</strong> dalam kehidupan nyata di sekitar kita?</div>
     <button class=\"btn-choice\" onclick=\"handleCheck(this, true)\">A. Menganalisis fenomena di lingkungan sekitar dan menghubungkannya dengan konsep {$safeMateri}</button>
     <button class=\"btn-choice\" onclick=\"handleCheck(this, false)\">B. Hanya menghafal teks definisi tanpa melakukan pengamatan atau praktik</button>
     <button class=\"btn-choice\" onclick=\"handleCheck(this, false)\">C. Mengabaikan kerja sama kelompok saat proses penyelidikan masalah</button>
@@ -515,7 +619,7 @@ function handleCheck(btn, isCorrect) {
   if (isCorrect) {
     btn.classList.add('correct');
     fb.className = 'feedback-box success';
-    fb.innerHTML = '<strong>🎉 Tepat Sekali!</strong> Pemahaman bermakna dicapai ketika kita menghubungkan konsep teori dengan penyelidikan nyata di lingkungan sekitar.';
+    fb.innerHTML = '<strong>🎉 Tepat Sekali!</strong> Pemahaman bermakna dicapai ketika siswa {$safeSchool} menghubungkan konsep teori dengan penyelidikan nyata di lingkungan sekitar.';
   } else {
     btn.classList.add('wrong');
     fb.className = 'feedback-box error';
@@ -528,9 +632,9 @@ function handleCheck(btn, isCorrect) {
 </html>";
 
         // Teks refleksi & diskusi
-        $refleksiText = "Panduan Diskusi Pemantik & Refleksi Belajar:\n\n" .
+        $refleksiText = "Panduan Diskusi Pemantik & Refleksi Belajar Siswa {$schoolName}:\n\n" .
             "1. Pertanyaan Pemantik:\n" .
-            "Menurut pendapat kelompokmu, apa manfaat terbesar mempelajari topik {$materi} dalam kehidupan sehari-hari?\n\n" .
+            "Menurut pendapat kelompokmu, apa manfaat terbesar mempelajari topik {$materi} dalam kehidupan sehari-hari di {$schoolCity}?\n\n" .
             "2. Lembar Refleksi Mandiri Siswa:\n" .
             "- Apa hal baru paling menarik yang kamu pelajari hari ini?\n" .
             "- Bagian mana dari materi yang masih membutuhkan penjelasan tambahan?\n" .
@@ -551,7 +655,7 @@ function handleCheck(btn, isCorrect) {
                 'title'             => 'Langkah 2: Eksplorasi Konsep & Fakta Utama',
                 'content_type'      => 'text',
                 'estimated_minutes' => $mText,
-                'description'       => "Siswa membaca penjelasan terstruktur, memahami konsep inti dan fakta penting.",
+                'description'       => "Siswa membaca penjelasan terstruktur, memahami konsep inti dan fakta penting di lingkungan sekitar.",
                 'video_url'         => '',
                 'content'           => $penjelasanText,
                 'content_html'      => '',
@@ -578,7 +682,7 @@ function handleCheck(btn, isCorrect) {
                 'external_link'      => '',
                 'has_task'           => true,
                 'task_title'         => "Refleksi & Lembar Analisis: {$materi}",
-                'task_instructions'  => "Tuliskan refleksi singkat mengenai topik {$materi} yang telah dipelajari pada pertemuan ini, serta berikan 1 contoh penerapannya dalam kehidupan sehari-hari.",
+                'task_instructions'  => "Tuliskan refleksi singkat mengenai topik {$materi} yang telah dipelajari pada pertemuan ini, serta berikan 1 contoh penerapannya dalam kehidupan sehari-hari di sekitar lingkungan {$schoolName} ({$schoolCity}).",
                 'task_deadline_days' => 7,
             ],
         ];
