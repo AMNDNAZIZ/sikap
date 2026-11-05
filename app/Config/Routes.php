@@ -477,6 +477,12 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('teaching-journal/get-atps', 'TeachingJournalController::getAtps', $auth123);
     $routes->get('teaching-journal/get-moduls', 'TeachingJournalController::getModuls', $auth123);
     $routes->get('teaching-journal/get-modul-meetings', 'TeachingJournalController::getModulMeetings', $auth123);
+    $routes->get('teaching-journal/generate-elearning-draft', 'TeachingJournalController::generateElearningDraft', $auth123);
+    $routes->post('teaching-journal/deploy-elearning', 'TeachingJournalController::deployElearningPackage', $auth123);
+    $routes->get('teaching-journal/get-class-attendance', 'TeachingJournalController::getClassAttendance', $auth123);
+    $routes->post('teaching-journal/save-quick-attendance', 'TeachingJournalController::saveQuickAttendance', $auth123);
+    $routes->get('teaching-journal/get-reflection-suggestions', 'TeachingJournalController::getReflectionSuggestions', $auth123);
+    $routes->get('teaching-journal/recap', 'TeachingJournalController::recap', $auth123);
 
     // School Schedule (Jadwal Pelajaran)
     $routes->get('schedules', 'ScheduleController::index', $auth1237);
@@ -567,6 +573,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('tugas/update/(:num)', 'Tugas::update/$1', $auth123);
     $routes->get('tugas/delete/(:num)', 'Tugas::delete/$1', $auth123);
     $routes->post('tugas/(:num)/nilai/(:num)', 'Tugas::nilai/$1/$2', $auth123);
+    $routes->post('tugas/(:num)/kirim-ke-buku-nilai', 'Tugas::kirimKeBukuNilai/$1', $auth123);
     $routes->post('tugas/upload-image', 'Tugas::uploadImage', $auth123);
 
     // Nilai Erapor (prerogratif guru) — Admin, Kepsek, Guru
@@ -595,6 +602,8 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('materials/(:num)', 'Materials::index/$1', $auth123);
     $routes->get('materials/index/(:num)', 'Materials::index/$1', $auth123);
     $routes->get('materials/create/(:num)', 'Materials::create/$1', $auth123);
+    $routes->get('materials/get-modul-meetings', 'Materials::getModulMeetings', $auth123);
+    $routes->get('materials/get-modul-draft', 'Materials::getModulDraft', $auth123);
     $routes->post('materials/store', 'Materials::store', $auth123);
     $routes->get('materials/edit/(:num)', 'Materials::edit/$1', $auth123);
     $routes->post('materials/update/(:num)', 'Materials::update/$1', $auth123);
@@ -611,6 +620,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('materials/sync-atp/(:num)', 'Materials::syncFromAtp/$1', $auth123);
     $routes->post('materials/slide-delete/(:num)', 'Materials::slideDelete/$1', $auth123);
     $routes->post('materials/slide-reorder',   'Materials::slideReorder',      $auth123);
+    $routes->post('materials/segment-slide-delete/(:num)', 'Materials::segmentSlideDelete/$1', $auth123);
     $routes->post('materials/segment-store/(:num)', 'Materials::segmentStore/$1', $auth123);
     $routes->post('materials/segment-update/(:num)', 'Materials::segmentUpdate/$1', $auth123);
     $routes->post('materials/segment-delete/(:num)', 'Materials::segmentDelete/$1', $auth123);
@@ -1056,6 +1066,7 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
     $routes->get('belajar/sub/(:num)',               'Belajar::show/$1');
     $routes->post('belajar/sub/(:num)/complete',     'Belajar::markComplete/$1');
     $routes->post('belajar/sub/(:num)/segment/(:num)/complete', 'Belajar::markSegmentComplete/$1/$2');
+    $routes->post('belajar/sub/(:num)/segment/(:num)/submit-task', 'Belajar::submitSegmentTask/$1/$2');
     $routes->get('belajar/sub/(:num)/segment/(:num)/file',      'Belajar::serveSegmentFile/$1/$2');
     $routes->get('belajar/sub/(:num)/file',          'Belajar::serveFile/$1');
 

@@ -72,12 +72,15 @@
                     <form action="<?= site_url('admin/cbt/convertnilai/preview') ?>" method="post">
                         <?= csrf_field() ?>
 
+                        <input type="hidden" name="target_dest_type" value="<?= esc($target_dest_type ?? 'formatif') ?>">
+                        <input type="hidden" name="target_material_id" value="<?= esc($target_material_id ?? '') ?>">
+
                         <div class="mb-3">
                             <label class="form-label">Pilih Bank Soal</label>
                             <select name="bank_id" class="form-select select2" required>
                                 <option value="">-- Pilih Bank Soal --</option>
                                 <?php foreach ($banks as $b): ?>
-                                    <option value="<?= $b['id'] ?>">
+                                    <option value="<?= $b['id'] ?>" <?= (!empty($selected_bank_id) && $selected_bank_id == $b['id']) ? 'selected' : '' ?>>
                                         <?= esc($b['code']) ?> -
                                         <?= esc($b['subject_name']) ?>
                                     </option>
@@ -90,7 +93,7 @@
                             <select name="class_id" class="form-select select2" required>
                                 <option value="">-- Pilih Kelas --</option>
                                 <?php foreach ($classes as $c): ?>
-                                    <option value="<?= $c['id'] ?>">
+                                    <option value="<?= $c['id'] ?>" <?= (!empty($selected_class_id) && $selected_class_id == $c['id']) ? 'selected' : '' ?>>
                                         <?= esc($c['name']) ?>
                                     </option>
                                 <?php endforeach; ?>

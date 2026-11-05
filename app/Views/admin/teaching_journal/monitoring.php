@@ -459,6 +459,67 @@
     </div>
     <?php endif; ?>
 
+    <!-- ═══ TAHAP 4: INTEGRASI PENILAIAN FORMATIF & KONVERSI HASIL TES ═══ -->
+    <?php if (!empty($formative_status)): ?>
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h6 class="mb-0 fw-bold text-dark">
+                    <i class="bi bi-award me-1 text-primary"></i> Produk Akhir: Penilaian Formatif (Lingkup Materi)
+                </h6>
+                <small class="text-muted">Ketercapaian kompetensi siswa untuk materi: <strong><?= esc($modul_info['materi'] ?? '-') ?></strong></small>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="<?= esc($formative_status['conversion_url']) ?>" class="btn btn-sm btn-primary">
+                    <i class="bi bi-calculator me-1"></i> 🔄 Konversi Nilai Tes (CBT) ke Formatif
+                </a>
+                <a href="<?= base_url('admin/assessment?class_id=' . $selected_class_id . '&subject_id=' . $selected_subject_id) ?>" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-pencil-square me-1"></i> Penilaian Manual
+                </a>
+            </div>
+        </div>
+        <div class="card-body p-3">
+            <div class="row g-3 mb-3">
+                <div class="col-md-3 col-6">
+                    <div class="p-2 border rounded bg-light text-center">
+                        <div class="small text-muted">Siswa Dinilai</div>
+                        <div class="fs-4 fw-bold text-primary"><?= (int)$formative_status['graded_students'] ?> / <?= (int)$formative_status['total_students'] ?></div>
+                        <div class="small text-muted"><?= round(((int)$formative_status['graded_students'] / max(1, (int)$formative_status['total_students'])) * 100) ?>% Terekam</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="p-2 border rounded bg-light text-center">
+                        <div class="small text-muted">Rata-Rata Kelas</div>
+                        <div class="fs-4 fw-bold text-success"><?= $formative_status['avg_score'] > 0 ? $formative_status['avg_score'] : '-' ?></div>
+                        <div class="small text-muted">Skala 0 - 100</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="p-2 border rounded bg-light text-center">
+                        <div class="small text-muted">Nilai Tertinggi</div>
+                        <div class="fs-4 fw-bold text-info"><?= $formative_status['max_score'] > 0 ? $formative_status['max_score'] : '-' ?></div>
+                        <div class="small text-muted">Capaian Maksimal</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="p-2 border rounded bg-light text-center">
+                        <div class="small text-muted">Belum Dinilai</div>
+                        <div class="fs-4 fw-bold text-warning"><?= (int)$formative_status['unassigned_count'] ?></div>
+                        <div class="small text-muted">Siswa Perlu Nilai</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-info py-2 px-3 small mb-0 d-flex align-items-center">
+                <i class="bi bi-info-circle-fill fs-5 me-2 text-info"></i>
+                <div>
+                    <strong>Sesuai Regulasi Penilaian:</strong> Nilai hasil tes digital (CBT/Kuis) tidak dimasukkan langsung apa adanya ke rapor, melainkan <strong>wajib melalui tahapan konversi nilai standar</strong> (penentuan target batas atas YA dan batas bawah YB, preview hasil konversi per siswa, serta validasi agar nilai sebelumnya tidak tertimpa nilai yang lebih rendah).
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
 <?php endif; ?>
 
 <!-- Modal Detail Bukti Jurnal -->

@@ -11,7 +11,7 @@ class TugasSubmissionModel extends Model
     protected $useTimestamps = true;
     protected $allowedFields = [
         'tugas_id', 'student_id', 'jawaban', 'dikumpul_at',
-        'nilai', 'catatan_guru', 'dinilai_at', 'dinilai_oleh',
+        'nilai', 'nilai_angka', 'catatan_guru', 'dinilai_at', 'dinilai_oleh',
     ];
 
     /**

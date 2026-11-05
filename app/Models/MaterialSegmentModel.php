@@ -18,6 +18,7 @@ class MaterialSegmentModel extends Model
         'external_link',
         'file_path',
         'estimated_minutes',
+        'has_task',
         'sort_order',
     ];
     protected $useTimestamps = true;

@@ -4,13 +4,110 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3>📓 Jurnal Mengajar</h3>
     <div class="d-flex gap-2">
-        <a href="<?= base_url('admin/teaching-journal/monitoring') ?>" class="btn btn-outline-primary">
-            📊 Monitoring Keterlaksanaan
+        <a href="<?= base_url('admin/teaching-journal/monitoring' . ($selected_class ? '?class_id='.$selected_class : '') . ($selected_subject ? '&subject_id='.$selected_subject : '')) ?>" class="btn btn-outline-primary">
+            📊 Rekapitulasi & Monitoring
         </a>
         <?php if (!$readonly): ?>
         <a href="<?= base_url('admin/teaching-journal/add' . ($selected_class ? '?class_id='.$selected_class : '') . ($selected_subject ? '&subject_id='.$selected_subject : '')) ?>" class="btn btn-primary">
             ➕ Tambah Jurnal
         </a>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- ═══ WIDGET SESI MENGAJAR HARI INI (JADWAL + PROMES ASISTEN) ═══ -->
+<div class="card mb-4 shadow-sm border-primary border-opacity-25 bg-light-subtle">
+    <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <span class="fw-bold text-primary">
+                <i class="bi bi-calendar-event me-1"></i> Sesi Mengajar Hari Ini
+            </span>
+            <span class="text-muted small ms-2 d-none d-md-inline">
+                | <?= esc($today_date_formatted ?? date('d/m/Y')) ?>
+            </span>
+        </div>
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle small">
+            <?= !empty($today_sessions) ? count($today_sessions) . ' Sesi Terjadwal' : 'Tidak Ada Jadwal' ?>
+        </span>
+    </div>
+    <div class="card-body p-3">
+        <?php if (!empty($today_sessions)): ?>
+            <div class="row g-3">
+                <?php foreach ($today_sessions as $ses): ?>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-none border <?= $ses['is_live'] ? 'border-primary border-2' : ($ses['has_journal'] ? 'border-success-subtle bg-white' : 'border-secondary-subtle bg-white') ?>">
+                            <div class="card-body p-3 d-flex flex-column">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <span class="badge bg-secondary-subtle text-secondary font-monospace">
+                                        <i class="bi bi-clock me-1"></i><?= esc($ses['time_label']) ?>
+                                    </span>
+                                    <?php if ($ses['is_live']): ?>
+                                        <span class="badge bg-danger animate-pulse small">🔴 Sedang Berlangsung</span>
+                                    <?php elseif ($ses['has_journal']): ?>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle small"><i class="bi bi-check-circle me-1"></i>Terisi</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle small"><i class="bi bi-hourglass-split me-1"></i>Menunggu</span>
+                                    <?php endif; ?>
+                                </div>
+
+                                <h6 class="card-title fw-bold text-dark mb-1">
+                                    <?= esc($ses['class_name']) ?> <span class="text-muted fw-normal">|</span> <?= esc($ses['subject_name']) ?>
+                                </h6>
+                                <?php if (!empty($ses['teacher_name'])): ?>
+                                    <div class="text-muted small mb-2"><i class="bi bi-person me-1"></i><?= esc($ses['teacher_name']) ?></div>
+                                <?php endif; ?>
+
+                                <!-- Target Promes -->
+                                <div class="p-2 rounded bg-light border border-light-subtle small mb-3 mt-auto">
+                                    <div class="text-muted small fw-semibold mb-1">
+                                        <i class="bi bi-compass text-primary me-1"></i>Target Promes:
+                                    </div>
+                                    <?php if (!empty($ses['promes_target'])): ?>
+                                        <div class="text-dark fw-medium text-truncate" title="<?= esc($ses['promes_target']['lingkup_materi']) ?>">
+                                            <?= esc($ses['promes_target']['lingkup_materi']) ?>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-1 mt-1 flex-wrap">
+                                            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle" style="font-size: 0.7rem;">
+                                                Sem <?= $ses['promes_target']['semester'] ?> • <?= $ses['promes_target']['jp'] ?> JP
+                                            </span>
+                                            <?php if (!empty($ses['promes_target']['has_modul'])): ?>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.7rem;">
+                                                    <i class="bi bi-file-earmark-check me-1"></i>Modul Siap
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php else: ?>
+                                        <span class="text-muted fst-italic">Belum ada alokasi Promes minggu ini</span>
+                                    <?php endif; ?>
+                                </div>
+
+                                <!-- Tombol Aksi -->
+                                <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
+                                    <?php if ($ses['has_journal']): ?>
+                                        <small class="text-success fw-semibold"><i class="bi bi-check2-all me-1"></i>Jurnal Selesai</small>
+                                        <a href="<?= base_url('admin/teaching-journal/edit/' . $ses['journal']['id']) ?>" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-pencil me-1"></i>Edit
+                                        </a>
+                                    <?php else: ?>
+                                        <?php if (!$readonly): ?>
+                                            <a href="<?= base_url('admin/teaching-journal/add?schedule_id=' . $ses['schedule_id'] . '&class_id=' . $ses['class_id'] . '&subject_id=' . $ses['subject_id'] . (!empty($ses['promes_target']['atp_id']) ? '&atp_id=' . $ses['promes_target']['atp_id'] : '')) ?>" class="btn btn-sm btn-primary w-100">
+                                                <i class="bi bi-plus-circle me-1"></i>Tulis Jurnal Sesi Ini
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="badge bg-light text-muted border">Belum Tercatat</span>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php else: ?>
+            <div class="text-center py-3 text-muted small">
+                <i class="bi bi-calendar-x fs-4 d-block mb-1 text-secondary opacity-50"></i>
+                Tidak ada jadwal mengajar tatap muka yang tercatat untuk hari ini. Anda tetap dapat mencatat jurnal secara manual melalui tombol <strong>Tambah Jurnal</strong>.
+            </div>
         <?php endif; ?>
     </div>
 </div>
@@ -94,7 +191,12 @@
         </thead>
         <tbody>
             <?php if (!empty($journals)): ?>
-                <?php $no = 1; foreach ($journals as $j): ?>
+                <?php 
+                    $page = (int)($currentPage ?? 1);
+                    $perPageNum = (int)($perPage ?? 20);
+                    $no = ($page - 1) * $perPageNum + 1;
+                    foreach ($journals as $j): 
+                ?>
                     <tr>
                         <td class="text-center"><?= $no++ ?></td>
                         <td><?= date('d/m/Y', strtotime($j['date'])) ?></td>
@@ -194,5 +296,20 @@
         </tbody>
     </table>
 </div>
+
+<?php if (!empty($pager) && $pager->getPageCount() > 1): ?>
+<div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+    <div class="text-muted small">
+        Menampilkan <?= count($journals) > 0 ? ($page - 1) * $perPageNum + 1 : 0 ?> sampai <?= ($page - 1) * $perPageNum + count($journals) ?> dari <?= $pager->getTotal() ?> data jurnal
+    </div>
+    <div>
+        <?= $pager->links('default', 'bootstrap') ?>
+    </div>
+</div>
+<?php elseif (!empty($journals)): ?>
+<div class="text-muted small mt-2">
+    Menampilkan <?= count($journals) ?> data jurnal
+</div>
+<?php endif; ?>
 
 <?= $this->endSection() ?>

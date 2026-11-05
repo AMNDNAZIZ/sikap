@@ -24,7 +24,7 @@ class TeachingJournalModel extends Model
     protected $createdField  = 'created_at';
     protected $updatedField  = 'updated_at';
 
-    public function getJournals($filters = [])
+    public function getJournals($filters = [], $perPage = null)
     {
         $builder = $this->select('teaching_journals.*, classes.name as class_name, subjects.name as subject_name, alur_tujuan_pembelajaran.lingkup_materi, cp_master.elemen')
             ->join('classes', 'classes.id = teaching_journals.class_id')
@@ -53,8 +53,13 @@ class TeachingJournalModel extends Model
             $builder->where('teaching_journals.date <=', $filters['date_to']);
         }
 
-        return $builder->orderBy('teaching_journals.date', 'DESC')
-            ->orderBy('teaching_journals.created_at', 'DESC')
-            ->findAll();
+        $builder->orderBy('teaching_journals.date', 'DESC')
+            ->orderBy('teaching_journals.created_at', 'DESC');
+
+        if ($perPage) {
+            return $builder->paginate($perPage);
+        }
+
+        return $builder->findAll();
     }
 }

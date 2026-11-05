@@ -1,31 +1,10 @@
-Cbt Stage F3F (Tests\Unit\CbtStageF3F)
- [x] Known table mapping cbt aktivitas
- [x] Known table mapping cbt soal siswa
- [x] Unknown historical table yields unmapped source
- [x] Mapped record not found in operational database
- [x] Mapped record found with matching values
- [x] Mapped record found with value mismatch
- [x] Multi session composite key mapping
- [x] Attendance resolution
- [x] Essay resolution
- [x] Read only safety verification
- [x] Traceability matrix generation
- [x] Two dimensional readiness separation
-
-Cbt Stage F3G (Tests\Unit\CbtStageF3G)
- [x] Session id distinct from answer id
- [x] Answer id numerically identical to session id points to different record
- [x] Student id mismatch yields context mismatch
- [x] Test id mismatch yields context mismatch
- [x] Session id mismatch yields context mismatch
- [x] Duplicate answer matches
- [x] Multiple session composite mapping with integrity
- [x] Null essay score semantics
- [ ] Zero essay score semantics
- [x] Pending essay grading withholds final score
- [x] Missing source record yields record not found
- [x] Registry only evidence not claimed as verified
- [x] Sql read only guard bypass attempts blocked
- [x] Sql read only guard blocks table injection and comments
- [x] Fixture result not reported as live verification
+Tugas Segment Integration And Gradebook
+ [x] Model allowed fields contain required columns
+ [x] Routes registered
+ [x] Assessment form allows penugasan formatif
+ [x] Predikat calculation logic
+ [x] Best score rule logic
+ [x] Admin tugas show view elements
+ [x] Siswa belajar segment gating view elements
+ [x] Edit material segment and task integration elements
 

@@ -31,7 +31,7 @@
           onchange="if(this.value){ window.location='<?= base_url("admin/assessments/input/{$classId}/{$subjectId}/formatif") ?>?material_id=<?= $materialId ?>&method='+this.value }"
           required>
           <option value="">-- Pilih Metode --</option>
-          <?php foreach (['tulis', 'lisan', 'projek', 'observasi'] as $mtd): ?>
+          <?php foreach (['tulis', 'lisan', 'projek', 'observasi', 'penugasan'] as $mtd): ?>
             <?php
             $status = $methodStatus[$mtd] ?? null;
             $disabled = ($status === 'full' && $method !== $mtd) ? 'disabled' : '';

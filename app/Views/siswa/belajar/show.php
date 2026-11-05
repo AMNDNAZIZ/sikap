@@ -293,6 +293,67 @@
           </a>
         </div>
       <?php endif; ?>
+
+      <?php if (!empty($activeSegment['has_task']) && !empty($activeTask)): ?>
+        <!-- ── TAGIHAN TUGAS PADA SEGMEN (GATING) ── -->
+        <div class="card border border-warning-subtle shadow-sm mt-4 bg-body-tertiary">
+          <div class="card-header bg-warning-subtle border-warning-subtle d-flex align-items-center justify-content-between py-2 flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-clipboard-check text-warning-emphasis fs-5"></i>
+              <h6 class="fw-bold mb-0 text-warning-emphasis">Tugas / Tagihan Aktivitas Langkah Ini</h6>
+            </div>
+            <?php if (!empty($activeSubmission['dikumpul_at'])): ?>
+              <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Sudah Dikirim</span>
+            <?php else: ?>
+              <span class="badge bg-danger"><i class="bi bi-exclamation-circle me-1"></i>Wajib Dikirim</span>
+            <?php endif; ?>
+          </div>
+          <div class="card-body p-3">
+            <h6 class="fw-bold text-dark"><?= esc($activeTask['judul']) ?></h6>
+            <?php if (!empty($activeTask['deskripsi'])): ?>
+              <div class="mb-3 small p-3 bg-white rounded border">
+                <?= $activeTask['deskripsi'] ?>
+              </div>
+            <?php endif; ?>
+
+            <?php if (!empty($activeSubmission['dikumpul_at'])): ?>
+              <!-- Info Pengumpulan Siswa -->
+              <div class="alert alert-success border-0 small mb-0">
+                <div class="fw-semibold mb-1">
+                  <i class="bi bi-check2-all me-1"></i>Tugas Anda telah dikumpulkan pada <?= date('d/m/Y H:i', strtotime($activeSubmission['dikumpul_at'])) ?>.
+                </div>
+                <?php if ($activeSubmission['nilai_angka'] !== null): ?>
+                  <div class="mt-2 p-2 bg-white rounded border text-dark">
+                    <span class="text-muted">Nilai:</span> 
+                    <strong class="fs-6 text-primary"><?= number_format((float)$activeSubmission['nilai_angka'], 1) ?></strong>
+                    <?php if (!empty($activeSubmission['catatan_guru'])): ?>
+                      <div class="small text-muted mt-1"><i class="bi bi-chat-quote me-1"></i>Catatan Guru: <?= esc($activeSubmission['catatan_guru']) ?></div>
+                    <?php endif; ?>
+                  </div>
+                <?php else: ?>
+                  <div class="text-muted small mt-1">Status: Menunggu penilaian dari guru pengampu. Langkah ini sudah dapat Anda tandai selesai.</div>
+                <?php endif; ?>
+              </div>
+            <?php else: ?>
+              <!-- Form Pengumpulan Tugas -->
+              <div class="alert alert-warning border-0 small py-2 mb-3">
+                <i class="bi bi-info-circle me-1"></i>Kirimkan tugas di bawah ini terlebih dahulu agar tombol <strong>Selesaikan Langkah</strong> aktif.
+              </div>
+              <form action="<?= base_url('siswa/belajar/sub/' . $subMat['id'] . '/segment/' . $activeSegment['id'] . '/submit-task') ?>" method="post">
+                <?= csrf_field() ?>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Jawaban / Hasil Kerja Anda <span class="text-danger">*</span></label>
+                  <textarea name="jawaban" class="form-control form-control-sm" rows="4" required
+                            placeholder="Tuliskan jawaban tugas, rangkuman, hasil analisis, atau tautan file kerja Anda di sini..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-warning btn-sm fw-semibold shadow-sm">
+                  <i class="bi bi-send me-1"></i>Kirim Jawaban Tugas
+                </button>
+              </form>
+            <?php endif; ?>
+          </div>
+        </div>
+      <?php endif; ?>
     </div>
 
     <!-- Footer Tindakan Segmen: Selesai / Navigasi -->
@@ -301,6 +362,9 @@
         $isCurrentSegDone = !empty($segProgressMap[$activeSegment['id']]) && ($segProgressMap[$activeSegment['id']]['status'] ?? '') === 'completed';
         $hasNextSeg       = isset($segments[$activeIdx + 1]);
         $hasPrevSeg       = isset($segments[$activeIdx - 1]);
+        $isTaskRequired   = !empty($activeSegment['has_task']) && !empty($activeTask);
+        $isTaskDone       = !empty($activeSubmission['dikumpul_at']);
+        $canCompleteSeg   = !$isTaskRequired || $isTaskDone;
       ?>
 
       <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -326,10 +390,15 @@
                 <i class="bi bi-award me-1"></i>Kuis Pertemuan
               </a>
             <?php endif; ?>
-          <?php else: ?>
+          <?php elseif ($canCompleteSeg): ?>
             <button type="button" class="btn btn-success btn-sm fw-semibold py-2 px-3 flex-grow-1 flex-sm-grow-0 w-100 w-sm-auto shadow-sm" id="btnMarkSegmentComplete"
                     data-segment-id="<?= $activeSegment['id'] ?>">
               <i class="bi bi-check2-circle me-1"></i>Selesaikan Langkah Ini <?= $hasNextSeg ? '& Lanjut' : '' ?>
+            </button>
+          <?php else: ?>
+            <button type="button" class="btn btn-secondary btn-sm fw-semibold py-2 px-3 flex-grow-1 flex-sm-grow-0 w-100 w-sm-auto shadow-sm" disabled
+                    title="Kirim tugas di atas terlebih dahulu untuk membuka tombol ini">
+              <i class="bi bi-lock me-1"></i>Kirim Tugas Terlebih Dahulu
             </button>
           <?php endif; ?>
         </div>

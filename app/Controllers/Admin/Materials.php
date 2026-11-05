@@ -487,16 +487,104 @@ class Materials extends BaseController
                 ->with('error', 'Belum ada materi dari ATP. Pastikan ATP sudah diisi terlebih dahulu.');
         }
 
+        // Ambil daftar Modul Ajar yang tersedia untuk mapel ini
+        $modulQuery = $this->db->table('modul_ajar ma')
+            ->select('ma.id, ma.atp_id, ma.subject_id, ma.class_id, ma.teacher_id, atp.lingkup_materi, atp.semester, c.name as class_name, c.level as class_level')
+            ->join('alur_tujuan_pembelajaran atp', 'atp.id = ma.atp_id', 'left')
+            ->join('classes c', 'c.id = ma.class_id', 'left')
+            ->where('ma.subject_id', $subjectId);
+
+        if (!$this->isAdmin()) {
+            $tId = $this->teacherId();
+            if ($tId) {
+                $modulQuery->where('ma.teacher_id', $tId);
+            }
+        }
+
+        $rawModuls = $modulQuery->orderBy('ma.id', 'DESC')->get()->getResultArray();
+        $availableModuls = [];
+        foreach ($rawModuls as $rm) {
+            $materi = !empty($rm['lingkup_materi']) ? $rm['lingkup_materi'] : 'Modul Ajar #' . $rm['id'];
+            $sem = !empty($rm['semester']) ? "Sem {$rm['semester']}" : "";
+            $classTag = !empty($rm['class_name']) ? (stripos($rm['class_name'], 'Kelas') === 0 ? $rm['class_name'] : "Kelas {$rm['class_name']}") : '';
+            $label = implode(' | ', array_filter([$materi, $sem, $classTag]));
+            $availableModuls[] = [
+                'id'       => (int)$rm['id'],
+                'atp_id'   => (int)($rm['atp_id'] ?? 0),
+                'class_id' => (int)($rm['class_id'] ?? 0),
+                'label'    => $label,
+                'materi'   => $materi,
+            ];
+        }
+
         return view('admin/materials/create', [
-            'title'      => 'Tambah Sub Materi',
-            'subject'    => $subject,
-            'activeYear' => $year,
-            'returnUrl'  => $this->request->getGet('return'),
-            'parentId'   => $parentId,
-            'parent'     => $parent,
-            'parents'    => $parents,
-            'levels'     => [],   // level diambil dari parent yang dipilih
+            'title'           => 'Tambah Sub Materi',
+            'subject'         => $subject,
+            'activeYear'      => $year,
+            'returnUrl'       => $this->request->getGet('return'),
+            'parentId'        => $parentId,
+            'parent'          => $parent,
+            'parents'         => $parents,
+            'levels'          => [],   // level diambil dari parent yang dipilih
+            'availableModuls' => $availableModuls,
         ]);
+    }
+
+    /**
+     * PRA-PEMBELAJARAN: Ambil daftar pertemuan yang terdeteksi dalam Modul Ajar
+     */
+    public function getModulMeetings()
+    {
+        $modulId = (int)$this->request->getGet('modul_id');
+        if ($modulId <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['success' => false, 'message' => 'ID Modul tidak valid.']);
+        }
+
+        $modul = $this->db->table('modul_ajar')->where('id', $modulId)->get()->getRowArray();
+        if (!$modul) {
+            return $this->response->setStatusCode(404)->setJSON(['success' => false, 'message' => 'Modul Ajar tidak ditemukan.']);
+        }
+
+        $generator = new \App\Services\ElearningPackageGeneratorService();
+        $meetings = $generator->parseMeetingsFromHtml($modul['content'] ?? '');
+
+        $formatted = [];
+        foreach ($meetings as $m) {
+            $formatted[] = [
+                'pertemuan_ke' => (int)$m['pertemuan_ke'],
+                'judul'        => $m['judul'],
+                'durasi'       => $m['durasi'],
+                'label'        => "Pertemuan {$m['pertemuan_ke']}: {$m['judul']} ({$m['durasi']})",
+            ];
+        }
+
+        return $this->response->setJSON([
+            'success'   => true,
+            'pertemuan' => $formatted,
+        ]);
+    }
+
+    /**
+     * PRA-PEMBELAJARAN: Ambil draf skenario pertemuan dari Modul Ajar untuk mengisi form sub materi
+     */
+    public function getModulDraft()
+    {
+        $user = session()->get('user');
+        if (!$user) {
+            return $this->response->setStatusCode(401)->setJSON(['success' => false, 'message' => 'Sesi berakhir.']);
+        }
+
+        $modulId     = (int)$this->request->getGet('modul_id');
+        $pertemuanKe = (int)$this->request->getGet('pertemuan_ke') ?: 1;
+
+        if ($modulId <= 0) {
+            return $this->response->setStatusCode(400)->setJSON(['success' => false, 'message' => 'Parameter modul_id tidak valid.']);
+        }
+
+        $generator = new \App\Services\ElearningPackageGeneratorService();
+        $result = $generator->generatePackageDraft($modulId, $pertemuanKe, null, $user);
+
+        return $this->response->setJSON($result);
     }
 
     // =========================================================
@@ -620,6 +708,7 @@ class Materials extends BaseController
                     }
                 }
 
+                $hasTask = !empty($sData['has_task']) ? 1 : 0;
                 $segId = $segmentModel->insert([
                     'material_id'       => $newId,
                     'title'             => $segTitle,
@@ -631,7 +720,34 @@ class Materials extends BaseController
                     'file_path'         => $segPdf,
                     'estimated_minutes' => $segEst,
                     'sort_order'        => $segIndex,
+                    'has_task'          => $hasTask,
                 ]);
+
+                // Buat entri tugas di tabel tugas jika has_task aktif
+                if ($hasTask && $segId) {
+                    $taskTitle    = !empty($sData['task_title']) ? trim((string)$sData['task_title']) : ('Tugas: ' . $segTitle);
+                    $taskDesc     = !empty($sData['task_instructions']) ? trim((string)$sData['task_instructions']) : '';
+                    $deadlineDays = !empty($sData['task_deadline_days']) ? (int)$sData['task_deadline_days'] : 7;
+                    if ($deadlineDays < 1) $deadlineDays = 7;
+
+                    $now      = date('Y-m-d H:i:s');
+                    $deadline = date('Y-m-d H:i:s', strtotime("+{$deadlineDays} days"));
+
+                    $this->db->table('tugas')->insert([
+                        'teacher_id'  => $this->teacherId() ?: null,
+                        'class_id'    => null, // Nullable untuk tugas segmen materi
+                        'subject_id'  => (int)$data['subject_id'],
+                        'material_id' => $newId,
+                        'segment_id'  => (int)$segId,
+                        'judul'       => $taskTitle,
+                        'deskripsi'   => $taskDesc,
+                        'mulai_at'    => $now,
+                        'selesai_at'  => $deadline,
+                        'created_by'  => $this->userId(),
+                        'created_at'  => $now,
+                        'updated_at'  => $now,
+                    ]);
+                }
 
                 // Slide uploads per segment
                 if ($segType === 'slide' && $segId) {
@@ -698,21 +814,39 @@ class Materials extends BaseController
         sort($levels);
         $parents = $isSubMat ? [] : []; // tidak bisa ubah parent pada edit
 
-        // Slide gambar existing (untuk tipe 'slide')
+        // Slide gambar existing (untuk tipe 'slide' legacy)
         $slides = $this->db->table('subject_material_slides')
             ->where('material_id', $id)
             ->orderBy('sort_order', 'ASC')
             ->orderBy('id', 'ASC')
             ->get()->getResultArray();
 
+        // Segmen pembelajaran jika sub materi
+        $segmentModel = new \App\Models\MaterialSegmentModel();
+        $segments     = $isSubMat ? $segmentModel->getSegmentsByMaterial($id) : [];
+
+        // Hubungkan data tugas formatif untuk tiap segmen jika ada
+        foreach ($segments as &$seg) {
+            $task = $this->db->table('tugas')
+                ->where('segment_id', $seg['id'])
+                ->get()->getRowArray();
+            $seg['task'] = $task ?: null;
+            if ($task) {
+                $seg['has_task'] = 1;
+            }
+        }
+        unset($seg);
+
         return view('admin/materials/edit', [
-            'title'     => $isSubMat ? 'Edit Sub Materi' : 'Edit Materi',
-            'material'  => $material,
-            'subject'   => $subject,
-            'activeYear'=> $year,
-            'levels'    => $levels,
-            'isSubMat'  => $isSubMat,
-            'slides'    => $slides,
+            'title'       => $isSubMat ? 'Edit Sub Materi' : 'Edit Materi',
+            'material'    => $material,
+            'subject'     => $subject,
+            'activeYear'  => $year,
+            'levels'      => $levels,
+            'isSubMat'    => $isSubMat,
+            'slides'      => $slides,
+            'segments'    => $segments,
+            'isPublished' => (bool)($material['is_published'] ?? false),
         ]);
     }
 
@@ -726,6 +860,7 @@ class Materials extends BaseController
         if (!$material) return redirect()->to('admin/materials')->with('error', 'Tidak ditemukan.');
 
         $data        = $this->request->getPost();
+        $isSubMat    = !empty($material['parent_id']);
         $contentType = $data['content_type'] ?? 'text';
         $filePath    = $material['file_path'];
         $wasPublished= (bool)($material['is_published'] ?? false);
@@ -752,6 +887,18 @@ class Materials extends BaseController
                 @unlink(FCPATH . 'uploads/materials/' . $material['file_path']);
             }
             $filePath = null;
+        }
+
+        // Jika sub materi dalam mode multi-segmen, tipe konten utama diselaraskan dengan segmen pertama
+        $builderMode  = $data['builder_mode'] ?? null;
+        $segmentsData = $this->request->getPost('segments');
+        if ($isSubMat && ($builderMode === 'multi' || (!empty($segmentsData) && is_array($segmentsData)))) {
+            if (!empty($segmentsData) && is_array($segmentsData)) {
+                $firstSeg = reset($segmentsData);
+                if (!empty($firstSeg['content_type'])) {
+                    $contentType = $firstSeg['content_type'];
+                }
+            }
         }
 
         $updateData = [
@@ -782,9 +929,164 @@ class Materials extends BaseController
 
         $this->mat->update($id, $updateData);
 
-        // Slide Gambar: tambah gambar baru yang diupload (jika ada)
+        // Slide Gambar: tambah gambar baru yang diupload (jika ada pada single slide mode)
         if ($contentType === 'slide') {
             $this->_handleSlideUploads($id);
+        }
+
+        // Sinkronisasi segmen & penugasan untuk sub materi yang BELUM diterbitkan sebelumnya
+        if ($isSubMat && !$wasPublished) {
+            $segmentModel = new \App\Models\MaterialSegmentModel();
+
+            if ($builderMode === 'multi' || (!empty($segmentsData) && is_array($segmentsData))) {
+                $keepSegmentIds = [];
+                $segIndex = 1;
+
+                if (!empty($segmentsData) && is_array($segmentsData)) {
+                    foreach ($segmentsData as $sIdx => $sData) {
+                        $segId    = !empty($sData['id']) ? (int)$sData['id'] : 0;
+                        $segTitle = !empty($sData['title']) ? trim((string)$sData['title']) : ('Langkah ' . $segIndex);
+                        $segType  = $sData['content_type'] ?? 'text';
+                        $segEst   = !empty($sData['estimated_minutes']) ? (int)$sData['estimated_minutes'] : 10;
+
+                        $segContent = ($segType === 'text') ? ($sData['content'] ?? null) : null;
+                        $segHtml    = ($segType === 'html') ? ($sData['content_html'] ?? ($sData['content'] ?? null)) : null;
+                        $segVideo   = ($segType === 'video') ? ($sData['video_url'] ?? null) : null;
+                        $segLink    = ($segType === 'link') ? ($sData['external_link'] ?? null) : null;
+
+                        // PDF per segmen
+                        $segPdf = null;
+                        if ($segType === 'pdf') {
+                            $segPdfFile = $this->request->getFile("segment_pdf_{$sIdx}");
+                            if ($segPdfFile && $segPdfFile->isValid() && !$segPdfFile->hasMoved()) {
+                                $newName = $segPdfFile->getRandomName();
+                                $segPdfFile->move(FCPATH . 'uploads/materials/', $newName);
+                                $segPdf = $newName;
+                            } elseif ($segId > 0) {
+                                $existingSeg = $segmentModel->find($segId);
+                                $segPdf = $existingSeg['file_path'] ?? null;
+                            }
+                        }
+
+                        $hasTask = !empty($sData['has_task']) ? 1 : 0;
+
+                        $segPayload = [
+                            'material_id'       => $id,
+                            'title'             => $segTitle,
+                            'content_type'      => $segType,
+                            'content'           => $segContent,
+                            'content_html'      => $segHtml,
+                            'video_url'         => $segVideo,
+                            'external_link'     => $segLink,
+                            'estimated_minutes' => $segEst,
+                            'sort_order'        => $segIndex,
+                            'has_task'          => $hasTask,
+                        ];
+                        if ($segPdf !== null) {
+                            $segPayload['file_path'] = $segPdf;
+                        }
+
+                        if ($segId > 0) {
+                            $segmentModel->update($segId, $segPayload);
+                            $activeSegId = $segId;
+                            $keepSegmentIds[] = $segId;
+                        } else {
+                            $activeSegId = $segmentModel->insert($segPayload);
+                            $keepSegmentIds[] = $activeSegId;
+                        }
+
+                        // Sinkronisasi tugas segmen (formatif)
+                        if ($hasTask && $activeSegId) {
+                            $taskTitle    = !empty($sData['task_title']) ? trim((string)$sData['task_title']) : ('Tugas: ' . $segTitle);
+                            $taskDesc     = !empty($sData['task_instructions']) ? trim((string)$sData['task_instructions']) : '';
+                            $deadlineDays = !empty($sData['task_deadline_days']) ? (int)$sData['task_deadline_days'] : 7;
+                            if ($deadlineDays < 1) $deadlineDays = 7;
+
+                            $now      = date('Y-m-d H:i:s');
+                            $deadline = date('Y-m-d H:i:s', strtotime("+{$deadlineDays} days"));
+
+                            $existingTask = $this->db->table('tugas')
+                                ->where('segment_id', $activeSegId)
+                                ->get()->getRowArray();
+
+                            if ($existingTask) {
+                                $this->db->table('tugas')
+                                    ->where('id', $existingTask['id'])
+                                    ->update([
+                                        'judul'       => $taskTitle,
+                                        'deskripsi'   => $taskDesc,
+                                        'selesai_at'  => $deadline,
+                                        'updated_at'  => $now,
+                                    ]);
+                            } else {
+                                $this->db->table('tugas')->insert([
+                                    'teacher_id'  => $this->teacherId() ?: null,
+                                    'class_id'    => null,
+                                    'subject_id'  => (int)$material['subject_id'],
+                                    'material_id' => $id,
+                                    'segment_id'  => (int)$activeSegId,
+                                    'judul'       => $taskTitle,
+                                    'deskripsi'   => $taskDesc,
+                                    'mulai_at'    => $now,
+                                    'selesai_at'  => $deadline,
+                                    'created_by'  => $this->userId(),
+                                    'created_at'  => $now,
+                                    'updated_at'  => $now,
+                                ]);
+                            }
+                        } elseif ($activeSegId) {
+                            // Hapus tugas jika has_task dimatikan
+                            $this->db->table('tugas')->where('segment_id', $activeSegId)->delete();
+                        }
+
+                        // Upload slide gambar per segmen
+                        if ($segType === 'slide' && $activeSegId) {
+                            $slideFiles = $this->request->getFileMultiple("segment_slides_{$sIdx}");
+                            if (!empty($slideFiles)) {
+                                $uploadDir = FCPATH . 'uploads/materials/slides/';
+                                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                                $existingCount = $this->db->table('material_segment_slides')
+                                    ->where('segment_id', $activeSegId)
+                                    ->countAllResults();
+                                $slIdx = $existingCount + 1;
+                                foreach ($slideFiles as $sf) {
+                                    if ($sf && $sf->isValid() && !$sf->hasMoved()) {
+                                        $mime = $sf->getMimeType();
+                                        if (strpos($mime, 'image/') === 0 && $sf->getSize() <= 5 * 1024 * 1024) {
+                                            $imgName = $sf->getRandomName();
+                                            $sf->move($uploadDir, $imgName);
+                                            $this->db->table('material_segment_slides')->insert([
+                                                'segment_id' => $activeSegId,
+                                                'image_path' => $imgName,
+                                                'sort_order' => $slIdx++,
+                                                'created_at' => date('Y-m-d H:i:s'),
+                                            ]);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        $segIndex++;
+                    }
+                }
+
+                // Hapus segmen yang dihapus oleh guru
+                $allOldSegments = $segmentModel->where('material_id', $id)->findAll();
+                foreach ($allOldSegments as $oldSeg) {
+                    if (!in_array($oldSeg['id'], $keepSegmentIds)) {
+                        $this->db->table('tugas')->where('segment_id', $oldSeg['id'])->delete();
+                        $segmentModel->deleteWithFiles($oldSeg['id']);
+                    }
+                }
+            } elseif ($builderMode === 'single') {
+                // Guru memilih beralih ke mode konten tunggal, bersihkan segmen
+                $allOldSegments = $segmentModel->where('material_id', $id)->findAll();
+                foreach ($allOldSegments as $oldSeg) {
+                    $this->db->table('tugas')->where('segment_id', $oldSeg['id'])->delete();
+                    $segmentModel->deleteWithFiles($oldSeg['id']);
+                }
+            }
         }
 
         return redirect()->to('/admin/materials/' . $material['subject_id'])
@@ -869,6 +1171,30 @@ class Materials extends BaseController
         $this->db->table('subject_material_slides')->where('id', $slideId)->delete();
 
         return $this->response->setJSON(['success' => true, 'message' => 'Slide dihapus.']);
+    }
+
+    // =========================================================
+    // SLIDE SEGMEN — hapus satu gambar slide segmen (AJAX POST)
+    // POST /admin/materials/segment-slide-delete/{slideId}
+    // =========================================================
+    public function segmentSlideDelete(int $slideId)
+    {
+        if (!$this->canManage()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses hanya lihat.']);
+        }
+        $slide = $this->db->table('material_segment_slides')->where('id', $slideId)->get()->getRowArray();
+        if (!$slide) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Slide segmen tidak ditemukan.']);
+        }
+
+        $path = FCPATH . 'uploads/materials/slides/' . $slide['image_path'];
+        if (!empty($slide['image_path']) && is_file($path)) {
+            @unlink($path);
+        }
+
+        $this->db->table('material_segment_slides')->where('id', $slideId)->delete();
+
+        return $this->response->setJSON(['success' => true, 'message' => 'Slide segmen berhasil dihapus.']);
     }
 
     // =========================================================
@@ -1491,6 +1817,7 @@ class Materials extends BaseController
             $segModel->deleteWithFiles($s['id']);
         }
         $this->db->table('material_segment_progress')->where('material_id', $id)->delete();
+        $this->db->table('tugas')->where('material_id', $id)->delete();
 
         $this->db->table('material_progress')->where('material_id', $id)->delete();
         $this->db->table('subject_material_publishes')->where('material_id', $id)->delete();

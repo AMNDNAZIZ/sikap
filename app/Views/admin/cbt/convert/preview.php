@@ -94,10 +94,10 @@
                             <label class="form-label">Tujuan Penyimpanan</label>
                             <select name="dest_type" id="dest_type" class="form-select" required>
                                 <option value="">-- Pilih Tujuan --</option>
-                                <option value="formatif">Nilai Formatif (Materi)</option>
-                                <option value="sumatif">Nilai Sumatif (STS/SAS)</option>
-                                <option value="final">Nilai Akhir (Semester)</option>
-                                <option value="pts">Nilai PTS (Tengah Semester)</option>
+                                <option value="formatif" <?= (isset($target_dest_type) && $target_dest_type === 'formatif') ? 'selected' : '' ?>>Nilai Formatif (Materi)</option>
+                                <option value="sumatif" <?= (isset($target_dest_type) && $target_dest_type === 'sumatif') ? 'selected' : '' ?>>Nilai Sumatif (STS/SAS)</option>
+                                <option value="final" <?= (isset($target_dest_type) && $target_dest_type === 'final') ? 'selected' : '' ?>>Nilai Akhir (Semester)</option>
+                                <option value="pts" <?= (isset($target_dest_type) && $target_dest_type === 'pts') ? 'selected' : '' ?>>Nilai PTS (Tengah Semester)</option>
                             </select>
                             <div class="form-text">Nilai PTS disimpan terpisah dan tidak masuk perhitungan rapor akhir.</div>
                         </div>
@@ -113,13 +113,13 @@
                         </div>
 
                         <!-- Formatif Only -->
-                        <div id="section_formatif" class="d-none">
+                        <div id="section_formatif" class="<?= (isset($target_dest_type) && $target_dest_type === 'formatif') ? '' : 'd-none' ?>">
                             <div class="mb-3">
                                 <label class="form-label">Pilih Lingkup Materi (ATP)</label>
                                 <select name="material_id" class="form-select">
                                     <option value="">-- Pilih Lingkup Materi --</option>
                                     <?php foreach ($materials as $m): ?>
-                                        <option value="<?= $m['id'] ?>">
+                                        <option value="<?= $m['id'] ?>" <?= (!empty($target_material_id) && $target_material_id == $m['id']) ? 'selected' : '' ?>>
                                             SM <?= $m['semester'] ?>: <?= esc($m['title']) ?>
                                         </option>
                                     <?php endforeach; ?>

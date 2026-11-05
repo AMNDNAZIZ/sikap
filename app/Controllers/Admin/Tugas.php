@@ -336,28 +336,51 @@ class Tugas extends BaseController
 
         $activeYear = (new AcademicYearModel())->getActiveYear();
 
-        $students = $this->db->table('students st')
-            ->select('st.id, st.name, st.nis')
-            ->join('student_records sr', 'sr.student_id = st.id')
-            ->where('sr.class_id', $tugas['class_id'])
-            ->where('sr.academic_year_id', $activeYear['id'] ?? 0)
-            ->where('sr.status', 'aktif')
-            ->orderBy('st.name')
-            ->get()->getResultArray();
+        $students = [];
+        if (!empty($tugas['class_id'])) {
+            $students = $this->db->table('students st')
+                ->select('st.id, st.name, st.nis')
+                ->join('student_records sr', 'sr.student_id = st.id')
+                ->where('sr.class_id', $tugas['class_id'])
+                ->where('sr.academic_year_id', $activeYear['id'] ?? 0)
+                ->where('sr.status', 'aktif')
+                ->orderBy('st.name')
+                ->get()->getResultArray();
+        } elseif (!empty($tugas['material_id'])) {
+            $students = $this->db->table('students st')
+                ->select('st.id, st.name, st.nis')
+                ->join('student_records sr', 'sr.student_id = st.id')
+                ->join('subject_material_publishes smp', 'smp.class_id = sr.class_id')
+                ->where('smp.material_id', $tugas['material_id'])
+                ->where('smp.is_active', 1)
+                ->where('sr.academic_year_id', $activeYear['id'] ?? 0)
+                ->where('sr.status', 'aktif')
+                ->groupBy('st.id')
+                ->orderBy('st.name')
+                ->get()->getResultArray();
+        }
 
         $submissions   = $this->submissionModel->getByTugas($id);
         $submissionMap = array_column($submissions, null, 'student_id');
 
         $tugas['status'] = TugasModel::getStatus($tugas);
 
-        $class   = $this->db->table('classes')->where('id', $tugas['class_id'])->get()->getRowArray();
-        $subject = $this->db->table('subjects')->where('id', $tugas['subject_id'])->get()->getRowArray();
+        $class    = !empty($tugas['class_id']) ? $this->db->table('classes')->where('id', $tugas['class_id'])->get()->getRowArray() : null;
+        $subject  = $this->db->table('subjects')->where('id', $tugas['subject_id'])->get()->getRowArray();
+        $material = !empty($tugas['material_id'])
+            ? $this->db->table('subject_materials')->where('id', $tugas['material_id'])->get()->getRowArray()
+            : null;
+        $segment  = !empty($tugas['segment_id'])
+            ? $this->db->table('material_segments')->where('id', $tugas['segment_id'])->get()->getRowArray()
+            : null;
 
         return view('admin/tugas/show', [
             'title'         => 'Detail Tugas: ' . esc($tugas['judul']),
             'tugas'         => $tugas,
             'class'         => $class,
             'subject'       => $subject,
+            'material'      => $material,
+            'segment'       => $segment,
             'students'      => $students,
             'submissionMap' => $submissionMap,
             'isAdmin'       => $this->isAdmin(),
@@ -456,7 +479,7 @@ class Tugas extends BaseController
     }
 
     // ─────────────────────────────────────────────
-    // NILAI — beri penilaian ke submission siswa
+    // NILAI — beri penilaian angka (0-100) ke submission siswa
     // ─────────────────────────────────────────────
     public function nilai($tugasId, $studentId)
     {
@@ -472,13 +495,41 @@ class Tugas extends BaseController
             return redirect()->back()->with('error', 'Akses ditolak.');
         }
 
-        $nilai      = $this->request->getPost('nilai');
-        $catatan    = $this->request->getPost('catatan_guru');
-        $user       = $this->getUser();
+        $nilaiAngkaRaw = $this->request->getPost('nilai_angka');
+        $nilaiKual     = $this->request->getPost('nilai');
+        $catatan       = $this->request->getPost('catatan_guru');
+        $user          = $this->getUser();
 
-        $nilaiValid = ['sangat_bagus', 'bagus', 'kurang', 'belajar_lagi'];
-        if (!in_array($nilai, $nilaiValid)) {
-            return redirect()->back()->with('error', 'Nilai tidak valid.');
+        // Validasi nilai angka (0 - 100)
+        $nilaiAngka = null;
+        if ($nilaiAngkaRaw !== null && $nilaiAngkaRaw !== '') {
+            $numVal = (float)$nilaiAngkaRaw;
+            if ($numVal < 0 || $numVal > 100) {
+                return redirect()->back()->with('error', 'Nilai angka harus berada dalam rentang 0 sampai 100.');
+            }
+            $nilaiAngka = $numVal;
+
+            // Hitung predikat ENUM otomatis dari angka
+            if ($nilaiAngka >= 85) {
+                $nilaiKual = 'sangat_bagus';
+            } elseif ($nilaiAngka >= 70) {
+                $nilaiKual = 'bagus';
+            } elseif ($nilaiAngka >= 55) {
+                $nilaiKual = 'kurang';
+            } else {
+                $nilaiKual = 'belajar_lagi';
+            }
+        } elseif (!empty($nilaiKual)) {
+            // Fallback jika dikirim predikat lama
+            $mapFallback = [
+                'sangat_bagus' => 90.0,
+                'bagus'        => 80.0,
+                'kurang'       => 65.0,
+                'belajar_lagi' => 50.0,
+            ];
+            $nilaiAngka = $mapFallback[$nilaiKual] ?? 75.0;
+        } else {
+            return redirect()->back()->with('error', 'Masukkan nilai angka tugas (0 - 100).');
         }
 
         $existing = $this->submissionModel->getByTugasAndStudent($tugasId, $studentId);
@@ -487,7 +538,8 @@ class Tugas extends BaseController
         }
 
         $this->submissionModel->update($existing['id'], [
-            'nilai'        => $nilai,
+            'nilai'        => $nilaiKual,
+            'nilai_angka'  => $nilaiAngka,
             'catatan_guru' => $catatan,
             'dinilai_at'   => date('Y-m-d H:i:s'),
             'dinilai_oleh' => $user['id'],
@@ -502,8 +554,8 @@ class Tugas extends BaseController
                 'kurang'       => 'Cukup / Perlu Ditingkatkan',
                 'belajar_lagi' => 'Perlu Belajar Lagi',
             ];
-            $labelNilai = $labels[$nilai] ?? ucfirst(str_replace('_', ' ', $nilai));
-            $notifMsg   = "Nilai: {$labelNilai}" . (!empty($catatan) ? " · Catatan: {$catatan}" : '');
+            $labelNilai = $labels[$nilaiKual] ?? ucfirst(str_replace('_', ' ', $nilaiKual));
+            $notifMsg   = "Nilai: {$nilaiAngka} ({$labelNilai})" . (!empty($catatan) ? " · Catatan: {$catatan}" : '');
 
             notify_student_and_parents(
                 (int) $studentId,
@@ -518,7 +570,159 @@ class Tugas extends BaseController
             log_message('error', '[Tugas::nilai] Gagal kirim notifikasi penilaian: ' . $e->getMessage());
         }
 
-        return redirect()->to('admin/tugas/' . $tugasId)->with('success', 'Penilaian berhasil disimpan.');
+        return redirect()->to('admin/tugas/' . $tugasId)->with('success', "Penilaian berhasil disimpan (Nilai: {$nilaiAngka}).");
+    }
+
+    // ─────────────────────────────────────────────
+    // KIRIM KE BUKU NILAI — Formatif / Sumatif (Best Score)
+    // ─────────────────────────────────────────────
+    public function kirimKeBukuNilai($tugasId)
+    {
+        if ($this->isViewOnly()) {
+            return redirect()->back()->with('error', 'Kepala Sekolah hanya dapat melihat data tugas.');
+        }
+
+        $tugas = $this->tugasModel->find($tugasId);
+        if (!$tugas) {
+            return redirect()->back()->with('error', 'Tugas tidak ditemukan.');
+        }
+        if (!$this->isAdmin() && $tugas['teacher_id'] != $this->getTeacherId()) {
+            return redirect()->back()->with('error', 'Akses ditolak.');
+        }
+
+        // Ambil semua submission siswa yang sudah memiliki nilai_angka
+        $submissions = $this->submissionModel
+            ->where('tugas_id', $tugasId)
+            ->where('nilai_angka IS NOT NULL')
+            ->findAll();
+
+        if (empty($submissions)) {
+            return redirect()->back()->with('error', 'Belum ada siswa yang dinilai dengan angka pada tugas ini.');
+        }
+
+        $user = $this->getUser();
+        $isFormatif = !empty($tugas['material_id']) || !empty($tugas['segment_id']);
+        $countUpdated = 0;
+        $now = date('Y-m-d H:i:s');
+
+        $this->db->transStart();
+
+        if ($isFormatif) {
+            // ── FORMATIF: Masuk ke material_scores (tipe 'penugasan') ──
+            $targetMaterialId = null;
+            if (!empty($tugas['material_id'])) {
+                $subMat = $this->db->table('subject_materials')->where('id', $tugas['material_id'])->get()->getRowArray();
+                if ($subMat) {
+                    $parentMatId = !empty($subMat['parent_id']) ? (int)$subMat['parent_id'] : (int)$subMat['id'];
+                    $parentMat = $this->db->table('subject_materials')->where('id', $parentMatId)->get()->getRowArray();
+                    
+                    if ($parentMat) {
+                        $atpRow = $this->db->table('alur_tujuan_pembelajaran')
+                            ->where('subject_id', $tugas['subject_id'])
+                            ->where('lingkup_materi', $parentMat['title'])
+                            ->get()->getRowArray();
+                        if ($atpRow) {
+                            $targetMaterialId = (int)$atpRow['id'];
+                        }
+                    }
+                    if (!$targetMaterialId) {
+                        $atpClass = $this->db->table('alur_tujuan_pembelajaran')
+                            ->where('subject_id', $tugas['subject_id'])
+                            ->where('class_id', $tugas['class_id'])
+                            ->get()->getRowArray();
+                        $targetMaterialId = $atpClass ? (int)$atpClass['id'] : $parentMatId;
+                    }
+                }
+            }
+
+            if (!$targetMaterialId) {
+                $atpAny = $this->db->table('alur_tujuan_pembelajaran')->where('subject_id', $tugas['subject_id'])->get()->getRowArray();
+                $targetMaterialId = $atpAny ? (int)$atpAny['id'] : 1;
+            }
+
+            foreach ($submissions as $sub) {
+                $studentId  = (int)$sub['student_id'];
+                $nilaiTugas = (float)$sub['nilai_angka'];
+
+                $existing = $this->db->table('material_scores')
+                    ->where('student_id', $studentId)
+                    ->where('material_id', $targetMaterialId)
+                    ->where('type', 'penugasan')
+                    ->get()->getRowArray();
+
+                if ($existing) {
+                    // Aturan Nilai Tertinggi: gunakan nilai terbesar (Best Score)
+                    $bestScore = max((float)$existing['score'], $nilaiTugas);
+                    $this->db->table('material_scores')->where('id', $existing['id'])->update([
+                        'score'      => $bestScore,
+                        'updated_at' => $now,
+                    ]);
+                } else {
+                    $this->db->table('material_scores')->insert([
+                        'student_id' => $studentId,
+                        'material_id'=> $targetMaterialId,
+                        'type'       => 'penugasan',
+                        'score'      => $nilaiTugas,
+                        'created_by' => $user['id'],
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+                $countUpdated++;
+            }
+
+            $targetLabel = "Buku Nilai Formatif (ATP Lingkup Materi, Metode: Penugasan)";
+        } else {
+            // ── SUMATIF: Masuk ke summative_scores (tipe 'penugasan') ──
+            $activeYear = (new AcademicYearModel())->getActiveYear();
+            $yearId = $activeYear['id'] ?? 1;
+            $semester = (string)($activeYear['semester'] ?? '1');
+
+            foreach ($submissions as $sub) {
+                $studentId  = (int)$sub['student_id'];
+                $nilaiTugas = (float)$sub['nilai_angka'];
+
+                $existing = $this->db->table('summative_scores')
+                    ->where('student_id', $studentId)
+                    ->where('subject_id', $tugas['subject_id'])
+                    ->where('year_id', $yearId)
+                    ->where('semester', $semester)
+                    ->where('type', 'penugasan')
+                    ->get()->getRowArray();
+
+                if ($existing) {
+                    // Aturan Nilai Tertinggi: gunakan nilai terbesar (Best Score)
+                    $bestScore = max((float)$existing['score'], $nilaiTugas);
+                    $this->db->table('summative_scores')->where('id', $existing['id'])->update([
+                        'score'      => $bestScore,
+                        'updated_at' => $now,
+                    ]);
+                } else {
+                    $this->db->table('summative_scores')->insert([
+                        'student_id' => $studentId,
+                        'subject_id' => $tugas['subject_id'],
+                        'year_id'    => $yearId,
+                        'semester'   => $semester,
+                        'type'       => 'penugasan',
+                        'score'      => $nilaiTugas,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+                $countUpdated++;
+            }
+
+            $targetLabel = "Buku Nilai Sumatif (Semester {$semester}, Tipe: Penugasan)";
+        }
+
+        $this->db->transComplete();
+
+        if ($this->db->transStatus() === false) {
+            return redirect()->back()->with('error', 'Gagal menyimpan nilai ke Buku Nilai.');
+        }
+
+        return redirect()->to('admin/tugas/' . $tugasId)
+            ->with('success', "Berhasil mengirim {$countUpdated} nilai siswa ke {$targetLabel}. Aturan nilai tertinggi (best score) telah diterapkan.");
     }
 
     // ─────────────────────────────────────────────

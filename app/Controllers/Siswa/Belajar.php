@@ -472,6 +472,20 @@ class Belajar extends BaseController
             $activeSegment = $segments[$targetIdx] ?? $segments[0];
         }
 
+        $activeTask       = null;
+        $activeSubmission = null;
+        if (!empty($activeSegment['has_task'])) {
+            $activeTask = $this->db->table('tugas')
+                ->where('segment_id', $activeSegment['id'])
+                ->get()->getRowArray();
+            if ($activeTask) {
+                $activeSubmission = $this->db->table('tugas_submissions')
+                    ->where('tugas_id', $activeTask['id'])
+                    ->where('student_id', $studentId)
+                    ->get()->getRowArray();
+            }
+        }
+
         return view('siswa/belajar/show', [
             'title'              => esc($subMat['title']),
             'subMat'             => $subMat,
@@ -492,6 +506,8 @@ class Belajar extends BaseController
             'segProgressMap'     => $segProgressMap,
             'activeSegment'      => $activeSegment,
             'activeIdx'          => $activeIdx,
+            'activeTask'         => $activeTask,
+            'activeSubmission'   => $activeSubmission,
             'completedCount'     => $completedCount,
             'segmentProgressPct' => $segmentProgressPct,
         ]);
@@ -569,6 +585,25 @@ class Belajar extends BaseController
             return $this->response->setStatusCode(404)->setJSON(['success' => false, 'message' => 'Segmen tidak ditemukan.']);
         }
 
+        // Gating Tugas per Segmen: jika segmen menyertakan tugas, siswa wajib submit terlebih dahulu
+        if (!empty($segment['has_task'])) {
+            $taskRow = $this->db->table('tugas')
+                ->where('segment_id', $segmentId)
+                ->get()->getRowArray();
+            if ($taskRow) {
+                $subRow = $this->db->table('tugas_submissions')
+                    ->where('tugas_id', $taskRow['id'])
+                    ->where('student_id', $studentId)
+                    ->get()->getRowArray();
+                if (!$subRow || empty($subRow['dikumpul_at'])) {
+                    return $this->response->setStatusCode(400)->setJSON([
+                        'success' => false,
+                        'message' => 'Anda belum mengirimkan tugas pada langkah ini. Silakan kerjakan dan kirim tugas terlebih dahulu agar dapat menyelesaikan langkah dan lanjut!'
+                    ]);
+                }
+            }
+        }
+
         $segProgModel = new \App\Models\MaterialSegmentProgressModel();
         $res = $segProgModel->markCompleted($studentId, $subMatId, $segmentId);
 
@@ -594,6 +629,86 @@ class Belajar extends BaseController
             'total_segments'  => $res['total_segments'],
             'next_segment_id' => $nextSegmentId,
         ]);
+    }
+
+    // =========================================================
+    // SUBMIT SEGMENT TASK (TUGAS FORMATIF DALAM LANGKAH)
+    // =========================================================
+    public function submitSegmentTask(int $subMatId, int $segmentId): \CodeIgniter\HTTP\RedirectResponse
+    {
+        $studentId = $this->studentId();
+        $subMat    = $this->mat->find($subMatId);
+
+        if (!$subMat || !$subMat['is_published'] || empty($subMat['parent_id'])) {
+            return redirect()->back()->with('error', 'Sub materi tidak valid.');
+        }
+
+        if (!$this->canAccessSubMat($studentId, $subMatId)) {
+            return redirect()->back()->with('error', 'Akses ditolak.');
+        }
+
+        $segModel = new \App\Models\MaterialSegmentModel();
+        $segment  = $segModel->where('material_id', $subMatId)->find($segmentId);
+        if (!$segment || empty($segment['has_task'])) {
+            return redirect()->back()->with('error', 'Langkah ini tidak memiliki tugas.');
+        }
+
+        $taskRow = $this->db->table('tugas')
+            ->where('segment_id', $segmentId)
+            ->get()->getRowArray();
+        if (!$taskRow) {
+            return redirect()->back()->with('error', 'Data tugas langkah ini belum tersedia.');
+        }
+
+        $jawaban = $this->request->getPost('jawaban');
+        if (empty(strip_tags((string)$jawaban))) {
+            return redirect()->back()->with('error', 'Jawaban / hasil kerja tugas tidak boleh kosong.');
+        }
+
+        $submissionModel = new \App\Models\TugasSubmissionModel();
+        $existing = $submissionModel->getByTugasAndStudent($taskRow['id'], $studentId);
+        $now = date('Y-m-d H:i:s');
+
+        if ($existing) {
+            if (!empty($existing['nilai']) || $existing['nilai_angka'] !== null) {
+                return redirect()->back()->with('error', 'Tugas sudah dinilai oleh guru dan tidak dapat diubah.');
+            }
+            $submissionModel->update($existing['id'], [
+                'jawaban'     => $jawaban,
+                'dikumpul_at' => $now,
+            ]);
+        } else {
+            $submissionModel->insert([
+                'tugas_id'    => $taskRow['id'],
+                'student_id'  => $studentId,
+                'jawaban'     => $jawaban,
+                'dikumpul_at' => $now,
+            ]);
+        }
+
+        // Kirim notifikasi ke guru
+        try {
+            helper('notification');
+            $teacherUserId = (int) ($taskRow['created_by'] ?? 0);
+            if ($teacherUserId > 0) {
+                $user = session()->get('user') ?? [];
+                $studentName = $user['fullname'] ?? ($user['username'] ?? 'Siswa');
+                notify_user(
+                    $teacherUserId,
+                    'info',
+                    'Tugas Langkah Dikumpulkan: ' . $studentName,
+                    "{$studentName} telah mengirimkan tugas pada langkah: {$segment['title']}",
+                    base_url('admin/tugas/' . $taskRow['id']),
+                    'tugas_submission',
+                    (int) $taskRow['id']
+                );
+            }
+        } catch (\Throwable $e) {
+            log_message('error', '[Belajar::submitSegmentTask] Notif error: ' . $e->getMessage());
+        }
+
+        return redirect()->to(base_url('siswa/belajar/sub/' . $subMatId . '?seg=' . $segmentId))
+            ->with('success', 'Tugas berhasil dikirim! Sekarang Anda dapat menyelesaikan langkah ini.');
     }
 
     // =========================================================

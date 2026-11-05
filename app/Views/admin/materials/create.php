@@ -33,6 +33,50 @@
 
       <div class="row g-3">
 
+        <!-- ═══ ASISTEN PRA-PEMBELAJARAN: RUJUK MODUL AJAR ═══ -->
+        <div class="col-12">
+          <div class="card border border-primary border-opacity-25 bg-primary bg-opacity-10 shadow-none">
+            <div class="card-body p-3">
+              <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <span class="fw-bold text-primary small">
+                  <i class="bi bi-stars me-1 text-warning"></i> Asisten Desain Instruksional AI: Uraikan Modul Ajar ke Aksi Nyata
+                </span>
+                <span class="badge bg-primary text-white small">Pra-KBM / Transformasi Digital</span>
+              </div>
+              <p class="text-muted small mb-2">
+                Pilih Modul Ajar yang telah Anda susun. Asisten AI akan menguraikan skenario pembelajaran menjadi <strong>aksi nyata kegiatan siswa</strong> dengan alokasi waktu yang proporsional ke dalam beberapa segmen interaktif (Tayangan Video, Penjelasan Konsep, Simulasi HTML Interaktif, dan Refleksi).
+              </p>
+              <div class="row g-2 align-items-end">
+                <div class="col-md-5">
+                  <label class="form-label smaller fw-semibold mb-1">Pilih Dokumen Modul Ajar</label>
+                  <select id="modulAjarSelect" class="form-select form-select-sm">
+                    <option value="">-- Pilih Dokumen Modul Ajar --</option>
+                    <?php if (!empty($availableModuls)): ?>
+                      <?php foreach ($availableModuls as $am): ?>
+                        <option value="<?= $am['id'] ?>" data-materi="<?= esc($am['materi']) ?>" data-atp="<?= $am['atp_id'] ?>">
+                          <?= esc($am['label']) ?>
+                        </option>
+                      <?php endforeach; ?>
+                    <?php endif; ?>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label smaller fw-semibold mb-1">Pilih Sesi Pertemuan &amp; Durasi</label>
+                  <select id="pertemuanSelect" class="form-select form-select-sm" disabled>
+                    <option value="">-- Pilih Modul Terlebih Dahulu --</option>
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <button type="button" class="btn btn-primary btn-sm w-100 fw-semibold" id="btnPullModulScenario" disabled>
+                    <i class="bi bi-stars me-1 text-warning"></i> Desain Alur dengan AI
+                  </button>
+                </div>
+              </div>
+              <div id="modulScenarioAlert" class="alert alert-success py-1 px-2 small mt-2 mb-0" style="display: none;"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Pilih Materi Induk (dari ATP) -->
         <div class="col-12">
           <label class="form-label small fw-semibold">Materi <span class="text-danger">*</span></label>
@@ -405,10 +449,14 @@
   // ══════════════════════════════════════════════════════════════════════
   var segCounter = 0;
 
-  function createSegmentHtml(idx, title, type, minutes) {
-    title   = title || ('Langkah ' + (idx + 1) + ' — Materi');
-    type    = type || 'text';
-    minutes = minutes || 15;
+  function createSegmentHtml(idx, title, type, minutes, hasTask, taskTitle, taskInstructions, taskDeadlineDays) {
+    title            = title || ('Langkah ' + (idx + 1) + ' — Materi');
+    type             = type || 'text';
+    minutes          = minutes || 15;
+    hasTask          = !!hasTask;
+    taskTitle        = taskTitle || ('Tugas: ' + title);
+    taskInstructions = taskInstructions || '';
+    taskDeadlineDays = taskDeadlineDays || 7;
 
     return `
     <div class="card border border-2 border-primary-subtle shadow-sm mb-3 segment-item" data-seg-idx="${idx}">
@@ -488,6 +536,39 @@
             <div class="form-text">Link ke artikel, Google Docs, materi referensi luar, dll.</div>
           </div>
         </div>
+
+        <!-- Opsi Tugas / Tagihan Aktivitas Segmen -->
+        <div class="mt-3 pt-3 border-top">
+          <div class="form-check form-switch">
+            <input class="form-check-input seg-task-toggle" type="checkbox" name="segments[${idx}][has_task]" value="1" id="segTask_${idx}" ${hasTask ? 'checked' : ''}>
+            <label class="form-check-label fw-semibold small text-primary" for="segTask_${idx}">
+              <i class="bi bi-clipboard-check me-1"></i>Sertakan Tugas / Tagihan Aktivitas pada Langkah Ini (Formatif)
+            </label>
+          </div>
+          <div class="seg-task-details mt-2 p-2 rounded bg-light border" style="${hasTask ? '' : 'display:none;'}">
+            <div class="small text-muted mb-2">
+              <i class="bi bi-info-circle me-1"></i>Siswa wajib mengerjakan &amp; mengumpulkan tugas ini sebelum dapat menyelesaikan langkah dan lanjut ke langkah berikutnya.
+            </div>
+            <div class="row g-2">
+              <div class="col-md-8">
+                <label class="form-label small fw-semibold mb-1">Judul Tugas</label>
+                <input type="text" name="segments[${idx}][task_title]" class="form-control form-control-sm seg-task-title"
+                       value="${taskTitle}" placeholder="cth: Refleksi Video &amp; Lembar Analisis">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold mb-1">Batas Waktu (Hari)</label>
+                <input type="number" name="segments[${idx}][task_deadline_days]" class="form-control form-control-sm seg-task-deadline"
+                       min="1" max="30" value="${taskDeadlineDays}">
+              </div>
+              <div class="col-12">
+                <label class="form-label small fw-semibold mb-1">Petunjuk / Instruksi Tugas</label>
+                <textarea name="segments[${idx}][task_instructions]" class="form-control form-control-sm seg-task-instructions" rows="2"
+                          placeholder="Tuliskan instruksi pengerjaan yang harus dikerjakan dan dikirimkan oleh siswa...">${taskInstructions}</textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>`;
   }
@@ -523,6 +604,14 @@
         }
         card.remove();
         reindexSegments();
+      });
+    }
+
+    var taskToggle  = card.querySelector('.seg-task-toggle');
+    var taskDetails = card.querySelector('.seg-task-details');
+    if (taskToggle && taskDetails) {
+      taskToggle.addEventListener('change', function() {
+        taskDetails.style.display = this.checked ? 'block' : 'none';
       });
     }
   }
@@ -561,12 +650,28 @@
 
       var slides = item.querySelector('input[type="file"][name*="segment_slides_"]');
       if (slides) slides.name = 'segment_slides_' + idx + '[]';
+
+      var taskCheck = item.querySelector('.seg-task-toggle');
+      if (taskCheck) {
+        taskCheck.name = 'segments[' + idx + '][has_task]';
+        taskCheck.id = 'segTask_' + idx;
+        var taskLbl = item.querySelector('label[for^="segTask_"]');
+        if (taskLbl) taskLbl.htmlFor = 'segTask_' + idx;
+      }
+      var taskTitle = item.querySelector('.seg-task-title');
+      if (taskTitle) taskTitle.name = 'segments[' + idx + '][task_title]';
+
+      var taskDays = item.querySelector('.seg-task-deadline');
+      if (taskDays) taskDays.name = 'segments[' + idx + '][task_deadline_days]';
+
+      var taskInst = item.querySelector('.seg-task-instructions');
+      if (taskInst) taskInst.name = 'segments[' + idx + '][task_instructions]';
     });
   }
 
-  function addSegment(title, type, minutes) {
+  function addSegment(title, type, minutes, hasTask, taskTitle, taskInstructions, taskDeadlineDays) {
     var temp = document.createElement('div');
-    temp.innerHTML = createSegmentHtml(segCounter, title, type, minutes).trim();
+    temp.innerHTML = createSegmentHtml(segCounter, title, type, minutes, hasTask, taskTitle, taskInstructions, taskDeadlineDays).trim();
     var card = temp.firstChild;
     segContainer.appendChild(card);
     attachSegmentEvents(card);
@@ -585,6 +690,223 @@
   if (segContainer && segContainer.children.length === 0) {
     addSegment('Langkah 1: Pengantar & Apersepsi', 'text', 10);
     addSegment('Langkah 2: Video Penjelasan / Materi Inti', 'video', 20);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ASISTEN PRA-PEMBELAJARAN: TARIK SKENARIO MODUL AJAR
+  // ══════════════════════════════════════════════════════════════════════
+  var modulAjarSelect      = document.getElementById('modulAjarSelect');
+  var pertemuanSelect      = document.getElementById('pertemuanSelect');
+  var btnPullModulScenario = document.getElementById('btnPullModulScenario');
+  var modulScenarioAlert   = document.getElementById('modulScenarioAlert');
+
+  var getModulMeetingsUrl = '<?= base_url('admin/materials/get-modul-meetings') ?>';
+  var getModulDraftUrl    = '<?= base_url('admin/materials/get-modul-draft') ?>';
+
+  if (modulAjarSelect) {
+    modulAjarSelect.addEventListener('change', function() {
+      var mId = this.value;
+      if (!mId) {
+        pertemuanSelect.innerHTML = '<option value="">-- Pilih Modul Terlebih Dahulu --</option>';
+        pertemuanSelect.disabled = true;
+        btnPullModulScenario.disabled = true;
+        if (modulScenarioAlert) modulScenarioAlert.style.display = 'none';
+        return;
+      }
+
+      pertemuanSelect.innerHTML = '<option value="">Memuat pertemuan...</option>';
+      pertemuanSelect.disabled = true;
+      btnPullModulScenario.disabled = true;
+      if (modulScenarioAlert) modulScenarioAlert.style.display = 'none';
+
+      fetch(getModulMeetingsUrl + '?modul_id=' + encodeURIComponent(mId))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data.success || !data.pertemuan || data.pertemuan.length === 0) {
+            pertemuanSelect.innerHTML = '<option value="">-- Tidak ada pertemuan terdeteksi --</option>';
+            return;
+          }
+
+          pertemuanSelect.innerHTML = '<option value="">-- Pilih Pertemuan --</option>';
+          data.pertemuan.forEach(function(p) {
+            var opt = document.createElement('option');
+            opt.value = p.pertemuan_ke;
+            opt.textContent = p.label;
+            opt.dataset.judul = p.judul;
+            opt.dataset.durasi = p.durasi;
+            pertemuanSelect.appendChild(opt);
+          });
+          pertemuanSelect.disabled = false;
+        })
+        .catch(function(err) {
+          console.error('Error fetching meetings:', err);
+          pertemuanSelect.innerHTML = '<option value="">-- Gagal memuat pertemuan --</option>';
+        });
+    });
+  }
+
+  if (pertemuanSelect) {
+    pertemuanSelect.addEventListener('change', function() {
+      btnPullModulScenario.disabled = !this.value;
+    });
+  }
+
+  if (btnPullModulScenario) {
+    btnPullModulScenario.addEventListener('click', function() {
+      var mId = modulAjarSelect ? modulAjarSelect.value : '';
+      var pKe = pertemuanSelect ? pertemuanSelect.value : '';
+
+      if (!mId || !pKe) {
+        alert('Pilih Modul Ajar dan Pertemuan terlebih dahulu.');
+        return;
+      }
+
+      btnPullModulScenario.disabled = true;
+      btnPullModulScenario.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Merancang dengan AI...';
+
+      fetch(getModulDraftUrl + '?modul_id=' + encodeURIComponent(mId) + '&pertemuan_ke=' + encodeURIComponent(pKe))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          btnPullModulScenario.disabled = false;
+          btnPullModulScenario.innerHTML = '<i class="bi bi-stars me-1 text-warning"></i> Desain Alur dengan AI';
+
+          if (!data.success || !data.package) {
+            alert(data.message || 'Gagal merancang alur pembelajaran.');
+            return;
+          }
+
+          var pkg = data.package || {};
+          var meeting = data.meeting || {};
+
+          // Ambil ringkasan teks secara aman dari berbagai struktur data
+          var summaryRaw = pkg.summary || pkg.summary_html ||
+                           (pkg.micro_learning && pkg.micro_learning.summary_html ? pkg.micro_learning.summary_html : '') ||
+                           (meeting.raw_text || '');
+
+          // 1. Isi Judul Sub Materi
+          var titleInput = document.querySelector('input[name="title"]');
+          if (titleInput) {
+            titleInput.value = pkg.sub_judul || data.sub_judul || meeting.judul || ('Pertemuan ' + pKe);
+          }
+
+          // 2. Isi Urutan
+          var orderInput = document.querySelector('input[name="sort_order"]');
+          if (orderInput) {
+            orderInput.value = pKe;
+          }
+
+          // 3. Isi Estimasi Menit (ekstrak angka)
+          var estInput = document.querySelector('input[name="estimated_minutes"]');
+          var durasiSource = meeting.durasi || (pkg.total_minutes ? (pkg.total_minutes + ' menit') : '70 menit');
+          if (estInput && durasiSource) {
+            var dm = durasiSource.match(/(\d+)/);
+            if (dm) estInput.value = parseInt(dm[1], 10);
+          }
+
+          // 4. Isi Deskripsi Singkat
+          var descInput = document.querySelector('textarea[name="description"]');
+          if (descInput && summaryRaw) {
+            var plainText = summaryRaw.replace(/<[^>]*>/g, '').trim();
+            descInput.value = plainText.length > 200 ? (plainText.substring(0, 197) + '...') : plainText;
+          }
+
+          // 5. Pastikan Multi-Segmen Aktif
+          if (modeMultiRadio) {
+            modeMultiRadio.checked = true;
+            updateBuilderMode();
+          }
+
+          // 6. Isi Segmen Pembelajaran Aksi Nyata Beragam Media
+          var segmentsToRender = (pkg.segments && Array.isArray(pkg.segments) && pkg.segments.length > 0)
+            ? pkg.segments
+            : [
+                {
+                  title: 'Langkah 1: Stimulus Apersepsi Video',
+                  content_type: 'video',
+                  estimated_minutes: 15,
+                  video_url: 'https://www.youtube.com/results?search_query=' + encodeURIComponent(titleInput ? titleInput.value : 'pembelajaran sd')
+                },
+                {
+                  title: 'Langkah 2: Eksplorasi Konsep Utama',
+                  content_type: 'text',
+                  estimated_minutes: 25,
+                  content: summaryRaw ? summaryRaw.replace(/<\/?p>/g, '\n\n').replace(/<[^>]*>/g, '').trim() : ('Materi pembelajaran Pertemuan ' + pKe)
+                },
+                {
+                  title: 'Langkah 3: Simulasi Interaktif & Praktik Digital',
+                  content_type: 'html',
+                  estimated_minutes: 20,
+                  content_html: '<!DOCTYPE html><html><body style="font-family:sans-serif;padding:20px;background:#f8fafc;"><h3>Simulasi Pemahaman</h3><p>Ujilah pemahamanmu dengan menjawab tantangan konsep!</p></body></html>'
+                },
+                {
+                  title: 'Langkah 4: Refleksi & Diskusi Pemantik',
+                  content_type: 'text',
+                  estimated_minutes: 10,
+                  content: 'Pertanyaan Diskusi:\n' + ((pkg.discussion && pkg.discussion.prompt) ? pkg.discussion.prompt : (pkg.discussion_prompt || 'Menurutmu, apa manfaat utama materi ini?'))
+                }
+              ];
+
+          if (segContainer) {
+            segContainer.innerHTML = '';
+            segCounter = 0;
+            var totalEstimated = 0;
+
+            segmentsToRender.forEach(function(seg, idx) {
+              var sTitle = seg.title || ('Langkah ' + (idx + 1));
+              var sType  = seg.content_type || 'text';
+              var sMin   = parseInt(seg.estimated_minutes, 10) || 15;
+              totalEstimated += sMin;
+
+              var sHasTask   = !!seg.has_task;
+              var sTaskTitle = seg.task_title || ('Tugas: ' + sTitle);
+              var sTaskInst  = seg.task_instructions || '';
+              var sTaskDays  = parseInt(seg.task_deadline_days, 10) || 7;
+
+              addSegment(sTitle, sType, sMin, sHasTask, sTaskTitle, sTaskInst, sTaskDays);
+              var card = segContainer.querySelector('.segment-item[data-seg-idx="' + idx + '"]');
+              if (!card) return;
+
+              // Isi konten sesuai tipe yang dipilih
+              if (sType === 'text') {
+                var txt = card.querySelector('textarea[name*="[content]"]');
+                if (txt) txt.value = seg.content || '';
+              } else if (sType === 'video') {
+                var vid = card.querySelector('input[name*="[video_url]"]');
+                if (vid) vid.value = seg.video_url || '';
+              } else if (sType === 'html') {
+                var htm = card.querySelector('textarea[name*="[content_html]"]');
+                if (htm) htm.value = seg.content_html || '';
+              } else if (sType === 'link') {
+                var lnk = card.querySelector('input[name*="[external_link]"]');
+                if (lnk) lnk.value = seg.external_link || '';
+              }
+            });
+
+            // Update estimasi waktu total agar pas dengan durasi seluruh segmen
+            if (estInput && totalEstimated > 0) {
+              estInput.value = totalEstimated;
+            }
+          }
+
+          if (modulScenarioAlert) {
+            var isAi = (pkg.source === 'ai');
+            var badgeAi = isAi
+              ? '<span class="badge bg-primary text-white me-1"><i class="bi bi-stars text-warning me-1"></i> AI Gemini Copilot</span>'
+              : '<span class="badge bg-secondary text-white me-1"><i class="bi bi-magic me-1"></i> Smart Instructional Assistant</span>';
+
+            modulScenarioAlert.className = 'alert alert-success py-2 px-3 small mt-2 mb-0 border border-success border-opacity-25';
+            modulScenarioAlert.innerHTML = '<div class="d-flex align-items-center gap-2 mb-1">' + badgeAi + '<strong>Berhasil merancang ' + segmentsToRender.length + ' segmen aksi nyata (' + (totalEstimated || 70) + ' Menit)</strong></div>' +
+              '<div class="text-secondary smaller">Modul Ajar telah diuraikan menjadi ragam kegiatan aktif siswa: <strong>Tayangan Video, Penjelasan Teks, Simulasi HTML Interaktif, dan Refleksi</strong>. Anda dapat langsung meninjau, menguji, atau mengubah setiap langkah sebelum menyimpan.</div>';
+            modulScenarioAlert.style.display = 'block';
+          }
+        })
+        .catch(function(err) {
+          console.error('Error fetching modul draft:', err);
+          btnPullModulScenario.disabled = false;
+          btnPullModulScenario.innerHTML = '<i class="bi bi-stars me-1 text-warning"></i> Desain Alur dengan AI';
+          alert('Terjadi kesalahan saat merancang alur dengan AI.');
+        });
+    });
   }
 
   // ══════════════════════════════════════════════════════════════════════

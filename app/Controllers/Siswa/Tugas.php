@@ -41,6 +41,21 @@ class Tugas extends BaseController
         ];
     }
 
+    private function canAccessTugas(array $tugas, int $classId): bool
+    {
+        if (!empty($tugas['class_id']) && (int)$tugas['class_id'] === $classId) {
+            return true;
+        }
+        if (!empty($tugas['material_id'])) {
+            return (bool)$this->db->table('subject_material_publishes')
+                ->where('material_id', $tugas['material_id'])
+                ->where('class_id', $classId)
+                ->where('is_active', 1)
+                ->countAllResults();
+        }
+        return false;
+    }
+
     // ─────────────────────────────────────────────
     // INDEX — daftar tugas siswa
     // ─────────────────────────────────────────────
@@ -72,7 +87,7 @@ class Tugas extends BaseController
         if (!$info) return redirect()->to('/login')->with('error', 'Akses ditolak.');
 
         $tugas = $this->tugasModel->find($id);
-        if (!$tugas || (int)$tugas['class_id'] !== $info['class_id']) {
+        if (!$tugas || !$this->canAccessTugas($tugas, $info['class_id'])) {
             return redirect()->to('siswa/tugas')->with('error', 'Tugas tidak ditemukan.');
         }
 
@@ -98,7 +113,7 @@ class Tugas extends BaseController
         if (!$info) return redirect()->to('/login')->with('error', 'Akses ditolak.');
 
         $tugas = $this->tugasModel->find($id);
-        if (!$tugas || (int)$tugas['class_id'] !== $info['class_id']) {
+        if (!$tugas || !$this->canAccessTugas($tugas, $info['class_id'])) {
             return redirect()->to('siswa/tugas')->with('error', 'Tugas tidak ditemukan.');
         }
 
@@ -117,7 +132,7 @@ class Tugas extends BaseController
 
         if ($existing) {
             // Update — hanya boleh jika belum dinilai
-            if (!empty($existing['nilai'])) {
+            if (!empty($existing['nilai']) || $existing['nilai_angka'] !== null) {
                 return redirect()->back()->with('error', 'Tugas sudah dinilai dan tidak dapat diubah.');
             }
             $this->submissionModel->update($existing['id'], [
@@ -160,6 +175,11 @@ class Tugas extends BaseController
             }
         } catch (\Throwable $e) {
             log_message('error', '[Siswa\Tugas::submit] Gagal kirim notif ke guru: ' . $e->getMessage());
+        }
+
+        $returnUrl = $this->request->getPost('return_url');
+        if ($returnUrl && filter_var($returnUrl, FILTER_VALIDATE_URL)) {
+            return redirect()->to($returnUrl)->with('success', 'Tugas berhasil dikumpulkan.');
         }
 
         return redirect()->to('siswa/tugas/' . $id)->with('success', 'Tugas berhasil dikumpulkan.');

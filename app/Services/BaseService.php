@@ -18,9 +18,9 @@ class BaseService
     /**
      * Constructor
      */
-    public function __construct()
+    public function __construct($db = null)
     {
-        $this->db = \Config\Database::connect();
+        $this->db = $db ?: \Config\Database::connect();
     }
 
     /**

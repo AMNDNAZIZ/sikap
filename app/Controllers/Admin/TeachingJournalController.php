@@ -11,6 +11,8 @@ use App\Models\TeachingAssignmentModel;
 use App\Models\TeacherModel;
 use App\Models\ModulAjarModel;
 use App\Models\SchoolModel;
+use App\Services\TeachingSessionContextService;
+use App\Services\ElearningPackageGeneratorService;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
@@ -25,6 +27,7 @@ class TeachingJournalController extends BaseController
     protected $modulModel;
     protected $schoolModel;
     protected $db;
+    protected TeachingSessionContextService $contextService;
 
     public function __construct()
     {
@@ -36,6 +39,7 @@ class TeachingJournalController extends BaseController
         $this->teacherModel = new TeacherModel();
         $this->modulModel = new ModulAjarModel();
         $this->schoolModel = new SchoolModel();
+        $this->contextService = new TeachingSessionContextService();
         $this->db = \Config\Database::connect();
     }
 
@@ -76,7 +80,23 @@ class TeachingJournalController extends BaseController
         if ($dateFrom) $journalFilters['date_from'] = $dateFrom;
         if ($dateTo) $journalFilters['date_to'] = $dateTo;
 
-        $data['journals'] = $this->journalModel->getJournals($journalFilters);
+        $perPage = 20;
+        $data['journals'] = $this->journalModel->getJournals($journalFilters, $perPage);
+        $data['pager'] = $this->journalModel->pager;
+        $data['currentPage'] = $this->request->getVar('page') ? (int)$this->request->getVar('page') : 1;
+        $data['perPage'] = $perPage;
+
+        // Integrasi Sesi Mengajar Hari Ini (Jadwal + Promes)
+        $data['today_sessions'] = $this->contextService->getDayScheduleSessions(
+            (int)$filters['role_id'],
+            $teacherId,
+            $classId ? (int)$classId : null,
+            date('Y-m-d')
+        );
+        $targetDayNum = (int)date('N');
+        $targetMonthNum = (int)date('n');
+        $data['today_date_formatted'] = (TeachingSessionContextService::DAYS_ID[$targetDayNum] ?? 'Hari Ini')
+            . ', ' . date('d') . ' ' . (TeachingSessionContextService::MONTHS_ID[$targetMonthNum] ?? '') . ' ' . date('Y');
 
         return view('admin/teaching_journal/index', $data);
     }
@@ -97,8 +117,31 @@ class TeachingJournalController extends BaseController
         $data['subjects'] = $filters['subjects'];
         $data['today'] = date('Y-m-d');
         
-        $data['selected_class'] = $this->request->getGet('class_id');
-        $data['selected_subject'] = $this->request->getGet('subject_id');
+        $selectedClass = $this->request->getGet('class_id');
+        $selectedSubject = $this->request->getGet('subject_id');
+        $selectedAtp = $this->request->getGet('atp_id');
+        $scheduleId = $this->request->getGet('schedule_id');
+
+        if ($scheduleId) {
+            $schedRow = $this->db->table('schedules')->where('id', (int)$scheduleId)->get()->getRowArray();
+            if ($schedRow) {
+                if (!$selectedClass) $selectedClass = $schedRow['class_id'];
+                if (!$selectedSubject) $selectedSubject = $schedRow['subject_id'];
+            }
+        }
+
+        $data['selected_class'] = $selectedClass;
+        $data['selected_subject'] = $selectedSubject;
+        $data['selected_atp'] = $selectedAtp;
+
+        // Ambil sesi hari ini untuk rekomendasi asisten cerdas di form
+        $teacherIdForSessions = ((int)$user['role_id'] === 3) ? (int)($user['related_id'] ?? 0) : null;
+        $data['today_sessions'] = $this->contextService->getDayScheduleSessions(
+            (int)$user['role_id'],
+            $teacherIdForSessions,
+            $selectedClass ? (int)$selectedClass : null,
+            date('Y-m-d')
+        );
 
         // Deteksi apakah guru kelas (wali kelas)
         $data['is_homeroom'] = false;
@@ -135,10 +178,23 @@ class TeachingJournalController extends BaseController
 
         $data['title'] = 'Edit Jurnal Mengajar';
         $data['journal'] = $journal;
+        $data['today'] = date('Y-m-d');
         $filters = $this->getAvailableFilters();
         
         $data['classes'] = $filters['classes'];
         $data['subjects'] = $filters['subjects'];
+        $data['selected_class'] = $journal['class_id'];
+        $data['selected_subject'] = $journal['subject_id'];
+        $data['selected_atp'] = $journal['atp_id'];
+
+        // Ambil sesi hari ini untuk rekomendasi asisten cerdas
+        $teacherIdForSessions = ((int)$user['role_id'] === 3) ? (int)($user['related_id'] ?? 0) : null;
+        $data['today_sessions'] = $this->contextService->getDayScheduleSessions(
+            (int)$user['role_id'],
+            $teacherIdForSessions,
+            (int)$journal['class_id'],
+            date('Y-m-d')
+        );
 
         // Deteksi guru kelas
         $data['is_homeroom'] = false;
@@ -497,6 +553,10 @@ class TeachingJournalController extends BaseController
         }
         unset($atp);
 
+        // Dekorasi target Promes pada ATP sesuai minggu dan bulan aktif
+        $targetDate = $this->request->getGet('date') ?: date('Y-m-d');
+        $atps = $this->contextService->decorateAtpsWithPromesTarget($atps, $targetDate);
+
         return $this->response->setJSON($atps);
     }
 
@@ -735,6 +795,177 @@ class TeachingJournalController extends BaseController
             'total'       => count($meetings),
             'pertemuan'   => $meetings,
             'message'     => empty($meetings) ? 'Tidak ada rincian pertemuan terdeteksi dalam Modul Ajar ini.' : 'Rincian pertemuan berhasil dimuat.',
+        ]);
+    }
+
+    /**
+     * TAHAP 2: Generator Draf Paket Pembelajaran E-Learning berbantuan AI / Template
+     */
+    public function generateElearningDraft()
+    {
+        $user = session()->get('user');
+        if (!$user) {
+            return $this->response->setStatusCode(401)->setJSON([
+                'success' => false,
+                'message' => 'Sesi telah berakhir, silakan login kembali.',
+            ]);
+        }
+
+        $modulId     = (int)$this->request->getGet('modul_id');
+        $pertemuanKe = (int)$this->request->getGet('pertemuan_ke') ?: 1;
+        $classId     = (int)$this->request->getGet('class_id') ?: null;
+
+        if (!$modulId || $modulId <= 0) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'success' => false,
+                'message' => 'Parameter modul_id tidak valid.',
+            ]);
+        }
+
+        $generator = new ElearningPackageGeneratorService();
+        $result = $generator->generatePackageDraft($modulId, $pertemuanKe, $classId, $user);
+
+        return $this->response->setJSON($result);
+    }
+
+    /**
+     * TAHAP 2: Publikasikan (Deploy) Paket E-Learning ke Portal Pembelajaran Siswa
+     */
+    public function deployElearningPackage()
+    {
+        $user = session()->get('user');
+        if (!$user) {
+            return $this->response->setStatusCode(401)->setJSON([
+                'success' => false,
+                'message' => 'Sesi telah berakhir, silakan login kembali.',
+            ]);
+        }
+
+        $payload = $this->request->getPost();
+        if (empty($payload['subject_id'])) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'success' => false,
+                'message' => 'Data paket pembelajaran tidak lengkap.',
+            ]);
+        }
+
+        $generator = new ElearningPackageGeneratorService();
+        $result = $generator->deployPackageToElearning($payload, $user);
+
+        if (!empty($result['success']) && !empty($result['material_id'])) {
+            $result['redirect_url'] = base_url('admin/materials/detail/' . $result['material_id']);
+        }
+
+        return $this->response->setJSON($result);
+    }
+
+    /**
+     * TAHAP 3: Ambil data presensi siswa kelas pada tanggal tertentu untuk asisten jurnal
+     */
+    public function getClassAttendance()
+    {
+        $classId = (int)$this->request->getGet('class_id');
+        $date    = $this->request->getGet('date') ?: date('Y-m-d');
+
+        if ($classId <= 0) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'success' => false,
+                'message' => 'ID Kelas tidak valid.',
+            ]);
+        }
+
+        $data = $this->contextService->getClassAttendanceData($classId, $date);
+        $data['success'] = true;
+
+        return $this->response->setJSON($data);
+    }
+
+    /**
+     * TAHAP 3: Simpan presensi cepat siswa dari form jurnal
+     */
+    public function saveQuickAttendance()
+    {
+        $user = session()->get('user');
+        if (!$user) {
+            return $this->response->setStatusCode(401)->setJSON([
+                'success' => false,
+                'message' => 'Sesi telah berakhir, silakan login kembali.',
+            ]);
+        }
+
+        $payload = $this->request->getJSON(true) ?: $this->request->getPost();
+        $classId = (int)($payload['class_id'] ?? 0);
+        $date    = $payload['date'] ?? date('Y-m-d');
+        $status  = $payload['status'] ?? [];
+
+        if ($classId <= 0 || empty($status) || !is_array($status)) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'success' => false,
+                'message' => 'Data presensi tidak lengkap.',
+            ]);
+        }
+
+        $userId = (int)($user['id'] ?? 1);
+        $result = $this->contextService->saveClassAttendanceData($classId, $date, $status, $userId);
+
+        if (function_exists('csrf_token') && function_exists('csrf_hash')) {
+            $result['csrf'] = csrf_hash();
+        }
+
+        return $this->response->setJSON($result);
+    }
+
+    /**
+     * TAHAP 3: Dapatkan saran refleksi pembelajaran berdasarkan status realisasi
+     */
+    public function getReflectionSuggestions()
+    {
+        $status = (string)$this->request->getGet('status');
+        $materi = (string)$this->request->getGet('materi');
+
+        $suggestions = $this->contextService->getReflectionSuggestions($status, $materi);
+
+        return $this->response->setJSON([
+            'success'     => true,
+            'suggestions' => $suggestions,
+        ]);
+    }
+
+    /**
+     * TAHAP 4: Rekapitulasi Keterlaksanaan Pembelajaran & Umpan Balik Nilai Formatif
+     * (Integrasi Modul, Jurnal, E-Learning, dan Jembatan Konversi Nilai CBT ke Formatif)
+     */
+    public function recap()
+    {
+        $user = session()->get('user');
+        if (!$user) {
+            return $this->response->setStatusCode(401)->setJSON([
+                'success' => false,
+                'message' => 'Sesi telah berakhir, silakan login kembali.',
+            ]);
+        }
+
+        $classId   = (int)$this->request->getGet('class_id');
+        $subjectId = (int)$this->request->getGet('subject_id') ?: null;
+        $atpId     = (int)$this->request->getGet('atp_id') ?: null;
+
+        if ($classId <= 0) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'success' => false,
+                'message' => 'Pilih Kelas terlebih dahulu untuk melihat rekapitulasi.',
+            ]);
+        }
+
+        $learningRecap = $this->contextService->getJournalLearningRecap($classId, $subjectId);
+        $formativeStatus = null;
+        if ($atpId > 0 && $subjectId > 0) {
+            $formativeStatus = $this->contextService->getFormativeAssessmentStatus($classId, $atpId, $subjectId);
+        }
+
+        return $this->response->setJSON([
+            'success'          => true,
+            'learning_recap'   => $learningRecap,
+            'formative_status' => $formativeStatus,
         ]);
     }
 
@@ -1211,6 +1442,17 @@ class TeachingJournalController extends BaseController
                     'materi'   => $atpInfo['lingkup_materi'] ?? 'Materi Umum',
                     'semester' => $atpInfo['semester'] ?? null
                 ]);
+
+                // TAHAP 4: Status Penilaian Formatif & Rekomendasi Konversi CBT
+                if ($selectedClassId && !empty($modul['atp_id'])) {
+                    $data['formative_status'] = $this->contextService->getFormativeAssessmentStatus(
+                        (int)$selectedClassId,
+                        (int)$modul['atp_id'],
+                        (int)$modul['subject_id']
+                    );
+                } else {
+                    $data['formative_status'] = null;
+                }
 
                 $meetings = $this->parseMeetingsFromHtml($modul['content'] ?? '');
                 $nTotal = count($meetings);

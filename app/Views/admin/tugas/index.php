@@ -52,7 +52,18 @@
               <?php else: $no = 1; foreach ($tugasList as $t): ?>
               <tr>
                 <td><?= $no++ ?></td>
-                <td class="fw-semibold"><?= esc($t['judul']) ?></td>
+                <td>
+                  <div class="fw-semibold"><?= esc($t['judul']) ?></div>
+                  <?php if (!empty($t['material_id'])): ?>
+                    <span class="badge bg-info text-dark" style="font-size: 0.72rem;">
+                      <i class="bi bi-diagram-3 me-1"></i>Formatif Segmen
+                    </span>
+                  <?php else: ?>
+                    <span class="badge bg-light text-muted border" style="font-size: 0.72rem;">
+                      <i class="bi bi-journal-text me-1"></i>Sumatif Umum
+                    </span>
+                  <?php endif; ?>
+                </td>
                 <td><?= esc($t['class_name'] ?? '-') ?></td>
                 <td><?= esc($t['subject_name'] ?? '-') ?></td>
                 <td><?= date('d/m/Y H:i', strtotime($t['mulai_at'])) ?></td>
@@ -92,7 +103,14 @@
     <div class="card mb-3 shadow-sm border-0">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-start mb-1">
-          <h6 class="fw-bold mb-0"><?= esc($t['judul']) ?></h6>
+          <div>
+            <h6 class="fw-bold mb-0"><?= esc($t['judul']) ?></h6>
+            <?php if (!empty($t['material_id'])): ?>
+              <span class="badge bg-info text-dark" style="font-size: 0.68rem;">Formatif Segmen</span>
+            <?php else: ?>
+              <span class="badge bg-light text-muted border" style="font-size: 0.68rem;">Sumatif Umum</span>
+            <?php endif; ?>
+          </div>
           <?= $statusLabel[$t['status']] ?? '' ?>
         </div>
         <div class="text-muted small mb-2">

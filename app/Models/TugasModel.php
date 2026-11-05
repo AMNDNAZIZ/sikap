@@ -11,6 +11,7 @@ class TugasModel extends Model
     protected $useTimestamps = true;
     protected $allowedFields = [
         'teacher_id', 'class_id', 'subject_id',
+        'material_id', 'segment_id',
         'judul', 'deskripsi', 'mulai_at', 'selesai_at', 'created_by',
     ];
 
@@ -33,10 +34,16 @@ class TugasModel extends Model
         $db = \Config\Database::connect();
         return $db->table('tugas t')
             ->select('t.*, s.name as subject_name, ts.id as submission_id,
-                      ts.dikumpul_at, ts.nilai, ts.catatan_guru, ts.jawaban')
+                      ts.dikumpul_at, ts.nilai, ts.nilai_angka, ts.catatan_guru, ts.jawaban')
             ->join('subjects s', 's.id = t.subject_id', 'left')
             ->join('tugas_submissions ts', "ts.tugas_id = t.id AND ts.student_id = {$studentId}", 'left')
-            ->where('t.class_id', $classId)
+            ->groupStart()
+                ->where('t.class_id', $classId)
+                ->orGroupStart()
+                    ->where('t.class_id IS NULL')
+                    ->where("t.material_id IN (SELECT smp.material_id FROM subject_material_publishes smp WHERE smp.class_id = {$classId} AND smp.is_active = 1)", null, false)
+                ->groupEnd()
+            ->groupEnd()
             ->orderBy('t.selesai_at', 'DESC')
             ->get()->getResultArray();
     }
@@ -50,7 +57,7 @@ class TugasModel extends Model
         $builder = $db->table('tugas t')
             ->select('t.*, c.name as class_name, s.name as subject_name,
                       COUNT(ts.id) as total_submit,
-                      SUM(CASE WHEN ts.nilai IS NOT NULL THEN 1 ELSE 0 END) as total_dinilai')
+                      SUM(CASE WHEN (ts.nilai IS NOT NULL OR ts.nilai_angka IS NOT NULL) THEN 1 ELSE 0 END) as total_dinilai')
             ->join('classes c', 'c.id = t.class_id', 'left')
             ->join('subjects s', 's.id = t.subject_id', 'left')
             ->join('tugas_submissions ts', 'ts.tugas_id = t.id', 'left')

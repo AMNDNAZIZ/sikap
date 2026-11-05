@@ -65,8 +65,12 @@ class CbtConvertNilai extends BaseController
         }
 
         return view('admin/cbt/convert/index', [
-            'banks' => $banks,
-            'classes' => $classes
+            'banks'              => $banks,
+            'classes'            => $classes,
+            'selected_bank_id'   => $this->request->getGet('bank_id'),
+            'selected_class_id'  => $this->request->getGet('class_id'),
+            'target_dest_type'   => $this->request->getGet('target_dest_type') ?: 'formatif',
+            'target_material_id' => $this->request->getGet('target_material_id'),
         ]);
     }
 
@@ -213,16 +217,18 @@ class CbtConvertNilai extends BaseController
             ->get()->getResultArray();
 
         return view('admin/cbt/convert/preview', [
-            'test' => $test,
-            'class_id' => $classId,
-            'class_name' => $this->db->table('classes')->where('id', $classId)->get()->getRowArray()['name'] ?? '-',
-            'ya' => $ya,
-            'yb' => $yb,
-            'xa' => $xa,
-            'xb' => $xb,
-            'results' => $results,
-            'materials' => $materials,
-            'activeYear' => $activeYear
+            'test'               => $test,
+            'class_id'           => $classId,
+            'class_name'         => $this->db->table('classes')->where('id', $classId)->get()->getRowArray()['name'] ?? '-',
+            'ya'                 => $ya,
+            'yb'                 => $yb,
+            'xa'                 => $xa,
+            'xb'                 => $xb,
+            'results'            => $results,
+            'materials'          => $materials,
+            'activeYear'         => $activeYear,
+            'target_dest_type'   => $this->request->getPost('target_dest_type') ?: 'formatif',
+            'target_material_id' => $this->request->getPost('target_material_id') ?: null,
         ]);
     }
 
