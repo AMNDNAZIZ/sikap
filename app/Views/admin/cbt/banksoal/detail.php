@@ -128,7 +128,8 @@ window.MathJax = {
 
     <div id="mobileQuestionCardsContainer">
       <?php foreach ($questions as $i => $q): 
-        $previewText = strip_tags($q['question_text']);
+        $rawTextClean = preg_replace('/^(?:Soal\s*[:.]?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*/iu', '', trim((string)$q['question_text']));
+        $previewText = strip_tags($rawTextClean);
         $previewText = str_replace(['\\r\\n', '\\n', '\\r', "\r\n", "\n", "\r"], ' ', $previewText);
         $previewSnippet = substr($previewText, 0, 140) . (strlen($previewText) > 140 ? '...' : '');
 
@@ -226,8 +227,11 @@ window.MathJax = {
             <tr>
               <td><?= $i + 1 ?></td>
               <td>
-                <?= strip_tags(substr(str_replace(['\\r\\n', '\\n', '\\r', "\r\n", "\r", "\n"], ' ', $q['question_text']), 0, 100)) ?>
-                <?= strlen($q['question_text']) > 100 ? '...' : '' ?>
+                <?php
+                  $tableTextClean = preg_replace('/^(?:Soal\s*[:.]?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*/iu', '', trim((string)$q['question_text']));
+                ?>
+                <?= strip_tags(substr(str_replace(['\\r\\n', '\\n', '\\r', "\r\n", "\r", "\n"], ' ', $tableTextClean), 0, 100)) ?>
+                <?= strlen($tableTextClean) > 100 ? '...' : '' ?>
               </td>
               <td>
                 <div class="dropdown">
@@ -441,6 +445,11 @@ foreach ($questions as $idx => $q) {
           imgTags.push(match);
           return `___IMG_PLACEHOLDER_${imgTags.length - 1}___`;
         });
+
+        // Hapus kode/header penomoran soal (misal: "Soal:1)", "Soal: 1)", "Soal 1)", "1)", "1.")
+        out = out.replace(/(<\s*(?:p|div)[^>]*>)\s*(?:Soal\s*[:.]?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*/gi, '$1');
+        out = out.replace(/<\s*(?:strong|b|span)[^>]*>\s*(?:Soal\s*[:.]?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*<\/\s*(?:strong|b|span)\s*>\s*/gi, '');
+        out = out.replace(/^\s*(?:Soal\s*[:.]?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*/gim, '');
         
         // Clean formatting tags
         out = out.replace(/<\/?(span|strong|em|font|u|b|i)[^>]*>/gi, '');
@@ -488,7 +497,7 @@ foreach ($questions as $idx => $q) {
 
       let cleanText = cleanRawText(q.text);
       if (!cleanText || cleanText.trim() === '') {
-        cleanText = q.plain || q.text || '';
+        cleanText = cleanRawText(q.plain || q.text || '');
       }
       $('#viewText').html(cleanText || '<em class="text-muted">Tidak ada teks soal.</em>');
 

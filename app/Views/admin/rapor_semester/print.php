@@ -512,14 +512,58 @@ $renderFooter = function ($stu, $class, $pageNum) {
             </tr>
           </thead>
           <tbody>
-            <?php $no = 1; foreach ($rows as $row): ?>
-              <tr>
-                <td class="nomor"><?= $no++ ?></td>
-                <td><?= esc($row['subject_name']) ?></td>
-                <td class="angka"><?= $row['nilai'] !== null ? number_format($row['nilai'], 0) : '-' ?></td>
-                <td class="desc"><?= nl2br(esc($row['deskripsi'])) ?></td>
+            <?php
+              $isSmaFaseF = (function_exists('is_school_sma') && is_school_sma()) && ($fase === 'F');
+              $hasGroupB  = false;
+              if ($isSmaFaseF) {
+                  foreach ($rows as $r) {
+                      if (($r['subject_group'] ?? 'A') === 'B') {
+                          $hasGroupB = true;
+                          break;
+                      }
+                  }
+              }
+            ?>
+            <?php if ($isSmaFaseF && $hasGroupB): ?>
+              <!-- Kelompok A: Mata Pelajaran Umum -->
+              <tr style="background-color: #f9fafb;">
+                <td colspan="4" style="font-weight: bold; padding: 5px 8px; font-size: 9pt;">A. KELOMPOK MATA PELAJARAN UMUM</td>
               </tr>
-            <?php endforeach; ?>
+              <?php $noA = 1; foreach ($rows as $row): ?>
+                <?php if (($row['subject_group'] ?? 'A') !== 'B'): ?>
+                  <tr>
+                    <td class="nomor"><?= $noA++ ?></td>
+                    <td><?= esc($row['subject_name']) ?></td>
+                    <td class="angka"><?= $row['nilai'] !== null ? number_format($row['nilai'], 0) : '-' ?></td>
+                    <td class="desc"><?= nl2br(esc($row['deskripsi'])) ?></td>
+                  </tr>
+                <?php endif; ?>
+              <?php endforeach; ?>
+
+              <!-- Kelompok B: Mata Pelajaran Pilihan (Fase F) -->
+              <tr style="background-color: #f9fafb;">
+                <td colspan="4" style="font-weight: bold; padding: 5px 8px; font-size: 9pt;">B. KELOMPOK MATA PELAJARAN PILIHAN</td>
+              </tr>
+              <?php $noB = 1; foreach ($rows as $row): ?>
+                <?php if (($row['subject_group'] ?? 'A') === 'B'): ?>
+                  <tr>
+                    <td class="nomor"><?= $noB++ ?></td>
+                    <td><?= esc($row['subject_name']) ?></td>
+                    <td class="angka"><?= $row['nilai'] !== null ? number_format($row['nilai'], 0) : '-' ?></td>
+                    <td class="desc"><?= nl2br(esc($row['deskripsi'])) ?></td>
+                  </tr>
+                <?php endif; ?>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <?php $no = 1; foreach ($rows as $row): ?>
+                <tr>
+                  <td class="nomor"><?= $no++ ?></td>
+                  <td><?= esc($row['subject_name']) ?></td>
+                  <td class="angka"><?= $row['nilai'] !== null ? number_format($row['nilai'], 0) : '-' ?></td>
+                  <td class="desc"><?= nl2br(esc($row['deskripsi'])) ?></td>
+                </tr>
+              <?php endforeach; ?>
+            <?php endif; ?>
           </tbody>
         </table>
 

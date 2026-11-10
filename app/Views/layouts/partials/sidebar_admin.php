@@ -177,6 +177,9 @@
           <li><a class="nav-link <?= url_is('admin/grades/tracking*') ? 'active' : '' ?>" href="<?= base_url('admin/grades/tracking') ?>"><i class="bi bi-activity me-1"></i> <span class="label">Tracking Nilai</span></a></li>
           <li><a class="nav-link <?= (url_is('admin/rapor*') && !url_is('admin/rapor-semester*')) ? 'active' : '' ?>" href="<?= base_url('admin/rapor') ?>"><i class="bi bi-printer me-1"></i> <span class="label">Rapor PTS (Tengah Sem.)</span></a></li>
           <li><a class="nav-link <?= url_is('admin/rapor-semester*') ? 'active' : '' ?>" href="<?= base_url('admin/rapor-semester') ?>"><i class="bi bi-file-earmark-ruled-fill me-1"></i> <span class="label">Rapor Semester (Akhir)</span></a></li>
+          <?php if (function_exists('is_school_sma') && is_school_sma()): ?>
+          <li><a class="nav-link <?= url_is('admin/snbp*') ? 'active' : '' ?>" href="<?= base_url('admin/snbp') ?>"><i class="bi bi-mortarboard-fill me-1"></i> <span class="label">Eligible SNBP (SMA)</span></a></li>
+          <?php endif; ?>
         </ul>
       </div>
     </li>

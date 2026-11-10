@@ -520,6 +520,8 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('grades/tracking/pdf', 'GradesManageController::studentTrackingPdf', $auth123);
     $routes->get('grades/tracking/excel', 'GradesManageController::studentTrackingExcel', $auth123);
     $routes->get('grades/search-student', 'GradesManageController::searchStudent', $auth123);
+    $routes->get('snbp', 'SnbpController::index', $auth123);
+    $routes->get('snbp/export-excel', 'SnbpController::exportExcel', $auth123);
 
     $routes->get('assessments', 'Assessment::index', $auth123);
     $routes->get('assessments/input/(:num)/(:num)/(:alpha)', 'Assessment::input/$1/$2/$3', $auth123);

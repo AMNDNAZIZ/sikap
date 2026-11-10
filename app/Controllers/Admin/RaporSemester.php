@@ -45,13 +45,7 @@ class RaporSemester extends BaseController
      */
     protected function levelToFase(int $level): string
     {
-        if ($level <= 0)  return '-';
-        if ($level <= 2)  return 'A';
-        if ($level <= 4)  return 'B';
-        if ($level <= 6)  return 'C';
-        if ($level <= 8)  return 'D';
-        if ($level === 9) return 'E';
-        return 'F';
+        return \App\Services\JenjangService::getFaseByLevel($level);
     }
 
     /**
@@ -653,9 +647,10 @@ class RaporSemester extends BaseController
                 }
 
                 $rows[] = [
-                    'subject_name' => $subj['name'],
-                    'nilai'        => $nilaiAkhir,
-                    'deskripsi'    => $deskripsi,
+                    'subject_name'  => $subj['name'],
+                    'subject_group' => $subj['subject_group'] ?? 'A',
+                    'nilai'         => $nilaiAkhir,
+                    'deskripsi'     => $deskripsi,
                 ];
             }
 

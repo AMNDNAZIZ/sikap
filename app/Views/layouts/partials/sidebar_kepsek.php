@@ -66,6 +66,9 @@
           <li><a class="nav-link <?= url_is('admin/classes*') ? 'active' : '' ?>" href="<?= base_url('admin/classes') ?>"><i class="bi bi-collection me-1"></i> <span class="label">Daftar Kelas</span></a></li>
           <li><a class="nav-link <?= url_is('admin/attendance*') ? 'active' : '' ?>" href="<?= base_url('admin/attendance') ?>"><i class="bi bi-check2-square me-1"></i> <span class="label">Presensi Siswa</span></a></li>
           <li><a class="nav-link <?= url_is('admin/grades*') || url_is('admin/erapor*') ? 'active' : '' ?>" href="<?= base_url('admin/grades') ?>"><i class="bi bi-clipboard-data me-1"></i> <span class="label">Rekap Nilai &amp; Rapor</span></a></li>
+          <?php if (function_exists('is_school_sma') && is_school_sma()): ?>
+          <li><a class="nav-link <?= url_is('admin/snbp*') ? 'active' : '' ?>" href="<?= base_url('admin/snbp') ?>"><i class="bi bi-mortarboard-fill me-1"></i> <span class="label">Eligible SNBP (SMA)</span></a></li>
+          <?php endif; ?>
           <li><a class="nav-link <?= url_is('admin/cbt/report*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/report') ?>"><i class="bi bi-file-earmark-bar-graph me-1"></i> <span class="label">Laporan &amp; Rekap Nilai CBT</span></a></li>
           <li><a class="nav-link <?= url_is('admin/cbt/bap*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/bap') ?>"><i class="bi bi-journal-check me-1"></i> <span class="label">Berita Acara (BAP) Ujian</span></a></li>
           <li><a class="nav-link <?= url_is('admin/cbt/review*') ? 'active' : '' ?>" href="<?= base_url('admin/cbt/review') ?>"><i class="bi bi-shield-exclamation me-1"></i> <span class="label">Peninjauan Ujian &amp; Susulan</span></a></li>
