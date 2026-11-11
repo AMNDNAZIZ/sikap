@@ -1,11 +1,13 @@
 ---
 deployment:
   tasks:
-    - /bin/cp -Rf app /home/mabq7713/public_html/
-    - /bin/cp -Rf public/* /home/mabq7713/public_html/public/
-    - /bin/cp -Rf system /home/mabq7713/public_html/
-    - /bin/cp -Rf vendor /home/mabq7713/public_html/
-    - /bin/cp -f index.php /home/mabq7713/public_html/
-    - /bin/cp -f spark /home/mabq7713/public_html/
-    - /bin/cp -f .htaccess /home/mabq7713/public_html/.htaccess
-    - echo '{"deploy_time":"'$(date +'%Y-%m-%d %H:%M:%S %Z')'","commit_hash":"'$(git rev-parse --short HEAD)'","author":"'$(git log -1 --pretty=%an)'","message":"'$(git log -1 --pretty=%s | tr -d '"' | tr -d '\\')'"}' > /home/mabq7713/public_html/public/deploy_status.json
+    - export DEPLOYPATH=/home/mabq7713/public_html
+    - /bin/cp -Rf app $DEPLOYPATH/
+    - /bin/cp -Rf public/* $DEPLOYPATH/public/ 2>/dev/null || true
+    - /bin/cp -Rf system $DEPLOYPATH/
+    - /bin/cp -Rf vendor $DEPLOYPATH/
+    - /bin/cp -f index.php $DEPLOYPATH/
+    - /bin/cp -f spark $DEPLOYPATH/
+    - /bin/cp -f .htaccess $DEPLOYPATH/.htaccess
+    - /bin/touch $DEPLOYPATH/index.php
+

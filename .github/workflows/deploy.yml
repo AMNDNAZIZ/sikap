@@ -67,4 +67,8 @@ jobs:
             echo "=== [6/6] Regenerating license and security hashes ==="
             $PHP_BIN /home/mabq7713/public_html/spark license:rehash
 
+            # Flush CI4 file cache & reload PHP worker / OPcache
+            rm -rf /home/mabq7713/public_html/writable/cache/* 2>/dev/null || true
+            touch $DEPLOYPATH/index.php
+
             echo "=== Deployment Finished Successfully! ==="
