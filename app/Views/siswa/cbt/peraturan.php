@@ -119,6 +119,24 @@
     </div>
 
     <div class="p-3 p-md-4">
+      <!-- 🚀 In-App Browser Warning (WhatsApp / IG / Line) -->
+      <div id="inAppBrowserWarning" class="alert alert-warning d-none mb-3" style="border-radius: 14px; border: 1px solid #f6ad55; background: #fffaf0;">
+        <div class="d-flex align-items-start gap-2">
+          <i class="bi bi-exclamation-triangle-fill fs-5 text-warning flex-shrink-0 mt-1"></i>
+          <div>
+            <b class="text-dark">Terbuka di Aplikasi Pesan (WhatsApp / Media Sosial)</b>
+            <div class="small text-muted mt-1">
+              Untuk kelancaran layar penuh dan mencegah halaman tertutup tiba-tiba, disarankan membuka ujian di browser resmi (<b>Google Chrome</b> atau <b>Safari</b>).
+            </div>
+            <div class="mt-2">
+              <button type="button" class="btn btn-sm btn-outline-dark rounded-pill px-3" onclick="copyCurrentExamLink()">
+                <i class="bi bi-clipboard me-1"></i> Salin Link Ujian
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="exam-summary-box">
         <div class="fw-bold text-primary mb-1 fs-5"><?= esc($test['subject_name'] ?? 'Mata Pelajaran') ?></div>
         <div class="small text-muted mb-2"><?= esc($test['exam_name'] ?? 'Ujian') ?> &bull; Kode: <?= esc($test['bank_code'] ?? '-') ?></div>
@@ -169,6 +187,27 @@
 <script>
   let isSubmitting = false;
 
+  // 🚀 Deteksi In-App Browser (WhatsApp, Instagram, FB, Line, dll)
+  try {
+    const isAppWebView = /WhatsApp|FBAN|FBAV|Instagram|Line|wv/i.test(navigator.userAgent);
+    if (isAppWebView) {
+      const banner = document.getElementById('inAppBrowserWarning');
+      if (banner) banner.classList.remove('d-none');
+    }
+  } catch (e) {}
+
+  function copyCurrentExamLink() {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(window.location.href).then(() => {
+        alert('Link ujian berhasil disalin! Silakan buka Google Chrome atau Safari dan tempel link tersebut.');
+      }).catch(() => {
+        prompt('Silakan salin link berikut:', window.location.href);
+      });
+    } else {
+      prompt('Silakan salin link berikut:', window.location.href);
+    }
+  }
+
   // Reset state if returned via back/forward cache
   window.addEventListener('pageshow', function (event) {
     if (event.persisted || performance.navigation.type === 2) {
@@ -194,10 +233,15 @@
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyiapkan Ujian...';
     btn.classList.add('disabled');
 
+    // 🚀 SHARED HOSTING OPTIMIZATION: Smooth jitter (150ms - 800ms) to prevent EP 50 overflow spike
+    const jitter = Math.floor(Math.random() * 650) + 150;
+
     // Detect iOS (iPhone / iPad / iPod) - Fullscreen API is unsupported on mobile Safari
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     if (isIOS) {
-      window.location.href = targetUrl;
+      setTimeout(function () {
+        window.location.href = targetUrl;
+      }, jitter);
       return;
     }
 
@@ -208,13 +252,17 @@
       req.call(elem).then(function () {
         setTimeout(function () {
           window.location.href = targetUrl;
-        }, 500);
+        }, 400 + jitter);
       }).catch(function (err) {
         console.warn('[CBT] Fullscreen permission skipped:', err);
-        window.location.href = targetUrl;
+        setTimeout(function () {
+          window.location.href = targetUrl;
+        }, jitter);
       });
     } else {
-      window.location.href = targetUrl;
+      setTimeout(function () {
+        window.location.href = targetUrl;
+      }, jitter);
     }
   });
 </script>

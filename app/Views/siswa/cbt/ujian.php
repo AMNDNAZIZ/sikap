@@ -1525,13 +1525,42 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     const timerBox = document.getElementById('exam_timer');
 
     // ============================================
+    // 🛡️ MOBILE-RESILIENT STORAGE WRAPPER (Proteksi Safari Private Mode & Quota Limits)
+    // ============================================
+    const memStoreFallback = {};
+    const safeStore = {
+      getItem: (key, fallback = null) => {
+        try {
+          const val = localStorage.getItem(key);
+          return val !== null ? val : (memStoreFallback[key] ?? fallback);
+        } catch (e) {
+          return memStoreFallback[key] ?? fallback;
+        }
+      },
+      setItem: (key, value) => {
+        try {
+          localStorage.setItem(key, value);
+        } catch (e) {
+          console.warn('[STORAGE] LocalStorage restricted or full, using in-memory store:', e);
+        }
+        memStoreFallback[key] = String(value);
+      },
+      removeItem: (key) => {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {}
+        delete memStoreFallback[key];
+      }
+    };
+
+    // ============================================
     // MULTIPLE TABS DETECTION
     // ============================================
     const TAB_KEY = 'cbt_active_tab_' + TEST_ID;
     const TAB_ID = Date.now() + '_' + Math.random();
 
     // Check if exam is already open in another tab
-    const existingTab = localStorage.getItem(TAB_KEY);
+    const existingTab = safeStore.getItem(TAB_KEY);
     if (existingTab && existingTab !== TAB_ID) {
       // Another tab is active
       Swal.fire({
@@ -1549,7 +1578,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         if (result.isConfirmed) {
           // 🔄 TAKE OVER: Force this tab to be the active one
           console.log('[TAB] Taking over session...');
-          localStorage.setItem(TAB_KEY, TAB_ID);
+          safeStore.setItem(TAB_KEY, TAB_ID);
           window.location.reload();
         } else {
           // Close or redirect
@@ -1563,7 +1592,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     }
 
     // Register this tab as active
-    localStorage.setItem(TAB_KEY, TAB_ID);
+    safeStore.setItem(TAB_KEY, TAB_ID);
 
     // Listen for storage changes (other tabs opening)
     window.addEventListener('storage', (e) => {
@@ -1591,22 +1620,22 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     // Clean up on page unload
     window.addEventListener('beforeunload', () => {
       isUnloading = true;
-      const currentTab = localStorage.getItem(TAB_KEY);
+      const currentTab = safeStore.getItem(TAB_KEY);
       if (currentTab === TAB_ID) {
-        localStorage.removeItem(TAB_KEY);
+        safeStore.removeItem(TAB_KEY);
       }
     });
 
     // Periodic check (every 2 seconds)
     setInterval(() => {
       if (isUnloading) return; // Prevent race conditions during redirect
-      const currentTab = localStorage.getItem(TAB_KEY);
+      const currentTab = safeStore.getItem(TAB_KEY);
       if (currentTab && currentTab !== TAB_ID) {
         // Another tab is active
         window.location.href = '<?= site_url('siswa/cbt') ?>';
       } else if (!currentTab) {
         // Tab key was cleared or dropped (e.g. mobile app backgrounding), re-claim
-        localStorage.setItem(TAB_KEY, TAB_ID);
+        safeStore.setItem(TAB_KEY, TAB_ID);
       }
     }, 2000);
 
@@ -1801,7 +1830,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
     // Function to queue answer for offline mode with CAS expectedVersion tracking
     const queueOfflineAnswer = (qid, answer, expectedVersion) => {
-      const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+      const queue = JSON.parse(safeStore.getItem(OFFLINE_QUEUE_KEY, '[]'));
 
       // Update or add answer in queue
       const existingIndex = queue.findIndex(item => item.question_id === qid);
@@ -1820,7 +1849,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         });
       }
 
-      localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+      safeStore.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
       console.log('[OFFLINE] Answer queued:', qid, answer, 'expected_version:', expectedVersion);
     };
 
@@ -1864,7 +1893,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
       // Gabungkan dengan antrean offline jika ada data yang belum ter-render
       try {
-        const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+        const queue = JSON.parse(safeStore.getItem(OFFLINE_QUEUE_KEY, '[]'));
         if (Array.isArray(queue)) {
           queue.forEach(item => {
             if (item && item.question_id && item.answer !== undefined && answers[item.question_id] === undefined) {
@@ -1880,12 +1909,15 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     };
 
     // Function to flush offline queue when back online with partial batch resilience
+    let isFlushingQueue = false;
     const flushOfflineQueue = (retryCount) => {
       if (typeof retryCount === 'undefined') retryCount = 0;
       
-      const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+      const queue = JSON.parse(safeStore.getItem(OFFLINE_QUEUE_KEY, '[]'));
 
       if (queue.length === 0) return Promise.resolve(true);
+      if (isFlushingQueue && retryCount === 0) return Promise.resolve(false);
+      isFlushingQueue = true;
 
       const MAX_RETRIES = 3;
       const RETRY_DELAY = 5000; // 5 seconds
@@ -1917,18 +1949,19 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
           return r.json();
         })
         .then(function(res) {
+          isFlushingQueue = false;
           if (res.status === 'ok') {
             // Partial batch success handling: Only remove successfully confirmed items!
             if (res.succeeded && Array.isArray(res.succeeded) && res.succeeded.length > 0) {
               const succeededSet = new Set(res.succeeded.map(id => String(id)));
               const remainingQueue = queue.filter(item => !succeededSet.has(String(item.question_id)));
               if (remainingQueue.length > 0) {
-                localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remainingQueue));
+                safeStore.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remainingQueue));
               } else {
-                localStorage.removeItem(OFFLINE_QUEUE_KEY);
+                safeStore.removeItem(OFFLINE_QUEUE_KEY);
               }
             } else if (res.saved > 0 && (!res.failed || res.failed.length === 0) && (!res.conflicts || res.conflicts.length === 0)) {
-              localStorage.removeItem(OFFLINE_QUEUE_KEY);
+              safeStore.removeItem(OFFLINE_QUEUE_KEY);
             }
 
             // Differentiate status messages and handle conflicts without resetting session
@@ -1947,33 +1980,21 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
           }
         })
         .catch(function(err) {
+          isFlushingQueue = false;
           console.error('[OFFLINE] Flush failed:', err);
 
           // Retry with exponential backoff
           if (retryCount < MAX_RETRIES) {
             var delay = RETRY_DELAY * Math.pow(2, retryCount);
             console.log('[OFFLINE] Retrying in', delay, 'ms');
-            showSaveStatus('error', 'Sedang menghubungkan kembali...');
+            showSaveStatus('warning', 'Menghubungkan ke server...');
 
             setTimeout(function() {
               flushOfflineQueue(retryCount + 1);
             }, delay);
           } else {
-            showSaveStatus('error', 'Belum terhubung ke server setelah ' + MAX_RETRIES + 'x percobaan');
-
-            // Show manual retry option
-            Swal.fire({
-              title: 'Pengiriman Tertunda',
-              text: 'Jawaban yang tersimpan di perangkat belum dapat dikirimkan ke server karena kendala jaringan. Coba kirim kembali sekarang?',
-              icon: 'warning',
-              showCancelButton: true,
-              confirmButtonText: 'Coba Kirim Kembali',
-              cancelButtonText: 'Nanti Saja'
-            }).then(function(result) {
-              if (result.isConfirmed) {
-                flushOfflineQueue(0); // Reset retry count
-              }
-            });
+            // 🚀 MOBILE FRIENDLY: Jangan gunakan Swal modal yang menutupi layar ujian HP
+            showSaveStatus('warning', 'Jawaban aman di HP (menunggu sinyal)');
           }
         });
     };
@@ -1984,14 +2005,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       isOnline = true;
       offlineNotificationShown = false;
 
-      // Show notification
-      Swal.fire({
-        title: 'Koneksi Terhubung Kembali',
-        text: 'Koneksi internet Anda telah aktif kembali. Mengirim jawaban yang tersimpan...',
-        icon: 'success',
-        timer: 2000,
-        showConfirmButton: false
-      });
+      // 🚀 MOBILE FRIENDLY: Non-blocking inline notification
+      showSaveStatus('saved', 'Online: Menyinkronkan data...');
 
       // Flush offline queue
       flushOfflineQueue();
@@ -2002,15 +2017,8 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       console.log('[NETWORK] Offline detected');
       isOnline = false;
 
-      if (!offlineNotificationShown) {
-        offlineNotificationShown = true;
-        Swal.fire({
-          title: 'Koneksi Terputus',
-          html: 'Koneksi internet terputus.<br><br>Jawaban akan disimpan sementara dan dikirim otomatis saat koneksi kembali.',
-          icon: 'warning',
-          confirmButtonText: 'OK, Saya Mengerti'
-        });
-      }
+      // 🚀 MOBILE FRIENDLY: Non-blocking inline notification
+      showSaveStatus('warning', 'Offline: Jawaban tetap aman di HP');
     });
 
     // Check connection status periodically
@@ -2250,12 +2258,12 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     if (IS_NEW_SESSION) {
       // New session: always start from question 1
       activeIdx = 0;
-      localStorage.removeItem('cbt_active_idx_' + TEST_ID); // Clear old position
-      localStorage.removeItem('cbt_offline_queue_' + TEST_ID); // Clear old offline queue
+      safeStore.removeItem('cbt_active_idx_' + TEST_ID); // Clear old position
+      safeStore.removeItem('cbt_offline_queue_' + TEST_ID); // Clear old offline queue
       console.log('[CBT] New session detected, starting from question 1, cleared old data');
     } else {
       // Continuing session: restore last position
-      activeIdx = parseInt(localStorage.getItem('cbt_active_idx_' + TEST_ID)) || 0;
+      activeIdx = parseInt(safeStore.getItem('cbt_active_idx_' + TEST_ID)) || 0;
       console.log('[CBT] Continuing session, restored position:', activeIdx);
     }
 
@@ -2837,6 +2845,27 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         if (res.violation_count !== undefined) violationCount = res.violation_count;
         if (res.violation_limit !== undefined) violationLimit = res.violation_limit;
 
+        // 🚀 PIGGYBACK TIMER SYNC: Adjust timer if server reports remaining seconds
+        if (res.remaining_seconds !== undefined && res.remaining_seconds !== null && !timeExpiredHandled) {
+          const serverRemaining = parseInt(res.remaining_seconds);
+          const diff = Math.abs(serverRemaining - timeRaw);
+          if (diff > 5) {
+            console.log('[PING SYNC] Adjusting timer. Client:', timeRaw, 'Server:', serverRemaining, 'Diff:', diff);
+            timeRaw = serverRemaining;
+            timerBaselineRemaining = serverRemaining;
+            timerBaselineEpoch = Date.now();
+            if (typeof updateTimerDisplay === 'function') updateTimerDisplay();
+          }
+        }
+
+        // 🚀 SYNC FLUSH: Check if any pending answers in queue and sync
+        try {
+          const pending = JSON.parse(safeStore.getItem(OFFLINE_QUEUE_KEY, '[]'));
+          if (pending.length > 0 && !isFlushingQueue && isOnline) {
+            flushOfflineQueue();
+          }
+        } catch (e) {}
+
         if (res.status === 'finished' || res.is_locked) {
           handleLockdown('Sesi Berakhir', res.message || 'Ujian telah dihentikan oleh sistem.', true);
         }
@@ -2935,10 +2964,40 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       console.log('iOS detected - fullscreen listeners skipped');
     }
 
-    // Visibility Event
+    // 🚀 MOBILE LIFECYCLE & VISIBILITY HANDLING
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden && ANTI_CHEAT !== 'tidak') {
-        reportViolation('Tab/Window Switched');
+      if (document.hidden) {
+        // Layar HP terkunci / berpindah aplikasi: Segera amankan & kirim antrean ke server!
+        if (typeof syncDebounceTimer !== 'undefined' && syncDebounceTimer) {
+          clearTimeout(syncDebounceTimer);
+        }
+        if (typeof flushOfflineQueue === 'function' && !isFlushingQueue && isOnline) {
+          flushOfflineQueue();
+        }
+
+        if (ANTI_CHEAT !== 'tidak' && !examFinished) {
+          reportViolation('Tab/Window Switched');
+        }
+      } else {
+        // Layar HP menyala kembali: Kalkulasi ulang timer secara akurat & cek sesi
+        if (!examFinished && !timeExpiredHandled) {
+          if (typeof recalculateAbsoluteTimer === 'function') {
+            recalculateAbsoluteTimer();
+            if (typeof updateTimerDisplay === 'function') updateTimerDisplay();
+          }
+          if (typeof ping === 'function') {
+            ping();
+          }
+        }
+      }
+    });
+
+    window.addEventListener('pagehide', () => {
+      if (typeof syncDebounceTimer !== 'undefined' && syncDebounceTimer) {
+        clearTimeout(syncDebounceTimer);
+      }
+      if (typeof flushOfflineQueue === 'function' && !isFlushingQueue && isOnline) {
+        flushOfflineQueue();
       }
     });
 
@@ -3058,11 +3117,22 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     };
 
     const renderActive = (idx) => {
+      // 🚀 Auto-flush pending batch answers on question switch
+      try {
+        if (typeof flushOfflineQueue === 'function' && isOnline && !isFlushingQueue) {
+          const queueCheck = JSON.parse(safeStore.getItem(OFFLINE_QUEUE_KEY, '[]'));
+          if (queueCheck.length > 0) {
+            if (typeof syncDebounceTimer !== 'undefined' && syncDebounceTimer) clearTimeout(syncDebounceTimer);
+            flushOfflineQueue();
+          }
+        }
+      } catch (e) {}
+
       items.forEach((item, i) => {
         item.classList.toggle('active', i === idx);
       });
       activeIdx = idx;
-      localStorage.setItem('cbt_active_idx_' + TEST_ID, idx);
+      safeStore.setItem('cbt_active_idx_' + TEST_ID, idx);
 
       // Update Title
       if (qLabelNum) qLabelNum.innerText = `Soal nomor ${idx + 1}`;
@@ -3178,10 +3248,21 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       }
     };
 
-    if (btnBack) btnBack.onclick = () => { if (activeIdx > 0) renderActive(activeIdx - 1); };
-    if (btnNext) btnNext.onclick = () => { if (activeIdx < items.length - 1) renderActive(activeIdx + 1); };
+    if (btnBack) btnBack.onclick = () => { 
+      if (typeof syncDebounceTimer !== 'undefined' && syncDebounceTimer) clearTimeout(syncDebounceTimer);
+      if (typeof flushOfflineQueue === 'function') flushOfflineQueue();
+      if (activeIdx > 0) renderActive(activeIdx - 1); 
+    };
+    if (btnNext) btnNext.onclick = () => { 
+      if (typeof syncDebounceTimer !== 'undefined' && syncDebounceTimer) clearTimeout(syncDebounceTimer);
+      if (typeof flushOfflineQueue === 'function') flushOfflineQueue();
+      if (activeIdx < items.length - 1) renderActive(activeIdx + 1); 
+    };
 
-    // Commit logic - Support offline queue
+    // 🚀 SHARED HOSTING OPTIMIZATION: Debounced sync & Local-First Buffering
+    let syncDebounceTimer = null;
+
+    // Commit logic - Optimistic Local-First Storage with Debounced Batch Sync
     const commitAnswer = (qid, val) => {
       // Prevent saving if time expired
       if (timeExpiredHandled) {
@@ -3189,79 +3270,22 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         return;
       }
 
-      // Check if online
+      // 1. Instantly buffer to localStorage (0ms latency, zero data loss)
+      queueOfflineAnswer(qid, val);
+      showSaveStatus('saved', 'Tersimpan di perangkat');
+
+      // If offline, stop here (queue will automatically flush once back online)
       if (!isOnline) {
-        // Queue answer for later
-        queueOfflineAnswer(qid, val);
-        showSaveStatus('saved', 'Tersimpan (offline)');
         return;
       }
 
-      showSaveStatus('saving');
-
-      const fd = new FormData();
-      fd.append('test_id', TEST_ID);
-      fd.append('question_id', qid);
-      if (val !== null) fd.append('answer', val);
-      fd.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout for answer save
-
-      fetch('<?= site_url('siswa/cbt/saveAnswer') ?>', {
-        method: 'POST',
-        body: fd,
-        signal: controller.signal,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      })
-        .then(response => {
-          clearTimeout(timeoutId);
-          // Check HTTP status first
-          if (!response.ok) {
-            console.error('[SAVE] HTTP Error:', response.status, response.statusText);
-
-            // Session expired or unauthorized
-            if (response.status === 403 || response.status === 401) {
-              Swal.fire({
-                title: 'Waktu Ujian Berakhir',
-                text: 'Sesi ujian Anda telah berakhir atau akun Anda aktif di perangkat lain. Seluruh jawaban Anda tetap tersimpan dengan aman pada perangkat ini.',
-                icon: 'warning',
-                allowOutsideClick: false,
-                confirmButtonText: 'Masuk Kembali'
-              }).then(() => {
-                window.location.reload();
-              });
-              throw new Error('Session expired');
-            }
-            
-            // For other errors (500, 504, etc.), treat as network failure and save offline
-            throw new Error('Gangguan server: ' + response.status);
-          }
-          return response.json();
-        })
-        .then(data => {
-          // Server returns { status: 'ok', saved: {...} } on success
-          if (data.status === 'ok' || data.saved) {
-            showSaveStatus('saved', 'Tersimpan');
-            console.log('[SAVE] Success:', qid, val);
-          } else if (data.error) {
-            console.error('[SAVE] Server Error:', data.error);
-            showSaveStatus('error', data.error);
-            // Queue answer as fallback
-            queueOfflineAnswer(qid, val);
-          } else {
-            console.error('[SAVE] Unknown response:', data);
-            showSaveStatus('error', 'Belum tersimpan');
-            // Queue answer as fallback
-            queueOfflineAnswer(qid, val);
-          }
-        })
-        .catch(err => {
-          console.error("[SAVE] Network Failure:", err);
-          // Queue answer for retry
-          queueOfflineAnswer(qid, val);
-          showSaveStatus('saved', 'Tersimpan di perangkat');
-        });
+      // 2. Debounce auto-sync: Kirim batch ke server 1.5 detik setelah interaksi terakhir
+      if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+      syncDebounceTimer = setTimeout(() => {
+        if (isOnline && !timeExpiredHandled && !examFinished) {
+          flushOfflineQueue();
+        }
+      }, 1500);
     };
 
     // Ragu-ragu toggle - HANYA UI, tidak kirim ke server
@@ -3276,9 +3300,9 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         updateRaguVisual();
         updateAnswerStats();
 
-        // Simpan ke localStorage untuk persistence
+        // Simpan ke storage untuk persistence
         const doubtfulKey = `cbt_doubtful_${TEST_ID}`;
-        let doubtfulList = JSON.parse(localStorage.getItem(doubtfulKey) || '[]');
+        let doubtfulList = JSON.parse(safeStore.getItem(doubtfulKey, '[]'));
         const qid = activeQ.dataset.qid;
 
         if (isChecked) {
@@ -3287,7 +3311,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
           doubtfulList = doubtfulList.filter(id => id !== qid);
         }
 
-        localStorage.setItem(doubtfulKey, JSON.stringify(doubtfulList));
+        safeStore.setItem(doubtfulKey, JSON.stringify(doubtfulList));
       };
     }
 
@@ -3334,21 +3358,36 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
     // Essay
     document.querySelectorAll('.inp-essay').forEach(inp => {
+      inp.oninput = (e) => {
+        const qid = e.target.dataset.qid;
+        commitAnswer(qid, e.target.value);
+        updateAnswerStats();
+      };
       inp.onblur = (e) => {
         const qid = e.target.dataset.qid;
-
-        // Kirim jawaban saja, jangan ubah status ragu-ragu
         commitAnswer(qid, e.target.value);
+        if (typeof syncDebounceTimer !== 'undefined' && syncDebounceTimer) clearTimeout(syncDebounceTimer);
+        if (typeof flushOfflineQueue === 'function') flushOfflineQueue();
         updateAnswerStats();
       };
     });
 
-    // Timer Logic
+    // 🚀 MOBILE-RESILIENT ABSOLUTE TIMER
+    // Based on Date.now() so timer never freezes or drifts when phone locks / sleeps
     let timeRaw = SECONDS_LEFT;
-    let timerInterval = null; // Variable to store timer interval
-    let timeExpiredHandled = false; // Flag to prevent multiple submissions
+    let timerBaselineEpoch = Date.now();
+    let timerBaselineRemaining = SECONDS_LEFT;
+    let timerBaselineElapsed = elapsedSeconds;
+    let timerInterval = null;
+    let timeExpiredHandled = false;
 
-    const ticker = () => {
+    const recalculateAbsoluteTimer = () => {
+      const secondsPassed = Math.floor((Date.now() - timerBaselineEpoch) / 1000);
+      timeRaw = Math.max(0, timerBaselineRemaining - secondsPassed);
+      elapsedSeconds = timerBaselineElapsed + secondsPassed;
+    };
+
+    const updateTimerDisplay = () => {
       // Countdown Timer
       if (timeRaw > 0) {
         const h = Math.floor(timeRaw / 3600), m = Math.floor((timeRaw % 3600) / 60), s = timeRaw % 60;
@@ -3389,7 +3428,6 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             });
           }
         }
-        timeRaw--;
       } else {
         // Time expired - auto submit
         if (timerBox) {
@@ -3407,8 +3445,11 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
       // Update finish button countdown & state
       updateFinishButtonState();
+    };
 
-      elapsedSeconds++;
+    const ticker = () => {
+      recalculateAbsoluteTimer();
+      updateTimerDisplay();
     };
 
     // Function to start/resume timer
@@ -3423,15 +3464,23 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     // Start timer initially
     startTimer();
 
-    // Periodic Ping (every 30s)
-    pingInterval = setInterval(() => ping(), 30000);
+    // 🚀 SHARED HOSTING OPTIMIZATION: Jittered Ping Heartbeat
+    // Piggybacks timer sync & auto-flushes offline queue without clumping requests.
+    const initialPingJitter = Math.floor(Math.random() * 8000);
+    setTimeout(() => {
+      if (!examFinished && !timeExpiredHandled) ping();
+      pingInterval = setInterval(() => {
+        if (!examFinished && !timeExpiredHandled) ping();
+      }, 30000);
+    }, initialPingJitter);
 
     // ============================================
-    // TIMER SYNC WITH SERVER
+    // TIMER SYNC WITH SERVER (SECONDARY SAFETY NET)
     // ============================================
-    // Sync timer with server every 60 seconds to prevent desync
+    // Primary sync is now piggybacked in ping() every 30s.
+    // This standalone endpoint serves only as a gentle 5-minute fallback.
     let timerSyncInterval = setInterval(() => {
-      if (timeExpiredHandled) {
+      if (timeExpiredHandled || examFinished) {
         clearInterval(timerSyncInterval);
         return;
       }
@@ -3470,9 +3519,9 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
           }
         })
         .catch(err => {
-          console.warn('[TIMER SYNC] Failed:', err);
+          console.warn('[TIMER SYNC] Fallback sync skipped:', err);
         });
-    }, 60000); // Every 60 seconds
+    }, 300000); // Gentle 5-minute fallback (300 seconds)
 
     // Panel Rendering
     const renderPanel = () => {
@@ -3747,7 +3796,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                   throw errObj;
                 }
                 // Hapus antrean offline lokal setelah submit sukses
-                localStorage.removeItem(OFFLINE_QUEUE_KEY);
+                safeStore.removeItem(OFFLINE_QUEUE_KEY);
                 if (res.redirect) return res.redirect;
                 return '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>';
               })
@@ -3927,9 +3976,9 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
     function chr(c) { return String.fromCharCode(c); }
 
-    // Restore ragu-ragu dari localStorage
+    // Restore ragu-ragu dari storage
     const doubtfulKey = `cbt_doubtful_${TEST_ID}`;
-    const doubtfulList = JSON.parse(localStorage.getItem(doubtfulKey) || '[]');
+    const doubtfulList = JSON.parse(safeStore.getItem(doubtfulKey, '[]'));
     items.forEach(item => {
       const qid = item.dataset.qid;
       if (doubtfulList.includes(qid)) {

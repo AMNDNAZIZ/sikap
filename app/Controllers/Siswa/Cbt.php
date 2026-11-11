@@ -231,6 +231,12 @@ class Cbt extends BaseController
             return $this->failUnauthorized('Sesi tidak valid.');
         }
 
+        // 🚀 SHARED HOSTING OPTIMIZATION: Release session lock immediately!
+        // Prevents database/file session locks from blocking concurrent requests.
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
         // Parse JSON body first; fallback to POST if needed
         $payload = $this->request->getJSON(true);
         if (!$payload) {
@@ -442,6 +448,11 @@ class Cbt extends BaseController
             return $this->failUnauthorized('Sesi tidak valid.');
         }
 
+        // 🚀 SHARED HOSTING OPTIMIZATION: Release session lock immediately!
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
         $json = $this->request->getJSON(true) ?? [];
         $testId = $json['test_id'] ?? null;
 
@@ -503,6 +514,11 @@ class Cbt extends BaseController
                 return $this->respond(['status' => 'unauthenticated']);
             }
 
+            // 🚀 SHARED HOSTING OPTIMIZATION: Release session lock immediately!
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
+
             $json = $this->request->getJSON(true) ?? [];
             $testId = $this->request->getPost('test_id') ?? $json['test_id'] ?? null;
             $event = $this->request->getPost('event') ?? $json['event'] ?? null;
@@ -556,9 +572,23 @@ class Cbt extends BaseController
                 // Enforce limits and get current status
                 $cheatStatus = $this->sessionService->checkAndEnforceCheatLimit($studentId, (int) $testId, $antiCheat);
 
+                // 🚀 PIGGYBACK TIMER SYNC: calculate remaining seconds
+                $remainingSeconds = null;
+                if (!empty($session['started_at']) && !empty($test['duration'])) {
+                    $startTs = (int) $session['started_at'];
+                    $durationSec = max(10, ((int) $test['duration']) * 60);
+                    $extraDuration = ((int) ($session['extra_time'] ?? 0)) * 60;
+                    $sessionEndTs = $startTs + $durationSec + $extraDuration;
+                    $testEndTs = !empty($test['end_time']) ? strtotime($test['end_time']) : 2147483647;
+                    $effectiveEndTs = min($sessionEndTs, $testEndTs);
+                    $remainingSeconds = max(0, $effectiveEndTs - time());
+                }
+
                 return $this->respond(array_merge([
                     'status' => $cheatStatus['is_locked'] ? 'finished' : 'ok',
-                    'is_locked' => $cheatStatus['is_locked']
+                    'is_locked' => $cheatStatus['is_locked'],
+                    'remaining_seconds' => $remainingSeconds,
+                    'server_time' => time()
                 ], $cheatStatus));
             }
 
@@ -703,6 +733,11 @@ class Cbt extends BaseController
         if (!$studentId || !$testId || !$questionId) {
             log_message('error', "[CBT::saveAnswer] MISSING DATA: studentId=" . var_export($studentId, true) . ", testId=" . var_export($testId, true) . ", qid=" . var_export($questionId, true));
             return $this->response->setStatusCode(400)->setJSON(['error' => 'Data tidak lengkap']);
+        }
+
+        // 🚀 SHARED HOSTING OPTIMIZATION: Release session lock immediately!
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
         }
 
         // Validate session
@@ -2388,11 +2423,42 @@ class Cbt extends BaseController
             return ['questions' => $questions];
         }
 
-        // 🚀 OPTIMIZATION: Use cache for questions to avoid repeated parsing
-        $cacheKey = 'cbt_questions_' . md5(json_encode($questionOrder));
-        $qRows = cache()->remember($cacheKey, 300, function () use ($questionOrder) {
-            return $this->questionModel->whereIn('id', $questionOrder)->findAll();
+        // 🚀 OPTIMIZATION: Cache entire question bank rows by bank_id so ALL students get 100% cache hit!
+        $bankId = (int) ($test['bank_id'] ?? 0);
+        $bankCacheKey = 'cbt_bank_qrows_' . $bankId;
+        $bankRows = cache()->remember($bankCacheKey, 600, function () use ($bankId) {
+            return $this->questionModel->where('bank_id', $bankId)->findAll();
         });
+
+        // Build question map O(1)
+        $qMap = [];
+        if (!empty($bankRows)) {
+            foreach ($bankRows as $q) {
+                $qMap[$q['id']] = $q;
+            }
+        }
+
+        // If any question in order is outside this bank, fetch remaining
+        $missingFromBank = [];
+        foreach ($questionOrder as $qid) {
+            if (!isset($qMap[$qid])) {
+                $missingFromBank[] = $qid;
+            }
+        }
+        if (!empty($missingFromBank)) {
+            $extraRows = $this->questionModel->whereIn('id', $missingFromBank)->findAll();
+            foreach ($extraRows as $q) {
+                $qMap[$q['id']] = $q;
+            }
+        }
+
+        // Calculate available count for this student
+        $availableCount = 0;
+        foreach ($questionOrder as $qid) {
+            if (isset($qMap[$qid])) {
+                $availableCount++;
+            }
+        }
 
         // Self-healing: Check for stale session data
         $showPg = (int) ($test['show_pg_count'] ?? 0);
@@ -2401,10 +2467,10 @@ class Cbt extends BaseController
         $showEsai = (int) ($test['show_esai_count'] ?? 0);
         $expectedTotal = $showPg + $showPgk + $showBs + $showEsai;
 
-        $missingIds = count($questionOrder) - count($qRows);
+        $missingIdsCount = count($questionOrder) - $availableCount;
         $countMismatch = count($questionOrder) !== $expectedTotal;
 
-        if (($missingIds > 0 && count($qRows) < $expectedTotal) || ($countMismatch && $expectedTotal > 0)) {
+        if (($missingIdsCount > 0 && $availableCount < $expectedTotal) || ($countMismatch && $expectedTotal > 0)) {
             log_message('info', "[CBT::mulai] Self-healing triggered for student {$studentId}, test {$testId}");
 
             $this->clearStudentAnswers($studentId, $testId);
@@ -2416,15 +2482,13 @@ class Cbt extends BaseController
             ]);
 
             // Clear cache and refetch
-            cache()->delete($cacheKey);
-            $qRows = $this->questionModel->whereIn('id', $questionOrder)->findAll();
+            cache()->delete($bankCacheKey);
+            $bankRows = $this->questionModel->where('bank_id', $bankId)->findAll();
+            $qMap = [];
+            foreach ($bankRows as $q) {
+                $qMap[$q['id']] = $q;
+            }
             $optionOrders = [];
-        }
-
-        // Build question map
-        $qMap = [];
-        foreach ($qRows as $q) {
-            $qMap[$q['id']] = $q;
         }
 
         // Process questions
