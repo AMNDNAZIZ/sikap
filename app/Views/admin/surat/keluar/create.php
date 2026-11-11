@@ -97,10 +97,37 @@
   </div>
 </div>
 
+<?php if (session()->getFlashdata('error')): ?>
+  <div class="alert alert-danger alert-dismissible fade show rounded-3 shadow-xs d-flex align-items-center gap-2 mb-4" role="alert">
+    <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
+    <div class="flex-grow-1 small"><?= session()->getFlashdata('error') ?></div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+<?php endif; ?>
+
+<?php if (session()->getFlashdata('warning')): ?>
+  <div class="alert alert-warning alert-dismissible fade show rounded-3 shadow-xs d-flex align-items-center gap-2 mb-4" role="alert">
+    <i class="bi bi-exclamation-circle-fill text-warning fs-5"></i>
+    <div class="flex-grow-1 small"><?= session()->getFlashdata('warning') ?></div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+<?php endif; ?>
+
+<?php if (session()->getFlashdata('success')): ?>
+  <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-xs d-flex align-items-center gap-2 mb-4" role="alert">
+    <i class="bi bi-check-circle-fill text-success fs-5"></i>
+    <div class="flex-grow-1 small"><?= session()->getFlashdata('success') ?></div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+<?php endif; ?>
+
 <?php if (session()->getFlashdata('errors') || isset($errors)): ?>
-  <div class="alert alert-danger alert-dismissible fade show">
-    <strong>Terdapat kesalahan:</strong>
-    <ul class="mb-0 mt-1">
+  <div class="alert alert-danger alert-dismissible fade show rounded-3 shadow-xs mb-4" role="alert">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <i class="bi bi-exclamation-octagon-fill text-danger fs-5"></i>
+      <strong class="small text-danger">Terdapat kesalahan validasi input:</strong>
+    </div>
+    <ul class="mb-0 small ps-3">
       <?php foreach ((session()->getFlashdata('errors') ?? $errors ?? []) as $err): ?>
         <li><?= esc($err) ?></li>
       <?php endforeach; ?>
@@ -2038,25 +2065,98 @@ $(document).on('click', '.placeholder-btn', function(e) {
   }
 });
 
-// Sebelum submit form, sinkronisasi konten CKEditor ke hidden input & validasi recipient
+// Sebelum submit form, sinkronisasi konten & validasi menyeluruh agar form selalu valid
 $('#form-surat-keluar').on('submit', function(e) {
+  if (!selectedType) {
+    alert('Silakan pilih salah satu Format / Jenis Surat terlebih dahulu pada bagian 1.');
+    e.preventDefault();
+    return false;
+  }
+
+  // Pastikan Tanggal Surat terisi
+  if (!$('#issued_at').val()) {
+    const today = new Date().toISOString().split('T')[0];
+    $('#issued_at').val(today);
+  }
+
+  // Pastikan Perihal minimal 5 karakter
+  const subj = ($('#subject').val() || '').trim();
+  if (subj.length < 5) {
+    const defaultSubj = (LETTER_TYPES && LETTER_TYPES[selectedType]) ? LETTER_TYPES[selectedType] : 'Surat Dinas Keluar';
+    $('#subject').val(defaultSubj);
+  }
+
+  // Sinkronisasi nama penerima sesuai jenis surat
+  let rName = ($('#recipient_name').val() || '').trim();
+
   if (selectedType === 'undangan') {
     updateUndanganRecipient();
-    const rName = ($('#recipient_name').val() || '').trim();
+    rName = ($('#recipient_name').val() || '').trim();
     if (rName.length < 3) {
       alert('Nama penerima surat undangan wajib ditentukan / diisi.');
       e.preventDefault();
       return false;
     }
-  }
-  if (selectedType === 'surat_custom' && editorInstance) {
-    const bodyData = editorInstance.getData();
-    $('#body_html_hidden').val(bodyData);
-    if (!bodyData.trim()) {
-      alert('Isi surat (body) wajib diisi untuk Surat Custom!');
+  } else if (selectedType === 'keterangan_lomba') {
+    if (!rName) {
+      $('#recipient_name').val('Daftar Terlampir');
+      rName = 'Daftar Terlampir';
+    }
+  } else if (RECIPIENT_MAP[selectedType] === 'siswa') {
+    if (!rName) {
+      const siswaVal = ($('#recipient_search_siswa').val() || '').trim();
+      if (siswaVal) {
+        $('#recipient_name').val(siswaVal);
+        rName = siswaVal;
+      }
+    }
+    if (rName.length < 2) {
+      alert('Silakan cari dan pilih nama Siswa penerima surat.');
+      $('#recipient_search_siswa').focus();
       e.preventDefault();
       return false;
     }
+  } else if (RECIPIENT_MAP[selectedType] === 'guru') {
+    if (!rName) {
+      const guruVal = ($('#recipient_search_guru').val() || '').trim();
+      if (guruVal) {
+        $('#recipient_name').val(guruVal);
+        rName = guruVal;
+      }
+    }
+    if (rName.length < 2) {
+      alert('Silakan cari dan pilih nama Guru / Pegawai penerima surat.');
+      $('#recipient_search_guru').focus();
+      e.preventDefault();
+      return false;
+    }
+  } else if (selectedType === 'surat_custom') {
+    const customType = $('#custom_recipient_type').val();
+    if (customType === 'eksternal') {
+      syncEksternalRecipientName();
+    } else if (customType === 'multi_guru') {
+      syncMultiGuruRecipientName();
+    } else if (customType === 'multi_siswa') {
+      syncMultiSiswaRecipientName();
+    }
+    rName = ($('#recipient_name').val() || '').trim();
+
+    if (editorInstance) {
+      const bodyData = editorInstance.getData();
+      $('#body_html_hidden').val(bodyData);
+      if (!bodyData.trim()) {
+        alert('Isi surat (body) wajib diisi untuk Surat Custom!');
+        e.preventDefault();
+        return false;
+      }
+    }
+  }
+
+  // Fallback terakhir: jika recipient_name masih kosong, jangan kirim kosong
+  if (!rName || rName.length < 2) {
+    alert('Nama penerima surat wajib diisi / dipilih.');
+    e.preventDefault();
+    return false;
   }
 });
 

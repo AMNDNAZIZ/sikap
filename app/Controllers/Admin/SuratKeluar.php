@@ -150,34 +150,73 @@ class SuratKeluar extends BaseController
         $school   = (new SchoolModel())->first();
         $settings = new SettingsModel();
 
-        // Robust fallback untuk nama penerima jika kosong pada surat undangan
+        // ── 1. Robust Fallback untuk Nama Penerima & Data Input ─────────────────
         $recipientName = trim((string)($this->request->getPost('recipient_name') ?? ''));
-        if ($letterType === 'undangan' && empty($recipientName)) {
-            $undanganMode = $this->request->getPost('undangan_recipient_mode') ?? 'all';
-            $schoolName   = $school['name'] ?? 'Sekolah';
-            if ($undanganMode === 'all') {
-                $recipientName = 'Guru & Tenaga Kependidikan ' . $schoolName;
-            } elseif ($undanganMode === 'wali_murid') {
-                $kelas = $this->request->getPost('undangan_wali_class') ?? 'semua';
-                $recipientName = ($kelas === 'semua')
-                    ? 'Orang Tua / Wali Murid ' . $schoolName
-                    : 'Orang Tua / Wali Murid Kelas ' . $kelas . ' ' . $schoolName;
-            } elseif (!empty($this->request->getPost('undangan_search_guru'))) {
-                $recipientName = trim((string)$this->request->getPost('undangan_search_guru'));
-            } elseif (!empty($this->request->getPost('undangan_search_pegawai'))) {
-                $recipientName = trim((string)$this->request->getPost('undangan_search_pegawai'));
-            }
-            if (!empty($recipientName)) {
-                $_POST['recipient_name'] = $recipientName;
+        $schoolName    = $school['name'] ?? 'Sekolah';
+
+        if (empty($recipientName)) {
+            if ($letterType === 'undangan') {
+                $undanganMode = $this->request->getPost('undangan_recipient_mode') ?? 'all';
+                if ($undanganMode === 'all') {
+                    $recipientName = 'Guru & Tenaga Kependidikan ' . $schoolName;
+                } elseif ($undanganMode === 'wali_murid') {
+                    $kelas = $this->request->getPost('undangan_wali_class') ?? 'semua';
+                    $recipientName = ($kelas === 'semua')
+                        ? 'Orang Tua / Wali Murid ' . $schoolName
+                        : 'Orang Tua / Wali Murid Kelas ' . $kelas . ' ' . $schoolName;
+                } elseif (!empty($this->request->getPost('undangan_search_guru'))) {
+                    $recipientName = trim((string)$this->request->getPost('undangan_search_guru'));
+                } elseif (!empty($this->request->getPost('undangan_search_pegawai'))) {
+                    $recipientName = trim((string)$this->request->getPost('undangan_search_pegawai'));
+                }
+            } elseif ($letterType === 'keterangan_lomba') {
+                $recipientName = 'Daftar Terlampir';
+            } elseif (in_array($letterType, ['keterangan_aktif', 'keterangan_mutasi_masuk', 'keterangan_kjp'])) {
+                // Coba cari dari ref siswa atau nama siswa yang diketik
+                $sSearch = trim((string)($this->request->getPost('recipient_search_siswa') ?? ''));
+                if (!empty($sSearch)) {
+                    $recipientName = $sSearch;
+                } elseif (!empty($this->request->getPost('recipient_ref_id'))) {
+                    $st = (new StudentModel())->find($this->request->getPost('recipient_ref_id'));
+                    if ($st && !empty($st['name'])) {
+                        $recipientName = $st['name'];
+                    }
+                }
+            } elseif (in_array($letterType, ['keterangan_mengajar', 'surat_tugas'])) {
+                $gSearch = trim((string)($this->request->getPost('recipient_search_guru') ?? ''));
+                if (!empty($gSearch)) {
+                    $recipientName = $gSearch;
+                } elseif (!empty($this->request->getPost('recipient_ref_id'))) {
+                    $tc = (new TeacherModel())->find($this->request->getPost('recipient_ref_id'));
+                    if ($tc && !empty($tc['name'])) {
+                        $recipientName = $tc['name'];
+                    }
+                }
+            } elseif ($letterType === 'surat_custom') {
+                $ekst = trim((string)($this->request->getPost('recipient_name_eksternal') ?? ''));
+                if (!empty($ekst)) {
+                    $recipientName = $ekst;
+                }
             }
         }
 
-        // Validasi dasar
+        // Siapkan dataset lengkap yang akan divalidasi
+        $postData = (array) $this->request->getPost();
+        $postData['recipient_name'] = $recipientName;
+
+        if (empty($postData['subject'])) {
+            $postData['subject'] = self::LETTER_TYPES[$letterType] ?? 'Surat Dinas Keluar';
+        }
+        if (empty($postData['issued_at'])) {
+            $postData['issued_at'] = date('Y-m-d');
+        }
+
+        // ── 2. Validasi Input ──────────────────────────────────────────────────
         $rules = [
             'letter_type'    => 'required|in_list[' . implode(',', array_keys(self::LETTER_TYPES)) . ']',
             'subject'        => 'required|min_length[5]',
             'issued_at'      => 'required|valid_date',
-            'recipient_name' => 'required|min_length[3]',
+            'recipient_name' => 'required|min_length[2]',
         ];
 
         if ($letterType === 'surat_custom') {
@@ -185,8 +224,11 @@ class SuratKeluar extends BaseController
             $rules['header_style'] = 'required|in_list[tengah,kiri_kanan]';
         }
 
-        if (! $this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        if (! $this->validateData($postData, $rules)) {
+            $validationErrors = $this->validator->getErrors();
+            log_message('warning', '[SuratKeluar::store] Validation failed: ' . json_encode($validationErrors));
+            $summaryMsg = 'Validasi gagal: ' . implode(', ', $validationErrors);
+            return redirect()->back()->withInput()->with('errors', $validationErrors)->with('error', $summaryMsg);
         }
 
         // Robust principal name & NIP fallback
@@ -288,10 +330,18 @@ class SuratKeluar extends BaseController
             'created_by'              => $userId,
         ];
 
-        $letterId = $this->model->insert($insertData);
+        try {
+            $letterId = $this->model->insert($insertData);
+        } catch (\Throwable $e) {
+            log_message('error', '[SuratKeluar::store] Exception on insert: ' . $e->getMessage() . ' | ' . $e->getTraceAsString());
+            return redirect()->back()->withInput()->with('error', 'Gagal menyimpan surat ke database: ' . $e->getMessage());
+        }
 
         if (! $letterId) {
-            return redirect()->back()->withInput()->with('error', 'Gagal menyimpan surat. Silakan coba lagi.');
+            $dbErr  = $this->model->db->error();
+            $errMsg = !empty($dbErr['message']) ? $dbErr['message'] : 'Gagal menyimpan surat ke database. Silakan coba lagi.';
+            log_message('error', '[SuratKeluar::store] Insert returned false: ' . $errMsg);
+            return redirect()->back()->withInput()->with('error', $errMsg);
         }
 
         // Generate PDF

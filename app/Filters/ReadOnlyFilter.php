@@ -26,12 +26,15 @@ class ReadOnlyFilter implements FilterInterface
                 $uri = $request->getUri()->getPath();
 
                 // Allowed paths for Principal to write
-                // Kepsek boleh write di: Agenda Kelas, Pengumuman, Obrolan Kelas, Obrolan Staff
+                // Kepsek boleh write di: Agenda Kelas, Pengumuman, Obrolan Kelas, Obrolan Staff, Persuratan
                 $allowedPaths = [
                     'admin/agendas',
                     'admin/announcements',
                     'admin/chat',
                     'admin/staff-chat',
+                    'admin/surat-keluar',
+                    'admin/surat-masuk',
+                    'admin/settings/nomor-surat',
                 ];
 
                 $isAllowed = false;
