@@ -150,7 +150,6 @@ class Belajar extends BaseController
                     ->where('smp.is_active',  1)
                     ->where('(smp.scheduled_at IS NULL OR smp.scheduled_at <= NOW())')
                     ->where('sm.subject_id',  $sid)
-                    ->where('sm.year_id',     $yearId)
                     ->where('sm.is_published', 1)
                     ->get()->getResultArray(),
                 'material_id'
@@ -222,7 +221,6 @@ class Belajar extends BaseController
                 ->where('smp.is_active',   1)
                 ->where('(smp.scheduled_at IS NULL OR smp.scheduled_at <= NOW())')
                 ->where('sm.subject_id',   $subjectId)
-                ->where('sm.year_id',      $yearId)
                 ->where('sm.is_published', 1)
                 ->get()->getResultArray(),
             'material_id'
@@ -391,8 +389,12 @@ class Belajar extends BaseController
         $nextSub    = ($currentIdx !== false && $currentIdx < count($siblings) - 1)
                         ? $siblings[$currentIdx + 1] : null;
 
-        // ── DISKUSI — thread shared (class_id IS NULL) ────────────────────
-        $thread    = $this->mat->getForumThread($subMatId);
+        // ── DISKUSI — thread shared per tahun ajaran aktif (fresh tanpa komentar lama) ──
+        $thread = $this->mat->getForumThread($subMatId, $yearId);
+        if (!$thread) {
+            $creatorId = (int)($subMat['created_by'] ?? ($this->userId() ?: 1));
+            $thread    = $this->mat->ensureForumThread($subMatId, $creatorId, $yearId);
+        }
         $replyTree = [];
         $threadId  = null;
 

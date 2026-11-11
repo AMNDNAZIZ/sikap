@@ -46,6 +46,10 @@
 </div>
 
 <?php if ($selected_subject): ?>
+    <?php 
+    $userRoleId = (int)(session()->get('user')['role_id'] ?? 0);
+    $canManageMapping = in_array($userRoleId, [1, 2]);
+    ?>
     <?php if ($subject_not_mapped): ?>
         <div class="alert alert-warning border-left-warning shadow">
             <div class="d-flex align-items-start">
@@ -59,13 +63,19 @@
                     <hr>
                     <p class="mb-0">
                         <i class="bi bi-info-circle me-1"></i>
-                        Silakan lakukan <strong>Pemetaan Pembelajaran/Mapping Kurikulum</strong> terlebih dahulu.
+                        <?php if ($canManageMapping): ?>
+                            Silakan lakukan <strong>Pemetaan Pembelajaran/Mapping Kurikulum</strong> terlebih dahulu.
+                        <?php else: ?>
+                            Silakan hubungi <strong>Administrator atau Bagian Kurikulum</strong> untuk melakukan pemetaan mata pelajaran ini ke Mapel Master (CP).
+                        <?php endif; ?>
                     </p>
+                    <?php if ($canManageMapping): ?>
                     <div class="mt-3">
                         <a href="<?= base_url('admin/administrasi-guru/mapping') ?>" class="btn btn-warning">
                             <i class="bi bi-link-45deg me-1"></i> Ke Halaman Mapping
                         </a>
                     </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -83,13 +93,19 @@
                     <hr>
                     <p class="mb-0">
                         <i class="bi bi-info-circle me-1"></i>
-                        Silakan lakukan <strong>Pemetaan Ulang</strong> sesuai level sekolah saat ini.
+                        <?php if ($canManageMapping): ?>
+                            Silakan lakukan <strong>Pemetaan Ulang</strong> sesuai level sekolah saat ini.
+                        <?php else: ?>
+                            Silakan hubungi <strong>Administrator atau Bagian Kurikulum</strong> untuk memperbarui pemetaan kurikulum mata pelajaran ini sesuai jenjang sekolah.
+                        <?php endif; ?>
                     </p>
+                    <?php if ($canManageMapping): ?>
                     <div class="mt-3">
                         <a href="<?= base_url('admin/administrasi-guru/mapping') ?>" class="btn btn-danger">
                             <i class="bi bi-arrow-repeat me-1"></i> Pemetaan Ulang
                         </a>
                     </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

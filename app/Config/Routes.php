@@ -271,16 +271,16 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('teachingassignments/bulk-delete', 'TeachingAssignments::bulkDelete', $auth127);
 
     // 5.8 Administrasi Guru (Kurikulum Merdeka)
-    $routes->group('administrasi-guru', $auth123, function ($routes) use ($auth123) {
+    $routes->group('administrasi-guru', $auth123, function ($routes) use ($auth123, $auth12, $auth1) {
         $routes->get('/', 'AdministrasiGuru::index');
-        $routes->get('monitoring', 'AdministrasiGuru::monitoring');
-        $routes->get('mapping', 'AdministrasiGuru::mapping', $auth123);
-        $routes->post('mapping/update', 'AdministrasiGuru::updateMapping', $auth123);
+        $routes->get('monitoring', 'AdministrasiGuru::monitoring', $auth12);
+        $routes->get('mapping', 'AdministrasiGuru::mapping', $auth12);
+        $routes->post('mapping/update', 'AdministrasiGuru::updateMapping', $auth1);
         
         // CP Master CRUD
-        $routes->get('cp-master', 'AdministrasiGuru::cpMasterIndex', $auth123);
-        $routes->post('cp-master/store', 'AdministrasiGuru::cpMasterStore', $auth123);
-        $routes->get('cp-master/delete/(:num)', 'AdministrasiGuru::cpMasterDelete/$1', $auth123);
+        $routes->get('cp-master', 'AdministrasiGuru::cpMasterIndex', $auth12);
+        $routes->post('cp-master/store', 'AdministrasiGuru::cpMasterStore', $auth1);
+        $routes->get('cp-master/delete/(:num)', 'AdministrasiGuru::cpMasterDelete/$1', $auth1);
 
         $routes->get('cp', 'AdministrasiGuru::cp');
         $routes->get('tp', 'AdministrasiGuru::tp');

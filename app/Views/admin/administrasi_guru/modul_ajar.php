@@ -103,12 +103,20 @@
 </div>
 
 <?php if ($selected_subject && $selected_class): ?>
+    <?php 
+    $userRoleId = (int)(session()->get('user')['role_id'] ?? 0);
+    $canManageMapping = in_array($userRoleId, [1, 2]);
+    ?>
     <?php if ($subject_not_mapped): ?>
         <div class="alert alert-warning alert-dismissible fade show" role="alert">
             <i class="bi bi-exclamation-triangle-fill me-2"></i>
             <strong>Perhatian!</strong> Mata pelajaran <strong><?= esc($subject_name) ?></strong> belum di-mapping ke Mapel Master.
             <br>
-            Silakan mapping mata pelajaran ini terlebih dahulu di menu <a href="<?= base_url('admin/subjects') ?>" class="alert-link">Mata Pelajaran</a>.
+            <?php if ($canManageMapping): ?>
+                Silakan mapping mata pelajaran ini terlebih dahulu di menu <a href="<?= base_url('admin/administrasi-guru/mapping') ?>" class="alert-link">Mapping Kurikulum</a>.
+            <?php else: ?>
+                Silakan hubungi Administrator atau Bagian Kurikulum untuk melakukan pemetaan mata pelajaran ini ke Mapel Master (CP).
+            <?php endif; ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php elseif ($mapping_mismatch): ?>
@@ -117,7 +125,11 @@
             <strong>Kesalahan Mapping!</strong> Mata pelajaran <strong><?= esc($subject_name) ?></strong> di-mapping ke Mapel Master untuk jenjang <strong><?= esc($old_jenjang) ?></strong>, 
             tetapi sekolah Anda adalah <strong><?= esc($current_jenjang) ?></strong>.
             <br>
-            Silakan perbaiki mapping di menu <a href="<?= base_url('admin/subjects') ?>" class="alert-link">Mata Pelajaran</a> atau hubungi administrator.
+            <?php if ($canManageMapping): ?>
+                Silakan perbaiki mapping di menu <a href="<?= base_url('admin/administrasi-guru/mapping') ?>" class="alert-link">Mapping Kurikulum</a>.
+            <?php else: ?>
+                Silakan hubungi Administrator atau Bagian Kurikulum untuk memperbarui pemetaan kurikulum mata pelajaran ini sesuai jenjang sekolah.
+            <?php endif; ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php else: ?>

@@ -176,7 +176,6 @@ class Materials extends BaseController
     {
         $base = $this->db->table('subject_materials')
             ->where('subject_id', $subjectId)
-            ->where('year_id',    $yearId)
             ->where('parent_id IS NOT NULL');
 
         if ($levels !== null) {
@@ -229,18 +228,38 @@ class Materials extends BaseController
         // Ini memastikan materi induk selalu sesuai ATP terbaru
         $this->_doSyncFromAtp($subjectId, $yearId);
 
-        $hierarchy  = $this->mat->getAllWithHierarchy($subjectId, $yearId, $levels);
+        // Ambil hierarki materi (evergreen: seluruh materi mapel & level tersedia lintas tahun)
+        $hierarchy = $this->mat->getAllWithHierarchy($subjectId, null, $levels);
 
-        // Progress summary (hanya sub materi)
+        // Progress summary (khusus siswa aktif pada tahun ajaran ini)
+        $activeStudentIds = array_column(
+            $this->db->table('student_records')
+                ->select('student_id')
+                ->where('academic_year_id', $yearId)
+                ->where('status', 'aktif')
+                ->get()->getResultArray(),
+            'student_id'
+        );
+
         $progSummary = [];
         foreach ($hierarchy as $parent) {
             foreach (($parent['children'] ?? []) as $child) {
-                $progSummary[$child['id']] = [
-                    'completed'   => $this->db->table('material_progress')
-                        ->where('material_id', $child['id'])->where('status', 'completed')->countAllResults(),
-                    'in_progress' => $this->db->table('material_progress')
-                        ->where('material_id', $child['id'])->where('status', 'in_progress')->countAllResults(),
-                ];
+                if (empty($activeStudentIds)) {
+                    $progSummary[$child['id']] = ['completed' => 0, 'in_progress' => 0];
+                } else {
+                    $progSummary[$child['id']] = [
+                        'completed'   => $this->db->table('material_progress')
+                            ->where('material_id', $child['id'])
+                            ->whereIn('student_id', $activeStudentIds)
+                            ->where('status', 'completed')
+                            ->countAllResults(),
+                        'in_progress' => $this->db->table('material_progress')
+                            ->where('material_id', $child['id'])
+                            ->whereIn('student_id', $activeStudentIds)
+                            ->where('status', 'in_progress')
+                            ->countAllResults(),
+                    ];
+                }
             }
         }
 
@@ -316,11 +335,10 @@ class Materials extends BaseController
             }
         }
 
-        // Ambil materi induk yang sudah ada untuk mapel+tahun ini
+        // Ambil materi induk yang sudah ada untuk mapel ini (lintas tahun ajaran)
         $existing = $this->db->table('subject_materials')
             ->select('LOWER(TRIM(title)) as title_lower, level, semester')
             ->where('subject_id', $subjectId)
-            ->where('year_id',    $yearId)
             ->where('parent_id IS NULL')
             ->get()->getResultArray();
 
@@ -401,8 +419,12 @@ class Materials extends BaseController
         $nextSub    = ($currentIdx !== false && $currentIdx < count($siblings) - 1)
                         ? $siblings[$currentIdx + 1] : null;
 
-        // ── DISKUSI ──────────────────────────────────────────
-        $thread    = $this->mat->getForumThread($subMatId);
+        // ── DISKUSI (Isolasi per Tahun Ajaran — Fresh) ───────
+        $yearId = (int)($year['id'] ?? 0);
+        $thread = $this->mat->getForumThread($subMatId, $yearId);
+        if (!$thread) {
+            $thread = $this->mat->ensureForumThread($subMatId, $this->userId(), $yearId);
+        }
         $replyTree = [];
         $threadId  = null;
         $userId    = $this->userId();
@@ -421,13 +443,34 @@ class Materials extends BaseController
             );
         }
 
-        // ── PROGRESS SINGKAT (jumlah siswa selesai) ──────────
+        // ── PROGRESS SINGKAT (khusus siswa aktif di tahun ajaran ini) ──
+        $activeStudentIds = array_column(
+            $this->db->table('student_records')
+                ->select('student_id')
+                ->where('academic_year_id', $yearId)
+                ->where('status', 'aktif')
+                ->get()->getResultArray(),
+            'student_id'
+        );
+
         $progStats = [
-            'completed'   => $this->db->table('material_progress')
-                ->where('material_id', $subMatId)->where('status', 'completed')->countAllResults(),
-            'in_progress' => $this->db->table('material_progress')
-                ->where('material_id', $subMatId)->where('status', 'in_progress')->countAllResults(),
+            'completed'   => 0,
+            'in_progress' => 0,
         ];
+
+        if (!empty($activeStudentIds)) {
+            $progStats['completed'] = $this->db->table('material_progress')
+                ->where('material_id', $subMatId)
+                ->whereIn('student_id', $activeStudentIds)
+                ->where('status', 'completed')
+                ->countAllResults();
+
+            $progStats['in_progress'] = $this->db->table('material_progress')
+                ->where('material_id', $subMatId)
+                ->whereIn('student_id', $activeStudentIds)
+                ->where('status', 'in_progress')
+                ->countAllResults();
+        }
 
         // ── KUIS TERKAIT — kuis mandiri yang dikaitkan ke sub materi ini ──
         $relatedQuizzes = $this->db->table('quiz_configs qc')

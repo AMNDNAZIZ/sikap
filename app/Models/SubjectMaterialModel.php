@@ -22,35 +22,79 @@ class SubjectMaterialModel extends Model
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * Semua Materi induk (parent_id IS NULL) per mapel + level + tahun ajaran.
-     * Dipakai admin saat membuat sub materi.
+     * Semua Materi induk (parent_id IS NULL) per mapel + level.
+     * Dipakai saat membuat sub materi (evergreen bank materi).
      */
-    public function getParentsBySubjectLevel(int $subjectId, int $level, int $yearId): array
+    public function getParentsBySubjectLevel(int $subjectId, int $level, ?int $yearId = null): array
     {
-        return $this->where('subject_id', $subjectId)
-            ->where('year_id',     $yearId)
-            ->where('level',       $level)
-            ->where('parent_id IS NULL')
-            ->orderBy('semester',   'ASC')
+        $builder = $this->where('subject_id', $subjectId)
+            ->where('parent_id IS NULL');
+
+        if ($level > 0) {
+            $builder->groupStart()
+                ->where('level', $level)
+                ->orWhere('level', 0)
+                ->groupEnd();
+        }
+
+        if ($yearId) {
+            $hasYearRows = (clone $builder)->where('year_id', $yearId)->countAllResults(false);
+            if ($hasYearRows > 0) {
+                $builder->where('year_id', $yearId);
+            }
+        }
+
+        $rows = $builder->orderBy('semester',   'ASC')
             ->orderBy('sort_order', 'ASC')
             ->orderBy('id',         'ASC')
             ->findAll();
+
+        $unique = [];
+        $seen   = [];
+        foreach ($rows as $r) {
+            $key = ($r['level'] ?? 0) . '|' . ($r['semester'] ?? 1) . '|' . mb_strtolower(trim($r['title']));
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $unique[]   = $r;
+            }
+        }
+
+        return $unique;
     }
 
     /**
-     * Semua Materi induk per mapel + tahun (tanpa filter level).
-     * Dipakai dropdown pada form sub materi untuk admin.
+     * Semua Materi induk per mapel (tanpa filter level).
+     * Dipakai dropdown pada form sub materi.
      */
-    public function getParentsBySubject(int $subjectId, int $yearId): array
+    public function getParentsBySubject(int $subjectId, ?int $yearId = null): array
     {
-        return $this->where('subject_id', $subjectId)
-            ->where('year_id',     $yearId)
-            ->where('parent_id IS NULL')
-            ->orderBy('level',      'ASC')
+        $builder = $this->where('subject_id', $subjectId)
+            ->where('parent_id IS NULL');
+
+        if ($yearId) {
+            $hasYearRows = (clone $builder)->where('year_id', $yearId)->countAllResults(false);
+            if ($hasYearRows > 0) {
+                $builder->where('year_id', $yearId);
+            }
+        }
+
+        $rows = $builder->orderBy('level',      'ASC')
             ->orderBy('semester',   'ASC')
             ->orderBy('sort_order', 'ASC')
             ->orderBy('id',         'ASC')
             ->findAll();
+
+        $unique = [];
+        $seen   = [];
+        foreach ($rows as $r) {
+            $key = ($r['level'] ?? 0) . '|' . ($r['semester'] ?? 1) . '|' . mb_strtolower(trim($r['title']));
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $unique[]   = $r;
+            }
+        }
+
+        return $unique;
     }
 
     /**
@@ -122,25 +166,46 @@ class SubjectMaterialModel extends Model
 
     /**
      * Bangun hierarki dari daftar flat.
+     * Menggabungkan materi induk yang duplikat (misal dari sync tahun lalu)
+     * sehingga sub-materi dari berbagai angkatan tetap tersusun rapi di bawah materi induk yang sesuai.
+     *
      * Return: [ [ ...materi, 'children' => [...sub] ], ... ]
      */
     public static function buildHierarchy(array $flat): array
     {
-        $parents  = [];
-        $children = [];
+        $parents      = [];
+        $children     = [];
+        $parentKeyMap = [];
 
         foreach ($flat as $item) {
             if (empty($item['parent_id'])) {
-                $parents[$item['id']]             = $item;
-                $parents[$item['id']]['children'] = [];
+                $key = ((int)($item['level'] ?? 0)) . '|' . ($item['semester'] ?? 1) . '|' . mb_strtolower(trim($item['title'] ?? ''));
+                if (isset($parentKeyMap[$key])) {
+                    // Materi induk judul sama sudah tercatat; petakan ID alias ke parent kanonikal
+                    $canonicalPid = $parentKeyMap[$key];
+                    $parentKeyMap['alias_' . $item['id']] = $canonicalPid;
+                } else {
+                    $parentKeyMap[$key] = (int)$item['id'];
+                    $parents[$item['id']] = $item;
+                    $parents[$item['id']]['children'] = [];
+                }
             } else {
                 $children[(int)$item['parent_id']][] = $item;
             }
         }
 
         foreach ($children as $pid => $kids) {
-            if (isset($parents[$pid])) {
-                $parents[$pid]['children'] = $kids;
+            $targetPid = $pid;
+            if (!isset($parents[$targetPid]) && isset($parentKeyMap['alias_' . $pid])) {
+                $targetPid = $parentKeyMap['alias_' . $pid];
+            }
+            if (isset($parents[$targetPid])) {
+                $parents[$targetPid]['children'] = array_merge($parents[$targetPid]['children'], $kids);
+            } else {
+                // Jika parent berada di luar filter atau terpisah, tetap render agar tidak hilang
+                foreach ($kids as $k) {
+                    $parents[$k['id']] = array_merge($k, ['children' => []]);
+                }
             }
         }
 
@@ -435,17 +500,22 @@ class SubjectMaterialModel extends Model
     ): array {
         $db = \Config\Database::connect();
 
-        return $db->table('subject_materials sm')
+        $builder = $db->table('subject_materials sm')
             ->select('sm.*, u.fullname as creator_name, p.title as parent_title')
             ->join('users u',            'u.id = sm.created_by', 'left')
             ->join('subject_materials p','p.id = sm.parent_id',  'left')
             ->where('sm.subject_id',    $subjectId)
-            ->where('sm.year_id',       $yearId)
-            ->where('sm.level',         $level)
             ->where('sm.is_published',  1)
-            ->where('sm.parent_id IS NOT NULL')
-            ->where('sm.created_by !=', $currentUserId)
-            ->orderBy('p.sort_order', 'ASC')
+            ->where('sm.parent_id IS NOT NULL');
+
+        if ($level > 0) {
+            $builder->groupStart()
+                ->where('sm.level', $level)
+                ->orWhere('sm.level', 0)
+                ->groupEnd();
+        }
+
+        return $builder->orderBy('p.sort_order', 'ASC')
             ->orderBy('sm.sort_order', 'ASC')
             ->orderBy('sm.id',         'ASC')
             ->get()->getResultArray();
@@ -477,16 +547,22 @@ class SubjectMaterialModel extends Model
 
     /**
      * Ambil forum thread sistem untuk sub materi (class_id = NULL = shared).
+     * Jika academicYearId diberikan, cari thread khusus tahun ajaran tsb (fresh per tahun).
      */
-    public function getForumThread(int $subMatId): ?array
+    public function getForumThread(int $subMatId, ?int $academicYearId = null): ?array
     {
-        return \Config\Database::connect()
-            ->table('forum_threads')
+        $db = $this->db ?: \Config\Database::connect();
+        $builder = $db->table('forum_threads')
             ->where('related_type', 'material')
             ->where('related_id',   $subMatId)
             ->where('is_system',    1)
-            ->where('class_id IS NULL')   // thread shared, bukan per kelas
-            ->get()->getRowArray() ?: null;
+            ->where('class_id IS NULL');
+
+        if ($academicYearId) {
+            $builder->where('academic_year_id', $academicYearId);
+        }
+
+        return $builder->orderBy('id', 'DESC')->get()->getRowArray() ?: null;
     }
 
     /**
@@ -567,27 +643,32 @@ class SubjectMaterialModel extends Model
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PRIVATE: auto-create forum thread sistem
+    // FORUM THREAD SISTEM (ISOLASI PER TAHUN AJARAN)
     // ═══════════════════════════════════════════════════════════════════════
 
-    private function _ensureForumThread(
+    /**
+     * Pastikan forum thread sistem untuk sub materi dan tahun ajaran tersedia.
+     * Mengisolasi diskusi per tahun ajaran sehingga siswa angkatan baru mendapatkan forum fresh tanpa komentar lama.
+     */
+    public function ensureForumThread(
         int $subMatId,
         int $userId,
         int $academicYearId
-    ): void {
-        $db  = \Config\Database::connect();
+    ): ?array {
+        $db  = $this->db ?: \Config\Database::connect();
         $sub = $this->find($subMatId);
-        if (!$sub) return;
+        if (!$sub) return null;
 
-        // Cek apakah thread shared sudah ada
+        // Cek apakah thread untuk tahun ajaran ini sudah ada
         $existing = $db->table('forum_threads')
-            ->where('related_type', 'material')
-            ->where('related_id',   $subMatId)
-            ->where('is_system',    1)
+            ->where('related_type',     'material')
+            ->where('related_id',       $subMatId)
+            ->where('academic_year_id', $academicYearId)
+            ->where('is_system',        1)
             ->where('class_id IS NULL')
             ->get()->getRowArray();
 
-        if ($existing) return;
+        if ($existing) return $existing;
 
         $now = date('Y-m-d H:i:s');
         $db->table('forum_threads')->insert([
@@ -598,7 +679,7 @@ class SubjectMaterialModel extends Model
             'related_id'       => $subMatId,
             'title'            => $sub['title'],
             'body'             => 'Diskusi untuk sub materi: <strong>' . htmlspecialchars($sub['title']) . '</strong>. '
-                                . 'Thread ini terbuka untuk semua kelas yang mendapat akses materi ini.',
+                                . 'Thread ini terbuka untuk semua kelas yang mendapat akses materi ini pada tahun ajaran ini.',
             'user_id'          => $userId,
             'is_pinned'        => 0,
             'is_locked'        => 0,
@@ -609,6 +690,17 @@ class SubjectMaterialModel extends Model
             'created_at'       => $now,
             'updated_at'       => $now,
         ]);
+
+        $newId = $db->insertID();
+        return $db->table('forum_threads')->where('id', $newId)->get()->getRowArray();
+    }
+
+    private function _ensureForumThread(
+        int $subMatId,
+        int $userId,
+        int $academicYearId
+    ): void {
+        $this->ensureForumThread($subMatId, $userId, $academicYearId);
     }
 
     // ═══════════════════════════════════════════════════════════════════════

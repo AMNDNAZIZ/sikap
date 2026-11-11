@@ -393,10 +393,13 @@ class AdministrasiGuru extends BaseController
 
     public function mapping()
     {
-        // ✅ Check permission - Kepsek can view
+        // ✅ Check permission - Admin & Kepsek only (Kepsek is read-only)
         $user = session()->get('user');
-        $roleId = $user['role_id'] ?? null;
-        $isReadOnly = ($roleId == 2); // Kepsek is read-only
+        $roleId = (int)($user['role_id'] ?? 0);
+        if (!in_array($roleId, [1, 2])) {
+            return redirect()->to(base_url('dashboard'))->with('error', 'Anda tidak memiliki hak akses untuk membuka halaman Mapping Kurikulum.');
+        }
+        $isReadOnly = ($roleId !== 1); // Only Admin (1) can edit; Kepsek (2) is read-only
         
         $data['title'] = 'Mapping Mata Pelajaran';
         $data['isReadOnly'] = $isReadOnly;
@@ -420,10 +423,11 @@ class AdministrasiGuru extends BaseController
 
     public function updateMapping()
     {
-        // ✅ Check permission - Kepsek cannot update
+        // ✅ Check permission - Only Admin can update mapping
         $user = session()->get('user');
-        if (($user['role_id'] ?? null) == 2) {
-            return redirect()->back()->with('error', 'Kepala Sekolah tidak memiliki akses untuk mengubah data.');
+        $roleId = (int)($user['role_id'] ?? 0);
+        if ($roleId !== 1) {
+            return redirect()->to(base_url('dashboard'))->with('error', 'Hanya Administrator yang memiliki akses untuk mengubah data mapping.');
         }
         
         $mappings = $this->request->getPost('mapping');
@@ -669,8 +673,31 @@ class AdministrasiGuru extends BaseController
 
     public function tpStore()
     {
+        $user = session()->get('user');
+        if (($user['role_id'] ?? null) == 2) {
+            return redirect()->back()->with('error', 'Kepala Sekolah tidak memiliki akses untuk menambah/mengubah data.');
+        }
+
+        $subjectId = $this->request->getPost('subject_id');
+        if (empty($subjectId)) {
+            return redirect()->back()->withInput()->with('error', 'Mata pelajaran harus dipilih.');
+        }
+
+        // Validate subject mapping & jenjang
+        $subject = $this->subjectModel->find($subjectId);
+        if (!$subject || empty($subject['mapel_master_id'])) {
+            return redirect()->back()->withInput()->with('error', 'Mata pelajaran belum di-mapping ke Mapel Master (CP). Tujuan Pembelajaran tidak dapat disimpan.');
+        }
+
+        $school = $this->db->table('school_profile')->get()->getRowArray();
+        $schoolLevel = $school['level'] ?? 1;
+        $mapelMaster = $this->mapelMasterModel->find($subject['mapel_master_id']);
+        if (!$mapelMaster || (int)$mapelMaster['jenjang_id'] !== (int)$schoolLevel) {
+            return redirect()->back()->withInput()->with('error', 'Mapping mata pelajaran tidak sesuai dengan jenjang sekolah saat ini.');
+        }
+
         $data = [
-            'subject_id'     => $this->request->getPost('subject_id'),
+            'subject_id'     => $subjectId,
             'cp_master_id'   => $this->request->getPost('cp_master_id'),
             'elemen'         => $this->request->getPost('elemen'),
             'lingkup_materi' => $this->request->getPost('lingkup_materi'),
@@ -694,6 +721,11 @@ class AdministrasiGuru extends BaseController
 
     public function tpDelete($id)
     {
+        $user = session()->get('user');
+        if (($user['role_id'] ?? null) == 2) {
+            return redirect()->back()->with('error', 'Kepala Sekolah tidak memiliki akses untuk menghapus data.');
+        }
+
         $tp = $this->tpModel->find($id);
         if ($tp) {
             $this->tpModel->delete($id);
@@ -903,6 +935,19 @@ class AdministrasiGuru extends BaseController
 
         if (empty($classId) || empty($subjectId)) {
             return redirect()->back()->withInput()->with('error', 'Silakan pilih Kelas dan Mata Pelajaran terlebih dahulu dari filter.');
+        }
+
+        // Validate Subject Mapping & Jenjang
+        $subject = $this->subjectModel->find($subjectId);
+        if (!$subject || empty($subject['mapel_master_id'])) {
+            return redirect()->back()->withInput()->with('error', 'Mata pelajaran belum di-mapping ke Mapel Master (CP). Alur Tujuan Pembelajaran tidak dapat disimpan.');
+        }
+
+        $school = $this->db->table('school_profile')->get()->getRowArray();
+        $schoolLevel = $school['level'] ?? 1;
+        $mapelMaster = $this->mapelMasterModel->find($subject['mapel_master_id']);
+        if (!$mapelMaster || (int)$mapelMaster['jenjang_id'] !== (int)$schoolLevel) {
+            return redirect()->back()->withInput()->with('error', 'Mapping mata pelajaran tidak sesuai dengan jenjang sekolah saat ini. Harap hubungi Administrator untuk pemetaan ulang.');
         }
 
         // Guru Ownership Check
@@ -1154,6 +1199,19 @@ class AdministrasiGuru extends BaseController
             return redirect()->back()->with('error', 'Parameter tidak lengkap.');
         }
 
+        // Validate Subject Mapping & Jenjang
+        $subject = $this->subjectModel->find($subjectId);
+        if (!$subject || empty($subject['mapel_master_id'])) {
+            return redirect()->back()->with('error', 'Mata pelajaran belum di-mapping ke Mapel Master (CP). Tidak dapat menyalin ATP.');
+        }
+
+        $school = $this->db->table('school_profile')->get()->getRowArray();
+        $schoolLevel = $school['level'] ?? 1;
+        $mapelMaster = $this->mapelMasterModel->find($subject['mapel_master_id']);
+        if (!$mapelMaster || (int)$mapelMaster['jenjang_id'] !== (int)$schoolLevel) {
+            return redirect()->back()->with('error', 'Mapping mata pelajaran tidak sesuai dengan jenjang sekolah saat ini.');
+        }
+
         // Hak akses: guru hanya bisa menyalin ke kelasnya sendiri
         if ($user['role_id'] == 3) {
             $isAssigned = $this->db->table('teaching_assignments')
@@ -1254,10 +1312,13 @@ class AdministrasiGuru extends BaseController
 
     public function cpMasterIndex()
     {
-        // ✅ Check permission - Kepsek can view
+        // ✅ Check permission - Admin & Kepsek only (Kepsek is read-only)
         $user = session()->get('user');
-        $roleId = $user['role_id'] ?? null;
-        $isReadOnly = ($roleId == 2); // Kepsek is read-only
+        $roleId = (int)($user['role_id'] ?? 0);
+        if (!in_array($roleId, [1, 2])) {
+            return redirect()->to(base_url('dashboard'))->with('error', 'Anda tidak memiliki hak akses untuk membuka halaman Data Master CP.');
+        }
+        $isReadOnly = ($roleId !== 1); // Only Admin (1) can edit
         
         $data['title'] = 'Data Master CP';
         $data['isReadOnly'] = $isReadOnly;
@@ -1326,10 +1387,11 @@ class AdministrasiGuru extends BaseController
 
     public function cpMasterStore()
     {
-        // ✅ Check permission - Kepsek cannot create/update
+        // ✅ Check permission - Only Admin can create/update
         $user = session()->get('user');
-        if (($user['role_id'] ?? null) == 2) {
-            return redirect()->back()->with('error', 'Kepala Sekolah tidak memiliki akses untuk menambah/mengubah data.');
+        $roleId = (int)($user['role_id'] ?? 0);
+        if ($roleId !== 1) {
+            return redirect()->to(base_url('dashboard'))->with('error', 'Hanya Administrator yang memiliki akses untuk menambah/mengubah Data Master CP.');
         }
         
         // Get school level for validation
@@ -1382,10 +1444,11 @@ class AdministrasiGuru extends BaseController
 
     public function cpMasterDelete($id)
     {
-        // ✅ Check permission - Kepsek cannot delete
+        // ✅ Check permission - Only Admin can delete
         $user = session()->get('user');
-        if (($user['role_id'] ?? null) == 2) {
-            return redirect()->back()->with('error', 'Kepala Sekolah tidak memiliki akses untuk menghapus data.');
+        $roleId = (int)($user['role_id'] ?? 0);
+        if ($roleId !== 1) {
+            return redirect()->to(base_url('dashboard'))->with('error', 'Hanya Administrator yang memiliki akses untuk menghapus Data Master CP.');
         }
         
         $this->cpMasterModel->delete($id);
