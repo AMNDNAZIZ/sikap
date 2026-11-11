@@ -28,6 +28,12 @@
   .border-start-md {
     border-left: 1px solid #e2e8f0;
   }
+  .hover-primary {
+    transition: color 0.15s ease-in-out;
+  }
+  .hover-primary:hover {
+    color: var(--bs-primary, #0d6efd) !important;
+  }
   @media (max-width: 767.98px) {
     .border-start-md {
       border-left: none !important;
@@ -68,8 +74,17 @@
             <i class="bi bi-upload text-info"></i>Upload PDF Eksternal
           </a>
         </li>
+        <li><hr class="dropdown-divider my-1"></li>
+        <li>
+          <a class="dropdown-item py-2 small d-flex align-items-center gap-2" href="<?= base_url('admin/settings/kop-surat') ?>">
+            <i class="bi bi-gear text-secondary"></i>Atur KOP &amp; Penomoran
+          </a>
+        </li>
       </ul>
     </div>
+    <a href="<?= base_url('admin/settings/kop-surat') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-xs" title="Pengaturan Nomor Terakhir & KOP Surat">
+      <i class="bi bi-gear me-1"></i>Atur Nomor
+    </a>
   </div>
 </div>
 
@@ -145,6 +160,28 @@
   </div>
 </div>
 
+<?php
+// Helper untuk sorting kolom tabel
+$currentSort = $filter['sort_by'] ?? 'issued_at';
+$currentOrder = strtolower($filter['order'] ?? 'desc');
+
+$buildSortUrl = function(string $column) use ($filter, $currentSort, $currentOrder) {
+    $nextOrder = ($currentSort === $column && $currentOrder === 'asc') ? 'desc' : 'asc';
+    $params = array_merge($filter, ['sort_by' => $column, 'order' => $nextOrder, 'page' => 1]);
+    return '?' . http_build_query($params);
+};
+
+$getSortIcon = function(string $column) use ($currentSort, $currentOrder) {
+    if ($currentSort !== $column) {
+        return '<i class="bi bi-arrow-down-up text-muted opacity-50 ms-1" style="font-size:0.65rem;"></i>';
+    }
+    if ($currentOrder === 'asc') {
+        return '<i class="bi bi-sort-down-alt text-primary fw-bold ms-1" style="font-size:0.75rem;"></i>';
+    }
+    return '<i class="bi bi-sort-down text-primary fw-bold ms-1" style="font-size:0.75rem;"></i>';
+};
+?>
+
 <!-- ===== FILTER CARD ===== -->
 <div class="card border-0 shadow-xs rounded-3 mb-4">
   <div class="card-body p-3">
@@ -184,17 +221,40 @@
           <option value="revoked" <?= $filter['status'] === 'revoked' ? 'selected' : '' ?>>Dicabut</option>
         </select>
       </div>
-      <div class="col-12 col-md-2 d-flex gap-2">
-        <button type="submit" class="btn btn-primary btn-sm rounded-pill px-3 flex-grow-1" id="btn-filter">
-          <i class="bi bi-funnel me-1"></i>Filter
+      <div class="col-12 col-md-2">
+        <label class="form-label form-label-sm fw-semibold mb-1 text-muted" style="font-size:0.75rem;">Urutkan</label>
+        <select name="sort_order_combo" class="form-select form-select-sm" id="filter-sort-combo" onchange="applySortCombo(this.value)">
+          <option value="issued_at:desc" <?= ($currentSort === 'issued_at' && $currentOrder === 'desc') ? 'selected' : '' ?>>Tanggal Terbaru</option>
+          <option value="issued_at:asc" <?= ($currentSort === 'issued_at' && $currentOrder === 'asc') ? 'selected' : '' ?>>Tanggal Terlama</option>
+          <option value="sequence_number:desc" <?= ($currentSort === 'sequence_number' && $currentOrder === 'desc') ? 'selected' : '' ?>>No. Terbesar</option>
+          <option value="sequence_number:asc" <?= ($currentSort === 'sequence_number' && $currentOrder === 'asc') ? 'selected' : '' ?>>No. Terkecil</option>
+          <option value="recipient_name:asc" <?= ($currentSort === 'recipient_name' && $currentOrder === 'asc') ? 'selected' : '' ?>>Penerima (A - Z)</option>
+          <option value="recipient_name:desc" <?= ($currentSort === 'recipient_name' && $currentOrder === 'desc') ? 'selected' : '' ?>>Penerima (Z - A)</option>
+          <option value="subject:asc" <?= ($currentSort === 'subject' && $currentOrder === 'asc') ? 'selected' : '' ?>>Perihal (A - Z)</option>
+        </select>
+        <input type="hidden" name="sort_by" id="input-sort-by" value="<?= esc($currentSort) ?>">
+        <input type="hidden" name="order" id="input-order" value="<?= esc($currentOrder) ?>">
+      </div>
+      <div class="col-12 d-flex justify-content-end gap-2 mt-2">
+        <button type="submit" class="btn btn-primary btn-sm rounded-pill px-3 shadow-xs" id="btn-filter">
+          <i class="bi bi-funnel me-1"></i>Filter Data
         </button>
-        <a href="<?= base_url('admin/surat-keluar') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3" id="btn-reset">
+        <a href="<?= base_url('admin/surat-keluar') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-xs" id="btn-reset">
           <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
         </a>
       </div>
     </form>
   </div>
 </div>
+
+<script>
+function applySortCombo(val) {
+  if (!val) return;
+  const parts = val.split(':');
+  document.getElementById('input-sort-by').value = parts[0];
+  document.getElementById('input-order').value = parts[1];
+}
+</script>
 
 <!-- ===== TABEL ARSIP ===== -->
 <div class="card border-0 shadow-xs rounded-3 overflow-hidden">
@@ -205,12 +265,14 @@
       </span>
       <div>
         <h6 class="fw-bold mb-0 text-dark">Buku Agenda Surat Keluar</h6>
-        <small class="text-muted" style="font-size:0.75rem;">Daftar naskah dinas resmi yang telah diterbitkan</small>
+        <small class="text-muted" style="font-size:0.75rem;">Daftar naskah dinas resmi yang telah diterbitkan (Klik judul kolom untuk mengurutkan)</small>
       </div>
     </div>
-    <span class="badge bg-light text-secondary border rounded-pill px-2.5 py-1 small font-monospace">
-      Total: <?= esc($total) ?> berkas
-    </span>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-light text-secondary border rounded-pill px-2.5 py-1 small font-monospace">
+        Total: <?= esc($total) ?> berkas
+      </span>
+    </div>
   </div>
   <div class="card-body p-0">
     <div class="table-responsive">
@@ -218,12 +280,42 @@
         <thead class="bg-light text-uppercase tracking-wider text-muted border-bottom" style="font-size:0.7rem; letter-spacing:0.05em;">
           <tr>
             <th class="ps-3 py-3" width="50">No.</th>
-            <th>Nomor Registrasi</th>
-            <th>Tanggal</th>
-            <th>Jenis Surat</th>
-            <th>Penerima</th>
-            <th>Perihal / Hal</th>
-            <th>Status</th>
+            <th>
+              <a href="<?= $buildSortUrl('sequence_number') ?>" class="text-decoration-none text-muted d-inline-flex align-items-center hover-primary" title="Urutkan berdasarkan Nomor">
+                <span>Nomor Registrasi</span>
+                <?= $getSortIcon('sequence_number') ?>
+              </a>
+            </th>
+            <th>
+              <a href="<?= $buildSortUrl('issued_at') ?>" class="text-decoration-none text-muted d-inline-flex align-items-center hover-primary" title="Urutkan berdasarkan Tanggal">
+                <span>Tanggal</span>
+                <?= $getSortIcon('issued_at') ?>
+              </a>
+            </th>
+            <th>
+              <a href="<?= $buildSortUrl('letter_type') ?>" class="text-decoration-none text-muted d-inline-flex align-items-center hover-primary" title="Urutkan berdasarkan Jenis Format">
+                <span>Jenis Surat</span>
+                <?= $getSortIcon('letter_type') ?>
+              </a>
+            </th>
+            <th>
+              <a href="<?= $buildSortUrl('recipient_name') ?>" class="text-decoration-none text-muted d-inline-flex align-items-center hover-primary" title="Urutkan berdasarkan Penerima">
+                <span>Penerima</span>
+                <?= $getSortIcon('recipient_name') ?>
+              </a>
+            </th>
+            <th>
+              <a href="<?= $buildSortUrl('subject') ?>" class="text-decoration-none text-muted d-inline-flex align-items-center hover-primary" title="Urutkan berdasarkan Perihal">
+                <span>Perihal / Hal</span>
+                <?= $getSortIcon('subject') ?>
+              </a>
+            </th>
+            <th>
+              <a href="<?= $buildSortUrl('status') ?>" class="text-decoration-none text-muted d-inline-flex align-items-center hover-primary" title="Urutkan berdasarkan Status">
+                <span>Status</span>
+                <?= $getSortIcon('status') ?>
+              </a>
+            </th>
             <th class="text-end pe-3" width="110">Aksi</th>
           </tr>
         </thead>

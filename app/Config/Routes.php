@@ -383,9 +383,10 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('tata-usaha/cetak-daftar-hadir', 'TataUsaha::cetakDaftarHadir', $auth127);
     $routes->post('tata-usaha/cetak-daftar-hadir/generate', 'TataUsaha::generatePDF', $auth127);
 
-    // KOP Surat Settings
+    // KOP & Penomoran Surat Settings
     $routes->get('settings/kop-surat', 'SettingsController::kopSurat', $auth127);
     $routes->post('settings/kop-surat/upload', 'SettingsController::uploadKopSurat', $auth127);
+    $routes->post('settings/nomor-surat/save', 'SettingsController::saveNomorSurat', $auth127);
 
     // Integrasi Pembayaran (Admin Only)
     $routes->get('settings/payment', 'SettingsController::payment', $auth1);

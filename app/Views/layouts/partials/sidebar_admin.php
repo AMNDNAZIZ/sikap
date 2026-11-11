@@ -292,7 +292,7 @@
           <li><a class="nav-link <?= url_is('admin/agenda-surat*') ? 'active' : '' ?>" href="<?= base_url('admin/agenda-surat') ?>"><i class="bi bi-journal me-1"></i> <span class="label">Agenda Surat</span></a></li>
           <li><a class="nav-link <?= url_is('admin/buku-tamu*') ? 'active' : '' ?>" href="<?= base_url('admin/buku-tamu') ?>"><i class="bi bi-book-half me-1"></i> <span class="label">Buku Tamu</span></a></li>
           <li><a class="nav-link <?= url_is('admin/tata-usaha/cetak-daftar-hadir*') ? 'active' : '' ?>" href="<?= base_url('admin/tata-usaha/cetak-daftar-hadir') ?>"><i class="bi bi-printer me-1"></i> <span class="label">Cetak Daftar Hadir</span></a></li>
-          <li><a class="nav-link <?= url_is('admin/settings/kop-surat*') ? 'active' : '' ?>" href="<?= base_url('admin/settings/kop-surat') ?>"><i class="bi bi-file-earmark-richtext me-1"></i> <span class="label">KOP Surat</span></a></li>
+          <li><a class="nav-link <?= url_is('admin/settings/kop-surat*') ? 'active' : '' ?>" href="<?= base_url('admin/settings/kop-surat') ?>"><i class="bi bi-file-earmark-richtext me-1"></i> <span class="label">KOP &amp; Nomor Surat</span></a></li>
         </ul>
       </div>
     </li>

@@ -51,6 +51,8 @@ class SuratKeluar extends BaseController
             'date_to'     => $this->request->getGet('date_to') ?? '',
             'letter_type' => $this->request->getGet('letter_type') ?? '',
             'status'      => $this->request->getGet('status') ?? '',
+            'sort_by'     => $this->request->getGet('sort_by') ?? 'issued_at',
+            'order'       => $this->request->getGet('order') ?? 'desc',
             'page'        => (int) ($this->request->getGet('page') ?? 1),
             'limit'       => 50,
         ];
@@ -97,9 +99,15 @@ class SuratKeluar extends BaseController
         // Estimasi nomor surat berikutnya (untuk preview auto-generate)
         $year = (int) date('Y');
         $padding = (int) ($settings->getValue('letter_number_padding') ?? 3);
+        $defaultCode = $settings->getValue('default_classification_code') ?? 'PK.01.01';
         $seqRow = $this->model->db->table('letter_number_sequences')->where('year', $year)->get()->getRowArray();
-        $nextSeq = ($seqRow['last_sequence'] ?? 0) + 1;
-        $nextLetterNumber = OutgoingLetterModel::buildLetterNumber($nextSeq, $year, $padding);
+        $maxRow = $this->model->db->table('outgoing_letters')
+                     ->selectMax('sequence_number')
+                     ->where('YEAR(issued_at)', $year)
+                     ->get()->getRowArray();
+        $curLastSeq = max((int)($seqRow['last_sequence'] ?? 0), (int)($maxRow['sequence_number'] ?? 0));
+        $nextSeq = $curLastSeq + 1;
+        $nextLetterNumber = OutgoingLetterModel::buildLetterNumber($nextSeq, $year, $padding, $defaultCode);
 
         // Ambil bank template surat dinamis
         $templateModel = new \App\Models\LetterTemplateModel();
@@ -139,6 +147,31 @@ class SuratKeluar extends BaseController
         $userId     = is_array($userSession) ? ($userSession['id'] ?? '1') : ($session->get('user_id') ?? '1');
         $letterType = $this->request->getPost('letter_type');
 
+        $school   = (new SchoolModel())->first();
+        $settings = new SettingsModel();
+
+        // Robust fallback untuk nama penerima jika kosong pada surat undangan
+        $recipientName = trim((string)($this->request->getPost('recipient_name') ?? ''));
+        if ($letterType === 'undangan' && empty($recipientName)) {
+            $undanganMode = $this->request->getPost('undangan_recipient_mode') ?? 'all';
+            $schoolName   = $school['name'] ?? 'Sekolah';
+            if ($undanganMode === 'all') {
+                $recipientName = 'Guru & Tenaga Kependidikan ' . $schoolName;
+            } elseif ($undanganMode === 'wali_murid') {
+                $kelas = $this->request->getPost('undangan_wali_class') ?? 'semua';
+                $recipientName = ($kelas === 'semua')
+                    ? 'Orang Tua / Wali Murid ' . $schoolName
+                    : 'Orang Tua / Wali Murid Kelas ' . $kelas . ' ' . $schoolName;
+            } elseif (!empty($this->request->getPost('undangan_search_guru'))) {
+                $recipientName = trim((string)$this->request->getPost('undangan_search_guru'));
+            } elseif (!empty($this->request->getPost('undangan_search_pegawai'))) {
+                $recipientName = trim((string)$this->request->getPost('undangan_search_pegawai'));
+            }
+            if (!empty($recipientName)) {
+                $_POST['recipient_name'] = $recipientName;
+            }
+        }
+
         // Validasi dasar
         $rules = [
             'letter_type'    => 'required|in_list[' . implode(',', array_keys(self::LETTER_TYPES)) . ']',
@@ -155,9 +188,6 @@ class SuratKeluar extends BaseController
         if (! $this->validate($rules)) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
-
-        $school   = (new SchoolModel())->first();
-        $settings = new SettingsModel();
 
         // Robust principal name & NIP fallback
         $pInfo         = $this->getPrincipalInfo($school, $settings);
@@ -180,7 +210,22 @@ class SuratKeluar extends BaseController
                 return redirect()->back()->withInput()->with('error', 'Nomor surat <strong>' . esc($nomorManual) . '</strong> sudah digunakan. Gunakan nomor lain atau pilih nomor otomatis.');
             }
             $letterNo = $nomorManual;
-            $seq      = 0;
+
+            // Smart auto-detection urutan nomor dari input manual (misal: 101/PK.01.01/2026 -> sequence = 101)
+            $extractedSeq = 0;
+            if (preg_match('/^(\d+)/', $nomorManual, $match)) {
+                $extractedSeq = (int) $match[1];
+            }
+            $seq = $extractedSeq;
+
+            // Sinkronkan ke tabel letter_number_sequences jika sequence ini lebih besar atau sama
+            if ($extractedSeq > 0) {
+                $this->model->db->query("INSERT INTO letter_number_sequences (year, last_sequence, updated_at)
+                    VALUES (?, ?, NOW())
+                    ON DUPLICATE KEY UPDATE
+                        last_sequence = GREATEST(last_sequence, ?),
+                        updated_at    = NOW()", [$year, $extractedSeq, $extractedSeq]);
+            }
         } else {
             $seq      = $this->model->getNextSequenceNumber($year);
             $padding  = (int) ($settings->getValue('letter_number_padding') ?? 3);
@@ -229,7 +274,7 @@ class SuratKeluar extends BaseController
             'sifat'                   => $this->request->getPost('sifat') ?: 'Biasa',
             'recipient_type'          => $this->request->getPost('recipient_type') ?: 'siswa',
             'recipient_ref_id'        => $this->request->getPost('recipient_ref_id') ?: null,
-            'recipient_name'          => $this->request->getPost('recipient_name'),
+            'recipient_name'          => $recipientName ?: $this->request->getPost('recipient_name'),
             'recipient_detail'        => json_encode($this->extractRecipientDetail()),
             'is_multi_recipient'      => $isMulti ? 1 : 0,
             'recipients'              => $recipients,

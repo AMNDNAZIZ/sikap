@@ -235,6 +235,7 @@
         <div class="card-body">
           <input type="hidden" name="recipient_type" id="recipient_type" value="siswa">
           <input type="hidden" name="recipient_ref_id" id="recipient_ref_id">
+          <input type="hidden" name="recipient_name" id="recipient_name" value="<?= esc(old('recipient_name', '')) ?>">
 
           <!-- Autocomplete Siswa -->
           <div id="recipient-siswa-section" class="position-relative">
@@ -244,7 +245,6 @@
               <input type="text" id="recipient_search_siswa" class="form-control" placeholder="Ketik nama atau NISN siswa..." autocomplete="off">
             </div>
             <div id="siswa-autocomplete-result" class="autocomplete-suggestions list-group"></div>
-            <input type="hidden" name="recipient_name" id="recipient_name">
             <input type="hidden" name="alamat_domisili" id="f_alamat">
 
             <!-- Detail Data Siswa (Visible & Editable) -->
@@ -1378,26 +1378,34 @@ function updateUndanganRecipient() {
   $('.undangan-sub-section').hide();
   $(`#undangan-sub-${mode === 'wali_murid' ? 'wali' : mode}`).show();
 
+  const schoolLabel = (typeof SCHOOL_NAME !== 'undefined' && SCHOOL_NAME) ? SCHOOL_NAME : 'Sekolah';
+
   switch (mode) {
     case 'all':
       $('#recipient_type').val('internal');
-      $('#recipient_name').val('Guru & Tenaga Kependidikan ' + SCHOOL_NAME);
+      $('#recipient_name').val('Guru & Tenaga Kependidikan ' + schoolLabel);
       break;
     case 'guru':
       $('#recipient_type').val('guru');
-      // Will be set by autocomplete selection
+      const gVal = $('#undangan_search_guru').val().trim();
+      if (gVal) {
+        $('#recipient_name').val(gVal);
+      }
       break;
     case 'pegawai':
       $('#recipient_type').val('guru');
-      // Will be set by autocomplete selection
+      const pVal = $('#undangan_search_pegawai').val().trim();
+      if (pVal) {
+        $('#recipient_name').val(pVal);
+      }
       break;
     case 'wali_murid':
       $('#recipient_type').val('internal');
       const kelasVal = $('#undangan_wali_class').val();
       if (kelasVal === 'semua') {
-        $('#recipient_name').val('Orang Tua / Wali Murid ' + SCHOOL_NAME);
+        $('#recipient_name').val('Orang Tua / Wali Murid ' + schoolLabel);
       } else {
-        $('#recipient_name').val('Orang Tua / Wali Murid Kelas ' + kelasVal + ' ' + SCHOOL_NAME);
+        $('#recipient_name').val('Orang Tua / Wali Murid Kelas ' + kelasVal + ' ' + schoolLabel);
       }
       break;
     case 'dinamis':
@@ -1413,7 +1421,9 @@ function updateUndanganDinamisRecipientName() {
     const v = $(this).val().trim();
     if (v) names.push(v);
   });
-  $('#recipient_name').val(names.join(' | '));
+  if (names.length > 0) {
+    $('#recipient_name').val(names.join(' | '));
+  }
 }
 
 let selectedType = null;
@@ -1910,6 +1920,7 @@ let undanganGuruTimer;
 $('#undangan_search_guru').on('input', function() {
   clearTimeout(undanganGuruTimer);
   const q = $(this).val();
+  $('#recipient_name').val(q); // Langsung sinkronkan ke recipient_name
   if (q.length < 2) { $('#undangan-guru-autocomplete').empty().hide(); return; }
   undanganGuruTimer = setTimeout(() => {
     $.getJSON(GURU_SEARCH_URL, { q }, function(data) {
@@ -1941,6 +1952,7 @@ let undanganPegawaiTimer;
 $('#undangan_search_pegawai').on('input', function() {
   clearTimeout(undanganPegawaiTimer);
   const q = $(this).val();
+  $('#recipient_name').val(q); // Langsung sinkronkan ke recipient_name
   if (q.length < 2) { $('#undangan-pegawai-autocomplete').empty().hide(); return; }
   undanganPegawaiTimer = setTimeout(() => {
     $.getJSON(GURU_SEARCH_URL, { q }, function(data) {
@@ -2026,8 +2038,17 @@ $(document).on('click', '.placeholder-btn', function(e) {
   }
 });
 
-// Sebelum submit form, sinkronisasi konten CKEditor ke hidden input
+// Sebelum submit form, sinkronisasi konten CKEditor ke hidden input & validasi recipient
 $('#form-surat-keluar').on('submit', function(e) {
+  if (selectedType === 'undangan') {
+    updateUndanganRecipient();
+    const rName = ($('#recipient_name').val() || '').trim();
+    if (rName.length < 3) {
+      alert('Nama penerima surat undangan wajib ditentukan / diisi.');
+      e.preventDefault();
+      return false;
+    }
+  }
   if (selectedType === 'surat_custom' && editorInstance) {
     const bodyData = editorInstance.getData();
     $('#body_html_hidden').val(bodyData);
