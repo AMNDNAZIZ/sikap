@@ -51,8 +51,29 @@ class OutgoingLetterModel extends Model
     public function getFiltered(array $params = []): array
     {
         $builder = $this->db->table('outgoing_letters');
-        $builder->orderBy('issued_at', 'DESC');
-        $builder->orderBy('sequence_number', 'DESC');
+
+        // Whitelist kolom pengurutan yang aman
+        $allowedSort = [
+            'issued_at'       => 'issued_at',
+            'letter_number'   => 'sequence_number',
+            'sequence_number' => 'sequence_number',
+            'recipient_name'  => 'recipient_name',
+            'subject'         => 'subject',
+            'letter_type'     => 'letter_type',
+            'status'          => 'status',
+            'created_at'      => 'created_at',
+        ];
+
+        $sortBy = $params['sort_by'] ?? 'issued_at';
+        $order  = strtoupper($params['order'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
+        $sortColumn = $allowedSort[$sortBy] ?? 'issued_at';
+
+        $builder->orderBy($sortColumn, $order);
+
+        // Pengurutan sekunder untuk menjamin konsistensi baris data
+        if ($sortColumn !== 'sequence_number' && $sortColumn !== 'id') {
+            $builder->orderBy('sequence_number', $order);
+        }
 
         if (!empty($params['search'])) {
             $s = $params['search'];

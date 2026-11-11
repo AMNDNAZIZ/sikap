@@ -5,7 +5,7 @@ $bulan = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus',
 $tgl   = date('d', strtotime($letter['issued_at'])) . ' ' . $bulan[(int)date('m', strtotime($letter['issued_at']))] . ' ' . date('Y', strtotime($letter['issued_at']));
 
 $evDate = '';
-if (!empty($ld['event_date'])) {
+if (!empty($ld['event_date']) && strtotime($ld['event_date']) > 0) {
     $ts = strtotime($ld['event_date']);
     $evDate = date('d', $ts) . ' ' . $bulan[(int)date('m', $ts)] . ' ' . date('Y', $ts);
 }
@@ -85,7 +85,7 @@ if ($isGuruTendik) {
 // Determine "di Jakarta" vs "di Tempat"
 $diTempat = ($isGuruTendik || str_contains(strtolower($recipientName), 'guru') || str_contains(strtolower($recipientName), 'tendik')) ? 'Jakarta' : 'Tempat';
 ?>
-<?= view('admin/surat/pdf_templates/_header') ?>
+<?= view('admin/surat/pdf_templates/_header', ['letter' => $letter]) ?>
 
     <!-- Header surat dinas (Nomor, Sifat, Hal di kiri, Tanggal & Kepada di kanan) -->
     <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 20px;">

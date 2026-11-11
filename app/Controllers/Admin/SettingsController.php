@@ -16,12 +16,50 @@ class SettingsController extends BaseController
 
     public function kopSurat()
     {
+        $year = (int) date('Y');
+        $db   = \Config\Database::connect();
+        $seqRow = $db->table('letter_number_sequences')->where('year', $year)->get()->getRowArray();
+        $maxRow = $db->table('outgoing_letters')
+                     ->selectMax('sequence_number')
+                     ->where('YEAR(issued_at)', $year)
+                     ->get()->getRowArray();
+        $curLastSeq = max((int)($seqRow['last_sequence'] ?? 0), (int)($maxRow['sequence_number'] ?? 0));
+
         $data = [
-            'title' => 'Pengaturan Kop Surat',
-            'kop_surat' => $this->settingsModel->getValue('kop_surat')
+            'title'                       => 'Pengaturan Persuratan & Kop Surat',
+            'kop_surat'                   => $this->settingsModel->getValue('kop_surat'),
+            'current_year'                => $year,
+            'last_sequence'               => $curLastSeq,
+            'letter_number_padding'       => (int) ($this->settingsModel->getValue('letter_number_padding') ?? 3),
+            'default_classification_code' => $this->settingsModel->getValue('default_classification_code') ?? 'PK.01.01',
         ];
 
         return view('admin/settings/kop_surat', $data);
+    }
+
+    /**
+     * Simpan urutan penomoran surat keluar (auto increment)
+     */
+    public function saveNomorSurat()
+    {
+        $year         = (int) ($this->request->getPost('year') ?? date('Y'));
+        $lastSequence = max(0, (int) ($this->request->getPost('last_sequence') ?? 0));
+        $padding      = max(1, min(6, (int) ($this->request->getPost('letter_number_padding') ?? 3)));
+        $defaultCode  = trim((string)$this->request->getPost('default_classification_code') ?? 'PK.01.01');
+
+        $db = \Config\Database::connect();
+        $db->query("INSERT INTO letter_number_sequences (year, last_sequence, updated_at)
+                    VALUES (?, ?, NOW())
+                    ON DUPLICATE KEY UPDATE
+                        last_sequence = ?,
+                        updated_at    = NOW()", [$year, $lastSequence, $lastSequence]);
+
+        $this->settingsModel->setValue('letter_number_padding', (string) $padding);
+        $this->settingsModel->setValue('default_classification_code', $defaultCode ?: 'PK.01.01');
+
+        $nextNum = \App\Models\OutgoingLetterModel::buildLetterNumber($lastSequence + 1, $year, $padding, $defaultCode);
+
+        return redirect()->back()->with('success', "Penomoran surat berhasil diperbarui. Nomor urut terakhir tahun {$year} diset ke {$lastSequence}. Surat berikutnya akan otomatis bernomor <strong>{$nextNum}</strong>.");
     }
 
     public function uploadKopSurat()
