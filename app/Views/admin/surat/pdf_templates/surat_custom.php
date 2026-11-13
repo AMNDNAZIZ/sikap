@@ -163,8 +163,8 @@ if (!empty($letter['recipient_name'])) {
                     <?= esc($school['city'] ?? 'Jakarta') ?>, <?= $tgl ?><br>
                 <?php endif; ?>
                 Kepala <?= esc($school['name'] ?? 'Sekolah') ?>
+                <div class="signature-space" style="height: 65px;"></div>
                 <div class="seal-space"></div>
-                <div class="signature-space" style="height: 48px;"></div>
                 <strong style="text-decoration: underline;"><?= esc((!empty($letter['principal_name_snapshot']) && $letter['principal_name_snapshot'] !== '-') ? $letter['principal_name_snapshot'] : ($school['headmaster'] ?? '-')) ?></strong><br>
                 NIP. <?= esc((!empty($letter['principal_nip_snapshot']) && $letter['principal_nip_snapshot'] !== '-') ? $letter['principal_nip_snapshot'] : ($school['principal_nip'] ?? '-')) ?>
             </div>

@@ -38,14 +38,14 @@
         .isi, .pembuka, .penutup { font-size: 14px; line-height: 1.8; margin: 8px 0; }
 
         /* TANDA TANGAN & CAP */
-        .ttd-wrapper  { margin-top: 20px; width: 220px; float: right; text-align: center; page-break-inside: avoid; font-size: 14px; position: relative; }
-        .ttd-wrapper .signature-space { height: 48px; }
+        .ttd-wrapper  { margin-top: 20px; width: 230px; float: right; text-align: center; page-break-inside: avoid; font-size: 14px; position: relative; }
+        .ttd-wrapper .signature-space { height: 65px; }
         .ttd-wrapper .ttd-line { border-top: 1px solid #000; width: 100%; display: block; margin-top: 2px; }
-        .ttd-wrapper .seal-space { position: absolute; left: -25px; top: 15px; z-index: 1; pointer-events: none; }
-        .signature-block { position: relative; z-index: 2; margin: 2px 0; }
-        .signature-img { width: 120px; height: auto; display: block; margin: 0 auto; }
-        .seal-block { pointer-events: none; }
-        .seal-img { width: 95px; height: auto; display: block; }
+        .ttd-wrapper .seal-space { position: absolute; left: -25px; top: 12px; z-index: 10; pointer-events: none; }
+        .signature-block { position: relative; z-index: 1; margin: 2px 0; }
+        .signature-img { width: 180px; height: auto; max-height: 70px; display: block; margin: 0 auto; }
+        .seal-block { position: absolute; left: -25px; top: 12px; z-index: 10; pointer-events: none; }
+        .seal-img { width: 3.8cm; height: 3.8cm; max-width: 3.8cm; max-height: 3.8cm; display: block; }
         .ttd-clearfix { clear: both; }
 
         /* QR CODE */
