@@ -872,12 +872,6 @@ class Cbt extends BaseController
                 return $this->respond(['error' => 'Sesi ujian tidak ditemukan.'], 400);
             }
 
-            // Check if already finished
-            if ($session['status'] === 'finished') {
-                $db->transRollback();
-                return $this->respond(['redirect' => site_url('siswa/cbt/hasil/' . $testId)]);
-            }
-
             // Get test data
             $test = $this->testModel->find($testId);
             if (!$test) {
@@ -887,6 +881,13 @@ class Cbt extends BaseController
 
             // Check if forced submit
             $isForced = $this->isForcedSubmit();
+
+            // Check if already finished
+            if ($session['status'] === 'finished') {
+                $db->transRollback();
+                $redirectUrl = $this->determineSubmitRedirect($testId, $test, $isForced);
+                return $this->respond(['redirect' => $redirectUrl]);
+            }
 
             // Validate submission timing (unless forced)
             if (!$isForced) {
@@ -1633,7 +1634,7 @@ class Cbt extends BaseController
             $qText = trim($parsed['question']);
         }
 
-        return $qText;
+        return $this->cleanQuestionText($qText);
     }
 
     /**
@@ -2589,10 +2590,10 @@ class Cbt extends BaseController
             $q['question_text'] = trim($q['question_text'] ?? '');
         }
 
-        // Clean question text ONLY if raw_text is empty (old data)
-        // If raw_text exists, parseRawQuestion already cleaned it properly
-        if (empty($q['raw_text'])) {
-            $q['question_text'] = $this->cleanQuestionText($q['question_text']);
+        // Clean question text and raw_text_original to ensure any "Soal:[no])" prefixes are stripped
+        $q['question_text'] = $this->cleanQuestionText($q['question_text']);
+        if (!empty($q['raw_text_original'])) {
+            $q['raw_text_original'] = $this->cleanQuestionText($q['raw_text_original']);
         }
 
         // Normalize type
@@ -2642,6 +2643,11 @@ class Cbt extends BaseController
             $imgTags[] = $match[0];
             return '[[IMG_' . (count($imgTags) - 1) . ']]';
         }, $out);
+
+        // Hapus kode/header penomoran soal (misal: "Soal:1)", "Soal: 1)", "Soal:[no])", "1)", "1.")
+        $out = preg_replace('/(<\s*(?:p|div)[^>]*>)\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*/iu', '$1', $out);
+        $out = preg_replace('/<\s*(?:strong|b|span)[^>]*>\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*<\/\s*(?:strong|b|span)\s*>\s*/iu', '', $out);
+        $out = preg_replace('/^\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*/imu', '', $out);
 
         // Remove formatting tags (tapi biarkan p, br, ul, ol, li, table, dll)
         $out = preg_replace('/<\/?(span|font)[^>]*>/i', '', $out);

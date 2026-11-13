@@ -118,16 +118,23 @@ class Chat extends BaseController
         }
 
         $data = [
-            'room_id' => $this->request->getPost('room_id'),
-            'user_id' => $user['id'],
-            'message' => $this->request->getPost('message'),
+            'room_id' => (int) $this->request->getPost('room_id'),
+            'user_id' => (int) $user['id'],
+            'message' => trim((string) $this->request->getPost('message')),
             'attachment' => $attachment,
-            'reply_to' => $this->request->getPost('reply_to') ?: 0,
+            'reply_to' => (int) ($this->request->getPost('reply_to') ?: 0),
             'created_at' => date('Y-m-d H:i:s'),
         ];
 
         try {
             $this->messageModel->insert($data);
+            $msgId = (int) $this->messageModel->getInsertID();
+
+            // 🔹 Proses notifikasi mention @user jika ada
+            if (!empty($data['message']) && $msgId > 0) {
+                $this->processMentions($msgId, $data['message'], (int) $user['id'], $data['room_id']);
+            }
+
             if ($this->request->isAJAX()) {
                 return $this->response->setJSON(['status' => 'ok', 'csrf' => csrf_hash()]);
             }
@@ -142,13 +149,19 @@ class Chat extends BaseController
         return redirect()->back();
     }
 
-    // 🔹 Ambil isi pesan (AJAX)
+    // 🔹 Ambil isi pesan (AJAX) - Mendukung real-time incremental polling
     public function fetch($roomId)
     {
+        // 🚀 SHARED HOSTING OPTIMIZATION: Lepas session lock segera agar tidak memblokir AJAX lain
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
         $db = \Config\Database::connect();
         $currentUserId = $this->currentUserId();
+        $after = (int) ($this->request->getGet('after') ?? 0);
 
-        $messages = $db->table('chat_messages m')
+        $builder = $db->table('chat_messages m')
             ->select("
                 m.id, m.message, m.attachment, m.created_at, m.user_id,
                 COALESCE(s.name, u.fullname, u.username) as display_name,
@@ -162,15 +175,133 @@ class Chat extends BaseController
             ->join('chat_messages rm', 'rm.id = m.reply_to', 'left')
             ->join('users ru', 'ru.id = rm.user_id', 'left')
             ->join('students rs', 'rs.user_id = ru.id', 'left')
-            ->where('m.room_id', $roomId)
-            ->orderBy('m.created_at', 'ASC')
+            ->where('m.room_id', $roomId);
+
+        if ($after > 0) {
+            $builder->where('m.id >', $after);
+        }
+
+        $messages = $builder->orderBy('m.created_at', 'ASC')
             ->get()
             ->getResultArray();
 
-        return view('chat/_messages', [
+        $lastId = $after;
+        if (!empty($messages)) {
+            $lastItem = end($messages);
+            $lastId = (int) $lastItem['id'];
+        }
+
+        $html = view('chat/_messages', [
             'messages' => $messages,
             'currentUserId' => $currentUserId,
         ]);
+
+        if ($this->request->isAJAX() && ($this->request->getGet('after') !== null || $this->request->getHeaderLine('Accept') === 'application/json')) {
+            return $this->response->setJSON([
+                'status'  => 'ok',
+                'count'   => count($messages),
+                'last_id' => $lastId,
+                'html'    => $html
+            ]);
+        }
+
+        return $html;
+    }
+
+    // 🔹 Proses mention @username atau @nama dalam chat kelas
+    protected function processMentions(int $msgId, string $message, int $senderId, int $roomId): void
+    {
+        if (!preg_match_all('/@([a-zA-Z0-9_]+)/', $message, $matches)) {
+            return;
+        }
+
+        try {
+            $db = \Config\Database::connect();
+            $room = $this->roomModel->find($roomId);
+            if (!$room) return;
+            $classId = (int) $room['class_id'];
+
+            // 1. Siswa di kelas ini
+            $students = $db->table('students s')
+                ->join('student_records sr', 'sr.student_id = s.id')
+                ->join('users u', 'u.id = s.user_id')
+                ->select('u.id, s.name, u.username, u.fullname')
+                ->where('sr.class_id', $classId)
+                ->get()
+                ->getResultArray();
+
+            // 2. Wali kelas & Guru mapel
+            $class = $db->table('classes')->where('id', $classId)->get()->getRowArray();
+            $teacherUserIds = [];
+            if (!empty($class['teacher_id'])) {
+                $wali = $db->table('teachers')->where('id', $class['teacher_id'])->get()->getRowArray();
+                if (!empty($wali['user_id'])) {
+                    $teacherUserIds[] = (int) $wali['user_id'];
+                }
+            }
+            $mapelTeachers = $db->table('teaching_assignments ta')
+                ->join('teachers t', 't.id = ta.teacher_id')
+                ->select('t.user_id')
+                ->where('ta.class_id', $classId)
+                ->get()
+                ->getResultArray();
+            foreach ($mapelTeachers as $mt) {
+                if (!empty($mt['user_id'])) {
+                    $teacherUserIds[] = (int) $mt['user_id'];
+                }
+            }
+
+            $teachers = [];
+            if (!empty($teacherUserIds)) {
+                $teachers = $db->table('users')
+                    ->select('id, fullname, username')
+                    ->whereIn('id', array_unique($teacherUserIds))
+                    ->get()
+                    ->getResultArray();
+            }
+
+            // 3. Admin & Kepsek
+            $admins = $db->table('users')
+                ->select('id, fullname, username')
+                ->whereIn('role_id', [1, 2])
+                ->get()
+                ->getResultArray();
+
+            $allMembers = array_merge($students, $teachers, $admins);
+
+            // Lookup map
+            $mentionMap = [];
+            foreach ($allMembers as $m) {
+                $uid = (int) $m['id'];
+                if (!empty($m['username'])) {
+                    $mentionMap[strtolower($m['username'])] = $uid;
+                }
+                $name = $m['name'] ?? $m['fullname'] ?? '';
+                if ($name !== '') {
+                    $slug = preg_replace('/[^a-z0-9_]/', '', strtolower(str_replace(' ', '_', $name)));
+                    if ($slug !== '') {
+                        $mentionMap[$slug] = $uid;
+                    }
+                    $firstWord = preg_replace('/[^a-z0-9_]/', '', strtolower(explode(' ', trim($name))[0]));
+                    if ($firstWord !== '' && !isset($mentionMap[$firstWord])) {
+                        $mentionMap[$firstWord] = $uid;
+                    }
+                }
+            }
+
+            foreach (array_unique($matches[1]) as $mentionKey) {
+                $targetUserId = $mentionMap[strtolower($mentionKey)] ?? null;
+                if ($targetUserId && $targetUserId !== $senderId) {
+                    $this->mentionModel->insert([
+                        'message_id' => $msgId,
+                        'mentioned_user_id' => $targetUserId,
+                        'is_read' => 0
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            log_message('warning', '[Chat::processMentions] Gagal memproses mention: ' . $e->getMessage());
+        }
     }
 
     // 🔹 Hapus pesan lama > 14 hari

@@ -1197,6 +1197,11 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         $out = preg_replace('/Tipe\s*:\s*[A-Za-z0-9_]+/i', '', $out);
         $out = preg_replace('/Kunci\s*:\s*[A-Za-z0-9,\s]+/i', '', $out);
 
+        // 4b. Hapus kode/header penomoran soal (misal: "Soal:1)", "Soal: 1)", "Soal:[no])", "1)", "1.")
+        $out = preg_replace('/(<\s*(?:p|div)[^>]*>)\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*/iu', '$1', $out);
+        $out = preg_replace('/<\s*(?:strong|b|span)[^>]*>\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*<\/\s*(?:strong|b|span)\s*>\s*/iu', '', $out);
+        $out = preg_replace('/^\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*/imu', '', $out);
+
         // 5. Hapus span/font
         $out = preg_replace('/<\/?(span|font)[^>]*>/i', '', $out);
 
@@ -1254,9 +1259,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
               <?php
               $qTextForRender = $rewriteImageUrls($qText);
-              if ($useRawText) {
-                $qTextForRender = $cleanRawTextPhp($qTextForRender);
-              }
+              $qTextForRender = $cleanRawTextPhp($qTextForRender);
               ?>
               <div class="stimulus-text">
                 <?= $qTextForRender ?: '<div class="alert alert-warning">Konten bacaan tidak tersedia.</div>' ?>
@@ -3649,7 +3652,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             btnFinish.disabled = true;
             btnFinish.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memproses...';
 
-            // 🔹 BULLETPROOF ANSWER SUBMISSION:
+            // 🔹 BULLETPROOF ANSWER SUBMISSION WITH AUTO-RETRY & NETWORK HEALING:
             // 1. Kumpulkan seluruh jawaban aktif langsung dari tampilan siswa (DOM) & antrean lokal
             const allAnswers = (typeof collectAllAnswers === 'function') ? collectAllAnswers() : {};
 
@@ -3657,35 +3660,129 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
             const csrfTokenName = '<?= csrf_token() ?>';
             const csrfHash = document.querySelector(`meta[name='${csrfTokenName}']`)?.getAttribute('content') || '<?= csrf_hash() ?>';
 
-            // 3. Kirim request submit BESERTA seluruh jawaban terkini siswa (format JSON)
-            return fetch('<?= site_url('siswa/cbt/submit/' . $test['id']) ?>', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': csrfHash
-              },
-              body: JSON.stringify({
-                [csrfTokenName]: csrfHash,
-                answers: allAnswers
-              })
-            })
-              .then(async r => {
-                const res = await r.json();
-                if (!r.ok || res.error) {
+            // 3. Resilient submit function with auto-retry and connection verification
+            const submitWithRetry = async (attempt = 1, maxAttempts = 3) => {
+              const controller = new AbortController();
+              const timeoutSec = 20;
+              const timeoutId = setTimeout(() => controller.abort(), timeoutSec * 1000);
+
+              try {
+                const response = await fetch('<?= site_url('siswa/cbt/submit/' . $test['id']) ?>', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfHash
+                  },
+                  body: JSON.stringify({
+                    [csrfTokenName]: csrfHash,
+                    answers: allAnswers
+                  }),
+                  signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                // Baca respon sebagai teks terlebih dahulu untuk mencegah crash SyntaxError jika server mengembalikan HTML (502/504)
+                const text = await response.text();
+                let res = {};
+                try {
+                  res = JSON.parse(text);
+                } catch (jsonErr) {
+                  const statusDesc = response.status ? ` (Kode: HTTP ${response.status})` : '';
+                  throw new Error(`Server sedang sibuk memproses data${statusDesc}. Silakan coba klik Ya, Akhiri Ujian sekali lagi.`);
+                }
+
+                if (!response.ok || res.error) {
                   const errObj = new Error(res.error || 'Ujian belum bisa diselesaikan.');
                   errObj.details = res.details || {};
                   throw errObj;
                 }
-                // Hapus antrean offline lokal setelah submit sukses
+
+                // Sukses! Hapus antrean offline lokal
                 safeStore.removeItem(OFFLINE_QUEUE_KEY);
-                if (res.redirect) return res.redirect;
-                return '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>';
-              })
+                return res.redirect || '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>';
+
+              } catch (err) {
+                clearTimeout(timeoutId);
+
+                // Jika error berasal dari validasi soal yang belum lengkap (dari server), jangan retry, langsung lempar
+                if (err.details && ((err.details.unanswered_numbers && err.details.unanswered_numbers.length > 0) ||
+                                    (err.details.incomplete_bs_numbers && err.details.incomplete_bs_numbers.length > 0))) {
+                  throw err;
+                }
+
+                const isNetErr = err.name === 'AbortError' ||
+                                 err.name === 'TypeError' ||
+                                 /fetch|network|offline|abort|connection/i.test(err.message || '');
+
+                // Auto-retry hingga 3 kali jika terjadi gangguan koneksi/timeout
+                if (isNetErr && attempt < maxAttempts) {
+                  const nextAttempt = attempt + 1;
+                  const popup = Swal.getPopup();
+                  if (popup) {
+                    const titleEl = popup.querySelector('.swal2-title');
+                    if (titleEl) {
+                      titleEl.innerHTML = `<h3 class="fw-bold mb-0 text-primary"><span class="spinner-border spinner-border-sm me-2"></span>Menghubungkan Ulang...</h3><div class="small text-muted fw-normal mt-1">Sinyal HP terganggu, mencoba kirim ulang (${nextAttempt}/${maxAttempts})...</div>`;
+                    }
+                  }
+                  await new Promise(r => setTimeout(r, attempt * 1200));
+                  return submitWithRetry(nextAttempt, maxAttempts);
+                }
+
+                // Verifikasi darurat: Cek apakah sebenarnya ujian sudah berstatus 'finished' di server
+                // (misal request submit sampai di server tapi paket balasan terputus di jalan)
+                if (isNetErr) {
+                  try {
+                    const pingCheck = await fetch('<?= site_url('siswa/cbt/ping') ?>', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                      },
+                      body: JSON.stringify({ test_id: <?= (int)$test['id'] ?> })
+                    });
+                    if (pingCheck.ok) {
+                      const pData = await pingCheck.json();
+                      if (pData && (pData.status === 'finished' || pData.session_finished)) {
+                        safeStore.removeItem(OFFLINE_QUEUE_KEY);
+                        return '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>';
+                      }
+                    }
+                  } catch (ePing) {
+                    // Abaikan jika ping juga gagal
+                  }
+                }
+
+                // Format pesan error yang ramah siswa jika koneksi gagal (TIDAK PERNAH tampilkan raw "!Failed to fetch")
+                if (isNetErr) {
+                  const friendlyErr = new Error(
+                    '<strong>Koneksi Internet Terganggu</strong><br>' +
+                    '<span class="small">Sinyal internet di perangkat Anda sempat terputus saat mengirimkan ujian.<br>' +
+                    '<b>Jawaban Anda aman tersimpan di HP.</b> Silakan periksa koneksi Wi-Fi / data seluler Anda, lalu klik tombol <b>Ya, Akhiri Ujian</b> kembali.</span>'
+                  );
+                  friendlyErr.isNetwork = true;
+                  throw friendlyErr;
+                }
+
+                throw err;
+              }
+            };
+
+            return submitWithRetry(1, 3)
               .catch((err) => {
                 examFinished = false;
                 btnFinish.disabled = false;
                 updateFinishButtonState();
+
+                // Kembalikan judul modal jika sebelumnya berubah saat auto-retry
+                const popup = Swal.getPopup();
+                if (popup) {
+                  const titleEl = popup.querySelector('.swal2-title');
+                  if (titleEl) {
+                    titleEl.innerHTML = '<h3 class="fw-bold mb-0">Selesaikan Ujian?</h3>';
+                  }
+                }
 
                 // Cek apakah server mengirimkan rincian nomor soal yang belum tercatat
                 const details = err.details || {};

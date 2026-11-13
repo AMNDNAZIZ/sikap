@@ -28,12 +28,12 @@ $lastDate = null;
   }
   ?>
   <?php if ($displayDate): ?>
-    <div class="text-center my-3">
-      <span class="badge bg-secondary opacity-75"><?= $displayDate ?></span>
+    <div class="text-center my-3 date-divider" data-date="<?= $msgDate ?>">
+      <span class="badge bg-secondary opacity-75 px-3 py-1 rounded-pill small"><?= $displayDate ?></span>
     </div>
   <?php endif; ?>
 
-  <div id="msg-<?= $msg['id'] ?>"
+  <div id="msg-<?= $msg['id'] ?>" data-id="<?= $msg['id'] ?>"
     class="chat-message <?= $msg['user_id'] == session('user.id') ? 'text-end' : 'text-start' ?>">
 
     <div class="chat-bubble <?= $msg['user_id'] == session('user.id') ? 'sent' : 'received' ?>">

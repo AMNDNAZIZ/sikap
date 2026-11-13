@@ -200,6 +200,11 @@ class CbtQuestionModel extends Model
         // Re-assemble from $questionParts to ensure we don't include parts detected as Options/Keys
         $questionText = implode(' ', $questionParts);
 
+        // Hapus kode/header penomoran soal (misal: "Soal:1)", "Soal: 1)", "Soal:[no])", "1)", "1.")
+        $questionText = preg_replace('/(<\s*(?:p|div)[^>]*>)\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*/iu', '$1', $questionText);
+        $questionText = preg_replace('/<\s*(?:strong|b|span)[^>]*>\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*<\/\s*(?:strong|b|span)\s*>\s*/iu', '', $questionText);
+        $questionText = preg_replace('/^\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*/imu', '', $questionText);
+
         // Remove empty paragraphs/divs left behind
         $questionText = preg_replace('/<(p|div)[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/\1>/is', '', $questionText);
 
