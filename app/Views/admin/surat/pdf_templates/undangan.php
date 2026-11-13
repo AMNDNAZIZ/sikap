@@ -173,8 +173,8 @@ $diTempat = ($isGuruTendik || str_contains(strtolower($recipientName), 'guru') |
     
     <div class="ttd-wrapper">
         Kepala <?= esc($school['name'] ?? 'SDN Mangga Besar 11 Pagi') ?>
-        <div class="seal-space"></div>
         <div class="signature-space"></div>
+        <div class="seal-space"></div>
         <span class="ttd-line"></span>
         <strong><?= esc($principalName) ?></strong><br>
         NIP. <?= esc($principalNip) ?>

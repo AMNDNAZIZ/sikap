@@ -48,9 +48,9 @@ final class PdfGeneratorSignatureTest extends CIUnitTestCase
         $html = $htmlBody;
 
         if ($useSignature && $sigBase64) {
-            $sigHtml = '<div class="signature-block" style="text-align:center;margin-top:10px;">'
-                . '<img src="' . $sigBase64 . '" '
-                . 'style="width:120px;height:auto;display:block;margin:0 auto;" />'
+            $sigHtml = '<div class="signature-block" style="text-align:center;margin:2px 0;position:relative;z-index:1;">'
+                . '<img src="' . $sigBase64 . '" class="signature-img" '
+                . 'style="width:180px;height:auto;max-height:70px;display:block;margin:0 auto;" />'
                 . '</div>';
             $html = preg_replace(
                 '/<div[^>]*class=["\']signature-space["\'][^>]*>\s*<\/div>/i',
@@ -61,9 +61,9 @@ final class PdfGeneratorSignatureTest extends CIUnitTestCase
         }
 
         if ($useSeal && $sealBase64) {
-            $sealHtml = '<div class="seal-block" style="text-align:center;margin-top:10px;">'
-                . '<img src="' . $sealBase64 . '" '
-                . 'style="width:100px;height:auto;display:block;margin:0 auto;" />'
+            $sealHtml = '<div class="seal-block" style="position:absolute;left:-25px;top:12px;z-index:10;pointer-events:none;">'
+                . '<img src="' . $sealBase64 . '" class="seal-img" '
+                . 'style="width:3.8cm;height:3.8cm;max-width:3.8cm;max-height:3.8cm;display:block;" />'
                 . '</div>';
             $html = preg_replace(
                 '/<div[^>]*class=["\']seal-space["\'][^>]*>\s*<\/div>/i',
@@ -122,7 +122,7 @@ final class PdfGeneratorSignatureTest extends CIUnitTestCase
         );
 
         $this->assertStringContainsString($this->fakeSigBase64, $html);
-        $this->assertStringContainsString('width:120px', $html);
+        $this->assertStringContainsString('width:180px', $html);
         $this->assertStringContainsString('signature-block', $html);
     }
 
@@ -139,7 +139,7 @@ final class PdfGeneratorSignatureTest extends CIUnitTestCase
         );
 
         $this->assertStringContainsString($this->fakeSealBase64, $html);
-        $this->assertStringContainsString('width:100px', $html);
+        $this->assertStringContainsString('width:3.8cm', $html);
         $this->assertStringContainsString('seal-block', $html);
     }
 
@@ -403,10 +403,10 @@ final class PdfGeneratorSignatureTest extends CIUnitTestCase
     }
 
     /**
-     * TC-BVT-PDF-02: width signature harus tepat 120px (tidak 119, tidak 121)
+     * TC-BVT-PDF-02: width signature harus tepat 180px
      * Trace: BR-04
      */
-    public function testSignatureWidthIsExactly120px(): void
+    public function testSignatureWidthIsExactly180px(): void
     {
         $html = $this->renderHtml(
             $this->htmlWithBothPlaceholders(),
@@ -414,16 +414,16 @@ final class PdfGeneratorSignatureTest extends CIUnitTestCase
             $this->fakeSigBase64, null
         );
 
-        $this->assertStringContainsString('width:120px', $html);
-        $this->assertStringNotContainsString('width:121px', $html);
-        $this->assertStringNotContainsString('width:119px', $html);
+        $this->assertStringContainsString('width:180px', $html);
+        $this->assertStringNotContainsString('width:181px', $html);
+        $this->assertStringNotContainsString('width:179px', $html);
     }
 
     /**
-     * TC-BVT-PDF-03: width seal harus tepat 100px (tidak 99, tidak 101)
+     * TC-BVT-PDF-03: width seal harus 3.8cm (standar fisik stempel 3-4 cm)
      * Trace: BR-05
      */
-    public function testSealWidthIsExactly100px(): void
+    public function testSealWidthIsStandard38cm(): void
     {
         $html = $this->renderHtml(
             $this->htmlWithBothPlaceholders(),
@@ -431,8 +431,7 @@ final class PdfGeneratorSignatureTest extends CIUnitTestCase
             null, $this->fakeSealBase64
         );
 
-        $this->assertStringContainsString('width:100px', $html);
-        $this->assertStringNotContainsString('width:101px', $html);
-        $this->assertStringNotContainsString('width:99px', $html);
+        $this->assertStringContainsString('width:3.8cm', $html);
+        $this->assertStringNotContainsString('width:100px', $html);
     }
 }

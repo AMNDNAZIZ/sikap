@@ -907,8 +907,8 @@ class SuratKeluar extends BaseController
             if ($useSignature) {
                 $sigBase64 = \App\Helpers\SignatureHelper::getSignatureBase64();
                 if ($sigBase64) {
-                    $sigHtml = '<div class="signature-block" style="text-align:center;margin:2px 0;">'
-                        . '<img src="' . $sigBase64 . '" class="signature-img" style="width:120px;height:auto;display:block;margin:0 auto;" />'
+                    $sigHtml = '<div class="signature-block" style="text-align:center;margin:2px 0;position:relative;z-index:1;">'
+                        . '<img src="' . $sigBase64 . '" class="signature-img" style="width:180px;height:auto;max-height:70px;display:block;margin:0 auto;" />'
                         . '</div>';
                     $html = preg_replace('/<div[^>]*class=["\']signature-space["\'][^>]*>\s*<\/div>/i', $sigHtml, $html, 1);
                 }
@@ -918,8 +918,8 @@ class SuratKeluar extends BaseController
             if ($useSeal) {
                 $sealBase64 = \App\Helpers\SignatureHelper::getSealBase64();
                 if ($sealBase64) {
-                    $sealHtml = '<div class="seal-block" style="position:absolute;left:-25px;top:15px;z-index:1;">'
-                        . '<img src="' . $sealBase64 . '" class="seal-img" style="width:95px;height:auto;display:block;" />'
+                    $sealHtml = '<div class="seal-block" style="position:absolute;left:-25px;top:12px;z-index:10;pointer-events:none;">'
+                        . '<img src="' . $sealBase64 . '" class="seal-img" style="width:3.8cm;height:3.8cm;max-width:3.8cm;max-height:3.8cm;display:block;" />'
                         . '</div>';
                     $html = preg_replace('/<div[^>]*class=["\']seal-space["\'][^>]*>\s*<\/div>/i', $sealHtml, $html, 1);
                 }

@@ -94,6 +94,11 @@ final class SuratKeluarDownloadOptionTest extends CIUnitTestCase
             $content = file_get_contents($path);
             $this->assertStringContainsString('signature-space', $content, "Template {$tmpl} harus memiliki .signature-space.");
             $this->assertStringContainsString('seal-space', $content, "Template {$tmpl} harus memiliki .seal-space.");
+
+            // Pastikan signature-space berada SEBELUM seal-space dalam DOM agar stempel di-render di atas tanda tangan
+            $posSig  = strpos($content, 'signature-space');
+            $posSeal = strpos($content, 'seal-space');
+            $this->assertLessThan($posSeal, $posSig, "Template {$tmpl}: signature-space harus muncul sebelum seal-space agar stempel menimpa di atas ttd.");
         }
     }
 
@@ -109,8 +114,10 @@ final class SuratKeluarDownloadOptionTest extends CIUnitTestCase
         $this->assertStringContainsString('.seal-space', $content);
         $this->assertStringContainsString('.signature-block', $content);
         $this->assertStringContainsString('.seal-block', $content);
-        $this->assertStringContainsString('width: 120px', $content);
-        $this->assertStringContainsString('width: 95px', $content);
+        $this->assertStringContainsString('width: 180px', $content);
+        $this->assertStringContainsString('width: 3.8cm', $content);
+        $this->assertStringContainsString('z-index: 10', $content);
+        $this->assertStringContainsString('height: 65px', $content);
     }
 
     /**

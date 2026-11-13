@@ -104,11 +104,11 @@ class PdfGenerator
 
         // ── 6. Inject tanda tangan KS ke placeholder .signature-space ───────────
         // Placeholder di view: <div class="signature-space"></div>
-        // Ukuran: max 120 px lebar, PNG transparan
+        // Ukuran: 180 px lebar, PNG transparan
         if ($useSignature && !empty($data['signature_base64'])) {
-            $sigHtml = '<div class="signature-block" style="text-align:center;margin-top:10px;">'
-                . '<img src="' . $data['signature_base64'] . '" '
-                . 'style="width:120px;height:auto;display:block;margin:0 auto;" />'
+            $sigHtml = '<div class="signature-block" style="text-align:center;margin:2px 0;position:relative;z-index:1;">'
+                . '<img src="' . $data['signature_base64'] . '" class="signature-img" '
+                . 'style="width:180px;height:auto;max-height:70px;display:block;margin:0 auto;" />'
                 . '</div>';
             $html = preg_replace(
                 '/<div[^>]*class=["\']signature-space["\'][^>]*>\s*<\/div>/i',
@@ -120,11 +120,11 @@ class PdfGenerator
 
         // ── 7. Inject cap sekolah ke placeholder .seal-space ───────────────────
         // Placeholder di view: <div class="seal-space"></div>
-        // Ukuran: 100 px lebar agar proporsional dengan asli, PNG transparan
+        // Ukuran fisik stempel nyata 3-4 cm (3.8 cm), posisi overlay di atas tanda tangan (z-index: 10)
         if ($useSeal && !empty($data['seal_base64'])) {
-            $sealHtml = '<div class="seal-block" style="text-align:center;margin-top:10px;">'
-                . '<img src="' . $data['seal_base64'] . '" '
-                . 'style="width:100px;height:auto;display:block;margin:0 auto;" />'
+            $sealHtml = '<div class="seal-block" style="position:absolute;left:-25px;top:12px;z-index:10;pointer-events:none;">'
+                . '<img src="' . $data['seal_base64'] . '" class="seal-img" '
+                . 'style="width:3.8cm;height:3.8cm;max-width:3.8cm;max-height:3.8cm;display:block;" />'
                 . '</div>';
             $html = preg_replace(
                 '/<div[^>]*class=["\']seal-space["\'][^>]*>\s*<\/div>/i',
