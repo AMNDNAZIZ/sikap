@@ -1051,8 +1051,27 @@ class Kokurikuler extends BaseController
             $aiProvider = $userData['ai_provider'] ?? 'gemini';
         }
 
+        // Fallback: Jika guru belum mengatur API key pribadi, gunakan API key sekolah dari Admin
+        if (empty($apiKey)) {
+            $adminUser = $db->table('users')
+                ->where('role_id', 1)
+                ->where('gemini_api_key !=', '')
+                ->where('gemini_api_key IS NOT NULL')
+                ->get()
+                ->getRowArray();
+            if ($adminUser && !empty($adminUser['gemini_api_key'])) {
+                $apiKey = $adminUser['gemini_api_key'];
+                $aiProvider = $adminUser['ai_provider'] ?? 'groq';
+            }
+        }
+
         $recommendations = [];
         $source = 'curated';
+        $modelUsed = '';
+        $totalTpsCount = 0;
+        foreach ($subjectTpMap as $tpArray) {
+            $totalTpsCount += count($tpArray);
+        }
 
         if (!empty($apiKey)) {
             $aiResult = $this->callAIPlanningAPI($apiKey, $aiProvider, [
@@ -1069,10 +1088,11 @@ class Kokurikuler extends BaseController
             if ($aiResult['success'] && !empty($aiResult['packages'])) {
                 $recommendations = $aiResult['packages'];
                 $source = 'ai_' . $aiProvider;
+                $modelUsed = $aiResult['model'] ?? '';
             }
         }
 
-        // Jika API Key kosong atau panggilan AI gagal, gunakan curated matrix
+        // Jika API Key kosong atau panggilan AI gagal, gunakan curated matrix yang adaptif
         if (empty($recommendations)) {
             $recommendations = $this->getCuratedKokurikulerPackages($schoolLevel, $fase, $semester, $focusKeyword, $subjects, $subjectTpMap, $targetClasses);
             $source = 'curated_matrix';
@@ -1081,9 +1101,17 @@ class Kokurikuler extends BaseController
         return $this->response->setJSON([
             'success' => true,
             'source' => $source,
+            'model_used' => $modelUsed,
+            'provider' => $aiProvider,
+            'school_name' => $schoolName,
+            'total_subjects_analyzed' => count($subjects),
+            'total_tps_analyzed' => $totalTpsCount,
+            'focus_keyword' => $focusKeyword,
             'fase' => $fase,
             'semester' => $semester,
-            'message' => 'Rekomendasi perencanaan kokurikuler berhasil disusun oleh AI Asisten ESPATA.',
+            'message' => ($source === 'curated_matrix')
+                ? 'Rekomendasi disusun berdasarkan kurasi standar Kurikulum Merdeka (Mode Fallback).'
+                : "Rekomendasi berhasil dianalisis secara real-time oleh AI ({$aiProvider}: {$modelUsed}) berdasarkan TP aktif.",
             'packages' => $recommendations
         ]);
     }
@@ -1116,31 +1144,34 @@ class Kokurikuler extends BaseController
         $subjectsPayload = implode("\n", array_slice($subjectListLines, 0, 10));
 
         $prompt = "Anda adalah Konsultan Ahli Kurikulum Merdeka & Koordinator Kokurikuler di {$schoolName}.\n"
-            . "Tugas Anda: Rancang 2 sampai 3 alternatif Paket Rencana Projek Kokurikuler Lintas Disiplin Ilmu yang terstruktur, kontekstual, dan siap diterapkan ke form aplikasi.\n\n"
-            . "KONTEKS:\n"
+            . "Tugas Anda: Rancang 2 sampai 3 alternatif Paket Rencana Projek Kokurikuler Lintas Disiplin Ilmu yang inovatif, kontekstual, dan siap diterapkan ke form aplikasi.\n\n"
+            . "KONTEKS SEKOLAH & KURIKULUM:\n"
             . "- Fase: {$fase} (Kelas " . implode(', ', $targetClasses) . ")\n"
             . "- Semester: {$semester}\n"
             . ($focus !== '' ? "- Fokus / Minat Topik Guru: {$focus}\n" : "- Fokus Topik: Sesuai isu kontekstual aktual sekolah & lingkungan sekitar\n")
-            . "- Daftar Mata Pelajaran & TP yang tersedia:\n{$subjectsPayload}\n\n"
+            . "- Daftar Mata Pelajaran & TP riil di database sekolah:\n{$subjectsPayload}\n\n"
             . "DIMENSI PROFIL LULUSAN RESMI:\n"
             . "Keimanan dan Ketakwaan Terhadap Tuhan YME, Kewargaan, Penalaran Kritis, Kreativitas, Kemandirian, Kolaborasi, Kesehatan, Komunikasi.\n\n"
-            . "ATURAN OUTPUT:\n"
-            . "Berikan HANYA string array JSON valid tanpa markdown, tanpa pengantar, dengan struktur persis seperti ini:\n"
+            . "INSTRUKSI PENTING:\n"
+            . "1. Analisis Tujuan Pembelajaran (TP) dari mata pelajaran yang tersedia di atas.\n"
+            . "2. Temukan irisan/keterkaitan antar TP mapel yang saling mendukung untuk tema projek.\n"
+            . "3. Gunakan subject_id dan tp_ids riil dari daftar di atas agar cocok dengan sistem.\n"
+            . "4. Berikan HANYA array JSON valid (tanpa markdown ```json ```, tanpa pengantar):\n"
             . "[\n"
             . "  {\n"
             . "    \"id\": \"paket_1\",\n"
-            . "    \"judul_paket\": \"Nama Projek Menarik\",\n"
-            . "    \"tema\": \"Tema Kurikulum Merdeka\",\n"
+            . "    \"judul_paket\": \"Judul Projek Menarik (relevan dengan topik/TP)\",\n"
+            . "    \"tema\": \"Tema Kurikulum Merdeka (Gaya Hidup Berkelanjutan / Kewirausahaan / Rekayasa dan Teknologi / Kearifan Lokal / Bhinneka Tunggal Ika / Bangun Jiwa Raga / Suara Demokrasi)\",\n"
             . "    \"dimensi_profil\": [\"Penalaran Kritis\", \"Kolaborasi\"],\n"
             . "    \"level_kelas\": [\"" . implode('", "', $targetClasses) . "\"],\n"
             . "    \"jumlah_pertemuan\": 16,\n"
             . "    \"bentuk_kegiatan_konkret\": \"Rincian kegiatan nyata murid yang terukur sepanjang semester\",\n"
-            . "    \"alasan_analisis\": \"Ulasan pedagogis mengapa projek ini selaras untuk fase ini\",\n"
+            . "    \"alasan_analisis\": \"Ulasan analitis bagaimana projek ini mengintegrasikan TP mapel yang dipilih\",\n"
             . "    \"lintas_disiplin\": [\n"
             . "      {\n"
             . "        \"subject_id\": (pilih ID mata pelajaran dari daftar),\n"
             . "        \"subject_name\": \"Nama Mapel\",\n"
-            . "        \"tp_ids\": [(ID TP dari daftar di atas)],\n"
+            . "        \"tp_ids\": [(ID TP riil dari daftar di atas)],\n"
             . "        \"dimensi\": \"Dimensi Profil terpilih\",\n"
             . "        \"sub_dimensi\": \"Sub Dimensi yang relevan\"\n"
             . "      }\n"
@@ -1149,7 +1180,7 @@ class Kokurikuler extends BaseController
             . "]";
 
         $content = '';
-        $httpCode = 0;
+        $usedModel = '';
 
         if ($aiProvider === 'groq') {
             $url = 'https://api.groq.com/openai/v1/chat/completions';
@@ -1157,64 +1188,83 @@ class Kokurikuler extends BaseController
                 'Authorization: Bearer ' . $apiKey,
                 'Content-Type: application/json'
             ];
-            $payload = json_encode([
-                "model" => "llama-3.1-8b-instant",
-                "messages" => [["role" => "user", "content" => $prompt]],
-                "temperature" => 0.6,
-                "max_tokens" => 3500
-            ]);
+            $groqModels = [
+                'openai/gpt-oss-20b',
+                'qwen/qwen3.8-27b',
+                'openai/gpt-oss-120b'
+            ];
 
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
+            foreach ($groqModels as $gModel) {
+                $payload = json_encode([
+                    "model" => $gModel,
+                    "messages" => [["role" => "user", "content" => $prompt]],
+                    "temperature" => 0.5,
+                    "max_tokens" => 3500
+                ]);
 
-            if ($httpCode === 200) {
-                $resData = json_decode($response, true);
-                $content = $resData['choices'][0]['message']['content'] ?? '';
+                $ch = curl_init($url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($httpCode === 200) {
+                    $resData = json_decode($response, true);
+                    $content = $resData['choices'][0]['message']['content'] ?? '';
+                    if (!empty($content)) {
+                        $usedModel = $gModel;
+                        break;
+                    }
+                }
             }
         } else {
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" . $apiKey;
+            $geminiModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
             $headers = ['Content-Type: application/json'];
             $payload = json_encode([
                 "contents" => [["parts" => [["text" => $prompt]]]],
                 "generationConfig" => [
-                    "temperature" => 0.6,
+                    "temperature" => 0.5,
                     "maxOutputTokens" => 3500
                 ]
             ]);
 
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
+            foreach ($geminiModels as $gModel) {
+                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$gModel}:generateContent?key=" . $apiKey;
+                $ch = curl_init($url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
 
-            if ($httpCode === 200) {
-                $resData = json_decode($response, true);
-                if (!empty($resData['candidates'][0]['content']['parts'])) {
-                    foreach ($resData['candidates'][0]['content']['parts'] as $part) {
-                        if (!empty($part['text'])) {
-                            $content .= $part['text'];
+                if ($httpCode === 200) {
+                    $resData = json_decode($response, true);
+                    if (!empty($resData['candidates'][0]['content']['parts'])) {
+                        foreach ($resData['candidates'][0]['content']['parts'] as $part) {
+                            if (!empty($part['text'])) {
+                                $content .= $part['text'];
+                            }
                         }
+                    }
+                    if (!empty($content)) {
+                        $usedModel = $gModel;
+                        break;
                     }
                 }
             }
         }
 
         if (empty($content)) {
-            return ['success' => false, 'message' => "AI Response kosong (HTTP $httpCode)"];
+            return ['success' => false, 'message' => "AI Response kosong"];
         }
 
         $content = preg_replace('/```(?:json)?\s*/i', '', $content);
@@ -1230,7 +1280,12 @@ class Kokurikuler extends BaseController
             return ['success' => false, 'message' => 'Format JSON tidak valid'];
         }
 
-        return ['success' => true, 'packages' => $packages];
+        return [
+            'success' => true,
+            'packages' => $packages,
+            'model' => $usedModel,
+            'provider' => $aiProvider
+        ];
     }
 
     /**
@@ -1313,15 +1368,21 @@ class Kokurikuler extends BaseController
 
         $packages[] = [
             'id' => 'paket_1',
-            'judul_paket' => ($schoolLevel == 1) 
-                ? 'Detektif Cilik Sampah Sekolah & Kreasi Eko-Brick' 
-                : 'Audit Sampah Mandiri & Inovasi Eko-Enzim Ramah Lingkungan',
+            'judul_paket' => !empty($focusKeyword)
+                ? 'Aksi Berkelanjutan: ' . ucwords($focusKeyword) . ' Ramah Lingkungan'
+                : (($schoolLevel == 1) 
+                    ? 'Detektif Cilik Sampah Sekolah & Kreasi Eko-Brick' 
+                    : 'Audit Sampah Mandiri & Inovasi Eko-Enzim Ramah Lingkungan'),
             'tema' => 'Gaya Hidup Berkelanjutan',
             'dimensi_profil' => ['Penalaran Kritis', 'Kolaborasi', 'Keimanan dan Ketakwaan Terhadap Tuhan YME'],
             'level_kelas' => $targetClasses,
             'jumlah_pertemuan' => 16,
-            'bentuk_kegiatan_konkret' => 'Murid melakukan observasi audit volume sampah organik dan anorganik sekolah, memilah limbah, memproduksi eko-enzim/kompos, serta menggelar kampanye sekolah hijau bebas plastik.',
-            'alasan_analisis' => 'Sangat kontekstual dengan lingkungan sekolah, menumbuhkan kepedulian ekologis sekaligus memadukan analisis saintifik dan literasi kampanye publik.',
+            'bentuk_kegiatan_konkret' => !empty($focusKeyword)
+                ? 'Murid mendalami topik ' . $focusKeyword . ' melalui observasi langsung di lingkungan sekolah, merancang aksi nyata ramah lingkungan, dan mempublikasikan hasil aksi dalam bentuk media kampanye.'
+                : 'Murid melakukan observasi audit volume sampah organik dan anorganik sekolah, memilah limbah, memproduksi eko-enzim/kompos, serta menggelar kampanye sekolah hijau bebas plastik.',
+            'alasan_analisis' => !empty($focusKeyword)
+                ? 'Mengaitkan fokus topik ' . $focusKeyword . ' dengan TP mata pelajaran terpilih untuk menumbuhkan kepedulian ekologis dan penalaran kritis siswa.'
+                : 'Sangat kontekstual dengan lingkungan sekolah, menumbuhkan kepedulian ekologis sekaligus memadukan analisis saintifik dan literasi kampanye publik.',
             'lintas_disiplin' => $p1Disiplin
         ];
 
@@ -1357,15 +1418,21 @@ class Kokurikuler extends BaseController
 
         $packages[] = [
             'id' => 'paket_2',
-            'judul_paket' => ($schoolLevel == 1)
-                ? 'Market Day Cilik: Ragam Kuliner Sehat Tradisional'
-                : 'Inkubator Wirausaha Muda: Eksplorasi Produk Kreatif Berbasis Kearifan Lokal',
+            'judul_paket' => !empty($focusKeyword)
+                ? 'Kewirausahaan Kreatif Berbasis ' . ucwords($focusKeyword)
+                : (($schoolLevel == 1)
+                    ? 'Market Day Cilik: Ragam Kuliner Sehat Tradisional'
+                    : 'Inkubator Wirausaha Muda: Eksplorasi Produk Kreatif Berbasis Kearifan Lokal'),
             'tema' => 'Kewirausahaan',
             'dimensi_profil' => ['Kreativitas', 'Kemandirian', 'Kolaborasi'],
             'level_kelas' => $targetClasses,
             'jumlah_pertemuan' => 16,
-            'bentuk_kegiatan_konkret' => 'Murid meriset potensi bahan lokal, merancang produk olahan kreatif bernilai ekonomis, menghitung biaya produksi serta laba/rugi, dan menyelenggarakan pameran mini wirausaha sekolah.',
-            'alasan_analisis' => 'Membangun karakter pantang menyerah, jiwa inovasi, kepemimpinan kerja tim, dan literasi finansial praktis sejak dini.',
+            'bentuk_kegiatan_konkret' => !empty($focusKeyword)
+                ? 'Murid meriset potensi nilai ekonomis dari ' . $focusKeyword . ', merancang produk olahan atau karya inovatif, menghitung anggaran sederhana, dan menyelenggarakan pameran karya sekolah.'
+                : 'Murid meriset potensi bahan lokal, merancang produk olahan kreatif bernilai ekonomis, menghitung biaya produksi serta laba/rugi, dan menyelenggarakan pameran mini wirausaha sekolah.',
+            'alasan_analisis' => !empty($focusKeyword)
+                ? 'Mengintegrasikan eksplorasi ' . $focusKeyword . ' dengan capaian pembelajaran prakarya/matematika untuk melatih jiwa kepemimpinan dan kemandirian.'
+                : 'Membangun karakter pantang menyerah, jiwa inovasi, kepemimpinan kerja tim, dan literasi finansial praktis sejak dini.',
             'lintas_disiplin' => $p2Disiplin
         ];
 
@@ -1401,15 +1468,21 @@ class Kokurikuler extends BaseController
 
         $packages[] = [
             'id' => 'paket_3',
-            'judul_paket' => ($schoolLevel == 1)
-                ? 'Teknologi Sederhana Sahabat Lingkungan: Rancang Alat Penyaring Air Bersih'
-                : 'Inovasi Digital & Rancang Bangun Teknologi Tepat Guna untuk Solusi Lingkungan',
+            'judul_paket' => !empty($focusKeyword)
+                ? 'Inovasi Rekayasa Teknologi: ' . ucwords($focusKeyword)
+                : (($schoolLevel == 1)
+                    ? 'Teknologi Sederhana Sahabat Lingkungan: Rancang Alat Penyaring Air Bersih'
+                    : 'Inovasi Digital & Rancang Bangun Teknologi Tepat Guna untuk Solusi Lingkungan'),
             'tema' => 'Rekayasa dan Teknologi',
             'dimensi_profil' => ['Penalaran Kritis', 'Kreativitas', 'Kolaborasi'],
             'level_kelas' => $targetClasses,
             'jumlah_pertemuan' => 16,
-            'bentuk_kegiatan_konkret' => 'Murid mengidentifikasi kendala fisik/lingkungan di sekitar sekolah, merancang model prototipe alat tepat guna atau media interaktif digital, menguji coba fungsi, dan menyusun laporan unjuk kerja.',
-            'alasan_analisis' => 'Menstimulasi daya rekayasa (computational/engineering thinking), kolaborasi pemecahan masalah, dan keberanian bereksperimen dengan teknologi ramah lingkungan.',
+            'bentuk_kegiatan_konkret' => !empty($focusKeyword)
+                ? 'Murid mengidentifikasi masalah terkait ' . $focusKeyword . ', merancang model prototipe alat tepat guna atau media teknologi, menguji coba fungsi, dan menyusun laporan unjuk kerja.'
+                : 'Murid mengidentifikasi kendala fisik/lingkungan di sekitar sekolah, merancang model prototipe alat tepat guna atau media interaktif digital, menguji coba fungsi, dan menyusun laporan unjuk kerja.',
+            'alasan_analisis' => !empty($focusKeyword)
+                ? 'Mendorong pemikiran komputasional dan rekayasa sains berbasis isu ' . $focusKeyword . ' melalui kolaborasi lintas mapel TIK, IPA, dan Bahasa.'
+                : 'Menstimulasi daya rekayasa (computational/engineering thinking), kolaborasi pemecahan masalah, dan keberanian bereksperimen dengan teknologi ramah lingkungan.',
             'lintas_disiplin' => $p3Disiplin
         ];
 

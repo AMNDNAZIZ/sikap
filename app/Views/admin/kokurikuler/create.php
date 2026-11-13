@@ -1005,7 +1005,7 @@ $(document).ready(function() {
             success: function(res) {
                 if (res.success && res.packages && res.packages.length > 0) {
                     currentAiPackages = res.packages;
-                    renderAiPackages(res.packages);
+                    renderAiPackages(res.packages, res);
                     $packagesContainer.removeClass('d-none');
                 } else {
                     $('#ai_consult_error_text').text(res.message || 'Tidak ada rekomendasi yang berhasil disusun.');
@@ -1028,9 +1028,45 @@ $(document).ready(function() {
         });
     });
 
-    function renderAiPackages(packages) {
+    function renderAiPackages(packages, meta) {
         const $container = $('#ai_consult_packages');
         $container.empty();
+
+        // Render Status & Origin Banner
+        if (meta) {
+            let bannerHtml = '';
+            if (meta.source && meta.source.startsWith('ai_')) {
+                const provName = (meta.provider || 'Groq').toUpperCase();
+                bannerHtml = `
+                    <div class="col-12 mb-2">
+                        <div class="p-3 rounded-3 bg-white border border-success-subtle shadow-sm d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-success text-white me-2 px-2 py-1"><i class="bi bi-cpu-fill me-1"></i> Generasi AI Real-Time</span>
+                                <span class="small fw-semibold text-dark">Engine: <span class="badge bg-success-subtle text-success border border-success-subtle">${provName}: ${meta.model_used || 'Active Model'}</span></span>
+                            </div>
+                            <div class="small text-muted">
+                                <i class="bi bi-database-check text-success me-1"></i> Dianalisis dari <strong>${meta.total_tps_analyzed || 0} Tujuan Pembelajaran</strong> & <strong>${meta.total_subjects_analyzed || 0} Mata Pelajaran</strong> di <strong>${meta.school_name || 'Sekolah'}</strong>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                bannerHtml = `
+                    <div class="col-12 mb-2">
+                        <div class="p-3 rounded-3 bg-white border border-warning-subtle shadow-sm d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-warning text-dark me-2 px-2 py-1"><i class="bi bi-shield-check me-1"></i> Kurasi Standar Kurikulum Merdeka</span>
+                                <span class="small text-muted">Mode Adaptif Database Sekolah (Fallback)</span>
+                            </div>
+                            <div class="small text-muted">
+                                <i class="bi bi-info-circle text-warning me-1"></i> Dipetakan otomatis ke mata pelajaran dan bank TP aktif di sekolah Anda.
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            $container.append(bannerHtml);
+        }
 
         packages.forEach(function(pkg, idx) {
             const dimensiBadges = (pkg.dimensi_profil || []).map(function(d) {
@@ -1077,7 +1113,7 @@ $(document).ready(function() {
                             </div>
 
                             <div class="p-2 mb-3 bg-primary-subtle rounded border border-primary-subtle small">
-                                <strong class="d-block text-primary"><i class="bi bi-activity me-1"></i>Bentuk Nyata Kegiatan:</strong>
+                                <strong class="d-block text-primary mb-1"><i class="bi bi-activity me-1"></i>Bentuk Nyata Kegiatan:</strong>
                                 <span class="text-dark">${pkg.bentuk_kegiatan_konkret}</span>
                             </div>
 
@@ -1087,14 +1123,17 @@ $(document).ready(function() {
                             </div>
 
                             ${pkg.alasan_analisis ? `
-                                <div class="mb-3 mt-auto">
-                                    <small class="text-muted fst-italic"><i class="bi bi-info-circle me-1"></i>${pkg.alasan_analisis}</small>
+                                <div class="p-2 mb-3 bg-light rounded border small">
+                                    <strong class="d-block text-secondary mb-1"><i class="bi bi-diagram-3-fill me-1 text-primary"></i>Analisis Keterkaitan TP:</strong>
+                                    <span class="text-dark">${pkg.alasan_analisis}</span>
                                 </div>
-                            ` : '<div class="mt-auto"></div>'}
+                            ` : ''}
 
-                            <button type="button" class="btn btn-success btn-sm w-100 fw-bold shadow-sm btn-apply-ai-package" data-index="${idx}">
-                                <i class="bi bi-lightning-charge-fill me-1"></i> Terapkan Saran ke Form (1-Klik)
-                            </button>
+                            <div class="mt-auto">
+                                <button type="button" class="btn btn-success btn-sm w-100 fw-bold shadow-sm btn-apply-ai-package" data-index="${idx}">
+                                    <i class="bi bi-lightning-charge-fill me-1"></i> Terapkan Saran ke Form (1-Klik)
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
