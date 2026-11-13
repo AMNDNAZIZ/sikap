@@ -327,23 +327,80 @@ class Cbt extends BaseController
         $failed = [];
         $conflicts = [];
 
+        // 🚀 BULK V3 QUERY OPTIMIZATION (Eliminate N+1 query loop):
+        // Pre-fetch all questions and existing V3 answers in 2 batch queries
+        // instead of executing 120-160 sequential queries inside the loop!
+        $qIds = array_map('intval', array_keys($answers));
+        $qMap = [];
+        if (!empty($qIds)) {
+            $qRows = $this->questionModel->whereIn('id', $qIds)->findAll();
+            foreach ($qRows as $qr) {
+                $qMap[(int)$qr['id']] = $qr;
+            }
+        }
+
+        $v3Model = new \App\Models\CbtAnswerV3Model();
+        $existingMap = [];
+        if (!empty($qIds)) {
+            $existingRows = $v3Model->where('session_id', (int)$session['id'])
+                ->whereIn('item_version_id', $qIds)
+                ->findAll();
+            foreach ($existingRows as $er) {
+                $existingMap[(int)$er['item_version_id']] = $er;
+            }
+        }
+
         // 🔹 V3 Assessment Intelligence Pipeline Sync with CAS & Partial Batch Distinction
         foreach ($answers as $qid => $ansVal) {
-            $expVer = $expectedVersions[$qid] ?? null;
-            $syncRes = $this->syncToV3Pipeline((int)$session['id'], (int)$studentId, (int)$qid, $ansVal, $expVer);
-            if ($syncRes['status'] === 'saved') {
-                $succeeded[] = (int)$qid;
-            } elseif ($syncRes['status'] === 'conflict') {
-                $conflicts[] = [
-                    'question_id'   => (int)$qid,
-                    'incident_type' => 'STALE_VERSION_CONFLICT',
-                    'message'       => $syncRes['message'] ?? 'CAS Concurrency Conflict'
-                ];
-            } else {
+            $qidInt = (int)$qid;
+            $q = $qMap[$qidInt] ?? null;
+
+            if (!$q) {
                 $failed[] = [
-                    'question_id'   => (int)$qid,
+                    'question_id'   => $qidInt,
                     'incident_type' => 'SERVER_PERSISTENCE_FAILURE',
-                    'error'         => $syncRes['message'] ?? 'Sync failed'
+                    'error'         => 'Question not found'
+                ];
+                continue;
+            }
+
+            $existing = $existingMap[$qidInt] ?? null;
+            $payloadStr = is_string($ansVal) ? $ansVal : json_encode($ansVal);
+            $expVer = $expectedVersions[$qid] ?? null;
+
+            // 🚀 FAST-PATH: If answer payload is identical to existing DB state, skip writes!
+            if ($existing && (string)$existing['answer_payload'] === (string)$payloadStr) {
+                $succeeded[] = $qidInt;
+                continue;
+            }
+
+            // Sync new or modified answer to V3 pipeline
+            try {
+                $qType = strtolower($q['question_type'] ?? 'pg');
+                $correctKey = $q['correct_option'] ?? null;
+                $weight = (float)($q['score'] ?? 1.0);
+                $res = $this->pipelineService->submitAnswer(
+                    (int)$session['id'],
+                    $qidInt,
+                    (int)$studentId,
+                    $qType,
+                    $ansVal,
+                    $correctKey,
+                    $weight,
+                    $expVer
+                );
+                $succeeded[] = $qidInt;
+            } catch (\RuntimeException $e) {
+                $conflicts[] = [
+                    'question_id'   => $qidInt,
+                    'incident_type' => 'STALE_VERSION_CONFLICT',
+                    'message'       => $e->getMessage()
+                ];
+            } catch (\Throwable $e) {
+                $failed[] = [
+                    'question_id'   => $qidInt,
+                    'incident_type' => 'SERVER_PERSISTENCE_FAILURE',
+                    'error'         => $e->getMessage()
                 ];
             }
         }

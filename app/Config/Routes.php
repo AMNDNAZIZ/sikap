@@ -1055,6 +1055,7 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
     $routes->get('cbt/hasil/(:num)', 'Cbt::hasil/$1');
     $routes->post('cbt/saveAnswersBulk', 'Cbt::saveAnswersBulk');
     $routes->get('cbt/saveAnswersBulk', 'Cbt::saveAnswersBulk');
+    $routes->post('cbt/keepAlive', 'Cbt::ping');
     $routes->get('cbt/refreshCsrf', 'Cbt::refreshCsrf');
 
     // Materi Pelajaran + Progress Tracking (lama — tetap aktif)

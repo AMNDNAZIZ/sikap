@@ -83,21 +83,23 @@ class CbtExecutionPipelineService
             $allocatedScore
         );
 
-        // Record audit trail event
-        $this->auditTrailModel->appendLog(
-            'ANSWER_SUBMITTED',
-            'cbt_answers_v3',
-            (string)$answer['id'],
-            $studentId,
-            'STUDENT',
-            [
-                'session_id'      => $sessionId,
-                'item_version_id' => $itemVersionId,
-                'question_type'   => $questionType,
-                'allocated_score' => $allocatedScore,
-                'answer_version'  => $answer['answer_version'],
-            ]
-        );
+        // Record audit trail event only if answer was actually created or modified
+        if (!isset($answer['version_incremented']) || $answer['version_incremented'] !== false) {
+            $this->auditTrailModel->appendLog(
+                'ANSWER_SUBMITTED',
+                'cbt_answers_v3',
+                (string)$answer['id'],
+                $studentId,
+                'STUDENT',
+                [
+                    'session_id'      => $sessionId,
+                    'item_version_id' => $itemVersionId,
+                    'question_type'   => $questionType,
+                    'allocated_score' => $allocatedScore,
+                    'answer_version'  => $answer['answer_version'],
+                ]
+            );
+        }
 
         return $answer;
     }
