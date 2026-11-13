@@ -2,13 +2,22 @@
 // 🎯 Standar Skill Diterapkan: high-end-visual-design (UI)
 // Refs: rekap-file-md/TandaTanganCap/Implementation-Plan-TandaTanganCap.md
 
-$settings = new \App\Models\SettingsModel();
-$sigPath  = $settings->getValue('ks_signature_path');
-$sealPath = $settings->getValue('school_seal_path');
-$hasSig   = !empty($sigPath) && is_file(FCPATH . ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $sigPath), DIRECTORY_SEPARATOR));
-$hasSeal  = !empty($sealPath) && is_file(FCPATH . ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $sealPath), DIRECTORY_SEPARATOR));
-$defSig   = (bool) $settings->getValue('use_signature');
-$defSeal  = (bool) $settings->getValue('use_seal');
+$hasSig  = false;
+$hasSeal = false;
+$defSig  = false;
+$defSeal = false;
+
+try {
+    $settings = new \App\Models\SettingsModel();
+    $sigPath  = $settings->getValue('ks_signature_path');
+    $sealPath = $settings->getValue('school_seal_path');
+    $hasSig   = !empty($sigPath) && is_file(FCPATH . ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $sigPath), DIRECTORY_SEPARATOR));
+    $hasSeal  = !empty($sealPath) && is_file(FCPATH . ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $sealPath), DIRECTORY_SEPARATOR));
+    $defSig   = (bool) $settings->getValue('use_signature');
+    $defSeal  = (bool) $settings->getValue('use_seal');
+} catch (\Throwable $e) {
+    // Graceful fallback jika terjadi kegagalan koneksi/query settings
+}
 ?>
 
 <!-- ===== MODAL KONFIRMASI DOWNLOAD PDF ===== -->
