@@ -152,4 +152,21 @@ final class SuratKeluarDownloadOptionTest extends CIUnitTestCase
         $this->assertStringContainsString('data-bs-target="#modalDownloadPdf"', $indexContent);
         $this->assertStringContainsString('data-bs-target="#modalDownloadPdf"', $detailContent);
     }
+
+    /**
+     * TC-SK-08: View tidak boleh menggunakan self:: (karena self di view adalah CodeIgniter\View\View)
+     */
+    public function testViewsDoNotContainIllegalSelfReferences(): void
+    {
+        $viewsToCheck = [
+            APPPATH . 'Views/admin/surat/keluar/index.php',
+            APPPATH . 'Views/admin/surat/keluar/detail.php',
+            APPPATH . 'Views/admin/surat/keluar/_modal_download.php',
+        ];
+
+        foreach ($viewsToCheck as $viewFile) {
+            $content = file_get_contents($viewFile);
+            $this->assertStringNotContainsString('self::', $content, "File {$viewFile} tidak boleh mengandung kata kunci 'self::'.");
+        }
+    }
 }

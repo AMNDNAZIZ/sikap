@@ -391,7 +391,7 @@ function applySortCombo(val) {
                             data-letter-id="<?= $l['id'] ?>"
                             data-letter-number="<?= esc($l['letter_number']) ?>"
                             data-recipient-name="<?= esc($l['recipient_name']) ?>"
-                            data-letter-type="<?= esc(self::LETTER_TYPES[$l['letter_type']] ?? $l['letter_type']) ?>"
+                            data-letter-type="<?= esc($letter_types[$l['letter_type']] ?? $l['letter_type']) ?>"
                             title="Download PDF Resmi">
                       <i class="bi bi-file-earmark-pdf"></i>
                     </button>
