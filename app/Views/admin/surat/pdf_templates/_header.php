@@ -1,4 +1,6 @@
 <?php
+// 🎯 Standar Skill Diterapkan: high-end-visual-design (UI), api-design-quality-review (PDF Layout)
+// Refs: rekap-file-md/TandaTanganCap/Implementation-Plan-TandaTanganCap.md
 /**
  * CSS Bersama untuk semua template PDF surat keluar
  * Pola SAMA seperti daftar_hadir_template.php:
@@ -35,9 +37,15 @@
         /* TEKS KONTEN */
         .isi, .pembuka, .penutup { font-size: 14px; line-height: 1.8; margin: 8px 0; }
 
-        /* TANDA TANGAN */
-        .ttd-wrapper  { margin-top: 20px; width: 220px; float: right; text-align: center; page-break-inside: avoid; font-size: 14px; }
-        .ttd-wrapper .ttd-line { margin-top: 52px; border-top: 1px solid #000; width: 100%; display: block; }
+        /* TANDA TANGAN & CAP */
+        .ttd-wrapper  { margin-top: 20px; width: 220px; float: right; text-align: center; page-break-inside: avoid; font-size: 14px; position: relative; }
+        .ttd-wrapper .signature-space { height: 48px; }
+        .ttd-wrapper .ttd-line { border-top: 1px solid #000; width: 100%; display: block; margin-top: 2px; }
+        .ttd-wrapper .seal-space { position: absolute; left: -25px; top: 15px; z-index: 1; pointer-events: none; }
+        .signature-block { position: relative; z-index: 2; margin: 2px 0; }
+        .signature-img { width: 120px; height: auto; display: block; margin: 0 auto; }
+        .seal-block { pointer-events: none; }
+        .seal-img { width: 95px; height: auto; display: block; }
         .ttd-clearfix { clear: both; }
 
         /* QR CODE */

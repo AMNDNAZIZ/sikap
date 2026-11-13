@@ -1,3 +1,7 @@
+<?php
+// 🎯 Standar Skill Diterapkan: high-end-visual-design (UI)
+// Refs: rekap-file-md/TandaTanganCap/Implementation-Plan-TandaTanganCap.md
+?>
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
@@ -380,10 +384,17 @@ function applySortCombo(val) {
                        class="action-btn-pill btn btn-outline-primary btn-sm" title="Lihat Detail">
                       <i class="bi bi-eye"></i>
                     </a>
-                    <a href="<?= base_url('admin/surat-keluar/download/' . $l['id']) ?>"
-                       class="action-btn-pill btn btn-outline-success btn-sm" title="Download PDF Resmi">
+                    <button type="button"
+                            class="action-btn-pill btn btn-outline-success btn-sm btn-trigger-download"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalDownloadPdf"
+                            data-letter-id="<?= $l['id'] ?>"
+                            data-letter-number="<?= esc($l['letter_number']) ?>"
+                            data-recipient-name="<?= esc($l['recipient_name']) ?>"
+                            data-letter-type="<?= esc(self::LETTER_TYPES[$l['letter_type']] ?? $l['letter_type']) ?>"
+                            title="Download PDF Resmi">
                       <i class="bi bi-file-earmark-pdf"></i>
-                    </a>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -411,5 +422,7 @@ function applySortCombo(val) {
 
   </div>
 </div>
+
+<?= view('admin/surat/keluar/_modal_download') ?>
 
 <?= $this->endSection() ?>
