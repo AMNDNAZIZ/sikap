@@ -1,4 +1,6 @@
 <?php
+// 🎯 Standar Skill Diterapkan: api-design-quality-review (Backend), high-end-visual-design (UI)
+// Refs: rekap-file-md/TandaTanganCap/Implementation-Plan-TandaTanganCap.md
 
 namespace App\Controllers\Admin;
 
@@ -345,7 +347,9 @@ class SuratKeluar extends BaseController
         }
 
         // Generate PDF
-        $pdfResult = $this->generateAndSavePdf($letterId, $qrCodeId, $school, $settings);
+        $useSig = (bool) $settings->getValue('use_signature');
+        $useSeal = (bool) $settings->getValue('use_seal');
+        $pdfResult = $this->generateAndSavePdf($letterId, $qrCodeId, $school, $settings, $useSig, $useSeal);
 
         if ($pdfResult) {
             $this->model->update($letterId, ['pdf_path' => $pdfResult['path'], 'pdf_url' => $pdfResult['url'], 'file_size_bytes' => $pdfResult['size']]);
@@ -486,7 +490,9 @@ class SuratKeluar extends BaseController
         $this->model->update($id, $updateData);
 
         // Regenerasi file PDF
-        $pdfResult = $this->generateAndSavePdf($id, $letter['qr_code_id'], $school, $settings);
+        $useSig = (bool) $settings->getValue('use_signature');
+        $useSeal = (bool) $settings->getValue('use_seal');
+        $pdfResult = $this->generateAndSavePdf($id, $letter['qr_code_id'], $school, $settings, $useSig, $useSeal);
         if ($pdfResult) {
             $this->model->update($id, [
                 'pdf_path'        => $pdfResult['path'],
@@ -565,26 +571,31 @@ class SuratKeluar extends BaseController
             return redirect()->back()->with('error', 'Surat tidak ditemukan.');
         }
 
-        // Jika file PDF sudah ada, langsung streaming
-        if (!empty($letter['pdf_path']) && file_exists(WRITEPATH . 'uploads/' . $letter['pdf_path'])) {
-            $path = WRITEPATH . 'uploads/' . $letter['pdf_path'];
-            $filename = str_replace('/', '_', $letter['letter_number']) . '.pdf';
-            if (ob_get_level() > 0) {
-                ob_end_clean();
-            }
-            header('Content-Type: application/pdf');
-            header('Content-Disposition: attachment; filename="' . $filename . '"');
-            readfile($path);
-            exit;
-        }
-
-        // Regenerate jika belum ada
         $school   = (new SchoolModel())->first();
         $settings = new SettingsModel();
-        $result   = $this->generateAndSavePdf($id, $letter['qr_code_id'], $school, $settings);
+
+        // Ambil opsi tanda tangan & cap dari query param (dari modal download)
+        // with_signature (1/0), with_seal (1/0)
+        $withSignatureParam = $this->request->getGet('with_signature');
+        $withSealParam      = $this->request->getGet('with_seal');
+
+        $useSignature = $withSignatureParam !== null
+            ? ($withSignatureParam === '1')
+            : (bool) $settings->getValue('use_signature');
+
+        $useSeal = $withSealParam !== null
+            ? ($withSealParam === '1')
+            : (bool) $settings->getValue('use_seal');
+
+        // Selalu regenerate agar pembubuhan ttd/cap sesuai opsi yang dipilih di modal
+        $result = $this->generateAndSavePdf($id, $letter['qr_code_id'], $school, $settings, $useSignature, $useSeal);
 
         if ($result) {
-            $this->model->update($id, ['pdf_path' => $result['path'], 'pdf_url' => $result['url'], 'file_size_bytes' => $result['size']]);
+            $this->model->update($id, [
+                'pdf_path'        => $result['path'],
+                'pdf_url'         => $result['url'],
+                'file_size_bytes' => $result['size'],
+            ]);
             $path     = WRITEPATH . 'uploads/' . $result['path'];
             $filename = str_replace('/', '_', $letter['letter_number']) . '.pdf';
             if (ob_get_level() > 0) {
@@ -807,7 +818,14 @@ class SuratKeluar extends BaseController
         ], fn($v) => $v !== null && $v !== '');
     }
 
-    private function generateAndSavePdf(int $letterId, string $qrCodeId, ?array $school, SettingsModel $settings): ?array
+    private function generateAndSavePdf(
+        int $letterId,
+        string $qrCodeId,
+        ?array $school,
+        SettingsModel $settings,
+        bool $useSignature = false,
+        bool $useSeal = false
+    ): ?array
     {
         try {
             $letter = $this->model->decodeJson($this->model->find($letterId));
@@ -883,6 +901,28 @@ class SuratKeluar extends BaseController
                     . '</div>'
                     . '<div style="border-top:2px solid #000;margin-top:5px;margin-bottom:15px;"></div>';
                 $html = preg_replace('/(<body[^>]*>)/i', '$1' . $kopHtml, $html, 1);
+            }
+
+            // ── Inject Tanda Tangan KS jika diminta ──
+            if ($useSignature) {
+                $sigBase64 = \App\Helpers\SignatureHelper::getSignatureBase64();
+                if ($sigBase64) {
+                    $sigHtml = '<div class="signature-block" style="text-align:center;margin:2px 0;">'
+                        . '<img src="' . $sigBase64 . '" class="signature-img" style="width:120px;height:auto;display:block;margin:0 auto;" />'
+                        . '</div>';
+                    $html = preg_replace('/<div[^>]*class=["\']signature-space["\'][^>]*>\s*<\/div>/i', $sigHtml, $html, 1);
+                }
+            }
+
+            // ── Inject Cap / Stempel Sekolah jika diminta ──
+            if ($useSeal) {
+                $sealBase64 = \App\Helpers\SignatureHelper::getSealBase64();
+                if ($sealBase64) {
+                    $sealHtml = '<div class="seal-block" style="position:absolute;left:-25px;top:15px;z-index:1;">'
+                        . '<img src="' . $sealBase64 . '" class="seal-img" style="width:95px;height:auto;display:block;" />'
+                        . '</div>';
+                    $html = preg_replace('/<div[^>]*class=["\']seal-space["\'][^>]*>\s*<\/div>/i', $sealHtml, $html, 1);
+                }
             }
 
             $options = new \Dompdf\Options();
@@ -1225,7 +1265,18 @@ class SuratKeluar extends BaseController
             return redirect()->back()->with('error', 'Surat tidak ditemukan.');
         }
 
-        if (! empty($letter['pdf_path']) && file_exists(WRITEPATH . 'uploads/' . $letter['pdf_path'])) {
+        $school   = (new SchoolModel())->first();
+        $settings = new SettingsModel();
+
+        $withSignatureParam = $this->request->getGet('with_signature');
+        $withSealParam      = $this->request->getGet('with_seal');
+
+        // Jika parameter query disediakan secara eksplisit, SELALU regenerate sesuai pilihan
+        if ($withSignatureParam !== null || $withSealParam !== null) {
+            $useSignature = $withSignatureParam === '1';
+            $useSeal      = $withSealParam === '1';
+            $result       = $this->generateAndSavePdf($id, $letter['qr_code_id'], $school, $settings, $useSignature, $useSeal);
+        } elseif (! empty($letter['pdf_path']) && file_exists(WRITEPATH . 'uploads/' . $letter['pdf_path'])) {
             $path = WRITEPATH . 'uploads/' . $letter['pdf_path'];
             if (ob_get_level() > 0) {
                 ob_end_clean();
@@ -1234,12 +1285,11 @@ class SuratKeluar extends BaseController
             header('Content-Disposition: inline; filename="surat_' . $letter['id'] . '.pdf"');
             readfile($path);
             exit;
+        } else {
+            $useSignature = (bool) $settings->getValue('use_signature');
+            $useSeal      = (bool) $settings->getValue('use_seal');
+            $result       = $this->generateAndSavePdf($id, $letter['qr_code_id'], $school, $settings, $useSignature, $useSeal);
         }
-
-        // Regenerate jika belum ada
-        $school   = (new SchoolModel())->first();
-        $settings = new SettingsModel();
-        $result   = $this->generateAndSavePdf($id, $letter['qr_code_id'], $school, $settings);
 
         if ($result) {
             $this->model->update($id, ['pdf_path' => $result['path'], 'pdf_url' => $result['url'], 'file_size_bytes' => $result['size']]);

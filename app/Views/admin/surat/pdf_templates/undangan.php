@@ -1,4 +1,6 @@
 <?php
+// 🎯 Standar Skill Diterapkan: api-design-quality-review (PDF Template Layout)
+// Refs: rekap-file-md/TandaTanganCap/Implementation-Plan-TandaTanganCap.md
 // Template G — Undangan
 $ld    = $letter['letter_data'] ?? [];
 $bulan = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -171,7 +173,9 @@ $diTempat = ($isGuruTendik || str_contains(strtolower($recipientName), 'guru') |
     
     <div class="ttd-wrapper">
         Kepala <?= esc($school['name'] ?? 'SDN Mangga Besar 11 Pagi') ?>
-        <span class="ttd-line" style="margin-top: 56px;"></span>
+        <div class="seal-space"></div>
+        <div class="signature-space"></div>
+        <span class="ttd-line"></span>
         <strong><?= esc($principalName) ?></strong><br>
         NIP. <?= esc($principalNip) ?>
     </div>

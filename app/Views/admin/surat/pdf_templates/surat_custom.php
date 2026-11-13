@@ -1,4 +1,6 @@
 <?php
+// 🎯 Standar Skill Diterapkan: api-design-quality-review (PDF Template Layout)
+// Refs: rekap-file-md/TandaTanganCap/Implementation-Plan-TandaTanganCap.md
 // Template Custom / Dinamis
 $ld    = $letter['letter_data'] ?? [];
 $bulan = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -156,12 +158,13 @@ if (!empty($letter['recipient_name'])) {
             </div>
         </td>
         <td style="width: 55%; vertical-align: top; text-align: center; padding: 0;">
-            <div style="font-size: 13.5px; line-height: 1.4;">
+            <div style="font-size: 13.5px; line-height: 1.4; position: relative;">
                 <?php if ($headerStyle === 'tengah'): ?>
                     <?= esc($school['city'] ?? 'Jakarta') ?>, <?= $tgl ?><br>
                 <?php endif; ?>
                 Kepala <?= esc($school['name'] ?? 'Sekolah') ?>
-                <div style="height: 52px;"></div>
+                <div class="seal-space"></div>
+                <div class="signature-space" style="height: 48px;"></div>
                 <strong style="text-decoration: underline;"><?= esc((!empty($letter['principal_name_snapshot']) && $letter['principal_name_snapshot'] !== '-') ? $letter['principal_name_snapshot'] : ($school['headmaster'] ?? '-')) ?></strong><br>
                 NIP. <?= esc((!empty($letter['principal_nip_snapshot']) && $letter['principal_nip_snapshot'] !== '-') ? $letter['principal_nip_snapshot'] : ($school['principal_nip'] ?? '-')) ?>
             </div>

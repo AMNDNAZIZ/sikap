@@ -1,4 +1,6 @@
 <?php
+// 🎯 Standar Skill Diterapkan: api-design-quality-review (PDF Template Layout)
+// Refs: rekap-file-md/TandaTanganCap/Implementation-Plan-TandaTanganCap.md
 // Template — Keterangan Mengajar Guru
 $ld    = $letter['letter_data'] ?? [];
 $rd    = $letter['recipient_detail'] ?? [];
@@ -52,6 +54,8 @@ $kelasRaw = $ld['kelas_mengajar'] ?? '-';
     <div class="ttd-wrapper">
         Jakarta, <?= $tgl ?><br>
         Kepala <?= esc($school['name'] ?? 'SDN Mangga Besar 11 Pagi') ?>
+        <div class="seal-space"></div>
+        <div class="signature-space"></div>
         <span class="ttd-line"></span>
         <strong><?= esc((!empty($letter['principal_name_snapshot']) && $letter['principal_name_snapshot'] !== '-') ? $letter['principal_name_snapshot'] : ($school['headmaster'] ?? '-')) ?></strong><br>
         NIP. <?= esc((!empty($letter['principal_nip_snapshot']) && $letter['principal_nip_snapshot'] !== '-') ? $letter['principal_nip_snapshot'] : ($school['principal_nip'] ?? '-')) ?>

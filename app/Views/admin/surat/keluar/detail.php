@@ -1,3 +1,7 @@
+<?php
+// 🎯 Standar Skill Diterapkan: high-end-visual-design (UI)
+// Refs: rekap-file-md/TandaTanganCap/Implementation-Plan-TandaTanganCap.md
+?>
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
@@ -40,10 +44,17 @@ $isRevoked = $letter['status'] === 'revoked';
          class="btn btn-primary btn-sm rounded-pill px-3 shadow-xs">
         <i class="bi bi-pencil-square me-1"></i>Edit Surat
       </a>
-      <a href="<?= base_url('admin/surat-keluar/download/' . $letter['id']) ?>"
-         class="btn btn-success btn-sm rounded-pill px-3 shadow-xs" id="btn-download-pdf">
+      <button type="button"
+              class="btn btn-success btn-sm rounded-pill px-3 shadow-xs btn-trigger-download"
+              data-bs-toggle="modal"
+              data-bs-target="#modalDownloadPdf"
+              data-letter-id="<?= $letter['id'] ?>"
+              data-letter-number="<?= esc($letter['letter_number']) ?>"
+              data-recipient-name="<?= esc($letter['recipient_name']) ?>"
+              data-letter-type="<?= esc($letter_types[$letter['letter_type']] ?? $letter['letter_type']) ?>"
+              id="btn-download-pdf">
         <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
-      </a>
+      </button>
     <?php endif; ?>
     <a href="<?= base_url('admin/surat-keluar/duplicate/' . $letter['id']) ?>"
        class="btn btn-outline-primary btn-sm rounded-pill px-3 shadow-xs">
@@ -316,5 +327,7 @@ $isRevoked = $letter['status'] === 'revoked';
     </div>
   </div>
 </div>
+
+<?= view('admin/surat/keluar/_modal_download') ?>
 
 <?= $this->endSection() ?>
