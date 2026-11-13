@@ -328,7 +328,7 @@ class AiCopilot extends BaseController
                 ];
             }
 
-            $prompt = "Anda adalah asisten cerdas sistem informasi akademik sekolah (SIAKAD). "
+            $prompt = "Anda adalah asisten cerdas sistem informasi akademik sekolah (ESPATA). "
                 . "Pengguna memberikan perintah/pertanyaan teks: \"{$query}\".\n"
                 . "Tugas Anda adalah memilih 1 tindakan terbaik dari daftar tindakan yang diizinkan berikut ini:\n"
                 . json_encode($actionCatalog, JSON_UNESCAPED_UNICODE) . "\n\n"

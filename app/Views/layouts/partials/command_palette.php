@@ -100,9 +100,9 @@
                 <i class="bi bi-stars" style="font-size: 0.9rem;"></i>
               </div>
               <div class="copilot-bubble-bot p-3 rounded-4 bg-white shadow-sm border" style="max-width: 85%;">
-                <div class="fw-semibold text-primary mb-1" style="font-size: 0.8rem;">Asisten AI SIAKAD</div>
+                <div class="fw-semibold text-primary mb-1" style="font-size: 0.8rem;">Asisten AI ESPATA</div>
                 <p class="mb-2 text-dark small" style="line-height: 1.45;">
-                  Halo! Saya asisten cerdas SIAKAD. Anda dapat mengetikkan perintah apa saja seperti <em>"buat modul pancasila"</em>, menanyakan <em>"jadwal saya hari ini"</em>, atau meminta <em>"rekap kehadiran guru"</em>.
+                  Halo! Saya asisten cerdas ESPATA. Anda dapat mengetikkan perintah apa saja seperti <em>"buat modul pancasila"</em>, menanyakan <em>"jadwal saya hari ini"</em>, atau meminta <em>"rekap kehadiran guru"</em>.
                 </p>
                 <div class="d-flex flex-wrap gap-1 mt-2">
                   <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill py-0 px-2 chat-prompt-chip" data-prompt="Jadwal mengajar saya hari ini">📅 Jadwal Hari Ini</button>
@@ -403,7 +403,7 @@
     if (cachedActions.length > 0 || isFetchingActions) return;
 
     try {
-      const stored = sessionStorage.getItem('siakad_user_actions');
+      const stored = sessionStorage.getItem('espata_user_actions');
       if (stored) {
         cachedActions = JSON.parse(stored);
         return;
@@ -422,7 +422,7 @@
           CSRF_HASH = data.csrf_hash;
         }
         try {
-          sessionStorage.setItem('siakad_user_actions', JSON.stringify(cachedActions));
+          sessionStorage.setItem('espata_user_actions', JSON.stringify(cachedActions));
         } catch(e) {}
       }
     })
