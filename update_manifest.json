@@ -1,6 +1,6 @@
 {
     "version": "2.0.6",
-    "generated": "2026-11-13 18:27:29",
+    "generated": "2026-11-13 19:09:28",
     "last_update": "2026-11-10 00:00",
     "total_files": 1150,
     "files": {
@@ -150,7 +150,7 @@
         "app/Controllers/Admin/Updater.php": "8e9abec2cf3d3a5986554ab5981a3d40",
         "app/Controllers/Admin/User.php": "0013484725042d665f33a92b4426a78d",
         "app/Controllers/Admin/WaliKelasStudents.php": "a881f63c3906620ae6813356fb60fe88",
-        "app/Controllers/Api/AiCopilot.php": "f3e4bb4decca049b467a6a0bafae4084",
+        "app/Controllers/Api/AiCopilot.php": "a463d22afcd8493150edb9b30fc2c8d5",
         "app/Controllers/Api/DapodikApi.php": "e9f4087934e990be88a0b96724899878",
         "app/Controllers/Api/DapodikReceive.php": "4615e03bba716e28bb3b22dab170fc14",
         "app/Controllers/Auth.php": "aaf03a3a1479b798b3eda27b868bcc9f",
@@ -905,7 +905,7 @@
         "app/Views/layouts/footer.php": "a24d084a368826280515eb202c256f0a",
         "app/Views/layouts/header.php": "09ada3879c592e4322bb5654f82330f2",
         "app/Views/layouts/main.php": "991d96ce8b2a737085cf445ce4c07120",
-        "app/Views/layouts/partials/command_palette.php": "f41828abc76db3a60efa34a159577d80",
+        "app/Views/layouts/partials/command_palette.php": "424c659e74feeaa8a6ef5feaf16ce8bf",
         "app/Views/layouts/partials/sidebar_admin.php": "d9e4be97ca65bea91e3032b8acb9d486",
         "app/Views/layouts/partials/sidebar_dynamic.php": "43d254e55f77d4a26c0f03ef931aca0e",
         "app/Views/layouts/partials/sidebar_guru.php": "65d0dc5c2a77d0f74b496734ad29b37d",
