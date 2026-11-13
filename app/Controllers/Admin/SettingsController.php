@@ -1,4 +1,6 @@
 <?php
+// 🎯 Standar Skill Diterapkan: api-design-quality-review (Backend)
+// Refs: rekap-file-md/TandaTanganCap/Implementation-Plan-TandaTanganCap.md
 
 namespace App\Controllers\Admin;
 
@@ -32,6 +34,11 @@ class SettingsController extends BaseController
             'last_sequence'               => $curLastSeq,
             'letter_number_padding'       => (int) ($this->settingsModel->getValue('letter_number_padding') ?? 3),
             'default_classification_code' => $this->settingsModel->getValue('default_classification_code') ?? 'PK.01.01',
+            // Tanda Tangan & Cap Sekolah
+            'ks_signature_path'           => $this->settingsModel->getValue('ks_signature_path'),
+            'school_seal_path'            => $this->settingsModel->getValue('school_seal_path'),
+            'use_signature'               => (bool) $this->settingsModel->getValue('use_signature'),
+            'use_seal'                    => (bool) $this->settingsModel->getValue('use_seal'),
         ];
 
         return view('admin/settings/kop_surat', $data);
@@ -92,6 +99,88 @@ class SettingsController extends BaseController
         }
 
         return redirect()->back()->with('error', 'Gagal mengunggah file.');
+    }
+
+    /**
+     * Upload Tanda Tangan Kepala Sekolah (PNG transparan, maks 150KB)
+     */
+    public function uploadSignature()
+    {
+        $file = $this->request->getFile('signature_file');
+
+        if (!$file || !$file->isValid()) {
+            return redirect()->back()->with('error', 'File tanda tangan tidak valid.');
+        }
+
+        $rules = [
+            'signature_file' => 'uploaded[signature_file]|mime_in[signature_file,image/png]|max_size[signature_file,150]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->with('error', 'File tidak valid. Wajib format PNG transparan, maksimal 150 KB.');
+        }
+
+        $targetDir  = FCPATH . 'uploads/signature/';
+        $targetName = 'ks_signature_active.png';
+
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0755, true);
+        }
+
+        if ($file->move($targetDir, $targetName, true)) {
+            $this->settingsModel->setValue('ks_signature_path', 'uploads/signature/' . $targetName);
+            return redirect()->back()->with('success', 'Tanda tangan Kepala Sekolah berhasil diperbarui.');
+        }
+
+        return redirect()->back()->with('error', 'Gagal mengunggah tanda tangan.');
+    }
+
+    /**
+     * Upload Cap Sekolah (PNG transparan, maks 150KB)
+     */
+    public function uploadSeal()
+    {
+        $file = $this->request->getFile('seal_file');
+
+        if (!$file || !$file->isValid()) {
+            return redirect()->back()->with('error', 'File cap sekolah tidak valid.');
+        }
+
+        $rules = [
+            'seal_file' => 'uploaded[seal_file]|mime_in[seal_file,image/png]|max_size[seal_file,150]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->with('error', 'File tidak valid. Wajib format PNG transparan, maksimal 150 KB.');
+        }
+
+        $targetDir  = FCPATH . 'uploads/signature/';
+        $targetName = 'school_seal_active.png';
+
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0755, true);
+        }
+
+        if ($file->move($targetDir, $targetName, true)) {
+            $this->settingsModel->setValue('school_seal_path', 'uploads/signature/' . $targetName);
+            return redirect()->back()->with('success', 'Cap sekolah berhasil diperbarui.');
+        }
+
+        return redirect()->back()->with('error', 'Gagal mengunggah cap sekolah.');
+    }
+
+    /**
+     * Simpan preferensi penggunaan tanda tangan & cap (checkbox)
+     */
+    public function saveSignaturePrefs()
+    {
+        $useSignature = $this->request->getPost('use_signature') === '1' ? '1' : '0';
+        $useSeal      = $this->request->getPost('use_seal')      === '1' ? '1' : '0';
+
+        $this->settingsModel->setValue('use_signature', $useSignature);
+        $this->settingsModel->setValue('use_seal', $useSeal);
+
+        return redirect()->back()->with('success', 'Preferensi tanda tangan & cap berhasil disimpan.');
     }
 
     /**
