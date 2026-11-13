@@ -1181,4 +1181,8 @@ $routes->group('forum', ['filter' => 'auth', 'namespace' => 'App\Controllers'], 
 $routes->group('api', ['namespace' => 'App\Controllers\Api'], function ($routes) {
     // Dapodik Sync API - Receive data from bridge agent
     $routes->post('dapodik/receive', 'DapodikApi::receive');
+
+    // AI Copilot & Smart Command Palette
+    $routes->get('ai-copilot/actions', 'AiCopilot::getActions', ['filter' => 'auth']);
+    $routes->post('ai-copilot/ask', 'AiCopilot::ask', ['filter' => 'auth']);
 });

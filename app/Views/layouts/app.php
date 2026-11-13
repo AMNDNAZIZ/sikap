@@ -747,6 +747,17 @@
         <div class="ms-auto d-flex align-items-center gap-2">
           <?php if ($user): ?>
 
+            <!-- ── AI Copilot / Quick Command Button ───────────────── -->
+            <button type="button" 
+                    class="btn btn-sm btn-light border d-flex align-items-center gap-2 px-2 py-1 rounded-pill shadow-none" 
+                    id="btnOpenCommandPalette" 
+                    title="Cari menu, modul, atau perintah AI (Ctrl + K)"
+                    style="font-size: 0.8rem; background: #f8fafc;">
+              <i class="bi bi-stars text-primary"></i>
+              <span class="d-none d-md-inline text-muted" style="font-size: 0.78rem;">Cari atau tanya AI...</span>
+              <kbd class="d-none d-md-inline-block bg-white text-secondary border px-1 rounded shadow-none" style="font-size: 0.65rem;">Ctrl K</kbd>
+            </button>
+
             <!-- ── Dropdown Notifikasi ───────────────────────── -->
             <div class="dropdown" id="notifDropdownWrapper">
               <button class="navbar-btn-icon position-relative"
@@ -1428,6 +1439,11 @@
 
   })();
   </script>
+  <?php endif; ?>
+
+  <?php if ($user): ?>
+  <!-- AI Copilot & Command Palette Modal -->
+  <?= $this->include('layouts/partials/command_palette') ?>
   <?php endif; ?>
 
   <?= $this->renderSection('scripts') ?>
