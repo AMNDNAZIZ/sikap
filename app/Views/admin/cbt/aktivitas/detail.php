@@ -1095,9 +1095,20 @@ if (empty($availableRooms) && !empty($sessions)) {
               <div class="card-main-right">
                 <!-- Sisa Waktu Badge Ringkas -->
                 <?php if ($status === 'finished'): ?>
-                  <span class="badge bg-light text-secondary border px-2 py-1" style="font-size: 0.75rem;" title="Ujian Selesai">
-                    <i class="fas fa-check-circle me-1 text-success"></i>Selesai
-                  </span>
+                  <?php 
+                    $remSec = (int)($s['remaining_seconds'] ?? 0);
+                    $workSec = (int)($s['work_duration_seconds'] ?? 0);
+                    $remStr = sprintf('%02d:%02d', floor($remSec / 60), $remSec % 60);
+                    $workStr = sprintf('%02d:%02d', floor($workSec / 60), $workSec % 60);
+                  ?>
+                  <div class="d-flex flex-column align-items-end">
+                    <span class="badge bg-secondary-subtle text-secondary border px-2 py-1 student-countdown" data-seconds="<?= $remSec ?>" data-status="finished" style="font-size: 0.75rem; font-variant-numeric: tabular-nums;" title="Sisa Waktu Dibekukan saat Selesai">
+                      <i class="fas fa-snowflake me-1 text-info"></i><span class="timer-display"><?= $remStr ?></span>
+                    </span>
+                    <span class="text-muted mt-1" style="font-size: 0.68rem;" title="Lama Pengerjaan Siswa">
+                      Durasi: <?= $workStr ?>
+                    </span>
+                  </div>
                 <?php elseif ($status === 'expired'): ?>
                   <span class="badge bg-danger text-white px-2 py-1" style="font-size: 0.75rem;" title="Waktu Habis">
                     <i class="fas fa-hourglass-end me-1"></i>Habis
@@ -1277,9 +1288,20 @@ if (empty($availableRooms) && !empty($sessions)) {
                 </td>
                 <td class="text-center">
                   <?php if ($status === 'finished'): ?>
-                    <span class="badge bg-light text-secondary border">
-                      <i class="fas fa-check-circle me-1 text-success"></i>Selesai
-                    </span>
+                    <?php 
+                      $remSec = (int)($s['remaining_seconds'] ?? 0);
+                      $workSec = (int)($s['work_duration_seconds'] ?? 0);
+                      $remStr = sprintf('%02d:%02d', floor($remSec / 60), $remSec % 60);
+                      $workStr = sprintf('%02d:%02d', floor($workSec / 60), $workSec % 60);
+                    ?>
+                    <div class="d-flex flex-column align-items-center">
+                      <span class="badge bg-secondary-subtle text-secondary border student-countdown" data-seconds="<?= $remSec ?>" data-status="finished" style="font-variant-numeric: tabular-nums; min-width: 75px;" title="Sisa Waktu Dibekukan saat Selesai">
+                        <i class="fas fa-snowflake me-1 text-info"></i><span class="timer-display"><?= $remStr ?></span>
+                      </span>
+                      <span class="text-muted small mt-1" style="font-size: 0.68rem;" title="Lama Pengerjaan Siswa">
+                        <i class="fas fa-history me-1"></i>Durasi: <?= $workStr ?>
+                      </span>
+                    </div>
                   <?php elseif ($status === 'expired'): ?>
                     <span class="badge bg-danger">Habis</span>
                   <?php else: ?>
@@ -1733,12 +1755,35 @@ if (empty($availableRooms) && !empty($sessions)) {
                 const rowCountdown = row.find('.student-countdown');
 
                 if (newStatus === 'finished') {
-                  // Berubah jadi selesai
-                  if (cardCountdown.length) {
-                    cardCountdown.replaceWith('<span class="badge bg-light text-secondary border px-2 py-1" style="font-size: 0.75rem;" title="Ujian Selesai"><i class="fas fa-check-circle me-1 text-success"></i>Selesai</span>');
-                  }
-                  if (rowCountdown.length) {
-                    rowCountdown.replaceWith('<span class="badge bg-light text-secondary border"><i class="fas fa-check-circle me-1 text-success"></i>Selesai</span>');
+                  // Berubah jadi selesai: Bekukan sisa waktu & tampilkan durasi pengerjaan
+                  if (cardCountdown.attr('data-status') === 'active' || rowCountdown.attr('data-status') === 'active') {
+                    const remSec = parseInt(sData.remaining_seconds || 0, 10);
+                    const workSec = parseInt(sData.work_seconds || 0, 10);
+                    const remMin = Math.floor(remSec / 60);
+                    const remS = remSec % 60;
+                    const formattedRem = (remMin < 10 ? '0' + remMin : remMin) + ':' + (remS < 10 ? '0' + remS : remS);
+                    const workMin = Math.floor(workSec / 60);
+                    const workS = workSec % 60;
+                    const formattedWork = (workMin < 10 ? '0' + workMin : workMin) + ':' + (workS < 10 ? '0' + workS : workS);
+
+                    const frozenHtmlCard = 
+                      '<div class="d-flex flex-column align-items-end">' +
+                        '<span class="badge bg-secondary-subtle text-secondary border px-2 py-1 student-countdown" data-seconds="' + remSec + '" data-status="finished" style="font-size: 0.75rem; font-variant-numeric: tabular-nums;" title="Sisa Waktu Dibekukan saat Selesai"><i class="fas fa-snowflake me-1 text-info"></i><span class="timer-display">' + formattedRem + '</span></span>' +
+                        '<span class="text-muted mt-1" style="font-size: 0.68rem;" title="Lama Pengerjaan Siswa">Durasi: ' + formattedWork + '</span>' +
+                      '</div>';
+
+                    const frozenHtmlRow = 
+                      '<div class="d-flex flex-column align-items-center">' +
+                        '<span class="badge bg-secondary-subtle text-secondary border student-countdown" data-seconds="' + remSec + '" data-status="finished" style="font-variant-numeric: tabular-nums; min-width: 75px;" title="Sisa Waktu Dibekukan saat Selesai"><i class="fas fa-snowflake me-1 text-info"></i><span class="timer-display">' + formattedRem + '</span></span>' +
+                        '<span class="text-muted small mt-1" style="font-size: 0.68rem;" title="Lama Pengerjaan Siswa"><i class="fas fa-history me-1"></i>Durasi: ' + formattedWork + '</span>' +
+                      '</div>';
+
+                    if (cardCountdown.length) {
+                      cardCountdown.replaceWith(frozenHtmlCard);
+                    }
+                    if (rowCountdown.length) {
+                      row.find('td:eq(8)').html(frozenHtmlRow);
+                    }
                   }
 
                   // Update skor

@@ -421,18 +421,26 @@ class CbtAktivitas extends BaseController
                 $effectiveEndTs = min($sessionEndTs, $testEndTs);
 
                 if ($s['status'] === 'finished') {
-                    // Jika siswa sudah menyelesaikan ujian, waktu berhenti
-                    $s['remaining_seconds'] = 0;
-                    $s['remaining_minutes'] = 0;
+                    // Jika siswa sudah menyelesaikan ujian, bekukan sisa waktu saat selesai dan hitung durasi pengerjaan
+                    $workDurationSec = max(0, $endTs - $startTs);
+                    $frozenRemaining = max(0, $effectiveEndTs - $endTs);
+                    $s['remaining_seconds'] = $frozenRemaining;
+                    $s['remaining_minutes'] = max(0, floor($frozenRemaining / 60));
+                    $s['work_duration_seconds'] = $workDurationSec;
+                    $s['finished_at_ts'] = $endTs;
                 } else {
                     $remainingSec = max(0, $effectiveEndTs - $now);
                     $s['remaining_seconds'] = $remainingSec;
                     $s['remaining_minutes'] = max(0, floor($remainingSec / 60));
+                    $s['work_duration_seconds'] = max(0, $now - $startTs);
+                    $s['finished_at_ts'] = 0;
                 }
             } else {
                 $s['started_at'] = 0;
                 $s['remaining_seconds'] = 0;
                 $s['remaining_minutes'] = 0;
+                $s['work_duration_seconds'] = 0;
+                $s['finished_at_ts'] = 0;
             }
 
             // Fallback score agar tidak "KOSONG" jika salah satu null
@@ -576,14 +584,37 @@ class CbtAktivitas extends BaseController
             $violations = $violationMap[$s['student_id']] ?? 0;
             $score = $s['total_score'] ?? $s['score'] ?? 0;
 
-            // Hitung sisa waktu
+            // Hitung sisa waktu & durasi pengerjaan
             $remainingSec = 0;
-            if (!empty($s['started_at']) && $status !== 'finished') {
+            $workSec = 0;
+            if (!empty($s['started_at'])) {
                 $startTs = is_numeric($s['started_at']) ? (int) $s['started_at'] : strtotime((string) $s['started_at']);
                 if ($startTs > 100000) {
                     $extraSec = ((int) ($s['extra_time'] ?? 0)) * 60;
                     $effectiveEndTs = min($startTs + $durationSec + $extraSec, $testEndTs);
-                    $remainingSec = max(0, $effectiveEndTs - $now);
+                    if ($status === 'finished') {
+                        $endTs = $now;
+                        if (!empty($s['finished_at'])) {
+                            $fStr = (string) $s['finished_at'];
+                            if ($fStr !== '0' && substr($fStr, 0, 10) !== '0000-00-00') {
+                                $parsedEnd = is_numeric($fStr) ? (int) $fStr : strtotime($fStr);
+                                if ($parsedEnd > 100000) {
+                                    $endTs = $parsedEnd;
+                                }
+                            }
+                        } elseif (!empty($s['updated_at'])) {
+                            $uStr = (string) $s['updated_at'];
+                            $parsedUpd = is_numeric($uStr) ? (int) $uStr : strtotime($uStr);
+                            if ($parsedUpd > 100000) {
+                                $endTs = $parsedUpd;
+                            }
+                        }
+                        $remainingSec = max(0, $effectiveEndTs - $endTs);
+                        $workSec = max(0, $endTs - $startTs);
+                    } else {
+                        $remainingSec = max(0, $effectiveEndTs - $now);
+                        $workSec = max(0, $now - $startTs);
+                    }
                 }
             }
 
@@ -606,6 +637,7 @@ class CbtAktivitas extends BaseController
                 'status'            => $status,
                 'score'             => $score,
                 'remaining_seconds' => $remainingSec,
+                'work_seconds'      => $workSec,
                 'violations'        => $violations
             ];
         }

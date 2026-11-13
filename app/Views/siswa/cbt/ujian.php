@@ -1557,90 +1557,176 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
     };
 
     // ============================================
-    // MULTIPLE TABS DETECTION
+    // MULTIPLE TABS DETECTION (BULLETPROOF & MOBILE-RESILIENT)
     // ============================================
     const TAB_KEY = 'cbt_active_tab_' + TEST_ID;
-    const TAB_ID = Date.now() + '_' + Math.random();
+    const CHANNEL_NAME = 'cbt_tab_bus_' + TEST_ID;
 
-    // Check if exam is already open in another tab
-    const existingTab = safeStore.getItem(TAB_KEY);
-    if (existingTab && existingTab !== TAB_ID) {
-      // Another tab is active
+    // 1. Dapatkan atau buat Tab ID yang persisten per tab (menggunakan sessionStorage)
+    // Ini menjamin saat reload / pull-to-refresh / rotasi layar HP, ID tab TIDAK BERUBAH
+    let TAB_ID = null;
+    try {
+      TAB_ID = sessionStorage.getItem('cbt_tab_id_' + TEST_ID);
+    } catch (e) {}
+
+    if (!TAB_ID) {
+      TAB_ID = 'tab_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+      try {
+        sessionStorage.setItem('cbt_tab_id_' + TEST_ID, TAB_ID);
+      } catch (e) {}
+    }
+
+    // BroadcastChannel helper (didukung di 99% browser modern termasuk HP Android & iOS)
+    let tabBus = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        tabBus = new BroadcastChannel(CHANNEL_NAME);
+      }
+    } catch (e) {}
+
+    let isTabClaimed = false;
+    let heartbeatTimer = null;
+    let isUnloading = false;
+
+    // Helper untuk membaca info tab aktif dari safeStore
+    const getActiveTabInfo = () => {
+      try {
+        const raw = safeStore.getItem(TAB_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') return parsed;
+        // Fallback jika format lama (string langsung)
+        return { tabId: String(raw), ts: 0 };
+      } catch (e) {
+        return null;
+      }
+    };
+
+    // Helper untuk menulis info tab aktif
+    const setActiveTabInfo = (id, ts = Date.now()) => {
+      safeStore.setItem(TAB_KEY, JSON.stringify({ tabId: id, ts: ts }));
+    };
+
+    // Fungsi untuk memperbarui detak jantung (heartbeat) tab aktif
+    const startTabHeartbeat = () => {
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      setActiveTabInfo(TAB_ID, Date.now());
+      heartbeatTimer = setInterval(() => {
+        if (!isUnloading && isTabClaimed) {
+          setActiveTabInfo(TAB_ID, Date.now());
+        }
+      }, 1500); // Heartbeat setiap 1.5 detik
+    };
+
+    // Fungsi klaim kepemilikan tab ini
+    const claimThisTab = (broadcast = true) => {
+      isTabClaimed = true;
+      startTabHeartbeat();
+      if (broadcast && tabBus) {
+        try {
+          tabBus.postMessage({ type: 'CLAIM_ACTIVE', tabId: TAB_ID });
+        } catch (e) {}
+      }
+      console.log('[CBT-TAB] Tab claimed successfully as active:', TAB_ID);
+    };
+
+    // Handle saat tab ini diambil alih oleh tab lain
+    const yieldToOtherTab = (otherTabId) => {
+      if (!isTabClaimed || otherTabId === TAB_ID) return;
+      isTabClaimed = false;
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+
       Swal.fire({
-        title: 'Ujian Sudah Dibuka',
-        html: 'Sistem mendeteksi ujian ini sudah dibuka di tab lain.<br><br><strong>Hanya diperbolehkan satu tab aktif.</strong>',
+        title: 'Ujian Diambil Alih',
+        html: 'Ujian ini telah dibuka dan diambil alih di tab/jendela lain.<br><br>Halaman ini dinonaktifkan.',
         icon: 'warning',
         allowOutsideClick: false,
         allowEscapeKey: false,
-        showCancelButton: true,
-        confirmButtonText: 'Gunakan Tab Ini (Ambil Alih)',
-        cancelButtonText: 'Tutup Tab Ini',
-        confirmButtonColor: '#0d6efd',
-        cancelButtonColor: '#dc3545'
-      }).then((result) => {
-        if (result.isConfirmed) {
-          // 🔄 TAKE OVER: Force this tab to be the active one
-          console.log('[TAB] Taking over session...');
-          safeStore.setItem(TAB_KEY, TAB_ID);
-          window.location.reload();
-        } else {
-          // Close or redirect
-          window.close();
-          setTimeout(() => {
-            window.location.href = '<?= site_url('siswa/cbt') ?>';
-          }, 500);
-        }
+        showConfirmButton: false,
+        timer: 3000
+      }).then(() => {
+        window.location.href = '<?= site_url('siswa/cbt') ?>';
       });
-      return; // Stop execution of the rest of the script
+    };
+
+    // Dengarkan pesan dari BroadcastChannel
+    if (tabBus) {
+      tabBus.onmessage = (event) => {
+        const data = event.data || {};
+        if (data.type === 'PING_WHO_IS_ACTIVE' && data.senderId !== TAB_ID && isTabClaimed) {
+          // Ada tab baru bertanya apakah ada tab aktif, jawab PONG
+          try {
+            tabBus.postMessage({ type: 'PONG_I_AM_ACTIVE', tabId: TAB_ID });
+          } catch (e) {}
+        } else if (data.type === 'CLAIM_ACTIVE' && data.tabId !== TAB_ID) {
+          // Tab lain mengklaim kepemilikan (misal user klik Ambil Alih di tab baru)
+          yieldToOtherTab(data.tabId);
+        }
+      };
     }
 
-    // Register this tab as active
-    safeStore.setItem(TAB_KEY, TAB_ID);
-
-    // Listen for storage changes (other tabs opening)
+    // Dengarkan perubahan localStorage (fallback untuk browser tanpa BroadcastChannel)
     window.addEventListener('storage', (e) => {
-      if (e.key === TAB_KEY && e.newValue !== TAB_ID) {
-        // Another tab is trying to open the exam
-        Swal.fire({
-          title: 'Tab Lain Terdeteksi',
-          text: 'Ujian dibuka di tab lain. Tab ini akan ditutup.',
-          icon: 'warning',
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          showConfirmButton: false,
-          timer: 2000
-        }).then(() => {
-          window.close();
-          setTimeout(() => {
-            window.location.href = '<?= site_url('siswa/cbt') ?>';
-          }, 500);
-        });
+      if (e.key === TAB_KEY && isTabClaimed) {
+        try {
+          const info = JSON.parse(e.newValue || '{}');
+          if (info.tabId && info.tabId !== TAB_ID && (Date.now() - (info.ts || 0) < 5000)) {
+            yieldToOtherTab(info.tabId);
+          }
+        } catch (err) {}
       }
     });
 
-    let isUnloading = false;
-
-    // Clean up on page unload
-    window.addEventListener('beforeunload', () => {
+    // Clean up saat tab ditutup / dipindahkan
+    const handleTabUnload = () => {
       isUnloading = true;
-      const currentTab = safeStore.getItem(TAB_KEY);
-      if (currentTab === TAB_ID) {
-        safeStore.removeItem(TAB_KEY);
+      if (isTabClaimed) {
+        const current = getActiveTabInfo();
+        if (current && current.tabId === TAB_ID) {
+          // Kosongkan tab aktif agar tab baru bisa langsung buka tanpa jeda
+          safeStore.removeItem(TAB_KEY);
+        }
       }
-    });
+    };
+    window.addEventListener('beforeunload', handleTabUnload);
+    window.addEventListener('pagehide', handleTabUnload);
 
-    // Periodic check (every 2 seconds)
-    setInterval(() => {
-      if (isUnloading) return; // Prevent race conditions during redirect
-      const currentTab = safeStore.getItem(TAB_KEY);
-      if (currentTab && currentTab !== TAB_ID) {
-        // Another tab is active
-        window.location.href = '<?= site_url('siswa/cbt') ?>';
-      } else if (!currentTab) {
-        // Tab key was cleared or dropped (e.g. mobile app backgrounding), re-claim
-        safeStore.setItem(TAB_KEY, TAB_ID);
-      }
-    }, 2000);
+    // ============================================
+    // INITIAL TAB CONFLICT CHECK & ACQUISITION
+    // ============================================
+    const activeInfo = getActiveTabInfo();
+    const now = Date.now();
+    const isOtherTabFresh = activeInfo &&
+                            activeInfo.tabId &&
+                            activeInfo.tabId !== TAB_ID &&
+                            (now - (activeInfo.ts || 0) < 4500); // Hanya anggap aktif jika heartbeat < 4.5 detik
+
+    if (isOtherTabFresh) {
+      // Ada tab lain yang tampaknya masih fresh. Berikan modal konfirmasi dengan opsi Ambil Alih
+      Swal.fire({
+        title: 'Ujian Terbuka di Tab Lain',
+        html: 'Sistem mendeteksi ujian sedang aktif di tab lain.<br><br>Apakah Anda ingin melanjutkan ujian di tab ini?',
+        icon: 'question',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showCancelButton: true,
+        confirmButtonText: 'Gunakan Tab Ini (Lanjutkan Ujian)',
+        cancelButtonText: 'Kembali ke Dashboard',
+        confirmButtonColor: '#0d6efd',
+        cancelButtonColor: '#6c757d'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // Ambil alih kepemilikan tab secara langsung TANPA reload halaman
+          claimThisTab(true);
+        } else {
+          window.location.href = '<?= site_url('siswa/cbt') ?>';
+        }
+      });
+    } else {
+      // Tidak ada tab lain yang aktif atau tab sebelumnya sudah mati / stale (> 4.5 detik).
+      // Klaim tab ini sebagai tab aktif secara mulus tanpa mengganggu siswa!
+      claimThisTab(false);
+    }
 
     // ============================================
     // ANTI-CHEAT: DISABLE TEXT SELECTION & CONTEXT MENU
@@ -2732,14 +2818,25 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
         // 🚀 PIGGYBACK TIMER SYNC: Adjust timer if server reports remaining seconds
         if (res.remaining_seconds !== undefined && res.remaining_seconds !== null && !timeExpiredHandled) {
-          const serverRemaining = parseInt(res.remaining_seconds);
+          const serverRemaining = parseInt(res.remaining_seconds, 10);
           const diff = Math.abs(serverRemaining - timeRaw);
-          if (diff > 5) {
+          if (diff > 3) {
             console.log('[PING SYNC] Adjusting timer. Client:', timeRaw, 'Server:', serverRemaining, 'Diff:', diff);
             timeRaw = serverRemaining;
             timerBaselineRemaining = serverRemaining;
             timerBaselineEpoch = Date.now();
             if (typeof updateTimerDisplay === 'function') updateTimerDisplay();
+          }
+        }
+
+        // 🚀 SYNC ELAPSED TIME FOR FINISH LOCK BUTTON
+        if (res.elapsed_seconds !== undefined && res.elapsed_seconds !== null) {
+          const serverElapsed = parseInt(res.elapsed_seconds, 10);
+          const diffElapsed = Math.abs(serverElapsed - elapsedSeconds);
+          if (diffElapsed > 3) {
+            elapsedSeconds = serverElapsed;
+            timerBaselineElapsed = serverElapsed;
+            if (typeof updateFinishButtonState === 'function') updateFinishButtonState();
           }
         }
 
@@ -3380,15 +3477,18 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       })
         .then(r => r.json())
         .then(res => {
-          if (res.success && res.remaining_seconds !== undefined) {
-            const serverTime = parseInt(res.remaining_seconds);
+          if (res.success && res.remaining_seconds !== undefined && res.remaining_seconds !== null && !timeExpiredHandled) {
+            const serverTime = parseInt(res.remaining_seconds, 10);
             const clientTime = timeRaw;
             const diff = Math.abs(serverTime - clientTime);
 
-            // If difference is more than 5 seconds, sync with server
-            if (diff > 5) {
+            // If difference is more than 3 seconds, sync with server
+            if (diff > 3) {
               console.log('[TIMER SYNC] Adjusting timer. Client:', clientTime, 'Server:', serverTime, 'Diff:', diff);
               timeRaw = serverTime;
+              timerBaselineRemaining = serverTime;
+              timerBaselineEpoch = Date.now();
+              if (typeof updateTimerDisplay === 'function') updateTimerDisplay();
 
               // Show notification if significant difference
               if (diff > 30) {
@@ -3400,6 +3500,16 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                   showConfirmButton: false
                 });
               }
+            }
+          }
+
+          if (res.success && res.elapsed_seconds !== undefined && res.elapsed_seconds !== null) {
+            const serverElapsed = parseInt(res.elapsed_seconds, 10);
+            const diffElapsed = Math.abs(serverElapsed - elapsedSeconds);
+            if (diffElapsed > 3) {
+              elapsedSeconds = serverElapsed;
+              timerBaselineElapsed = serverElapsed;
+              if (typeof updateFinishButtonState === 'function') updateFinishButtonState();
             }
           }
         })

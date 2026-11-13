@@ -550,13 +550,16 @@ class Cbt extends BaseController
         $testEndTs = !empty($test['end_time']) ? strtotime($test['end_time']) : 2147483647;
         $effectiveEndTs = min($sessionEndTs, $testEndTs);
 
-        $remainingSeconds = max(0, $effectiveEndTs - time());
+        $nowTs = time();
+        $remainingSeconds = max(0, $effectiveEndTs - $nowTs);
+        $elapsedSeconds = max(0, $nowTs - $startTs);
 
         return $this->respond([
             'success' => true,
             'status' => 'active',
             'remaining_seconds' => $remainingSeconds,
-            'server_time' => time()
+            'elapsed_seconds' => $elapsedSeconds,
+            'server_time' => $nowTs
         ]);
     }
 
@@ -631,6 +634,8 @@ class Cbt extends BaseController
 
                 // 🚀 PIGGYBACK TIMER SYNC: calculate remaining seconds
                 $remainingSeconds = null;
+                $elapsedSeconds = null;
+                $nowTs = time();
                 if (!empty($session['started_at']) && !empty($test['duration'])) {
                     $startTs = (int) $session['started_at'];
                     $durationSec = max(10, ((int) $test['duration']) * 60);
@@ -638,14 +643,16 @@ class Cbt extends BaseController
                     $sessionEndTs = $startTs + $durationSec + $extraDuration;
                     $testEndTs = !empty($test['end_time']) ? strtotime($test['end_time']) : 2147483647;
                     $effectiveEndTs = min($sessionEndTs, $testEndTs);
-                    $remainingSeconds = max(0, $effectiveEndTs - time());
+                    $remainingSeconds = max(0, $effectiveEndTs - $nowTs);
+                    $elapsedSeconds = max(0, $nowTs - $startTs);
                 }
 
                 return $this->respond(array_merge([
                     'status' => $cheatStatus['is_locked'] ? 'finished' : 'ok',
                     'is_locked' => $cheatStatus['is_locked'],
                     'remaining_seconds' => $remainingSeconds,
-                    'server_time' => time()
+                    'elapsed_seconds' => $elapsedSeconds,
+                    'server_time' => $nowTs
                 ], $cheatStatus));
             }
 
