@@ -1,11 +1,12 @@
-# CodeIgniter 4
+# ==============================================================================
+# CodeIgniter 4 Core & Dependencies
+# ==============================================================================
 /vendor/
 /writable/cache/*
 /writable/debugbar/*
 /writable/logs/*
 /writable/session/*
 /writable/uploads/*
-/writable/debugbar/*
 !/writable/cache/index.html
 !/writable/cache/.gitkeep
 !/writable/debugbar/index.html
@@ -13,74 +14,86 @@
 !/writable/session/index.html
 !/writable/uploads/index.html
 
-
-# Environment files
+# ==============================================================================
+# Environment & Secrets (NEVER COMMIT!)
+# ==============================================================================
 .env
 .env.backup
+.env.local
+.env.test.local
 
-# License Security Files (CRITICAL - DO NOT COMMIT!)
+# License Security Files & Emergency Tools
 /writable/.install_id
 /writable/.production_mode
-
-# Emergency tools (NEVER commit these!)
 /generate_hash.php
 
-# IDE
+# Developer mode marker (Local Dev Only)
+.dev_mode
+
+# ==============================================================================
+# Testing & Build Artifacts
+# ==============================================================================
+/build/
+.phpunit.cache/
+phpunit.result.cache
+
+# ==============================================================================
+# Public Uploads (User Data & Generated Artifacts)
+# ==============================================================================
+public/uploads/backups/
+public/uploads/signature/*
+!public/uploads/signature/.gitkeep
+!public/uploads/signature/index.html
+public/uploads/tests_signature_tmp/
+
+# Database Dumps
+*.sql
+
+# ==============================================================================
+# IDEs, Editors & Operating System
+# ==============================================================================
 .vscode/
 .idea/
 *.sublime-project
 *.sublime-workspace
-
-# OS
 .DS_Store
 Thumbs.db
+ehthumbs.db
 
-# Backup files
+# Logs & Temporary Files
+*.log
+*.tmp
+*.temp
 *.bak
 *.backup
 *~
+error_log
+php_errors.log
 
-# Temporary files
-*.tmp
-*.temp
-
-# Backup uploads
-public/uploads/backups/
-
-# Docs folder
-docs/
-
-# Database dumps
-*.sql
-
-# Local production / development directories
-/prd/
-/docs/
-/.antigravitycli/
-/.cursorrules
-/.clinerules
-/.kiro/
-.kiro
-/.agents
-/AGENT.md
-
-# External standalone apps / sub-repos (reference only, do not track in siakad)
+# ==============================================================================
+# Sub-Applications & External Repositories (Independent Standalone Apps)
+# ==============================================================================
 /bayaran/
 /cbtku/
 /bridge/
 
-# Developer mode marker — hanya ada di PC developer, TIDAK untuk production/client
-.dev_mode
-/build/
-
-# AI agent skills & lockfiles
+# ==============================================================================
+# AI Agent Workspaces, Tooling & Local Docs
+# ==============================================================================
+/docs/
+/prd/
+/rekap-file-md/
+/scratch/
+/agent/
+/.agents/
+/AGENT.md
 /.claude/
 /.qoder/
-/agent/
+/.kiro/
+.kiro
+/.antigravitycli/
+/.cursorrules
+/.clinerules
 /skills-lock.json
 /log_Cpanel/
 /ai-context/
-
-# Scratch & local test artifacts (NEVER commit these!)
-/scratch/
-.env.test.local

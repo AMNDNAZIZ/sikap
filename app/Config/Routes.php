@@ -388,6 +388,11 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('settings/kop-surat/upload', 'SettingsController::uploadKopSurat', $auth127);
     $routes->post('settings/nomor-surat/save', 'SettingsController::saveNomorSurat', $auth127);
 
+    // Tanda Tangan KS & Cap Sekolah
+    $routes->post('settings/signature/upload', 'SettingsController::uploadSignature', $auth127);
+    $routes->post('settings/seal/upload', 'SettingsController::uploadSeal', $auth127);
+    $routes->post('settings/signature-prefs/save', 'SettingsController::saveSignaturePrefs', $auth127);
+
     // Integrasi Pembayaran (Admin Only)
     $routes->get('settings/payment', 'SettingsController::payment', $auth1);
     $routes->post('settings/payment/save', 'SettingsController::savePayment', $auth1);

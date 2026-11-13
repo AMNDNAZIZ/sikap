@@ -1,3 +1,7 @@
+<?php
+// 🎯 Standar Skill Diterapkan: high-end-visual-design (UI)
+// Refs: rekap-file-md/TandaTanganCap/Implementation-Plan-TandaTanganCap.md
+?>
 <?= $this->extend('layouts/app') ?>
 
 <?= $this->section('content') ?>
@@ -8,8 +12,8 @@
         <div class="d-inline-flex align-items-center gap-1.5 px-2.5 py-0.5 rounded-pill bg-primary-subtle text-primary border border-primary-subtle text-uppercase tracking-wider fw-semibold mb-1" style="font-size:0.65rem; letter-spacing:0.06em;">
             <i class="bi bi-gear-fill"></i> Pengaturan Sistem Persuratan
         </div>
-        <h2 class="h4 fw-bold mb-0 text-dark">KOP &amp; Penomoran Surat Keluar</h2>
-        <small class="text-muted">Konfigurasi blanko KOP digital dan urutan nomor registrasi surat dinas otomatis</small>
+        <h2 class="h4 fw-bold mb-0 text-dark">KOP, Tanda Tangan & Penomoran Surat</h2>
+        <small class="text-muted">Konfigurasi blanko KOP, tanda tangan KS, cap sekolah, dan urutan nomor registrasi surat dinas</small>
     </div>
     <div>
         <a href="<?= base_url('admin/surat-keluar') ?>" class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-xs">
@@ -32,8 +36,10 @@
     </div>
 <?php endif; ?>
 
+<!-- ===== ROW 1: Penomoran & KOP ===== -->
 <div class="row g-4">
-    <!-- ===== CARD 1: PENGATURAN PENOMORAN SURAT KELUAR ===== -->
+
+    <!-- CARD 1: PENOMORAN SURAT -->
     <div class="col-lg-6">
         <div class="card border-0 shadow-sm rounded-3 h-100">
             <div class="card-header bg-white py-3 border-bottom d-flex align-items-center gap-2">
@@ -86,9 +92,7 @@
                     <!-- Live Estimation Box -->
                     <div class="p-3 bg-light rounded-3 border mb-3">
                         <div class="text-uppercase fw-semibold text-muted mb-1" style="font-size:0.65rem; letter-spacing:0.05em;">Estimasi Nomor Surat Berikutnya:</div>
-                        <div class="h5 fw-bold text-success font-monospace mb-0" id="preview-next-number">
-                            ...
-                        </div>
+                        <div class="h5 fw-bold text-success font-monospace mb-0" id="preview-next-number">...</div>
                         <small class="text-muted d-block mt-1" style="font-size:0.72rem;">
                             Nomor di atas akan otomatis diberikan saat membuat surat keluar baru berikutnya.
                         </small>
@@ -102,7 +106,7 @@
         </div>
     </div>
 
-    <!-- ===== CARD 2: PENGATURAN KOP SURAT DINAMIS ===== -->
+    <!-- CARD 2: KOP SURAT -->
     <div class="col-lg-6">
         <div class="card border-0 shadow-sm rounded-3 h-100">
             <div class="card-header bg-white py-3 border-bottom d-flex align-items-center gap-2">
@@ -119,7 +123,7 @@
                     <?= csrf_field() ?>
                     <div class="mb-3">
                         <label for="kop_file" class="form-label fw-semibold small">Upload Berkas KOP (PNG/JPG, Maks 5MB) <span class="text-danger">*</span></label>
-                        <input type="file" class="form-control form-control-sm" id="kop_file" name="kop_file" accept=".png, .jpg, .jpeg" required>
+                        <input type="file" class="form-control form-control-sm" id="kop_file" name="kop_file" accept=".png,.jpg,.jpeg" required>
                         <small class="text-muted d-block mt-1" style="font-size:0.72rem;">
                             Rekomendasi: Lebar 1500px, latar belakang putih/transparan, rasio proporsional kepala surat.
                         </small>
@@ -143,7 +147,164 @@
             </div>
         </div>
     </div>
-</div>
+
+</div><!-- /ROW 1 -->
+
+<!-- ===== ROW 2: Tanda Tangan & Cap ===== -->
+<div class="row g-4 mt-1">
+
+    <!-- CARD 3: TANDA TANGAN KEPALA SEKOLAH -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-3 h-100">
+            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center gap-2">
+                <span class="badge rounded-circle bg-success bg-opacity-10 text-success p-2">
+                    <i class="bi bi-pen fs-6"></i>
+                </span>
+                <div>
+                    <h6 class="fw-bold mb-0 text-dark">Tanda Tangan Kepala Sekolah</h6>
+                    <small class="text-muted" style="font-size:0.75rem;">Upload PNG transparan, maks 150 KB, lebar ideal ± 400 px</small>
+                </div>
+            </div>
+            <div class="card-body p-3 p-md-4">
+
+                <!-- Form Upload -->
+                <form action="<?= base_url('admin/settings/signature/upload') ?>" method="post" enctype="multipart/form-data" class="mb-3">
+                    <?= csrf_field() ?>
+                    <label for="signature_file" class="form-label fw-semibold small">
+                        Upload Tanda Tangan KS <span class="text-danger">*</span>
+                    </label>
+                    <div class="input-group input-group-sm">
+                        <input type="file" class="form-control form-control-sm" id="signature_file"
+                               name="signature_file" accept=".png" required>
+                        <button type="submit" class="btn btn-success btn-sm px-3">
+                            <i class="bi bi-upload me-1"></i>Upload
+                        </button>
+                    </div>
+                    <small class="text-muted d-block mt-1" style="font-size:0.72rem;">
+                        Wajib PNG dengan <strong>background transparan</strong>. Ukuran file maks 150 KB.
+                    </small>
+                </form>
+
+                <!-- Pratinjau (checkerboard bg = tampilkan transparansi) -->
+                <h6 class="fw-semibold small text-muted mb-2">Pratinjau Tanda Tangan Aktif:</h6>
+                <div class="border rounded-3 p-3 text-center mb-3"
+                     style="min-height:100px;display:flex;align-items:center;justify-content:center;
+                            background:repeating-conic-gradient(#ddd 0% 25%,#fff 0% 50%) 0 0/20px 20px;">
+                    <?php if (!empty($ks_signature_path)) : ?>
+                        <img src="<?= base_url($ks_signature_path) ?>?t=<?= time() ?>"
+                             alt="Tanda Tangan KS"
+                             style="max-height:100px;max-width:200px;object-fit:contain;">
+                    <?php else : ?>
+                        <div class="text-muted py-2">
+                            <i class="bi bi-pen fs-3 d-block opacity-50 mb-1"></i>
+                            <span class="small">Belum ada tanda tangan yang diunggah.</span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Preferensi checkbox -->
+                <form action="<?= base_url('admin/settings/signature-prefs/save') ?>" method="post">
+                    <?= csrf_field() ?>
+                    <!-- Simpan nilai seal agar tidak tertimpa -->
+                    <input type="hidden" name="use_seal" value="<?= $use_seal ? '1' : '0' ?>">
+                    <input type="hidden" name="use_signature" value="0">
+                    <div class="form-check form-switch mb-1">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="use_signature" name="use_signature" value="1"
+                               <?= $use_signature ? 'checked' : '' ?>>
+                        <label class="form-check-label small fw-semibold" for="use_signature">
+                            Gunakan tanda tangan KS pada PDF
+                        </label>
+                    </div>
+                    <small class="text-muted d-block mb-2" style="font-size:0.72rem;">
+                        Jika aktif, tanda tangan akan tampil di area <code>.signature-space</code> pada PDF.
+                    </small>
+                    <button type="submit" class="btn btn-sm btn-outline-success rounded-pill px-3">
+                        <i class="bi bi-save me-1"></i>Simpan Preferensi
+                    </button>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- CARD 4: CAP SEKOLAH -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-3 h-100">
+            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center gap-2">
+                <span class="badge rounded-circle bg-warning bg-opacity-10 text-warning p-2">
+                    <i class="bi bi-patch-check fs-6"></i>
+                </span>
+                <div>
+                    <h6 class="fw-bold mb-0 text-dark">Cap / Stempel Sekolah</h6>
+                    <small class="text-muted" style="font-size:0.75rem;">Upload PNG transparan, maks 150 KB, ukuran asli cap (± 300 × 300 px)</small>
+                </div>
+            </div>
+            <div class="card-body p-3 p-md-4">
+
+                <!-- Form Upload -->
+                <form action="<?= base_url('admin/settings/seal/upload') ?>" method="post" enctype="multipart/form-data" class="mb-3">
+                    <?= csrf_field() ?>
+                    <label for="seal_file" class="form-label fw-semibold small">
+                        Upload Cap Sekolah <span class="text-danger">*</span>
+                    </label>
+                    <div class="input-group input-group-sm">
+                        <input type="file" class="form-control form-control-sm" id="seal_file"
+                               name="seal_file" accept=".png" required>
+                        <button type="submit" class="btn btn-warning btn-sm px-3">
+                            <i class="bi bi-upload me-1"></i>Upload
+                        </button>
+                    </div>
+                    <small class="text-muted d-block mt-1" style="font-size:0.72rem;">
+                        Wajib PNG dengan <strong>background transparan</strong>. Ukuran file maks 150 KB.
+                        Dimensi ideal menyesuaikan ukuran cap asli (biasanya 300 × 300 px).
+                    </small>
+                </form>
+
+                <!-- Pratinjau -->
+                <h6 class="fw-semibold small text-muted mb-2">Pratinjau Cap Aktif:</h6>
+                <div class="border rounded-3 p-3 text-center mb-3"
+                     style="min-height:100px;display:flex;align-items:center;justify-content:center;
+                            background:repeating-conic-gradient(#ddd 0% 25%,#fff 0% 50%) 0 0/20px 20px;">
+                    <?php if (!empty($school_seal_path)) : ?>
+                        <img src="<?= base_url($school_seal_path) ?>?t=<?= time() ?>"
+                             alt="Cap Sekolah"
+                             style="max-height:120px;max-width:120px;object-fit:contain;">
+                    <?php else : ?>
+                        <div class="text-muted py-2">
+                            <i class="bi bi-patch-check fs-3 d-block opacity-50 mb-1"></i>
+                            <span class="small">Belum ada cap yang diunggah.</span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Preferensi checkbox -->
+                <form action="<?= base_url('admin/settings/signature-prefs/save') ?>" method="post">
+                    <?= csrf_field() ?>
+                    <!-- Simpan nilai signature agar tidak tertimpa -->
+                    <input type="hidden" name="use_signature" value="<?= $use_signature ? '1' : '0' ?>">
+                    <input type="hidden" name="use_seal" value="0">
+                    <div class="form-check form-switch mb-1">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="use_seal" name="use_seal" value="1"
+                               <?= $use_seal ? 'checked' : '' ?>>
+                        <label class="form-check-label small fw-semibold" for="use_seal">
+                            Gunakan cap sekolah pada PDF
+                        </label>
+                    </div>
+                    <small class="text-muted d-block mb-2" style="font-size:0.72rem;">
+                        Jika aktif, cap akan tampil di area <code>.seal-space</code> pada PDF.
+                    </small>
+                    <button type="submit" class="btn btn-sm btn-outline-warning rounded-pill px-3">
+                        <i class="bi bi-save me-1"></i>Simpan Preferensi
+                    </button>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+</div><!-- /ROW 2 -->
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
