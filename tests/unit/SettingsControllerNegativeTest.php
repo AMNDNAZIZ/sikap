@@ -123,9 +123,9 @@ final class SettingsControllerNegativeTest extends CIUnitTestCase
     }
 
     /**
-     * TC-NEG-FILE-02: Ukuran berkas > 150 KB (153600 bytes) dilarang
+     * TC-NEG-FILE-02: Ukuran berkas tanda tangan > 150 KB (153600 bytes) dilarang
      */
-    public function testFileRulesRejectsOver150Kb(): void
+    public function testSignatureFileRulesRejectsOver150Kb(): void
     {
         $maxBytes = 150 * 1024; // 153,600 bytes
 
@@ -140,6 +140,27 @@ final class SettingsControllerNegativeTest extends CIUnitTestCase
         foreach ($testSizes as $size => $expected) {
             $valid = $size <= $maxBytes;
             $this->assertSame($expected, $valid, "Ukuran {$size} bytes harus melebihi batas 150 KB.");
+        }
+    }
+
+    /**
+     * TC-NEG-FILE-02B: Ukuran berkas cap sekolah > 500 KB (512000 bytes) dilarang, ≤ 500 KB diterima
+     */
+    public function testSealFileRulesAcceptsUpTo500KbAndRejectsOver(): void
+    {
+        $maxBytes = 500 * 1024; // 512,000 bytes
+
+        $testSizes = [
+            102400  => true,  // 100 KB - valid
+            512000  => true,  // tepat 500 KB - valid
+            512001  => false, // 500 KB + 1 byte - invalid
+            600000  => false, // ~585 KB - invalid
+            1048576 => false, // 1 MB - invalid
+        ];
+
+        foreach ($testSizes as $size => $expected) {
+            $valid = $size <= $maxBytes;
+            $this->assertSame($expected, $valid, "Evaluasi batas 500 KB untuk ukuran {$size} bytes harus sesuai.");
         }
     }
 

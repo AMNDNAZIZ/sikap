@@ -237,7 +237,7 @@
                 </span>
                 <div>
                     <h6 class="fw-bold mb-0 text-dark">Cap / Stempel Sekolah</h6>
-                    <small class="text-muted" style="font-size:0.75rem;">Upload PNG transparan, maks 150 KB, ukuran asli cap (± 300 × 300 px)</small>
+                    <small class="text-muted" style="font-size:0.75rem;">Upload PNG transparan, maks 500 KB, ukuran asli cap (± 300 × 300 px)</small>
                 </div>
             </div>
             <div class="card-body p-3 p-md-4">
@@ -256,7 +256,7 @@
                         </button>
                     </div>
                     <small class="text-muted d-block mt-1" style="font-size:0.72rem;">
-                        Wajib PNG dengan <strong>background transparan</strong>. Ukuran file maks 150 KB.
+                        Wajib PNG dengan <strong>background transparan</strong>. Ukuran file maks 500 KB.
                         Dimensi ideal menyesuaikan ukuran cap asli (biasanya 300 × 300 px).
                     </small>
                 </form>
