@@ -136,7 +136,7 @@ class SettingsController extends BaseController
     }
 
     /**
-     * Upload Cap Sekolah (PNG transparan, maks 150KB)
+     * Upload Cap Sekolah (PNG transparan, maks 500KB)
      */
     public function uploadSeal()
     {
@@ -147,11 +147,11 @@ class SettingsController extends BaseController
         }
 
         $rules = [
-            'seal_file' => 'uploaded[seal_file]|mime_in[seal_file,image/png]|max_size[seal_file,150]',
+            'seal_file' => 'uploaded[seal_file]|mime_in[seal_file,image/png]|max_size[seal_file,500]',
         ];
 
         if (!$this->validate($rules)) {
-            return redirect()->back()->with('error', 'File tidak valid. Wajib format PNG transparan, maksimal 150 KB.');
+            return redirect()->back()->with('error', 'File tidak valid. Wajib format PNG transparan, maksimal 500 KB.');
         }
 
         $targetDir  = FCPATH . 'uploads/signature/';
