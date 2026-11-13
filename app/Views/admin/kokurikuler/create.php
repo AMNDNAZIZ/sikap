@@ -50,6 +50,83 @@
         </a>
     </div>
 
+    <!-- ✨ KONSULTAN AI PERENCANA KOKURIKULER ESPATA ✨ -->
+    <div class="card border-0 shadow-sm mb-4" style="background: linear-gradient(135deg, #f8faff 0%, #eef5ff 100%); border-left: 5px solid #0d6efd !important;">
+        <div class="card-body p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                <div class="d-flex align-items-center mb-2 mb-md-0">
+                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 44px; height: 44px; font-size: 1.25rem;">
+                        <i class="bi bi-stars"></i>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2">
+                            <h5 class="mb-0 fw-bold text-dark">Konsultan AI Perencana Kokurikuler</h5>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">ESPATA AI Assistant</span>
+                        </div>
+                        <small class="text-muted">Rancang projek kokurikuler lintas disiplin ilmu secara otomatis berdasarkan analisis jenjang, fase, dan Tujuan Pembelajaran (TP) aktif.</small>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btn_toggle_ai_consultant" data-bs-toggle="collapse" data-bs-target="#ai_consultant_collapse">
+                    <i class="bi bi-sliders"></i> Filter Parameter
+                </button>
+            </div>
+
+            <div class="collapse show" id="ai_consultant_collapse">
+                <div class="row g-3 align-items-end p-3 bg-white rounded-3 border">
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold text-muted mb-1">Target Semester</label>
+                        <select id="ai_consult_semester" class="form-select form-select-sm">
+                            <option value="1">Semester 1 (Ganjil)</option>
+                            <option value="2">Semester 2 (Genap)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold text-muted mb-1">Target Fase</label>
+                        <select id="ai_consult_fase" class="form-select form-select-sm">
+                            <?php if ($schoolLevel == 1): // SD ?>
+                                <option value="A" selected>Fase A (Kelas 1-2)</option>
+                                <option value="B">Fase B (Kelas 3-4)</option>
+                                <option value="C">Fase C (Kelas 5-6)</option>
+                            <?php elseif ($schoolLevel == 2): // SMP ?>
+                                <option value="D" selected>Fase D (Kelas 7-9)</option>
+                            <?php elseif ($schoolLevel == 3): // SMA ?>
+                                <option value="E" selected>Fase E (Kelas 10)</option>
+                                <option value="F">Fase F (Kelas 11-12)</option>
+                            <?php endif; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold text-muted mb-1">Fokus / Minat Topik (Opsional)</label>
+                        <input type="text" id="ai_consult_focus" class="form-control form-control-sm" placeholder="Misal: Daur ulang sampah, Kuliner lokal, Digital...">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" id="btn_run_ai_consult" class="btn btn-primary btn-sm w-100 fw-bold shadow-sm">
+                            <i class="bi bi-magic me-1"></i> Analisis AI
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="ai_consult_loading" class="text-center py-4 d-none">
+                <div class="spinner-border text-primary spinner-border-sm mb-2" role="status"></div>
+                <div class="fw-semibold text-primary small">AI Asisten ESPATA sedang menganalisis database TP dan merancang kolaborasi lintas mapel...</div>
+                <small class="text-muted">Menyinkronkan capaian pembelajaran dengan dimensi profil lulusan Kurikulum Merdeka</small>
+            </div>
+
+            <!-- Error State -->
+            <div id="ai_consult_error" class="alert alert-danger alert-dismissible fade show mt-3 d-none" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <span id="ai_consult_error_text">Terjadi kesalahan.</span>
+            </div>
+
+            <!-- AI Recommended Packages Grid -->
+            <div id="ai_consult_packages" class="mt-3 row g-3 d-none">
+                <!-- Populated via JS -->
+            </div>
+        </div>
+    </div>
+
     <form id="formKokurikuler">
         <?= csrf_field() ?>
         
@@ -888,6 +965,262 @@ $(document).ready(function() {
                 $('#btn_submit').prop('disabled', false).html('<i class="bi bi-save"></i> Simpan & Generate AI');
             }
         });
+    });
+
+    // =========================================================================
+    // ✨ ASISTEN AI KONSULTAN PERENCANA KOKURIKULER ESPATA ✨
+    // =========================================================================
+    let currentAiPackages = [];
+
+    $('#btn_run_ai_consult').on('click', function() {
+        const semester = $('#ai_consult_semester').val();
+        const fase = $('#ai_consult_fase').val();
+        const focusKeyword = $('#ai_consult_focus').val().trim();
+
+        const $btn = $(this);
+        const $loading = $('#ai_consult_loading');
+        const $error = $('#ai_consult_error');
+        const $packagesContainer = $('#ai_consult_packages');
+
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Menganalisis...');
+        $loading.removeClass('d-none');
+        $error.addClass('d-none');
+        $packagesContainer.addClass('d-none').empty();
+
+        const csrfName = '<?= csrf_token() ?>';
+        const csrfHash = $('input[name="' + csrfName + '"]').val() || '<?= csrf_hash() ?>';
+
+        const postData = {
+            semester: semester,
+            fase: fase,
+            focus_keyword: focusKeyword
+        };
+        postData[csrfName] = csrfHash;
+
+        $.ajax({
+            url: '<?= base_url('admin/kokurikuler/recommend-ai') ?>',
+            type: 'POST',
+            data: postData,
+            dataType: 'json',
+            success: function(res) {
+                if (res.success && res.packages && res.packages.length > 0) {
+                    currentAiPackages = res.packages;
+                    renderAiPackages(res.packages);
+                    $packagesContainer.removeClass('d-none');
+                } else {
+                    $('#ai_consult_error_text').text(res.message || 'Tidak ada rekomendasi yang berhasil disusun.');
+                    $error.removeClass('d-none');
+                }
+            },
+            error: function(xhr) {
+                let errText = 'Gagal menghubungi server konsultan AI.';
+                try {
+                    const parsed = JSON.parse(xhr.responseText);
+                    if (parsed.message) errText = parsed.message;
+                } catch(e) {}
+                $('#ai_consult_error_text').text(errText);
+                $error.removeClass('d-none');
+            },
+            complete: function() {
+                $loading.addClass('d-none');
+                $btn.prop('disabled', false).html('<i class="bi bi-magic me-1"></i> Analisis AI');
+            }
+        });
+    });
+
+    function renderAiPackages(packages) {
+        const $container = $('#ai_consult_packages');
+        $container.empty();
+
+        packages.forEach(function(pkg, idx) {
+            const dimensiBadges = (pkg.dimensi_profil || []).map(function(d) {
+                return `<span class="badge bg-light text-dark border me-1 mb-1 small">${d}</span>`;
+            }).join('');
+
+            const kelasBadges = (pkg.level_kelas || []).map(function(k) {
+                return `<span class="badge bg-secondary-subtle text-secondary me-1">Kelas ${k}</span>`;
+            }).join('');
+
+            let lintasItemsHtml = '';
+            if (pkg.lintas_disiplin && pkg.lintas_disiplin.length > 0) {
+                lintasItemsHtml = pkg.lintas_disiplin.map(function(ld) {
+                    return `
+                        <div class="p-2 mb-2 bg-light rounded border-start border-3 border-primary small">
+                            <div class="fw-bold text-primary"><i class="bi bi-book me-1"></i>${ld.subject_name || 'Mapel'}</div>
+                            <div class="text-muted"><i class="bi bi-bullseye me-1"></i>DPL: <strong>${ld.dimensi || '-'}</strong> (${ld.sub_dimensi || '-'})</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                lintasItemsHtml = '<div class="text-muted small">Kolaboratif lintas mapel umum</div>';
+            }
+
+            const cardHtml = `
+                <div class="col-lg-4 col-md-6">
+                    <div class="card h-100 shadow-sm border-0 border-top border-4 border-primary">
+                        <div class="card-body d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="badge bg-primary-subtle text-primary fw-bold">Opsi ${idx + 1}</span>
+                                <span class="badge bg-warning-subtle text-dark border border-warning-subtle"><i class="bi bi-tag-fill me-1"></i>${pkg.tema}</span>
+                            </div>
+                            
+                            <h6 class="card-title fw-bold text-dark mb-2">${pkg.judul_paket}</h6>
+                            
+                            <div class="mb-2">
+                                <small class="text-muted d-block mb-1 fw-semibold">Target & Alokasi:</small>
+                                <div>${kelasBadges} <span class="badge bg-info-subtle text-info">${pkg.jumlah_pertemuan || 16} Pertemuan</span></div>
+                            </div>
+
+                            <div class="mb-2">
+                                <small class="text-muted d-block mb-1 fw-semibold">Dimensi Profil (DPL):</small>
+                                <div>${dimensiBadges}</div>
+                            </div>
+
+                            <div class="p-2 mb-3 bg-primary-subtle rounded border border-primary-subtle small">
+                                <strong class="d-block text-primary"><i class="bi bi-activity me-1"></i>Bentuk Nyata Kegiatan:</strong>
+                                <span class="text-dark">${pkg.bentuk_kegiatan_konkret}</span>
+                            </div>
+
+                            <div class="mb-3">
+                                <small class="text-muted d-block mb-1 fw-semibold">Kolaborasi Lintas Mapel:</small>
+                                ${lintasItemsHtml}
+                            </div>
+
+                            ${pkg.alasan_analisis ? `
+                                <div class="mb-3 mt-auto">
+                                    <small class="text-muted fst-italic"><i class="bi bi-info-circle me-1"></i>${pkg.alasan_analisis}</small>
+                                </div>
+                            ` : '<div class="mt-auto"></div>'}
+
+                            <button type="button" class="btn btn-success btn-sm w-100 fw-bold shadow-sm btn-apply-ai-package" data-index="${idx}">
+                                <i class="bi bi-lightning-charge-fill me-1"></i> Terapkan Saran ke Form (1-Klik)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            $container.append(cardHtml);
+        });
+    }
+
+    // Handle 1-Click Apply Recommendation
+    $(document).on('click', '.btn-apply-ai-package', function() {
+        const idx = $(this).data('index');
+        const pkg = currentAiPackages[idx];
+        if (!pkg) return;
+
+        // 1. Set Semester
+        const targetSemester = $('#ai_consult_semester').val() || '1';
+        $('#semester').val(targetSemester).trigger('change');
+
+        // 2. Set Fase
+        const targetFase = $('#ai_consult_fase').val() || 'D';
+        $('#fase').val(targetFase).trigger('change');
+
+        // 3. Set Level Kelas (Wait 150ms for options to populate)
+        setTimeout(function() {
+            if (pkg.level_kelas && Array.isArray(pkg.level_kelas)) {
+                $('#level_kelas').val(pkg.level_kelas).trigger('change');
+            }
+        }, 150);
+
+        // 4. Set Jumlah Pertemuan
+        $('#jumlah_pertemuan').val(pkg.jumlah_pertemuan || 16);
+
+        // 5. Set Dimensi Profil Lulusan (Max 3)
+        if (pkg.dimensi_profil && Array.isArray(pkg.dimensi_profil)) {
+            const selectedDpl = pkg.dimensi_profil.slice(0, 3);
+            $('#dimensi_profil').val(selectedDpl).trigger('change');
+        }
+
+        // 6. Set Tema & Jenis Kokurikuler
+        $('#tema').val(pkg.tema);
+        $('#jenis_kokurikuler').val('lintas_disiplin').trigger('change');
+
+        // 7. Set Bentuk Kegiatan Konkret
+        $('#bentuk_kegiatan_konkret').val(pkg.bentuk_kegiatan_konkret);
+
+        // 8. Set Lintas Disiplin Subjects & TPs
+        $('#lintas_subjects_container').empty();
+        subjectCount = 0;
+
+        if (pkg.lintas_disiplin && pkg.lintas_disiplin.length > 0) {
+            pkg.lintas_disiplin.forEach(function(ld, i) {
+                addSubjectItem();
+                const $item = $('.subject-item').last();
+                const $subjectSelect = $item.find('.subject-select');
+                const $atpSelect = $item.find('.atp-select');
+                const $dimensiSelect = $item.find('.dimensi-select');
+                const $subDimensiSelect = $item.find('.subdimensi-select');
+
+                // Set Subject
+                $subjectSelect.val(ld.subject_id);
+
+                // Fetch real TPs for this subject
+                if (ld.subject_id) {
+                    $.ajax({
+                        url: '<?= base_url('admin/kokurikuler/get-atp') ?>/' + ld.subject_id,
+                        type: 'GET',
+                        dataType: 'json',
+                        success: function(resp) {
+                            if (resp.success) {
+                                $atpSelect.empty();
+                                if (resp.data.length > 0) {
+                                    resp.data.forEach(function(tp) {
+                                        const label = tp.kode_tp ? tp.kode_tp + ' - ' + tp.deskripsi : tp.deskripsi;
+                                        $atpSelect.append(new Option(label, tp.id));
+                                    });
+
+                                    // Pre-select TP IDs if provided
+                                    if (ld.tp_ids && ld.tp_ids.length > 0) {
+                                        const strIds = ld.tp_ids.map(String);
+                                        $atpSelect.val(strIds);
+                                    } else if (resp.data[0]) {
+                                        // Pilih TP pertama secara default jika tidak spesifik
+                                        $atpSelect.val([String(resp.data[0].id)]);
+                                    }
+                                } else {
+                                    $atpSelect.append(new Option('Tidak ada Tujuan Pembelajaran untuk mata pelajaran ini', ''));
+                                }
+                                $atpSelect.trigger('change');
+                            }
+                        }
+                    });
+                }
+
+                // Populate and set Dimensi
+                setTimeout(function() {
+                    populateDimensiOptions($dimensiSelect, pkg.dimensi_profil);
+                    if (ld.dimensi) {
+                        $dimensiSelect.val(ld.dimensi).trigger('change');
+                        setTimeout(function() {
+                            if (ld.sub_dimensi) {
+                                $subDimensiSelect.val(ld.sub_dimensi);
+                            }
+                        }, 50);
+                    }
+                }, 100);
+            });
+        }
+
+        // Show Feedback Banner
+        $('#applied_ai_alert').remove();
+        const alertHtml = `
+            <div id="applied_ai_alert" class="alert alert-success alert-dismissible fade show shadow-sm border-0 d-flex align-items-center mb-4" role="alert">
+                <i class="bi bi-check-circle-fill fs-3 me-3 text-success"></i>
+                <div>
+                    <h6 class="alert-heading fw-bold mb-1">Rekomendasi AI Berhasil Diterapkan ke Form!</h6>
+                    <small>Seluruh isian dokumen untuk projek "<strong>${pkg.judul_paket}</strong>" telah terisi otomatis. Anda dapat meninjau atau menyesuaikan isian sebelum menekan tombol simpan.</small>
+                </div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+        $('#formKokurikuler').prepend(alertHtml);
+
+        // Scroll smoothly to Form
+        $('html, body').animate({
+            scrollTop: $('#formKokurikuler').offset().top - 70
+        }, 500);
     });
 });
 </script>

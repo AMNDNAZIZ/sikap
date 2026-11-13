@@ -31,6 +31,149 @@ class AiCopilot extends BaseController
     }
 
     /**
+     * Dapatkan data Morning Briefing dan teks sambutan suara untuk Guru
+     */
+    public function morningBriefing()
+    {
+        $user = session()->get('user');
+        if (!$user) {
+            return $this->failUnauthorized('Sesi Anda telah berakhir.');
+        }
+
+        // 🚀 SHARED HOSTING OPTIMIZATION: Lepaskan session lock sesegera mungkin
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        $roleId = (int) ($user['role_id'] ?? 0);
+        $teacherId = (int) ($user['teacher_id'] ?? $user['related_id'] ?? 0);
+
+        // Hanya untuk Guru (Role 3)
+        if ($roleId !== 3 || $teacherId <= 0) {
+            return $this->respond([
+                'status'    => 'not_applicable',
+                'can_brief' => false,
+                'message'   => 'Morning briefing dipersonalisasi khusus untuk Guru.',
+            ]);
+        }
+
+        $db = db_connect();
+
+        // 1. Ambil data profil guru
+        $teacher = $db->table('teachers')->where('id', $teacherId)->get()->getRowArray();
+        $rawName = trim($teacher['name'] ?? 'Bapak/Ibu Guru');
+        $gender = strtoupper(trim((string) ($teacher['gender'] ?? '')));
+
+        // Tentukan sebutan sopan (Bapak / Ibu)
+        $honorific = 'Bapak atau Ibu';
+        if ($gender === 'P' || $gender === 'PEREMPUAN') {
+            $honorific = 'Ibu';
+        } elseif ($gender === 'L' || $gender === 'LAKI-LAKI') {
+            $honorific = 'Bapak';
+        } else {
+            if (preg_match('/\b(dra|hj|siti|nur|anita|dewi|tri|retno|endang|wati|lestari)\b/i', $rawName)) {
+                $honorific = 'Ibu';
+            } elseif (preg_match('/\b(drs|h|muhammad|ahmad|bambang|agus|joko|budi|sugeng|hendro)\b/i', $rawName)) {
+                $honorific = 'Bapak';
+            }
+        }
+
+        // Sapaan berdasarkan jam login
+        $hour = (int) date('G');
+        if ($hour >= 5 && $hour < 11) {
+            $timeGreeting = 'Selamat pagi';
+        } elseif ($hour >= 11 && $hour < 15) {
+            $timeGreeting = 'Selamat siang';
+        } elseif ($hour >= 15 && $hour < 18) {
+            $timeGreeting = 'Selamat sore';
+        } else {
+            $timeGreeting = 'Selamat malam';
+        }
+
+        $greetingTitle = "{$timeGreeting}, {$honorific} {$rawName}!";
+
+        // 2. Ambil jadwal mengajar hari ini
+        $dayOfWeek = (int) date('N'); // 1 = Senin, ..., 7 = Minggu
+        $daysIndo = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
+        $dayName = $daysIndo[$dayOfWeek] ?? 'Hari Ini';
+
+        $schedules = $db->table('schedules')
+            ->select('schedules.start_time, schedules.end_time, subjects.name as subject_name, classes.name as class_name')
+            ->join('subjects', 'subjects.id = schedules.subject_id', 'left')
+            ->join('classes', 'classes.id = schedules.class_id', 'left')
+            ->where('schedules.teacher_id', $teacherId)
+            ->where('schedules.day_of_week', $dayOfWeek)
+            ->orderBy('schedules.start_time', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        // 3. Ambil agenda ujian CBT hari ini jika ada
+        $todayDate = date('Y-m-d');
+        $cbtAgendas = [];
+        try {
+            $cbtAgendas = $db->table('cbt_test_status')
+                ->select('cbt_exam_names.name as exam_name, cbt_bank_soal.subject_name')
+                ->join('cbt_bank_soal', 'cbt_bank_soal.id = cbt_test_status.bank_id', 'left')
+                ->join('cbt_exam_names', 'cbt_exam_names.id = cbt_test_status.exam_name_id', 'left')
+                ->where('cbt_test_status.is_active', 1)
+                ->where('cbt_bank_soal.teacher_id', $teacherId)
+                ->like('cbt_test_status.start_time', $todayDate, 'after')
+                ->get()
+                ->getResultArray();
+        } catch (\Throwable $e) {}
+
+        // 4. Susun Naskah Tutur (Spoken Script)
+        $spokenParts = [];
+        $spokenParts[] = "{$timeGreeting}, {$honorific} {$rawName}.";
+
+        if (!empty($schedules)) {
+            $count = count($schedules);
+            $scheduleNarratives = [];
+            foreach ($schedules as $s) {
+                $cls = $s['class_name'] ?? 'Kelas';
+                $sub = $s['subject_name'] ?? 'Mata Pelajaran';
+                $time = substr($s['start_time'] ?? '', 0, 5);
+                $scheduleNarratives[] = "{$sub} di kelas {$cls} pukul {$time}";
+            }
+
+            if ($count === 1) {
+                $spokenParts[] = "Hari ini Anda memiliki satu jadwal mengajar, yaitu " . $scheduleNarratives[0] . ".";
+            } else {
+                $last = array_pop($scheduleNarratives);
+                $spokenParts[] = "Hari ini Anda memiliki {$count} jadwal mengajar, yaitu " . implode(', ', $scheduleNarratives) . ", dan {$last}.";
+            }
+        } else {
+            $spokenParts[] = "Hari ini Anda tidak memiliki jadwal mengajar di kelas. Anda dapat memanfaatkannya untuk menyusun modul ajar, memeriksa tugas siswa, atau kegiatan akademik lainnya.";
+        }
+
+        if (!empty($cbtAgendas)) {
+            $agendaNames = [];
+            foreach ($cbtAgendas as $ag) {
+                $agendaNames[] = ($ag['exam_name'] ?? 'Ujian') . " " . ($ag['subject_name'] ?? '');
+            }
+            $spokenParts[] = "Anda juga memiliki agenda pelaksanaan ujian online CBT yaitu " . implode(' dan ', $agendaNames) . ".";
+        }
+
+        $spokenParts[] = "Selamat beraktivitas, semoga proses pembelajaran hari ini berjalan lancar dan menyenangkan bersama peserta didik.";
+
+        $spokenText = implode(' ', $spokenParts);
+
+        return $this->respond([
+            'status'         => 'success',
+            'can_brief'      => true,
+            'date'           => $todayDate,
+            'day_name'       => $dayName,
+            'teacher_id'     => $teacherId,
+            'greeting'       => $greetingTitle,
+            'spoken_text'    => $spokenText,
+            'schedules'      => $schedules,
+            'agendas'        => $cbtAgendas,
+            'schedule_count' => count($schedules),
+            'csrf_hash'      => csrf_hash(),
+        ]);
+    }
+
+    /**
      * Proses perintah bahasa alami / pertanyaan melalui AI Copilot
      */
     public function ask()
@@ -76,13 +219,41 @@ class AiCopilot extends BaseController
             ], $dataWidget));
         }
 
-        // 2. Ambil daftar aksi yang diizinkan untuk pengguna ini
+        // 2. Cek apakah pengguna menanyakan panduan penggunaan fitur aplikasi (Built-in Knowledge Base)
+        $roleId = (int) ($user['role_id'] ?? 0);
+        $guide = \App\Libraries\EspataFeatureKnowledge::findGuide($query, $roleId);
+        if ($guide !== null) {
+            $this->logInteraction($user, $query, 'FEATURE_GUIDE', $guide['id'], 'knowledge_base');
+            return $this->respond([
+                'status'         => 'success',
+                'source'         => 'knowledge_base',
+                'query'          => $query,
+                'widget_type'    => 'guide_card',
+                'explanation'    => $guide['summary'],
+                'widget_data'    => [
+                    'guide_id' => $guide['id'],
+                    'title'    => $guide['title'],
+                    'category' => $guide['category'],
+                    'steps'    => $guide['steps'],
+                ],
+                'matched_action' => [
+                    'id'       => $guide['id'],
+                    'title'    => $guide['action_label'],
+                    'url'      => $guide['action_url'],
+                    'icon'     => $guide['action_icon'],
+                    'category' => $guide['category'],
+                ],
+                'csrf_hash'      => csrf_hash(),
+            ]);
+        }
+
+        // 3. Ambil daftar aksi yang diizinkan untuk pengguna ini
         $allowedActions = AiActionRegistry::getUserActions($user);
 
-        // 3. Ambil konfigurasi AI Key pengguna jika ada
+        // 4. Ambil konfigurasi AI Key pengguna jika ada
         $aiConfig = $this->resolveAiKey($user);
 
-        // 4. Jika API Key Gemini tersedia, gunakan Gemini Flash untuk pemahaman bahasa alami
+        // 5. Jika API Key Gemini tersedia, gunakan Gemini Flash untuk pemahaman bahasa alami
         if (!empty($aiConfig['api_key'])) {
             $aiResult = $this->callGeminiNlu($query, $allowedActions, $aiConfig['api_key']);
             if ($aiResult['success'] && !empty($aiResult['matched_action'])) {
@@ -330,13 +501,17 @@ class AiCopilot extends BaseController
 
             $prompt = "Anda adalah asisten cerdas sistem informasi akademik sekolah (ESPATA). "
                 . "Pengguna memberikan perintah/pertanyaan teks: \"{$query}\".\n"
-                . "Tugas Anda adalah memilih 1 tindakan terbaik dari daftar tindakan yang diizinkan berikut ini:\n"
+                . "Tugas Anda adalah memberikan penjelasan, panduan langkah-langkah penggunaan fitur, atau memilih 1 tindakan terbaik dari daftar tindakan yang diizinkan berikut ini:\n"
                 . json_encode($actionCatalog, JSON_UNESCAPED_UNICODE) . "\n\n"
+                . "Instruksi Khusus:\n"
+                . "1. Jika pengguna bertanya bagaimana cara menggunakan suatu fitur (misal 'bagaimana cara membuat modul', 'cara input nilai', 'panduan ujian CBT', dsb.), berikan panduan langkah demi langkah yang jelas, ramah, dan bernomor (1, 2, 3) di dalam field 'ai_content'.\n"
+                . "2. Selalu hubungkan dengan ID tindakan yang paling relevan pada 'matched_id' agar pengguna dapat langsung membuka fiturnya dengan 1 klik.\n"
+                . "3. Jika pengguna meminta ide materi/soal, tuliskan poin-poin ringkas di dalam 'ai_content'.\n\n"
                 . "Berikan respon HANYA dalam format JSON valid berikut (tanpa markdown atau teks pembuka lain):\n"
                 . "{\n"
                 . '  "matched_id": "id tindakan yang paling cocok atau null jika tidak ada yang relevan",' . "\n"
-                . '  "explanation": "Penjelasan singkat ramah 1 kalimat mengapa tindakan ini dipilih",' . "\n"
-                . '  "ai_content": "Jika pengguna meminta ide/draf/saran materi atau soal, tuliskan poin-poin ringkas di sini, jika tidak isi null",' . "\n"
+                . '  "explanation": "Penjelasan singkat ramah 1 kalimat mengapa tindakan/panduan ini dipilih",' . "\n"
+                . '  "ai_content": "Teks panduan langkah demi langkah (format bernomor 1, 2, 3) atau ide materi, atau null jika hanya navigasi sederhana",' . "\n"
                 . '  "secondary_ids": ["id pilihan alternatif 1", "id pilihan alternatif 2"]' . "\n"
                 . "}";
 

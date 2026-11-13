@@ -336,6 +336,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->get('export-pdf/(:num)', 'Kokurikuler::exportPDF/$1');
         $routes->get('delete/(:num)', 'Kokurikuler::delete/$1');
         $routes->get('get-atp/(:num)', 'Kokurikuler::getATPBySubject/$1');
+        $routes->match(['get', 'post'], 'recommend-ai', 'Kokurikuler::recommendAI');
         
         // Template & Activation
         $routes->get('use-template/(:num)', 'Kokurikuler::useTemplate/$1');
@@ -1185,4 +1186,5 @@ $routes->group('api', ['namespace' => 'App\Controllers\Api'], function ($routes)
     // AI Copilot & Smart Command Palette
     $routes->get('ai-copilot/actions', 'AiCopilot::getActions', ['filter' => 'auth']);
     $routes->post('ai-copilot/ask', 'AiCopilot::ask', ['filter' => 'auth']);
+    $routes->get('ai-copilot/morning-briefing', 'AiCopilot::morningBriefing', ['filter' => 'auth']);
 });

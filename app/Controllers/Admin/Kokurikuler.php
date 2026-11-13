@@ -941,6 +941,482 @@ class Kokurikuler extends BaseController
     }
 
     /**
+     * AI Consultant - Rekomendasi Perencanaan Kokurikuler (Langkah Awal)
+     * Menganalisis kondisi sekolah, jenjang, fase, semester, dan TP lintas mapel
+     */
+    public function recommendAI()
+    {
+        $user = session()->get('user');
+        $roleId = $user['role_id'] ?? 0;
+
+        if (!in_array($roleId, [1, 3])) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Anda tidak memiliki hak akses untuk konsultasi perencanaan kokurikuler.'
+            ]);
+        }
+
+        $fase = trim((string)($this->request->getVar('fase') ?? ''));
+        $semester = trim((string)($this->request->getVar('semester') ?? ''));
+        $focusKeyword = trim((string)($this->request->getVar('focus_keyword') ?? ''));
+
+        $db = \Config\Database::connect();
+        $school = $db->table('school_profile')->select('name, level, address')->get()->getRow();
+        $schoolLevel = (int)($school->level ?? 2);
+        $schoolName = $school->name ?? 'Sekolah';
+
+        if (empty($fase)) {
+            $fase = ($schoolLevel == 1) ? 'A' : (($schoolLevel == 2) ? 'D' : 'E');
+        }
+        if (empty($semester)) {
+            $semester = '1';
+        }
+
+        // Tentukan level kelas default sesuai fase
+        $levelKelasMap = [
+            'A' => ['1', '2'],
+            'B' => ['3', '4'],
+            'C' => ['5', '6'],
+            'D' => ['7', '8', '9'],
+            'E' => ['10'],
+            'F' => ['11', '12']
+        ];
+        $targetClasses = $levelKelasMap[$fase] ?? ['7', '8'];
+
+        $activeYear = $this->yearModel->getActiveYear();
+        $activeYearId = $activeYear['id'] ?? 1;
+
+        // Ambil mata pelajaran yang relevan
+        if ($roleId == 1) {
+            $subjects = $this->subjectModel->orderBy('name', 'ASC')->findAll();
+        } else {
+            $teacherId = $user['related_id'] ?? 0;
+            $waliClass = $db->table('classes')->where('teacher_id', $teacherId)->get()->getRow();
+            if (!$waliClass) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Anda belum ditugaskan sebagai wali kelas.'
+                ]);
+            }
+
+            $subjectIds = $db->table('teaching_assignments')
+                ->select('subject_id')
+                ->distinct()
+                ->where('class_id', $waliClass->id)
+                ->where('academic_year_id', $activeYearId)
+                ->get()
+                ->getResultArray();
+
+            $subjectIdList = array_column($subjectIds, 'subject_id');
+            if (empty($subjectIdList)) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Tidak ada mata pelajaran yang diajarkan di kelas Anda.'
+                ]);
+            }
+
+            $subjects = $this->subjectModel->whereIn('id', $subjectIdList)->orderBy('name', 'ASC')->findAll();
+        }
+
+        // Ambil TP yang terdaftar untuk mapel terkait
+        $subjectTpMap = [];
+        $subjectIds = array_column($subjects, 'id');
+        if (!empty($subjectIds)) {
+            $allTps = $this->tpModel
+                ->whereIn('subject_id', $subjectIds)
+                ->orderBy('subject_id', 'ASC')
+                ->orderBy('id', 'ASC')
+                ->findAll();
+
+            foreach ($allTps as $tp) {
+                $sId = $tp['subject_id'];
+                if (!isset($subjectTpMap[$sId])) {
+                    $subjectTpMap[$sId] = [];
+                }
+                $subjectTpMap[$sId][] = $tp;
+            }
+        }
+
+        // Cek API Key pengguna (Guru atau Admin)
+        $apiKey = '';
+        $aiProvider = 'gemini';
+        if ($roleId == 3) {
+            $teacherModel = new \App\Models\TeacherModel();
+            $teacher = $teacherModel->find($user['related_id']);
+            $apiKey = $teacher['gemini_api_key'] ?? '';
+            $aiProvider = $teacher['ai_provider'] ?? 'gemini';
+        } else {
+            $userData = $db->table('users')->where('id', $user['id'])->get()->getRowArray();
+            $apiKey = $userData['gemini_api_key'] ?? '';
+            $aiProvider = $userData['ai_provider'] ?? 'gemini';
+        }
+
+        $recommendations = [];
+        $source = 'curated';
+
+        if (!empty($apiKey)) {
+            $aiResult = $this->callAIPlanningAPI($apiKey, $aiProvider, [
+                'school_name' => $schoolName,
+                'school_level' => $schoolLevel,
+                'fase' => $fase,
+                'semester' => $semester,
+                'focus_keyword' => $focusKeyword,
+                'subjects' => $subjects,
+                'subject_tp_map' => $subjectTpMap,
+                'target_classes' => $targetClasses
+            ]);
+
+            if ($aiResult['success'] && !empty($aiResult['packages'])) {
+                $recommendations = $aiResult['packages'];
+                $source = 'ai_' . $aiProvider;
+            }
+        }
+
+        // Jika API Key kosong atau panggilan AI gagal, gunakan curated matrix
+        if (empty($recommendations)) {
+            $recommendations = $this->getCuratedKokurikulerPackages($schoolLevel, $fase, $semester, $focusKeyword, $subjects, $subjectTpMap, $targetClasses);
+            $source = 'curated_matrix';
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'source' => $source,
+            'fase' => $fase,
+            'semester' => $semester,
+            'message' => 'Rekomendasi perencanaan kokurikuler berhasil disusun oleh AI Asisten ESPATA.',
+            'packages' => $recommendations
+        ]);
+    }
+
+    /**
+     * Panggil AI untuk menghasilkan 2-3 paket rekomendasi kokurikuler
+     */
+    private function callAIPlanningAPI($apiKey, $aiProvider, $context)
+    {
+        $schoolName = $context['school_name'];
+        $fase = $context['fase'];
+        $semester = $context['semester'];
+        $focus = $context['focus_keyword'];
+        $subjects = $context['subjects'];
+        $subjectTpMap = $context['subject_tp_map'];
+        $targetClasses = $context['target_classes'];
+
+        $subjectListLines = [];
+        foreach ($subjects as $sb) {
+            $sId = $sb['id'];
+            $sName = $sb['name'];
+            $tps = $subjectTpMap[$sId] ?? [];
+            $tpItems = [];
+            foreach (array_slice($tps, 0, 4) as $tp) {
+                $tpDesc = addslashes(mb_substr($tp['deskripsi'], 0, 80));
+                $tpItems[] = "{id: {$tp['id']}, kode: \"{$tp['kode_tp']}\", teks: \"{$tpDesc}\"}";
+            }
+            $subjectListLines[] = "- Mapel ID {$sId} ({$sName}): [" . implode(', ', $tpItems) . "]";
+        }
+        $subjectsPayload = implode("\n", array_slice($subjectListLines, 0, 10));
+
+        $prompt = "Anda adalah Konsultan Ahli Kurikulum Merdeka & Koordinator Kokurikuler di {$schoolName}.\n"
+            . "Tugas Anda: Rancang 2 sampai 3 alternatif Paket Rencana Projek Kokurikuler Lintas Disiplin Ilmu yang terstruktur, kontekstual, dan siap diterapkan ke form aplikasi.\n\n"
+            . "KONTEKS:\n"
+            . "- Fase: {$fase} (Kelas " . implode(', ', $targetClasses) . ")\n"
+            . "- Semester: {$semester}\n"
+            . ($focus !== '' ? "- Fokus / Minat Topik Guru: {$focus}\n" : "- Fokus Topik: Sesuai isu kontekstual aktual sekolah & lingkungan sekitar\n")
+            . "- Daftar Mata Pelajaran & TP yang tersedia:\n{$subjectsPayload}\n\n"
+            . "DIMENSI PROFIL LULUSAN RESMI:\n"
+            . "Keimanan dan Ketakwaan Terhadap Tuhan YME, Kewargaan, Penalaran Kritis, Kreativitas, Kemandirian, Kolaborasi, Kesehatan, Komunikasi.\n\n"
+            . "ATURAN OUTPUT:\n"
+            . "Berikan HANYA string array JSON valid tanpa markdown, tanpa pengantar, dengan struktur persis seperti ini:\n"
+            . "[\n"
+            . "  {\n"
+            . "    \"id\": \"paket_1\",\n"
+            . "    \"judul_paket\": \"Nama Projek Menarik\",\n"
+            . "    \"tema\": \"Tema Kurikulum Merdeka\",\n"
+            . "    \"dimensi_profil\": [\"Penalaran Kritis\", \"Kolaborasi\"],\n"
+            . "    \"level_kelas\": [\"" . implode('", "', $targetClasses) . "\"],\n"
+            . "    \"jumlah_pertemuan\": 16,\n"
+            . "    \"bentuk_kegiatan_konkret\": \"Rincian kegiatan nyata murid yang terukur sepanjang semester\",\n"
+            . "    \"alasan_analisis\": \"Ulasan pedagogis mengapa projek ini selaras untuk fase ini\",\n"
+            . "    \"lintas_disiplin\": [\n"
+            . "      {\n"
+            . "        \"subject_id\": (pilih ID mata pelajaran dari daftar),\n"
+            . "        \"subject_name\": \"Nama Mapel\",\n"
+            . "        \"tp_ids\": [(ID TP dari daftar di atas)],\n"
+            . "        \"dimensi\": \"Dimensi Profil terpilih\",\n"
+            . "        \"sub_dimensi\": \"Sub Dimensi yang relevan\"\n"
+            . "      }\n"
+            . "    ]\n"
+            . "  }\n"
+            . "]";
+
+        $content = '';
+        $httpCode = 0;
+
+        if ($aiProvider === 'groq') {
+            $url = 'https://api.groq.com/openai/v1/chat/completions';
+            $headers = [
+                'Authorization: Bearer ' . $apiKey,
+                'Content-Type: application/json'
+            ];
+            $payload = json_encode([
+                "model" => "llama-3.1-8b-instant",
+                "messages" => [["role" => "user", "content" => $prompt]],
+                "temperature" => 0.6,
+                "max_tokens" => 3500
+            ]);
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode === 200) {
+                $resData = json_decode($response, true);
+                $content = $resData['choices'][0]['message']['content'] ?? '';
+            }
+        } else {
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" . $apiKey;
+            $headers = ['Content-Type: application/json'];
+            $payload = json_encode([
+                "contents" => [["parts" => [["text" => $prompt]]]],
+                "generationConfig" => [
+                    "temperature" => 0.6,
+                    "maxOutputTokens" => 3500
+                ]
+            ]);
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode === 200) {
+                $resData = json_decode($response, true);
+                if (!empty($resData['candidates'][0]['content']['parts'])) {
+                    foreach ($resData['candidates'][0]['content']['parts'] as $part) {
+                        if (!empty($part['text'])) {
+                            $content .= $part['text'];
+                        }
+                    }
+                }
+            }
+        }
+
+        if (empty($content)) {
+            return ['success' => false, 'message' => "AI Response kosong (HTTP $httpCode)"];
+        }
+
+        $content = preg_replace('/```(?:json)?\s*/i', '', $content);
+        $content = preg_replace('/```\s*$/', '', $content);
+        $content = trim($content);
+
+        if (preg_match('/\[[\s\S]*\]/', $content, $m)) {
+            $content = $m[0];
+        }
+
+        $packages = json_decode($content, true);
+        if (!is_array($packages) || empty($packages)) {
+            return ['success' => false, 'message' => 'Format JSON tidak valid'];
+        }
+
+        return ['success' => true, 'packages' => $packages];
+    }
+
+    /**
+     * Paket Rekomendasi Kokurikuler Kurikulum Merdeka (Smart Heuristic Fallback)
+     */
+    private function getCuratedKokurikulerPackages($schoolLevel, $fase, $semester, $focusKeyword, $subjects, $subjectTpMap, $targetClasses)
+    {
+        // Helper untuk mencari mapel berdasarkan kata kunci nama
+        $findSubject = function($pattern) use ($subjects) {
+            foreach ($subjects as $s) {
+                if (preg_match($pattern, $s['name'])) {
+                    return $s;
+                }
+            }
+            return null;
+        };
+
+        // Pemetaan mapel relevan
+        $sIpa = $findSubject('/ipa|alam|biologi|fisika|sains/i');
+        $sMat = $findSubject('/matematika|math|hitung/i');
+        $sIndo = $findSubject('/indonesia|bahasa/i');
+        $sTik = $findSubject('/informatika|tik|komputer|digital/i');
+        $sIps = $findSubject('/ips|sosial|pancasila|pkn|pkn/i');
+        $sKarya = $findSubject('/prakarya|seni|budaya|kewirausahaan/i');
+
+        // Fallback jika mapel khusus tidak ditemukan
+        $availableList = array_values($subjects);
+        if (!$sIpa && isset($availableList[0])) $sIpa = $availableList[0];
+        if (!$sMat && isset($availableList[1])) $sMat = $availableList[1];
+        if (!$sIndo && isset($availableList[2])) $sIndo = $availableList[2];
+        if (!$sTik && isset($availableList[3])) $sTik = $availableList[3];
+        if (!$sIps && isset($availableList[4])) $sIps = $availableList[4];
+        if (!$sKarya && isset($availableList[5])) $sKarya = $availableList[5];
+
+        // Helper untuk memilih TP IDs riil dari mapel
+        $pickTpIds = function($subject) use ($subjectTpMap) {
+            if (!$subject) return [];
+            $sId = $subject['id'];
+            $tps = $subjectTpMap[$sId] ?? [];
+            if (empty($tps)) return [];
+            // Ambil maksimal 2 TP pertama
+            $chosen = [];
+            foreach (array_slice($tps, 0, 2) as $tp) {
+                $chosen[] = (int)$tp['id'];
+            }
+            return $chosen;
+        };
+
+        $packages = [];
+
+        // Paket 1: Gaya Hidup Berkelanjutan
+        $p1Disiplin = [];
+        if ($sIpa) {
+            $p1Disiplin[] = [
+                'subject_id' => (int)$sIpa['id'],
+                'subject_name' => $sIpa['name'],
+                'tp_ids' => $pickTpIds($sIpa),
+                'dimensi' => 'Penalaran Kritis',
+                'sub_dimensi' => 'Penyelesaian Masalah'
+            ];
+        }
+        if ($sIndo && (!$sIpa || $sIndo['id'] != $sIpa['id'])) {
+            $p1Disiplin[] = [
+                'subject_id' => (int)$sIndo['id'],
+                'subject_name' => $sIndo['name'],
+                'tp_ids' => $pickTpIds($sIndo),
+                'dimensi' => 'Komunikasi',
+                'sub_dimensi' => 'Menulis'
+            ];
+        }
+        if ($sMat && count($p1Disiplin) < 3) {
+            $p1Disiplin[] = [
+                'subject_id' => (int)$sMat['id'],
+                'subject_name' => $sMat['name'],
+                'tp_ids' => $pickTpIds($sMat),
+                'dimensi' => 'Penalaran Kritis',
+                'sub_dimensi' => 'Pengambilan Keputusan'
+            ];
+        }
+
+        $packages[] = [
+            'id' => 'paket_1',
+            'judul_paket' => ($schoolLevel == 1) 
+                ? 'Detektif Cilik Sampah Sekolah & Kreasi Eko-Brick' 
+                : 'Audit Sampah Mandiri & Inovasi Eko-Enzim Ramah Lingkungan',
+            'tema' => 'Gaya Hidup Berkelanjutan',
+            'dimensi_profil' => ['Penalaran Kritis', 'Kolaborasi', 'Keimanan dan Ketakwaan Terhadap Tuhan YME'],
+            'level_kelas' => $targetClasses,
+            'jumlah_pertemuan' => 16,
+            'bentuk_kegiatan_konkret' => 'Murid melakukan observasi audit volume sampah organik dan anorganik sekolah, memilah limbah, memproduksi eko-enzim/kompos, serta menggelar kampanye sekolah hijau bebas plastik.',
+            'alasan_analisis' => 'Sangat kontekstual dengan lingkungan sekolah, menumbuhkan kepedulian ekologis sekaligus memadukan analisis saintifik dan literasi kampanye publik.',
+            'lintas_disiplin' => $p1Disiplin
+        ];
+
+        // Paket 2: Kewirausahaan & Kearifan Lokal
+        $p2Disiplin = [];
+        if ($sKarya) {
+            $p2Disiplin[] = [
+                'subject_id' => (int)$sKarya['id'],
+                'subject_name' => $sKarya['name'],
+                'tp_ids' => $pickTpIds($sKarya),
+                'dimensi' => 'Kreativitas',
+                'sub_dimensi' => 'Karya'
+            ];
+        }
+        if ($sMat && (!$sKarya || $sMat['id'] != $sKarya['id'])) {
+            $p2Disiplin[] = [
+                'subject_id' => (int)$sMat['id'],
+                'subject_name' => $sMat['name'],
+                'tp_ids' => $pickTpIds($sMat),
+                'dimensi' => 'Penalaran Kritis',
+                'sub_dimensi' => 'Pengambilan Keputusan'
+            ];
+        }
+        if ($sIndo && count($p2Disiplin) < 3) {
+            $p2Disiplin[] = [
+                'subject_id' => (int)$sIndo['id'],
+                'subject_name' => $sIndo['name'],
+                'tp_ids' => $pickTpIds($sIndo),
+                'dimensi' => 'Komunikasi',
+                'sub_dimensi' => 'Berbicara'
+            ];
+        }
+
+        $packages[] = [
+            'id' => 'paket_2',
+            'judul_paket' => ($schoolLevel == 1)
+                ? 'Market Day Cilik: Ragam Kuliner Sehat Tradisional'
+                : 'Inkubator Wirausaha Muda: Eksplorasi Produk Kreatif Berbasis Kearifan Lokal',
+            'tema' => 'Kewirausahaan',
+            'dimensi_profil' => ['Kreativitas', 'Kemandirian', 'Kolaborasi'],
+            'level_kelas' => $targetClasses,
+            'jumlah_pertemuan' => 16,
+            'bentuk_kegiatan_konkret' => 'Murid meriset potensi bahan lokal, merancang produk olahan kreatif bernilai ekonomis, menghitung biaya produksi serta laba/rugi, dan menyelenggarakan pameran mini wirausaha sekolah.',
+            'alasan_analisis' => 'Membangun karakter pantang menyerah, jiwa inovasi, kepemimpinan kerja tim, dan literasi finansial praktis sejak dini.',
+            'lintas_disiplin' => $p2Disiplin
+        ];
+
+        // Paket 3: Rekayasa dan Teknologi
+        $p3Disiplin = [];
+        if ($sTik) {
+            $p3Disiplin[] = [
+                'subject_id' => (int)$sTik['id'],
+                'subject_name' => $sTik['name'],
+                'tp_ids' => $pickTpIds($sTik),
+                'dimensi' => 'Kreativitas',
+                'sub_dimensi' => 'Gagasan baru'
+            ];
+        }
+        if ($sIpa && (!$sTik || $sIpa['id'] != $sTik['id'])) {
+            $p3Disiplin[] = [
+                'subject_id' => (int)$sIpa['id'],
+                'subject_name' => $sIpa['name'],
+                'tp_ids' => $pickTpIds($sIpa),
+                'dimensi' => 'Penalaran Kritis',
+                'sub_dimensi' => 'Penyelesaian Masalah'
+            ];
+        }
+        if ($sIndo && count($p3Disiplin) < 3) {
+            $p3Disiplin[] = [
+                'subject_id' => (int)$sIndo['id'],
+                'subject_name' => $sIndo['name'],
+                'tp_ids' => $pickTpIds($sIndo),
+                'dimensi' => 'Komunikasi',
+                'sub_dimensi' => 'Menulis'
+            ];
+        }
+
+        $packages[] = [
+            'id' => 'paket_3',
+            'judul_paket' => ($schoolLevel == 1)
+                ? 'Teknologi Sederhana Sahabat Lingkungan: Rancang Alat Penyaring Air Bersih'
+                : 'Inovasi Digital & Rancang Bangun Teknologi Tepat Guna untuk Solusi Lingkungan',
+            'tema' => 'Rekayasa dan Teknologi',
+            'dimensi_profil' => ['Penalaran Kritis', 'Kreativitas', 'Kolaborasi'],
+            'level_kelas' => $targetClasses,
+            'jumlah_pertemuan' => 16,
+            'bentuk_kegiatan_konkret' => 'Murid mengidentifikasi kendala fisik/lingkungan di sekitar sekolah, merancang model prototipe alat tepat guna atau media interaktif digital, menguji coba fungsi, dan menyusun laporan unjuk kerja.',
+            'alasan_analisis' => 'Menstimulasi daya rekayasa (computational/engineering thinking), kolaborasi pemecahan masalah, dan keberanian bereksperimen dengan teknologi ramah lingkungan.',
+            'lintas_disiplin' => $p3Disiplin
+        ];
+
+        return $packages;
+    }
+
+    /**
      * View/Detail Document
      */
     public function view($id)

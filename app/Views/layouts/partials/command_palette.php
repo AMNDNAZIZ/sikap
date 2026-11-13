@@ -102,13 +102,15 @@
               <div class="copilot-bubble-bot p-3 rounded-4 bg-white shadow-sm border" style="max-width: 85%;">
                 <div class="fw-semibold text-primary mb-1" style="font-size: 0.8rem;">Asisten AI ESPATA</div>
                 <p class="mb-2 text-dark small" style="line-height: 1.45;">
-                  Halo! Saya asisten cerdas ESPATA. Anda dapat mengetikkan perintah apa saja seperti <em>"buat modul pancasila"</em>, menanyakan <em>"jadwal saya hari ini"</em>, atau meminta <em>"rekap kehadiran guru"</em>.
+                  Halo! Saya asisten cerdas ESPATA. Anda dapat menanyakan <strong>panduan penggunaan fitur</strong> (contoh: <em>"bagaimana cara buat modul ajar?"</em>, <em>"cara reset siswa CBT"</em>, <em>"cara input nilai"</em>), memeriksa jadwal & presensi hari ini, atau langsung membuka halaman yang Anda tuju.
                 </p>
                 <div class="d-flex flex-wrap gap-1 mt-2">
+                  <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill py-0 px-2 chat-prompt-chip" data-prompt="Bagaimana cara membuat modul ajar?">📖 Cara Buat Modul</button>
+                  <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill py-0 px-2 chat-prompt-chip" data-prompt="Bagaimana cara reset ujian siswa CBT?">🔒 Cara Reset CBT</button>
+                  <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill py-0 px-2 chat-prompt-chip" data-prompt="Bagaimana cara input nilai siswa?">📝 Cara Input Nilai</button>
                   <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill py-0 px-2 chat-prompt-chip" data-prompt="Jadwal mengajar saya hari ini">📅 Jadwal Hari Ini</button>
                   <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill py-0 px-2 chat-prompt-chip" data-prompt="Rekap kehadiran guru hari ini">📊 Rekap Presensi Guru</button>
-                  <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill py-0 px-2 chat-prompt-chip" data-prompt="Monitoring siswa ujian CBT">💻 Monitoring CBT</button>
-                  <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill py-0 px-2 chat-prompt-chip" data-prompt="Modul ajar pendidikan pancasila">📚 Modul Pancasila</button>
+                  <button type="button" class="btn btn-xs btn-outline-primary rounded-pill py-0 px-2" id="btnReplayBriefingFromChat">🔊 Sambutan Suara Hari Ini</button>
                 </div>
               </div>
             </div>
@@ -144,6 +146,52 @@
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================================================
+     MORNING BRIEFING TOAST CARD (Hanya muncul sekali sehari untuk Guru)
+     ========================================================================== -->
+<div id="espataMorningBriefingToast" class="position-fixed toast-morning-briefing d-none shadow-lg border rounded-4 overflow-hidden" style="bottom: 84px; right: 24px; z-index: 1055; width: 360px; max-width: calc(100vw - 32px); background: #ffffff;">
+  <!-- Header dengan Gradient Elegan -->
+  <div class="px-3 py-2 text-white d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg, #0d6efd 0%, #0284c7 100%);">
+    <div class="d-flex align-items-center gap-2">
+      <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 30px; height: 30px;">
+        <i class="bi bi-stars" style="font-size: 0.85rem;"></i>
+      </div>
+      <div>
+        <div class="fw-bold" style="font-size: 0.78rem; letter-spacing: 0.3px;">MORNING BRIEFING</div>
+        <div class="text-white-50" id="briefingDateLabel" style="font-size: 0.68rem;">ESPATA AI Assistant</div>
+      </div>
+    </div>
+    <button type="button" class="btn-close btn-close-white" id="btnCloseBriefingToast" aria-label="Close" style="font-size: 0.7rem;"></button>
+  </div>
+
+  <!-- Body -->
+  <div class="p-3 bg-white">
+    <div class="fw-bold text-dark mb-1" id="briefingGreetingTitle" style="font-size: 0.88rem;"></div>
+    <p class="text-muted small mb-2" id="briefingSummaryText" style="font-size: 0.78rem; line-height: 1.45;"></p>
+
+    <!-- Schedule Mini Pills -->
+    <div id="briefingScheduleList" class="d-flex flex-column gap-1 mb-3" style="max-height: 120px; overflow-y: auto;"></div>
+
+    <!-- Controls -->
+    <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+      <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 d-inline-flex align-items-center gap-2 shadow-sm" id="btnPlayBriefingVoice" style="font-size: 0.78rem;">
+        <i class="bi bi-volume-up-fill" id="briefingVoiceIcon"></i>
+        <span id="briefingVoiceLabel">Dengarkan Suara</span>
+      </button>
+
+      <!-- Equalizer Visualizer saat audio berbicara -->
+      <div class="audio-equalizer d-none" id="briefingAudioEqualizer">
+        <span class="eq-bar"></span>
+        <span class="eq-bar"></span>
+        <span class="eq-bar"></span>
+        <span class="eq-bar"></span>
+      </div>
+
+      <button type="button" class="btn btn-sm btn-light text-muted border-0 py-1 px-2" id="btnDismissBriefing" style="font-size: 0.75rem;">Nanti</button>
     </div>
   </div>
 </div>
@@ -281,6 +329,28 @@
   transform: translateY(-3px) scale(1.02);
   box-shadow: 0 10px 25px -5px rgba(13, 110, 253, 0.45) !important;
 }
+/* ── Audio Equalizer Visualizer ── */
+.audio-equalizer {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+}
+.audio-equalizer .eq-bar {
+  width: 3px;
+  background-color: #0d6efd;
+  border-radius: 2px;
+  animation: eqAnimation 0.75s ease-in-out infinite alternate;
+}
+.audio-equalizer .eq-bar:nth-child(1) { height: 6px; animation-delay: 0.1s; }
+.audio-equalizer .eq-bar:nth-child(2) { height: 16px; animation-delay: 0.3s; }
+.audio-equalizer .eq-bar:nth-child(3) { height: 10px; animation-delay: 0.2s; }
+.audio-equalizer .eq-bar:nth-child(4) { height: 14px; animation-delay: 0.4s; }
+@keyframes eqAnimation {
+  0% { transform: scaleY(0.25); }
+  100% { transform: scaleY(1); }
+}
+
 @media (max-width: 767.98px) {
   .copilot-chat-thread {
     height: 280px !important;
@@ -289,6 +359,12 @@
   .command-palette-dialog {
     margin: 8px;
     margin-top: 12px;
+  }
+  .toast-morning-briefing {
+    bottom: 125px !important;
+    right: 16px !important;
+    left: 16px !important;
+    width: auto !important;
   }
   .copilot-floating-btn {
     bottom: 74px; /* Naik di atas mobile bottom bar */
@@ -798,6 +874,25 @@
         contentHtml += `</div>`;
       }
     }
+    // E. Widget Panduan Fitur (Step-by-Step Tutorial Guide)
+    else if (res.widget_type === 'guide_card' && res.widget_data) {
+      const g = res.widget_data;
+      contentHtml += `
+        <div class="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+          <i class="bi bi-book-half text-primary fs-6"></i>
+          <strong class="text-dark small">${escapeHtml(g.title)}</strong>
+        </div>
+        <p class="mb-2 text-dark small" style="font-size: 0.82rem;">${escapeHtml(res.explanation)}</p>
+      `;
+
+      if (g.steps && g.steps.length > 0) {
+        contentHtml += `<div class="p-2 rounded-3 bg-light border mb-2"><ol class="mb-0 ps-3 small text-dark" style="font-size: 0.8rem; line-height: 1.55;">`;
+        g.steps.forEach(step => {
+          contentHtml += `<li class="mb-1">${step}</li>`;
+        });
+        contentHtml += `</ol></div>`;
+      }
+    }
     // D. Standar Rekomendasi Aksi & Konten AI
     else {
       contentHtml += `<p class="mb-2 text-dark small">${escapeHtml(res.explanation || 'Berikut hasil yang ditemukan:')}</p>`;
@@ -909,6 +1004,177 @@
       btnVoice.style.display = 'none';
     }
   }
+
+  // ==========================================
+  // MORNING BRIEFING & VOICE TTS ENGINE
+  // ==========================================
+  const briefingToast = document.getElementById('espataMorningBriefingToast');
+  const btnCloseToast = document.getElementById('btnCloseBriefingToast');
+  const btnDismissToast = document.getElementById('btnDismissBriefing');
+  const btnPlayVoice = document.getElementById('btnPlayBriefingVoice');
+  const voiceIcon = document.getElementById('briefingVoiceIcon');
+  const voiceLabel = document.getElementById('briefingVoiceLabel');
+  const equalizer = document.getElementById('briefingAudioEqualizer');
+  const btnReplayBriefingFromChat = document.getElementById('btnReplayBriefingFromChat');
+
+  let briefingData = null;
+  let isSpeaking = false;
+
+  function initMorningBriefing() {
+    const todayStr = (new Date()).toISOString().slice(0, 10);
+    const storageKey = 'espata_briefing_seen_' + todayStr;
+
+    // Cek apakah sudah pernah muncul / diputar hari ini di browser guru
+    if (localStorage.getItem(storageKey)) {
+      return; // 🛑 Jangan munculkan lagi di hari yang sama!
+    }
+
+    fetchMorningBriefingData(false);
+  }
+
+  function fetchMorningBriefingData(autoPlayVoice = false) {
+    fetch('<?= site_url('api/ai-copilot/morning-briefing') ?>', {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(res => {
+      if (res.status === 'success' && res.can_brief) {
+        briefingData = res;
+        showBriefingToast(res);
+        if (autoPlayVoice) {
+          toggleVoiceSpeaking();
+        }
+      }
+    })
+    .catch(err => console.warn('[Morning Briefing] Error:', err));
+  }
+
+  function showBriefingToast(data) {
+    if (!briefingToast) return;
+
+    const dateLabelEl = document.getElementById('briefingDateLabel');
+    const titleEl = document.getElementById('briefingGreetingTitle');
+    const summaryEl = document.getElementById('briefingSummaryText');
+    const listContainer = document.getElementById('briefingScheduleList');
+
+    if (dateLabelEl) dateLabelEl.textContent = (data.day_name || 'Hari Ini') + ', ' + (data.date || '');
+    if (titleEl) titleEl.textContent = data.greeting || 'Selamat Pagi!';
+
+    const scheduleCount = data.schedule_count || 0;
+    const summaryText = scheduleCount > 0 
+      ? `Anda memiliki ${scheduleCount} jadwal mengajar hari ini. Dengarkan sambutan suara melalui tombol di bawah:`
+      : `Anda tidak memiliki jadwal mengajar di kelas hari ini. Waktu yang baik untuk menyusun modul ajar atau memeriksa tugas.`;
+    if (summaryEl) summaryEl.textContent = summaryText;
+
+    if (listContainer) {
+      listContainer.innerHTML = '';
+      if (data.schedules && data.schedules.length > 0) {
+        data.schedules.forEach(s => {
+          const item = document.createElement('div');
+          item.className = 'd-flex align-items-center justify-content-between p-1 px-2 rounded bg-light border text-dark';
+          item.style.fontSize = '0.74rem';
+          item.innerHTML = `
+            <div><strong>${escapeHtml(s.class_name)}</strong> - ${escapeHtml(s.subject_name)}</div>
+            <span class="badge bg-primary-subtle text-primary border font-monospace">${escapeHtml(s.start_time?.substring(0,5))}</span>
+          `;
+          listContainer.appendChild(item);
+        });
+      }
+    }
+
+    briefingToast.classList.remove('d-none');
+
+    // Tandai bahwa hari ini sudah dimunculkan agar tidak muncul lagi pada refresh berikutnya
+    const todayStr = (new Date()).toISOString().slice(0, 10);
+    localStorage.setItem('espata_briefing_seen_' + todayStr, '1');
+  }
+
+  function toggleVoiceSpeaking() {
+    if (!('speechSynthesis' in window)) {
+      alert('Peramban Anda tidak mendukung Text-to-Speech.');
+      return;
+    }
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setVoiceState(false);
+      return;
+    }
+
+    if (!briefingData || !briefingData.spoken_text) {
+      fetchMorningBriefingData(true);
+      return;
+    }
+
+    window.speechSynthesis.cancel(); // Bersihkan antrean suara lama
+
+    const utterance = new SpeechSynthesisUtterance(briefingData.spoken_text);
+    utterance.lang = 'id-ID';
+    utterance.rate = 0.95; // Intonasi jelas dan santun
+    utterance.pitch = 1.0;
+
+    // Pilih suara Bahasa Indonesia terbaik jika tersedia di perangkat
+    const voices = window.speechSynthesis.getVoices();
+    const indonesianVoice = voices.find(v => v.lang === 'id-ID' || v.lang === 'id_ID' || (v.lang && v.lang.toLowerCase().startsWith('id')));
+    if (indonesianVoice) {
+      utterance.voice = indonesianVoice;
+    }
+
+    utterance.onstart = function() {
+      setVoiceState(true);
+    };
+
+    utterance.onend = function() {
+      setVoiceState(false);
+    };
+
+    utterance.onerror = function(e) {
+      console.warn('[Speech Error]', e);
+      setVoiceState(false);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function setVoiceState(speaking) {
+    isSpeaking = speaking;
+    if (voiceIcon && voiceLabel) {
+      if (speaking) {
+        voiceIcon.className = 'bi bi-pause-fill fs-6';
+        voiceLabel.textContent = 'Hentikan Suara';
+        if (equalizer) equalizer.classList.remove('d-none');
+      } else {
+        voiceIcon.className = 'bi bi-volume-up-fill fs-6';
+        voiceLabel.textContent = 'Dengarkan Suara';
+        if (equalizer) equalizer.classList.add('d-none');
+      }
+    }
+  }
+
+  if (btnPlayVoice) btnPlayVoice.addEventListener('click', toggleVoiceSpeaking);
+
+  function closeBriefingToast() {
+    if (isSpeaking && ('speechSynthesis' in window)) {
+      window.speechSynthesis.cancel();
+      setVoiceState(false);
+    }
+    if (briefingToast) briefingToast.classList.add('d-none');
+  }
+
+  if (btnCloseToast) btnCloseToast.addEventListener('click', closeBriefingToast);
+  if (btnDismissToast) btnDismissToast.addEventListener('click', closeBriefingToast);
+
+  // Tombol Replay Sambutan dari dalam Chat
+  if (btnReplayBriefingFromChat) {
+    btnReplayBriefingFromChat.addEventListener('click', function() {
+      fetchMorningBriefingData(true);
+    });
+  }
+
+  // Inisialisasi Morning Briefing saat DOM siap
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(initMorningBriefing, 1200);
+  });
 
 })();
 </script>
