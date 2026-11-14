@@ -959,6 +959,7 @@ class Kokurikuler extends BaseController
         $fase = trim((string)($this->request->getVar('fase') ?? ''));
         $semester = trim((string)($this->request->getVar('semester') ?? ''));
         $focusKeyword = trim((string)($this->request->getVar('focus_keyword') ?? ''));
+        $levelKelasInput = $this->request->getVar('level_kelas');
 
         $db = \Config\Database::connect();
         $school = $db->table('school_profile')->select('name, level, address')->get()->getRow();
@@ -981,7 +982,19 @@ class Kokurikuler extends BaseController
             'E' => ['10'],
             'F' => ['11', '12']
         ];
-        $targetClasses = $levelKelasMap[$fase] ?? ['7', '8'];
+        
+        // Pertimbangkan level kelas spesifik dari input filter jika ada
+        $targetClasses = [];
+        if (!empty($levelKelasInput)) {
+            if (is_array($levelKelasInput)) {
+                $targetClasses = array_values(array_filter($levelKelasInput));
+            } elseif (is_string($levelKelasInput)) {
+                $targetClasses = array_values(array_filter(array_map('trim', explode(',', $levelKelasInput))));
+            }
+        }
+        if (empty($targetClasses)) {
+            $targetClasses = $levelKelasMap[$fase] ?? ['7', '8'];
+        }
 
         $activeYear = $this->yearModel->getActiveYear();
         $activeYearId = $activeYear['id'] ?? 1;
@@ -1018,12 +1031,17 @@ class Kokurikuler extends BaseController
             $subjects = $this->subjectModel->whereIn('id', $subjectIdList)->orderBy('name', 'ASC')->findAll();
         }
 
-        // Ambil TP yang terdaftar untuk mapel terkait
+        // Ambil TP yang terdaftar dengan prioritas keselarasan Fase dan Level Kelas
         $subjectTpMap = [];
         $subjectIds = array_column($subjects, 'id');
         if (!empty($subjectIds)) {
+            $escapedClasses = array_map(function($c) use ($db) { return $db->escape($c); }, $targetClasses);
+            $classesInClause = implode(',', $escapedClasses);
+
             $allTps = $this->tpModel
                 ->whereIn('subject_id', $subjectIds)
+                ->orderBy("CASE WHEN fase = " . $db->escape($fase) . " THEN 0 ELSE 1 END", 'ASC')
+                ->orderBy(!empty($classesInClause) ? "CASE WHEN kelas IN ({$classesInClause}) THEN 0 ELSE 1 END" : "id", 'ASC')
                 ->orderBy('subject_id', 'ASC')
                 ->orderBy('id', 'ASC')
                 ->findAll();
@@ -1042,21 +1060,21 @@ class Kokurikuler extends BaseController
         $aiProvider = 'gemini';
         if ($roleId == 3) {
             $teacherModel = new \App\Models\TeacherModel();
-            $teacher = $teacherModel->find($user['related_id']);
+            $teacher = $teacherModel->find($user['related_id'] ?? 0);
             $apiKey = $teacher['gemini_api_key'] ?? '';
             $aiProvider = $teacher['ai_provider'] ?? 'gemini';
         } else {
-            $userData = $db->table('users')->where('id', $user['id'])->get()->getRowArray();
+            $userData = $db->table('users')->where('id', $user['id'] ?? 0)->get()->getRowArray();
             $apiKey = $userData['gemini_api_key'] ?? '';
             $aiProvider = $userData['ai_provider'] ?? 'gemini';
         }
 
-        // Fallback: Jika guru belum mengatur API key pribadi, gunakan API key sekolah dari Admin
+        // 1. Fallback: Cari API Key milik Admin di tabel users
         if (empty($apiKey)) {
             $adminUser = $db->table('users')
-                ->where('role_id', 1)
                 ->where('gemini_api_key !=', '')
                 ->where('gemini_api_key IS NOT NULL')
+                ->orderBy('id', 'ASC')
                 ->get()
                 ->getRowArray();
             if ($adminUser && !empty($adminUser['gemini_api_key'])) {
@@ -1065,9 +1083,51 @@ class Kokurikuler extends BaseController
             }
         }
 
+        // 2. Fallback: Cari API Key milik Guru manapun di tabel teachers
+        if (empty($apiKey)) {
+            $anyTeacher = $db->table('teachers')
+                ->where('gemini_api_key !=', '')
+                ->where('gemini_api_key IS NOT NULL')
+                ->orderBy('id', 'ASC')
+                ->get()
+                ->getRowArray();
+            if ($anyTeacher && !empty($anyTeacher['gemini_api_key'])) {
+                $apiKey = $anyTeacher['gemini_api_key'];
+                $aiProvider = $anyTeacher['ai_provider'] ?? 'groq';
+            }
+        }
+
+        // 3. Fallback: Cek environment variables (.env)
+        if (empty($apiKey)) {
+            $groqEnv = getenv('GROQ_API_KEY') ?: ($_ENV['GROQ_API_KEY'] ?? '');
+            if (!empty($groqEnv)) {
+                $apiKey = $groqEnv;
+                $aiProvider = 'groq';
+            }
+        }
+        if (empty($apiKey)) {
+            $geminiEnv = getenv('GEMINI_API_KEY') ?: ($_ENV['GEMINI_API_KEY'] ?? '');
+            if (!empty($geminiEnv)) {
+                $apiKey = $geminiEnv;
+                $aiProvider = 'gemini';
+            }
+        }
+
+        // 4. Normalisasi dan Auto-Deteksi Provider berdasarkan prefix key
+        $apiKey = trim((string)$apiKey);
+        if (!empty($apiKey)) {
+            if (str_starts_with($apiKey, 'gsk_')) {
+                $aiProvider = 'groq';
+            } elseif (str_starts_with($apiKey, 'AIzaSy')) {
+                $aiProvider = 'gemini';
+            }
+        }
+
         $recommendations = [];
         $source = 'curated';
         $modelUsed = '';
+        $diagReason = '';
+        $diagTip = '';
         $totalTpsCount = 0;
         foreach ($subjectTpMap as $tpArray) {
             $totalTpsCount += count($tpArray);
@@ -1089,7 +1149,13 @@ class Kokurikuler extends BaseController
                 $recommendations = $aiResult['packages'];
                 $source = 'ai_' . $aiProvider;
                 $modelUsed = $aiResult['model'] ?? '';
+            } else {
+                $diagReason = $aiResult['message'] ?? 'Koneksi ke server AI tidak berhasil.';
+                $diagTip = 'Pastikan server hosting mengizinkan cURL outbound HTTPS (port 443) atau periksa kuota API Key.';
             }
+        } else {
+            $diagReason = 'Kunci API (Groq/Gemini) belum ditemukan di database online maupun file .env.';
+            $diagTip = 'Silakan simpan API Key Anda di menu Administrasi Guru > Modul Ajar (Modal Pengaturan AI) atau tambahkan ke tabel users.';
         }
 
         // Jika API Key kosong atau panggilan AI gagal, gunakan curated matrix yang adaptif
@@ -1109,6 +1175,8 @@ class Kokurikuler extends BaseController
             'focus_keyword' => $focusKeyword,
             'fase' => $fase,
             'semester' => $semester,
+            'diag_reason' => $diagReason,
+            'diag_tip' => $diagTip,
             'message' => ($source === 'curated_matrix')
                 ? 'Rekomendasi disusun berdasarkan kurasi standar Kurikulum Merdeka (Mode Fallback).'
                 : "Rekomendasi berhasil dianalisis secara real-time oleh AI ({$aiProvider}: {$modelUsed}) berdasarkan TP aktif.",
@@ -1137,36 +1205,53 @@ class Kokurikuler extends BaseController
             $tpItems = [];
             foreach (array_slice($tps, 0, 4) as $tp) {
                 $tpDesc = addslashes(mb_substr($tp['deskripsi'], 0, 80));
-                $tpItems[] = "{id: {$tp['id']}, kode: \"{$tp['kode_tp']}\", teks: \"{$tpDesc}\"}";
+                $tpKelas = !empty($tp['kelas']) ? "Kelas {$tp['kelas']}" : 'Umum';
+                $tpFase = !empty($tp['fase']) ? "Fase {$tp['fase']}" : "Fase {$fase}";
+                $tpItems[] = "{id: {$tp['id']}, kode: \"{$tp['kode_tp']}\", level: \"{$tpKelas} ({$tpFase})\", teks: \"{$tpDesc}\"}";
             }
             $subjectListLines[] = "- Mapel ID {$sId} ({$sName}): [" . implode(', ', $tpItems) . "]";
         }
         $subjectsPayload = implode("\n", array_slice($subjectListLines, 0, 10));
 
+        // Panduan Tahap Perkembangan & Level Kognitif Kurikulum Merdeka
+        $faseGuidelines = [
+            'A' => 'Fase A (Kelas 1-2 SD): Kognitif konkret-sensori motorik. Belajar melalui bermain, pengamatan sederhana di lingkungan kelas/sekolah, pembiasaan karakter dasar, tanpa beban analisis teoritis.',
+            'B' => 'Fase B (Kelas 3-4 SD): Kognitif konkret terstruktur. Mampu observasi terarah, pengelompokan data visual, kerja tim sederhana, dan menghasilkan produk fisik/karya manual terstruktur.',
+            'C' => 'Fase C (Kelas 5-6 SD): Kognitif pra-formal logis. Mampu berpikir kausalitas/sebab-akibat, audit/pengukuran sederhana (pecahan, proporsi, persentase data), kampanye persuasif, dan karya nyata fungsional.',
+            'D' => 'Fase D (Kelas 7-9 SMP): Kognitif formal awal. Mampu berpikir kritis-abstrak, riset lingkungan sekolah, rekayasa teknologi tepat guna sederhana, dan proyek kewirausahaan mini terorganisir.',
+            'E' => 'Fase E (Kelas 10 SMA): Kognitif eksplorasi mandiri. Mampu riset literatur, metodologi ilmiah, identifikasi isu sosial-ekologis, dan inovasi gagasan multidisipliner.',
+            'F' => 'Fase F (Kelas 11-12 SMA): Kognitif pematangan & spesialisasi. Mampu rancang bangun prototipe terapan, analisis kritis sistemik, kewirausahaan mandiri, dan kepemimpinan aksi sosial nyata.'
+        ];
+        $developmentalGuideline = $faseGuidelines[$fase] ?? $faseGuidelines['D'];
+        $targetClassesText = implode(', ', $targetClasses);
+
         $prompt = "Anda adalah Konsultan Ahli Kurikulum Merdeka & Koordinator Kokurikuler di {$schoolName}.\n"
-            . "Tugas Anda: Rancang 2 sampai 3 alternatif Paket Rencana Projek Kokurikuler Lintas Disiplin Ilmu yang inovatif, kontekstual, dan siap diterapkan ke form aplikasi.\n\n"
-            . "KONTEKS SEKOLAH & KURIKULUM:\n"
-            . "- Fase: {$fase} (Kelas " . implode(', ', $targetClasses) . ")\n"
+            . "Tugas Anda: Rancang 2 sampai 3 alternatif Paket Rencana Projek Kokurikuler Lintas Disiplin Ilmu yang inovatif, kontekstual, dan BENAR-BENAR MEMPERTIMBANGKAN LEVEL KOGNITIF MURID.\n\n"
+            . "KONTEKS TARGET:\n"
+            . "- Jenjang Satuan: Tingkat {$schoolName}\n"
+            . "- Fase: {$fase} | Level Kelas Sasaran: Kelas {$targetClassesText}\n"
+            . "- Karakteristik Perkembangan Kognitif: {$developmentalGuideline}\n"
             . "- Semester: {$semester}\n"
             . ($focus !== '' ? "- Fokus / Minat Topik Guru: {$focus}\n" : "- Fokus Topik: Sesuai isu kontekstual aktual sekolah & lingkungan sekitar\n")
-            . "- Daftar Mata Pelajaran & TP riil di database sekolah:\n{$subjectsPayload}\n\n"
+            . "- Daftar Mata Pelajaran & TP riil di database (perhatikan atribut level kelas & fase di tiap TP):\n{$subjectsPayload}\n\n"
             . "DIMENSI PROFIL LULUSAN RESMI:\n"
             . "Keimanan dan Ketakwaan Terhadap Tuhan YME, Kewargaan, Penalaran Kritis, Kreativitas, Kemandirian, Kolaborasi, Kesehatan, Komunikasi.\n\n"
-            . "INSTRUKSI PENTING:\n"
-            . "1. Analisis Tujuan Pembelajaran (TP) dari mata pelajaran yang tersedia di atas.\n"
-            . "2. Temukan irisan/keterkaitan antar TP mapel yang saling mendukung untuk tema projek.\n"
-            . "3. Gunakan subject_id dan tp_ids riil dari daftar di atas agar cocok dengan sistem.\n"
-            . "4. Berikan HANYA array JSON valid (tanpa markdown ```json ```, tanpa pengantar):\n"
+            . "PEDOMAN ANALISIS KESELARASAN LEVEL KOGNITIF & FASE:\n"
+            . "1. Analisis keterkaitan Tujuan Pembelajaran (TP) dari minimal 2 mata pelajaran yang tersedia di atas.\n"
+            . "2. PENTING: Bentuk kegiatan nyata dan keterpaduan TP yang dirancang HARUS SESUAI DENGAN TAHAP PERKEMBANGAN kognitif murid Kelas {$targetClassesText} (Fase {$fase}). Jangan terlalu rumit/abstrak jika jenjang dasar, dan jangan terlalu kekanak-kanakan jika jenjang menengah.\n"
+            . "3. Gunakan subject_id dan tp_ids riil dari daftar di atas.\n"
+            . "4. Pada atribut 'alasan_analisis', jelaskan secara eksplisit: Mengapa pemilihan TP lintas mapel ini selaras dengan kapasitas kognitif murid Kelas {$targetClassesText}.\n\n"
+            . "Berikan HANYA array JSON valid (tanpa markdown ```json ```, tanpa pengantar):\n"
             . "[\n"
             . "  {\n"
             . "    \"id\": \"paket_1\",\n"
-            . "    \"judul_paket\": \"Judul Projek Menarik (relevan dengan topik/TP)\",\n"
+            . "    \"judul_paket\": \"Judul Projek Menarik Sesuai Level Murid\",\n"
             . "    \"tema\": \"Tema Kurikulum Merdeka (Gaya Hidup Berkelanjutan / Kewirausahaan / Rekayasa dan Teknologi / Kearifan Lokal / Bhinneka Tunggal Ika / Bangun Jiwa Raga / Suara Demokrasi)\",\n"
             . "    \"dimensi_profil\": [\"Penalaran Kritis\", \"Kolaborasi\"],\n"
             . "    \"level_kelas\": [\"" . implode('", "', $targetClasses) . "\"],\n"
             . "    \"jumlah_pertemuan\": 16,\n"
-            . "    \"bentuk_kegiatan_konkret\": \"Rincian kegiatan nyata murid yang terukur sepanjang semester\",\n"
-            . "    \"alasan_analisis\": \"Ulasan analitis bagaimana projek ini mengintegrasikan TP mapel yang dipilih\",\n"
+            . "    \"bentuk_kegiatan_konkret\": \"Rincian kegiatan nyata murid yang terukur sepanjang semester sesuai usianya\",\n"
+            . "    \"alasan_analisis\": \"Ulasan analitis pedagogis: Keterkaitan TP lintas mapel dan keselarasan level kognitif murid\",\n"
             . "    \"lintas_disiplin\": [\n"
             . "      {\n"
             . "        \"subject_id\": (pilih ID mata pelajaran dari daftar),\n"
@@ -1181,6 +1266,7 @@ class Kokurikuler extends BaseController
 
         $content = '';
         $usedModel = '';
+        $lastError = '';
 
         if ($aiProvider === 'groq') {
             $url = 'https://api.groq.com/openai/v1/chat/completions';
@@ -1208,9 +1294,16 @@ class Kokurikuler extends BaseController
                 curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
                 curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
                 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+                if (defined('CURL_IPRESOLVE_V4')) {
+                    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+                }
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 40);
+
                 $response = curl_exec($ch);
                 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlErr = curl_error($ch);
                 curl_close($ch);
 
                 if ($httpCode === 200) {
@@ -1220,6 +1313,8 @@ class Kokurikuler extends BaseController
                         $usedModel = $gModel;
                         break;
                     }
+                } else {
+                    $lastError = "HTTP {$httpCode} (" . ($curlErr ?: substr($response, 0, 150)) . ")";
                 }
             }
         } else {
@@ -1241,9 +1336,16 @@ class Kokurikuler extends BaseController
                 curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
                 curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
                 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+                if (defined('CURL_IPRESOLVE_V4')) {
+                    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+                }
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 40);
+
                 $response = curl_exec($ch);
                 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlErr = curl_error($ch);
                 curl_close($ch);
 
                 if ($httpCode === 200) {
@@ -1259,12 +1361,15 @@ class Kokurikuler extends BaseController
                         $usedModel = $gModel;
                         break;
                     }
+                } else {
+                    $lastError = "HTTP {$httpCode} (" . ($curlErr ?: substr($response, 0, 150)) . ")";
                 }
             }
         }
 
         if (empty($content)) {
-            return ['success' => false, 'message' => "AI Response kosong"];
+            log_message('error', "Kokurikuler AI Planning Failed: {$lastError}");
+            return ['success' => false, 'message' => "AI Response gagal: " . ($lastError ?: 'Koneksi timeout')];
         }
 
         $content = preg_replace('/```(?:json)?\s*/i', '', $content);

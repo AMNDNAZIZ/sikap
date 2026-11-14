@@ -73,14 +73,14 @@
 
             <div class="collapse show" id="ai_consultant_collapse">
                 <div class="row g-3 align-items-end p-3 bg-white rounded-3 border">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label small fw-semibold text-muted mb-1">Target Semester</label>
                         <select id="ai_consult_semester" class="form-select form-select-sm">
                             <option value="1">Semester 1 (Ganjil)</option>
                             <option value="2">Semester 2 (Genap)</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label small fw-semibold text-muted mb-1">Target Fase</label>
                         <select id="ai_consult_fase" class="form-select form-select-sm">
                             <?php if ($schoolLevel == 1): // SD ?>
@@ -93,6 +93,12 @@
                                 <option value="E" selected>Fase E (Kelas 10)</option>
                                 <option value="F">Fase F (Kelas 11-12)</option>
                             <?php endif; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-semibold text-muted mb-1">Target Level Kelas</label>
+                        <select id="ai_consult_level_kelas" class="form-select form-select-sm">
+                            <!-- Populated dynamically based on Fase -->
                         </select>
                     </div>
                     <div class="col-md-4">
@@ -972,9 +978,58 @@ $(document).ready(function() {
     // =========================================================================
     let currentAiPackages = [];
 
+    // Dinamisasi Pilihan Level Kelas pada Panel AI Consultant
+    function updateAiConsultLevelOptions(fase) {
+        const $select = $('#ai_consult_level_kelas');
+        $select.empty();
+        
+        switch(fase) {
+            case 'A':
+                $select.append(new Option('Semua Kelas Fase A (1-2)', ''));
+                $select.append(new Option('Kelas 1 Saja', '1'));
+                $select.append(new Option('Kelas 2 Saja', '2'));
+                break;
+            case 'B':
+                $select.append(new Option('Semua Kelas Fase B (3-4)', ''));
+                $select.append(new Option('Kelas 3 Saja', '3'));
+                $select.append(new Option('Kelas 4 Saja', '4'));
+                break;
+            case 'C':
+                $select.append(new Option('Semua Kelas Fase C (5-6)', ''));
+                $select.append(new Option('Kelas 5 Saja', '5'));
+                $select.append(new Option('Kelas 6 Saja', '6'));
+                break;
+            case 'D':
+                $select.append(new Option('Semua Kelas Fase D (7-9)', ''));
+                $select.append(new Option('Kelas 7 Saja', '7'));
+                $select.append(new Option('Kelas 8 Saja', '8'));
+                $select.append(new Option('Kelas 9 Saja', '9'));
+                break;
+            case 'E':
+                $select.append(new Option('Kelas 10', '10'));
+                break;
+            case 'F':
+                $select.append(new Option('Semua Kelas Fase F (11-12)', ''));
+                $select.append(new Option('Kelas 11 Saja', '11'));
+                $select.append(new Option('Kelas 12 Saja', '12'));
+                break;
+            default:
+                $select.append(new Option('Sesuai Fase', ''));
+        }
+    }
+
+    // Inisialisasi awal
+    updateAiConsultLevelOptions($('#ai_consult_fase').val());
+
+    // Update opsi level kelas saat fase berubah
+    $('#ai_consult_fase').on('change', function() {
+        updateAiConsultLevelOptions($(this).val());
+    });
+
     $('#btn_run_ai_consult').on('click', function() {
         const semester = $('#ai_consult_semester').val();
         const fase = $('#ai_consult_fase').val();
+        const levelKelas = $('#ai_consult_level_kelas').val();
         const focusKeyword = $('#ai_consult_focus').val().trim();
 
         const $btn = $(this);
@@ -982,7 +1037,7 @@ $(document).ready(function() {
         const $error = $('#ai_consult_error');
         const $packagesContainer = $('#ai_consult_packages');
 
-        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Menganalisis...');
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Menganalisis Level & TP...');
         $loading.removeClass('d-none');
         $error.addClass('d-none');
         $packagesContainer.addClass('d-none').empty();
@@ -993,6 +1048,7 @@ $(document).ready(function() {
         const postData = {
             semester: semester,
             fase: fase,
+            level_kelas: levelKelas,
             focus_keyword: focusKeyword
         };
         postData[csrfName] = csrfHash;
@@ -1053,13 +1109,17 @@ $(document).ready(function() {
             } else {
                 bannerHtml = `
                     <div class="col-12 mb-2">
-                        <div class="p-3 rounded-3 bg-white border border-warning-subtle shadow-sm d-flex flex-wrap align-items-center justify-content-between gap-2">
-                            <div class="d-flex align-items-center">
-                                <span class="badge bg-warning text-dark me-2 px-2 py-1"><i class="bi bi-shield-check me-1"></i> Kurasi Standar Kurikulum Merdeka</span>
-                                <span class="small text-muted">Mode Adaptif Database Sekolah (Fallback)</span>
+                        <div class="p-3 rounded-3 bg-white border border-warning shadow-sm">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-warning text-dark me-2 px-2 py-1"><i class="bi bi-shield-check me-1"></i> Mode Kurasi Adaptif (Fallback)</span>
+                                    <span class="small text-muted fw-semibold">Database Sekolah Aktif</span>
+                                </div>
+                                ${meta.diag_reason ? `<span class="badge bg-danger-subtle text-danger border border-danger-subtle small"><i class="bi bi-exclamation-triangle-fill me-1"></i>${meta.diag_reason}</span>` : ''}
                             </div>
                             <div class="small text-muted">
-                                <i class="bi bi-info-circle text-warning me-1"></i> Dipetakan otomatis ke mata pelajaran dan bank TP aktif di sekolah Anda.
+                                ${meta.diag_tip ? `<div class="mb-1 text-dark"><i class="bi bi-lightbulb-fill text-warning me-1"></i><strong>Petunjuk Solusi:</strong> ${meta.diag_tip}</div>` : ''}
+                                <div><i class="bi bi-check2-circle text-success me-1"></i>Paket projek di bawah tetap secara cerdas dipetakan ke mata pelajaran dan bank TP aktif di sekolah Anda.</div>
                             </div>
                         </div>
                     </div>
@@ -1103,8 +1163,11 @@ $(document).ready(function() {
                             <h6 class="card-title fw-bold text-dark mb-2">${pkg.judul_paket}</h6>
                             
                             <div class="mb-2">
-                                <small class="text-muted d-block mb-1 fw-semibold">Target & Alokasi:</small>
-                                <div>${kelasBadges} <span class="badge bg-info-subtle text-info">${pkg.jumlah_pertemuan || 16} Pertemuan</span></div>
+                                <small class="text-muted d-block mb-1 fw-semibold">Target Level & Alokasi:</small>
+                                <div>
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle me-1"><i class="bi bi-mortarboard-fill me-1"></i>${(pkg.level_kelas || []).map(k => 'Kelas ' + k).join(', ')} (Fase ${meta.fase || 'D'})</span>
+                                    <span class="badge bg-info-subtle text-info border border-info-subtle">${pkg.jumlah_pertemuan || 16} Pertemuan</span>
+                                </div>
                             </div>
 
                             <div class="mb-2">
@@ -1124,7 +1187,7 @@ $(document).ready(function() {
 
                             ${pkg.alasan_analisis ? `
                                 <div class="p-2 mb-3 bg-light rounded border small">
-                                    <strong class="d-block text-secondary mb-1"><i class="bi bi-diagram-3-fill me-1 text-primary"></i>Analisis Keterkaitan TP:</strong>
+                                    <strong class="d-block text-secondary mb-1"><i class="bi bi-diagram-3-fill me-1 text-primary"></i>Analisis Keterkaitan TP & Level Kognitif:</strong>
                                     <span class="text-dark">${pkg.alasan_analisis}</span>
                                 </div>
                             ` : ''}
@@ -1158,8 +1221,10 @@ $(document).ready(function() {
 
         // 3. Set Level Kelas (Wait 150ms for options to populate)
         setTimeout(function() {
-            if (pkg.level_kelas && Array.isArray(pkg.level_kelas)) {
+            if (pkg.level_kelas && Array.isArray(pkg.level_kelas) && pkg.level_kelas.length > 0) {
                 $('#level_kelas').val(pkg.level_kelas).trigger('change');
+            } else if ($('#ai_consult_level_kelas').val()) {
+                $('#level_kelas').val([$('#ai_consult_level_kelas').val()]).trigger('change');
             }
         }, 150);
 
