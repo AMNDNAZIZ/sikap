@@ -1,6 +1,6 @@
 {
     "version": "2.0.7",
-    "generated": "2026-11-13 23:33:30",
+    "generated": "2026-11-14 07:08:47",
     "last_update": "2026-11-13 00:00",
     "total_files": 1151,
     "files": {
@@ -116,7 +116,7 @@
         "app/Controllers/Admin/Holidays.php": "cc4080392d0dc3673162084d66f48c45",
         "app/Controllers/Admin/JenjangMaster.php": "a246d1ac3abfd3fad12e1c89c00edf59",
         "app/Controllers/Admin/KartuPeserta.php": "7a31b84672d7cea46370467a4f72e861",
-        "app/Controllers/Admin/Kokurikuler.php": "58cc09d45b64f92a537f8304e02d33a9",
+        "app/Controllers/Admin/Kokurikuler.php": "2492363f73689d80b464bf6674fcaa5b",
         "app/Controllers/Admin/MapelMaster.php": "0d2839d2596124dd8a342e7be4aede87",
         "app/Controllers/Admin/Materials.php": "ca49636b370ee510ca0e820eed6eee44",
         "app/Controllers/Admin/Placement.php": "fca788aaf1a5c90c65e5d5737fe7fcb4",
@@ -734,7 +734,7 @@
         "app/Views/admin/holidays/edit.php": "a4539f33b15b151b5b91d9c7d8455109",
         "app/Views/admin/holidays/index.php": "6a9f1e0db51a11bc51f6fcc83d3bcf50",
         "app/Views/admin/jenjang_master/index.php": "9960650871d81b4af656036164c3e64d",
-        "app/Views/admin/kokurikuler/create.php": "290a1ba9ba9b2c0dc671f8ce1b237976",
+        "app/Views/admin/kokurikuler/create.php": "3c6558b18c53cebc3ce2ed1bd33a2c95",
         "app/Views/admin/kokurikuler/index.php": "16741f104306688829c1da3da013dc74",
         "app/Views/admin/kokurikuler/pdf_7kaih.php": "77458307f06f61cc90089fd76e9e7ea4",
         "app/Views/admin/kokurikuler/pdf_lainnya.php": "fbc1582ff77a7b0853741017db1dd060",
