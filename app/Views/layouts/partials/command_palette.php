@@ -21,6 +21,10 @@
           </li>
         </ul>
         <div class="d-flex align-items-center gap-2 pb-1">
+          <button type="button" class="btn btn-xs btn-outline-primary rounded-pill py-1 px-2 d-inline-flex align-items-center gap-1 shadow-none" id="btnHeaderMorningBriefing" title="Dengarkan Sambutan Pagi & Jadwal Hari Ini" style="font-size: 0.72rem;">
+            <i class="bi bi-volume-up-fill"></i>
+            <span class="d-none d-sm-inline">Sambutan Suara</span>
+          </button>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
       </div>
@@ -1016,24 +1020,51 @@
   const voiceLabel = document.getElementById('briefingVoiceLabel');
   const equalizer = document.getElementById('briefingAudioEqualizer');
   const btnReplayBriefingFromChat = document.getElementById('btnReplayBriefingFromChat');
+  const btnHeaderMorningBriefing = document.getElementById('btnHeaderMorningBriefing');
 
   let briefingData = null;
   let isSpeaking = false;
+  let speechQueue = [];
+  let currentUtteranceIndex = 0;
+  let cachedIndonesianVoice = null;
+
+  // Pre-load Web Speech API voices
+  function initVoices() {
+    if (!('speechSynthesis' in window)) return;
+    const voices = window.speechSynthesis.getVoices();
+    if (voices && voices.length > 0) {
+      cachedIndonesianVoice = voices.find(v => v.lang === 'id-ID' || v.lang === 'id_ID')
+        || voices.find(v => v.lang && v.lang.toLowerCase().startsWith('id'))
+        || voices.find(v => v.name && v.name.toLowerCase().includes('indonesia'))
+        || null;
+    }
+  }
+
+  if ('speechSynthesis' in window) {
+    initVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = initVoices;
+    }
+  }
 
   function initMorningBriefing() {
     const todayStr = (new Date()).toISOString().slice(0, 10);
     const storageKey = 'espata_briefing_seen_' + todayStr;
+    const isTestParam = window.location.search.includes('test_briefing') || window.location.search.includes('briefing=1');
 
-    // Cek apakah sudah pernah muncul / diputar hari ini di browser guru
-    if (localStorage.getItem(storageKey)) {
-      return; // 🛑 Jangan munculkan lagi di hari yang sama!
+    // Cek apakah sudah pernah muncul di browser hari ini (kecuali jika parameter testing aktif)
+    if (!isTestParam && localStorage.getItem(storageKey)) {
+      return; // 🛑 Jangan memunculkan toast otomatis jika sudah pernah dibuka hari ini
     }
 
-    fetchMorningBriefingData(false);
+    fetchMorningBriefingData(false, false);
   }
 
-  function fetchMorningBriefingData(autoPlayVoice = false) {
-    fetch('<?= site_url('api/ai-copilot/morning-briefing') ?>', {
+  function fetchMorningBriefingData(autoPlayVoice = false, forceShow = false) {
+    const isTeacherPreview = window.location.search.includes('preview=teacher');
+    const apiUrl = '<?= site_url('api/ai-copilot/morning-briefing') ?>' + (isTeacherPreview ? '?preview=teacher' : '');
+
+    fetch(apiUrl, {
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
     .then(r => r.json())
@@ -1044,9 +1075,16 @@
         if (autoPlayVoice) {
           toggleVoiceSpeaking();
         }
+      } else if (forceShow && res.message) {
+        alert(res.message);
       }
     })
-    .catch(err => console.warn('[Morning Briefing] Error:', err));
+    .catch(err => {
+      console.warn('[Morning Briefing] Error fetching briefing data:', err);
+      if (forceShow) {
+        alert('Tidak dapat memuat sambutan suara. Periksa koneksi atau log sistem.');
+      }
+    });
   }
 
   function showBriefingToast(data) {
@@ -1060,64 +1098,90 @@
     if (dateLabelEl) dateLabelEl.textContent = (data.day_name || 'Hari Ini') + ', ' + (data.date || '');
     if (titleEl) titleEl.textContent = data.greeting || 'Selamat Pagi!';
 
-    const scheduleCount = data.schedule_count || 0;
-    const summaryText = scheduleCount > 0 
-      ? `Anda memiliki ${scheduleCount} jadwal mengajar hari ini. Dengarkan sambutan suara melalui tombol di bawah:`
-      : `Anda tidak memiliki jadwal mengajar di kelas hari ini. Waktu yang baik untuk menyusun modul ajar atau memeriksa tugas.`;
-    if (summaryEl) summaryEl.textContent = summaryText;
+    if (data.briefing_type === 'executive') {
+      const stats = data.stats || {};
+      if (summaryEl) {
+        summaryEl.textContent = 'Ringkasan operasional akademik & pembelajaran sekolah hari ini:';
+      }
+      if (listContainer) {
+        listContainer.innerHTML = `
+          <div class="d-flex flex-column gap-1">
+            <div class="d-flex align-items-center justify-content-between p-1 px-2 rounded bg-light border text-dark" style="font-size: 0.74rem;">
+              <div><i class="bi bi-book text-primary me-1"></i><strong>Jadwal Pembelajaran</strong></div>
+              <span class="badge bg-primary-subtle text-primary border">${stats.schedules || 0} Sesi</span>
+            </div>
+            <div class="d-flex align-items-center justify-content-between p-1 px-2 rounded bg-light border text-dark" style="font-size: 0.74rem;">
+              <div><i class="bi bi-person-workspace text-success me-1"></i><strong>Guru Terjadwal</strong></div>
+              <span class="badge bg-success-subtle text-success border">${stats.teachers || 0} Pengajar</span>
+            </div>
+            <div class="d-flex align-items-center justify-content-between p-1 px-2 rounded bg-light border text-dark" style="font-size: 0.74rem;">
+              <div><i class="bi bi-laptop text-info me-1"></i><strong>Agenda CBT Aktif</strong></div>
+              <span class="badge bg-info-subtle text-info border">${stats.cbt || 0} Ujian</span>
+            </div>
+          </div>
+        `;
+      }
+    } else {
+      const scheduleCount = data.schedule_count || 0;
+      const summaryText = scheduleCount > 0 
+        ? `Anda memiliki ${scheduleCount} jadwal mengajar hari ini. Dengarkan sambutan suara melalui tombol di bawah:`
+        : `Anda tidak memiliki jadwal tatap muka di kelas hari ini. Waktu yang baik untuk menyusun modul ajar atau memeriksa tugas.`;
+      if (summaryEl) summaryEl.textContent = summaryText;
 
-    if (listContainer) {
-      listContainer.innerHTML = '';
-      if (data.schedules && data.schedules.length > 0) {
-        data.schedules.forEach(s => {
-          const item = document.createElement('div');
-          item.className = 'd-flex align-items-center justify-content-between p-1 px-2 rounded bg-light border text-dark';
-          item.style.fontSize = '0.74rem';
-          item.innerHTML = `
-            <div><strong>${escapeHtml(s.class_name)}</strong> - ${escapeHtml(s.subject_name)}</div>
-            <span class="badge bg-primary-subtle text-primary border font-monospace">${escapeHtml(s.start_time?.substring(0,5))}</span>
+      if (listContainer) {
+        listContainer.innerHTML = '';
+        if (data.schedules && data.schedules.length > 0) {
+          data.schedules.forEach(s => {
+            const item = document.createElement('div');
+            item.className = 'd-flex align-items-center justify-content-between p-1 px-2 rounded bg-light border text-dark';
+            item.style.fontSize = '0.74rem';
+            item.innerHTML = `
+              <div><strong>${escapeHtml(s.class_name)}</strong> - ${escapeHtml(s.subject_name)}</div>
+              <span class="badge bg-primary-subtle text-primary border font-monospace">${escapeHtml(s.start_time?.substring(0,5))}</span>
+            `;
+            listContainer.appendChild(item);
+          });
+        } else {
+          listContainer.innerHTML = `
+            <div class="text-muted text-center py-2 bg-light rounded border" style="font-size: 0.72rem;">
+              <i class="bi bi-calendar-check me-1"></i>Tidak ada jam tatap muka hari ini
+            </div>
           `;
-          listContainer.appendChild(item);
-        });
+        }
       }
     }
 
     briefingToast.classList.remove('d-none');
 
-    // Tandai bahwa hari ini sudah dimunculkan agar tidak muncul lagi pada refresh berikutnya
+    // Tandai bahwa hari ini sudah dimunculkan agar tidak berulang pada refresh biasa
     const todayStr = (new Date()).toISOString().slice(0, 10);
     localStorage.setItem('espata_briefing_seen_' + todayStr, '1');
   }
 
-  function toggleVoiceSpeaking() {
-    if (!('speechSynthesis' in window)) {
-      alert('Peramban Anda tidak mendukung Text-to-Speech.');
-      return;
-    }
-
-    if (isSpeaking) {
-      window.speechSynthesis.cancel();
+  // Sequential speech queue runner (menghindari timeout 15 detik Chromium pada teks panjang)
+  function playNextSpeechChunk() {
+    if (!isSpeaking || currentUtteranceIndex >= speechQueue.length) {
       setVoiceState(false);
       return;
     }
 
-    if (!briefingData || !briefingData.spoken_text) {
-      fetchMorningBriefingData(true);
+    const chunk = speechQueue[currentUtteranceIndex].trim();
+    if (!chunk) {
+      currentUtteranceIndex++;
+      playNextSpeechChunk();
       return;
     }
 
-    window.speechSynthesis.cancel(); // Bersihkan antrean suara lama
-
-    const utterance = new SpeechSynthesisUtterance(briefingData.spoken_text);
+    const utterance = new SpeechSynthesisUtterance(chunk);
     utterance.lang = 'id-ID';
     utterance.rate = 0.95; // Intonasi jelas dan santun
     utterance.pitch = 1.0;
 
-    // Pilih suara Bahasa Indonesia terbaik jika tersedia di perangkat
-    const voices = window.speechSynthesis.getVoices();
-    const indonesianVoice = voices.find(v => v.lang === 'id-ID' || v.lang === 'id_ID' || (v.lang && v.lang.toLowerCase().startsWith('id')));
-    if (indonesianVoice) {
-      utterance.voice = indonesianVoice;
+    if (!cachedIndonesianVoice) {
+      initVoices();
+    }
+    if (cachedIndonesianVoice) {
+      utterance.voice = cachedIndonesianVoice;
     }
 
     utterance.onstart = function() {
@@ -1125,15 +1189,47 @@
     };
 
     utterance.onend = function() {
-      setVoiceState(false);
+      currentUtteranceIndex++;
+      playNextSpeechChunk();
     };
 
     utterance.onerror = function(e) {
-      console.warn('[Speech Error]', e);
-      setVoiceState(false);
+      console.warn('[Speech Error on chunk]', e);
+      currentUtteranceIndex++;
+      playNextSpeechChunk();
     };
 
     window.speechSynthesis.speak(utterance);
+  }
+
+  function toggleVoiceSpeaking() {
+    if (!('speechSynthesis' in window)) {
+      alert('Peramban Anda tidak mendukung Voice Text-to-Speech.');
+      return;
+    }
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      speechQueue = [];
+      currentUtteranceIndex = 0;
+      setVoiceState(false);
+      return;
+    }
+
+    if (!briefingData || !briefingData.spoken_text) {
+      fetchMorningBriefingData(true, true);
+      return;
+    }
+
+    window.speechSynthesis.cancel(); // Bersihkan antrean suara lama
+
+    // Potong teks berdasarkan tanda titik atau tanda tanya agar menjadi kalimat-kalimat lancar
+    const rawSentences = briefingData.spoken_text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [briefingData.spoken_text];
+    speechQueue = rawSentences.map(s => s.trim()).filter(Boolean);
+    currentUtteranceIndex = 0;
+
+    setVoiceState(true);
+    playNextSpeechChunk();
   }
 
   function setVoiceState(speaking) {
@@ -1164,17 +1260,30 @@
   if (btnCloseToast) btnCloseToast.addEventListener('click', closeBriefingToast);
   if (btnDismissToast) btnDismissToast.addEventListener('click', closeBriefingToast);
 
-  // Tombol Replay Sambutan dari dalam Chat
+  // Tombol Replay Sambutan dari dalam Chat Prompt Chip
   if (btnReplayBriefingFromChat) {
     btnReplayBriefingFromChat.addEventListener('click', function() {
-      fetchMorningBriefingData(true);
+      fetchMorningBriefingData(true, true);
     });
   }
 
-  // Inisialisasi Morning Briefing saat DOM siap
-  document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(initMorningBriefing, 1200);
-  });
+  // Tombol Sambutan Suara di Header Command Palette
+  if (btnHeaderMorningBriefing) {
+    btnHeaderMorningBriefing.addEventListener('click', function() {
+      fetchMorningBriefingData(true, true);
+    });
+  }
+
+  // Inisialisasi Morning Briefing saat DOM siap secara aman (menangani DOMContentLoaded race condition)
+  function startMorningBriefing() {
+    setTimeout(initMorningBriefing, 800);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startMorningBriefing);
+  } else {
+    startMorningBriefing();
+  }
 
 })();
 </script>
