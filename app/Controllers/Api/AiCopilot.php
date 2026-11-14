@@ -84,9 +84,16 @@ class AiCopilot extends BaseController
         }
 
         $todayDate = date('Y-m-d');
-        $dayOfWeek = (int) date('N'); // 1 = Senin, ..., 7 = Minggu
+        // Mendukung simulasi hari (misal ?day=1 untuk menguji hari Senin yang memiliki jadwal mengajar)
+        $simDay = (int) $this->request->getGet('day');
+        if ($simDay >= 1 && $simDay <= 7) {
+            $dayOfWeek = $simDay;
+        } else {
+            $dayOfWeek = (int) date('N'); // 1 = Senin, ..., 7 = Minggu
+        }
         $daysIndo = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
         $dayName = $daysIndo[$dayOfWeek] ?? 'Hari Ini';
+        $isWeekend = ($dayOfWeek === 6 || $dayOfWeek === 7);
 
         // =========================================================================
         // SKENARIO 1: BRIEFING PERSONAL UNTUK GURU (Role 3 atau User dengan Teacher ID)
@@ -159,7 +166,11 @@ class AiCopilot extends BaseController
                     $spokenParts[] = "Hari ini Anda memiliki {$count} jadwal mengajar, yaitu " . implode(', ', $scheduleNarratives) . ", dan {$last}.";
                 }
             } else {
-                $spokenParts[] = "Hari ini Anda tidak memiliki jadwal mengajar di kelas. Anda dapat memanfaatkannya untuk menyusun modul ajar, memeriksa tugas siswa, atau kegiatan akademik lainnya.";
+                if ($isWeekend) {
+                    $spokenParts[] = "Hari ini adalah hari {$dayName} (libur akhir pekan), sehingga tidak ada jadwal mengajar di kelas. Selamat berlibur, beristirahat, dan menikmati waktu berkualitas bersama keluarga tercinta.";
+                } else {
+                    $spokenParts[] = "Hari ini Anda tidak memiliki jadwal mengajar di kelas. Anda dapat memanfaatkannya untuk menyusun modul ajar, memeriksa tugas siswa, atau kegiatan akademik lainnya.";
+                }
             }
 
             if (!empty($cbtAgendas)) {
@@ -170,7 +181,9 @@ class AiCopilot extends BaseController
                 $spokenParts[] = "Anda juga memiliki agenda pelaksanaan ujian online CBT yaitu " . implode(' dan ', $agendaNames) . ".";
             }
 
-            $spokenParts[] = "Selamat beraktivitas, semoga proses pembelajaran hari ini berjalan lancar dan menyenangkan bersama peserta didik.";
+            if (!$isWeekend) {
+                $spokenParts[] = "Selamat beraktivitas, semoga proses pembelajaran hari ini berjalan lancar dan menyenangkan bersama peserta didik.";
+            }
 
             $spokenText = implode(' ', $spokenParts);
 
@@ -180,6 +193,7 @@ class AiCopilot extends BaseController
                 'briefing_type'  => 'teacher',
                 'date'           => $todayDate,
                 'day_name'       => $dayName,
+                'is_weekend'     => $isWeekend,
                 'teacher_id'     => $teacherId,
                 'greeting'       => $greetingTitle,
                 'spoken_text'    => $spokenText,
@@ -231,7 +245,11 @@ class AiCopilot extends BaseController
             if ($totalSchedules > 0) {
                 $spokenParts[] = "Hari ini tercatat {$totalSchedules} jadwal pembelajaran di kelas yang diampu oleh {$totalTeachers} guru.";
             } else {
-                $spokenParts[] = "Hari ini tidak ada jadwal pembelajaran reguler yang tercatat.";
+                if ($isWeekend) {
+                    $spokenParts[] = "Hari ini adalah hari {$dayName} (hari libur akhir pekan), sehingga tidak ada agenda pembelajaran reguler di kelas.";
+                } else {
+                    $spokenParts[] = "Hari ini tidak ada jadwal pembelajaran reguler yang tercatat.";
+                }
             }
 
             if ($totalCbt > 0) {
@@ -248,6 +266,7 @@ class AiCopilot extends BaseController
                 'briefing_type'  => 'executive',
                 'date'           => $todayDate,
                 'day_name'       => $dayName,
+                'is_weekend'     => $isWeekend,
                 'role_id'        => $roleId,
                 'greeting'       => $greetingTitle,
                 'spoken_text'    => $spokenText,

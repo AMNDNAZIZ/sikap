@@ -355,6 +355,15 @@
   100% { transform: scaleY(1); }
 }
 
+.btn-pulse-sound {
+  animation: soundPulse 1.8s infinite;
+}
+@keyframes soundPulse {
+  0% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(13, 110, 253, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0); }
+}
+
 @media (max-width: 767.98px) {
   .copilot-chat-thread {
     height: 280px !important;
@@ -1024,6 +1033,7 @@
 
   let briefingData = null;
   let isSpeaking = false;
+  let hasStartedSpeaking = false;
   let speechQueue = [];
   let currentUtteranceIndex = 0;
   let cachedIndonesianVoice = null;
@@ -1050,19 +1060,25 @@
   function initMorningBriefing() {
     const todayStr = (new Date()).toISOString().slice(0, 10);
     const storageKey = 'espata_briefing_seen_' + todayStr;
-    const isTestParam = window.location.search.includes('test_briefing') || window.location.search.includes('briefing=1');
+    const isTestParam = window.location.search.includes('test_briefing') || window.location.search.includes('briefing=1') || window.location.search.includes('day=');
 
     // Cek apakah sudah pernah muncul di browser hari ini (kecuali jika parameter testing aktif)
     if (!isTestParam && localStorage.getItem(storageKey)) {
       return; // 🛑 Jangan memunculkan toast otomatis jika sudah pernah dibuka hari ini
     }
 
-    fetchMorningBriefingData(false, false);
+    // 🚀 Berusaha putar suara otomatis saat pertama kali masuk hari ini
+    fetchMorningBriefingData(true, false);
   }
 
   function fetchMorningBriefingData(autoPlayVoice = false, forceShow = false) {
-    const isTeacherPreview = window.location.search.includes('preview=teacher');
-    const apiUrl = '<?= site_url('api/ai-copilot/morning-briefing') ?>' + (isTeacherPreview ? '?preview=teacher' : '');
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryParts = [];
+    if (urlParams.has('preview')) queryParts.push('preview=' + encodeURIComponent(urlParams.get('preview')));
+    if (urlParams.has('day')) queryParts.push('day=' + encodeURIComponent(urlParams.get('day')));
+    const queryString = queryParts.length > 0 ? '?' + queryParts.join('&') : '';
+
+    const apiUrl = '<?= site_url('api/ai-copilot/morning-briefing') ?>' + queryString;
 
     fetch(apiUrl, {
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -1095,13 +1111,17 @@
     const summaryEl = document.getElementById('briefingSummaryText');
     const listContainer = document.getElementById('briefingScheduleList');
 
-    if (dateLabelEl) dateLabelEl.textContent = (data.day_name || 'Hari Ini') + ', ' + (data.date || '');
+    if (dateLabelEl) {
+      dateLabelEl.textContent = (data.day_name || 'Hari Ini') + ', ' + (data.date || '') + (data.is_weekend ? ' (Libur Akhir Pekan)' : '');
+    }
     if (titleEl) titleEl.textContent = data.greeting || 'Selamat Pagi!';
 
     if (data.briefing_type === 'executive') {
       const stats = data.stats || {};
       if (summaryEl) {
-        summaryEl.textContent = 'Ringkasan operasional akademik & pembelajaran sekolah hari ini:';
+        summaryEl.textContent = data.is_weekend 
+          ? 'Hari ini adalah hari libur akhir pekan. Rekap kesiapan sistem operasional ESPATA:'
+          : 'Ringkasan operasional akademik & pembelajaran sekolah hari ini:';
       }
       if (listContainer) {
         listContainer.innerHTML = `
@@ -1123,9 +1143,14 @@
       }
     } else {
       const scheduleCount = data.schedule_count || 0;
-      const summaryText = scheduleCount > 0 
-        ? `Anda memiliki ${scheduleCount} jadwal mengajar hari ini. Dengarkan sambutan suara melalui tombol di bawah:`
-        : `Anda tidak memiliki jadwal tatap muka di kelas hari ini. Waktu yang baik untuk menyusun modul ajar atau memeriksa tugas.`;
+      let summaryText = '';
+      if (scheduleCount > 0) {
+        summaryText = `Anda memiliki ${scheduleCount} jadwal mengajar hari ini. Dengarkan sambutan suara melalui tombol di bawah:`;
+      } else if (data.is_weekend) {
+        summaryText = `Hari ini adalah hari libur akhir pekan. Tidak ada jam tatap muka mengajar di kelas. Selamat berlibur dan beristirahat!`;
+      } else {
+        summaryText = `Anda tidak memiliki jadwal tatap muka di kelas hari ini. Waktu yang baik untuk menyusun modul ajar atau memeriksa tugas.`;
+      }
       if (summaryEl) summaryEl.textContent = summaryText;
 
       if (listContainer) {
@@ -1144,7 +1169,8 @@
         } else {
           listContainer.innerHTML = `
             <div class="text-muted text-center py-2 bg-light rounded border" style="font-size: 0.72rem;">
-              <i class="bi bi-calendar-check me-1"></i>Tidak ada jam tatap muka hari ini
+              <i class="bi ${data.is_weekend ? 'bi-cup-hot-fill text-warning' : 'bi-calendar-check text-primary'} me-1"></i>
+              ${data.is_weekend ? 'Hari libur akhir pekan (tidak ada jam tatap muka)' : 'Tidak ada jam tatap muka hari ini'}
             </div>
           `;
         }
@@ -1156,6 +1182,19 @@
     // Tandai bahwa hari ini sudah dimunculkan agar tidak berulang pada refresh biasa
     const todayStr = (new Date()).toISOString().slice(0, 10);
     localStorage.setItem('espata_briefing_seen_' + todayStr, '1');
+  }
+
+  // Siapkan listener satu kali klik/gestur jika browser memblokir autoplay pada cold load
+  function armGesturePlay() {
+    function onFirstUserGesture() {
+      document.removeEventListener('click', onFirstUserGesture);
+      document.removeEventListener('keydown', onFirstUserGesture);
+      if (briefingData && !hasStartedSpeaking && !isSpeaking) {
+        toggleVoiceSpeaking();
+      }
+    }
+    document.addEventListener('click', onFirstUserGesture, { once: true });
+    document.addEventListener('keydown', onFirstUserGesture, { once: true });
   }
 
   // Sequential speech queue runner (menghindari timeout 15 detik Chromium pada teks panjang)
@@ -1185,6 +1224,7 @@
     }
 
     utterance.onstart = function() {
+      hasStartedSpeaking = true;
       setVoiceState(true);
     };
 
@@ -1195,11 +1235,24 @@
 
     utterance.onerror = function(e) {
       console.warn('[Speech Error on chunk]', e);
+      if (e.error === 'not-allowed') {
+        // Autoplay diblokir oleh browser sebelum gestur pengguna
+        setVoiceState(false);
+        armGesturePlay();
+        return;
+      }
       currentUtteranceIndex++;
       playNextSpeechChunk();
     };
 
-    window.speechSynthesis.speak(utterance);
+    try {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+      window.speechSynthesis.speak(utterance);
+    } catch(err) {
+      console.warn('[Speech synthesis speak error]', err);
+    }
   }
 
   function toggleVoiceSpeaking() {
@@ -1222,6 +1275,9 @@
     }
 
     window.speechSynthesis.cancel(); // Bersihkan antrean suara lama
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
 
     // Potong teks berdasarkan tanda titik atau tanda tanya agar menjadi kalimat-kalimat lancar
     const rawSentences = briefingData.spoken_text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [briefingData.spoken_text];
@@ -1229,7 +1285,8 @@
     currentUtteranceIndex = 0;
 
     setVoiceState(true);
-    playNextSpeechChunk();
+    // Timeout 50ms agar Chrome tidak membatalkan utterance akibat cancel() sebelumnya
+    setTimeout(playNextSpeechChunk, 50);
   }
 
   function setVoiceState(speaking) {
@@ -1239,10 +1296,12 @@
         voiceIcon.className = 'bi bi-pause-fill fs-6';
         voiceLabel.textContent = 'Hentikan Suara';
         if (equalizer) equalizer.classList.remove('d-none');
+        if (btnPlayVoice) btnPlayVoice.classList.remove('btn-pulse-sound');
       } else {
         voiceIcon.className = 'bi bi-volume-up-fill fs-6';
         voiceLabel.textContent = 'Dengarkan Suara';
         if (equalizer) equalizer.classList.add('d-none');
+        if (btnPlayVoice) btnPlayVoice.classList.add('btn-pulse-sound');
       }
     }
   }
