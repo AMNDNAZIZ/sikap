@@ -49,7 +49,7 @@
                             <label class="form-label fw-bold">URL Aplikasi Pembayaran</label>
                             <input type="url" name="payment_api_url" id="payment_api_url" class="form-control"
                                 value="<?= esc($payment_api_url) ?>"
-                                placeholder="http://localhost:8080/bayaran atau https://bayaran.sekolah.sch.id" required>
+                                placeholder="https://pembayaran.sekolah.sch.id atau https://api-pembayaran.sekolah.sch.id" required>
                             <small class="text-muted">
                                 URL dasar aplikasi web pembayaran. Endpoint yang dipanggil: <code>{URL}/api/payment-info?nis=xxx</code>
                             </small>

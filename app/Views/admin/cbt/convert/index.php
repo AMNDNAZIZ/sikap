@@ -20,7 +20,7 @@
             </div>
             <div>
                 <h5 class="mb-1 fw-bold">Konversi &amp; Import Nilai CBT</h5>
-                <p class="mb-0 text-muted small">Konversi nilai ujian ke rapor, atau import nilai dari CBTku.</p>
+                <p class="mb-0 text-muted small">Konversi nilai ujian ke rapor, atau import nilai dari berkas CBT.</p>
             </div>
         </div>
     </div>
@@ -52,7 +52,7 @@
             <button class="nav-link border text-start text-sm-center py-2 fw-semibold <?= (isset($_GET['tab']) && $_GET['tab'] === 'mandiri') ? 'active' : '' ?>"
                     id="tab-mandiri" data-bs-toggle="tab" data-bs-target="#panel-mandiri"
                     type="button" role="tab">
-                <i class="bi bi-box-arrow-in-down me-1"></i> Import dari CBTku
+                <i class="bi bi-box-arrow-in-down me-1"></i> Impor Nilai dari Berkas CBT
             </button>
         </li>
     </ul>
@@ -161,7 +161,7 @@
                     <div class="card border-0 shadow-sm" style="border-radius: 12px;">
                         <div class="card-header bg-white fw-bold">
                             <i class="bi bi-box-arrow-in-down me-2 text-primary"></i>
-                            Upload File Export dari CBTku
+                            Upload File Ekspor Nilai CBT
                         </div>
                         <div class="card-body">
                             <form action="<?= site_url('admin/cbt/import-mandiri/preview') ?>"
@@ -171,13 +171,13 @@
                                 <!-- Upload file JSON -->
                                 <div class="mb-4">
                                     <label class="form-label fw-semibold">
-                                        File JSON Export CBTku
+                                        File JSON Ekspor Nilai CBT
                                         <span class="text-danger">*</span>
                                     </label>
                                     <input type="file" name="nilai_file" class="form-control"
                                            accept=".json" required>
                                     <div class="form-text">
-                                        File diperoleh dari CBTku : menu
+                                        File diperoleh dari aplikasi CBT : menu
                                         <strong>Aktivitas → Unduh Nilai → Export JSON untuk ESPATA</strong>
                                     </div>
                                 </div>
@@ -217,7 +217,7 @@
                             <h6 class="fw-bold"><i class="bi bi-question-circle me-1"></i> Cara Menggunakan</h6>
                             <ol class="small text-muted ps-3">
                                 <li class="mb-2">
-                                    Buka aplikasi <strong>CBTku</strong>, masuk ke menu
+                                    Buka aplikasi <strong>CBT Mandiri</strong>, masuk ke menu
                                     <strong>Aktivitas</strong>.
                                 </li>
                                 <li class="mb-2">

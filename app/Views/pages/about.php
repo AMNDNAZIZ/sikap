@@ -39,7 +39,7 @@
                             <li class="mb-2"><i class="fas fa-check text-success me-2"></i> <strong>Portal & Komunikasi Interaktif:</strong> 
                                 Dilengkapi dengan CMS Website sekolah, sistem pengumuman, serta ruang obrolan (Chat) internal antar warga sekolah.</li>
                         </ul>
-                        <p>Beberapa fitur dalam aplikasi ini terkait erat dengan aplikasi lain yang dibuat SakaSalika seperti Bayaran dan CBTku</p>
+                        <p class="small text-muted">ESPATA merupakan sistem informasi akademik terpadu yang dapat diintegrasikan dengan aplikasi eksternal pendukung SakaSalika melalui protokol API resmi.</p>
                     </div>
                 </div>
             </div>

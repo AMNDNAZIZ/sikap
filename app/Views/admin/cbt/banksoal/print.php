@@ -143,7 +143,7 @@
 <body>
     <div class="header">
         <h2>Bank Soal Ujian</h2>
-        <p>Aplikasi CBTku V.2.0</p>
+        <p>CBT ESPATA</p>
     </div>
 
     <table class="info-table">
