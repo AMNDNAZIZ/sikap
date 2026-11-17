@@ -38,6 +38,12 @@
 phpunit.result.cache
 tests/cookie_*.txt
 tests/cookie_*.txt.*
+tests/*.json
+tests/*.log
+tests/*.tmp
+tests/live_*_results*.json
+tests/regression_*.json
+tests/audit_*.json
 
 # ==============================================================================
 # Public Uploads (User Data & Generated Artifacts)
@@ -99,3 +105,6 @@ php_errors.log
 /skills-lock.json
 /log_Cpanel/
 /ai-context/
+EAO-*.md
+scratch_*.php
+*.jsonl
