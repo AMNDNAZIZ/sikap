@@ -36,6 +36,8 @@
 /build/
 .phpunit.cache/
 phpunit.result.cache
+tests/cookie_*.txt
+tests/cookie_*.txt.*
 
 # ==============================================================================
 # Public Uploads (User Data & Generated Artifacts)

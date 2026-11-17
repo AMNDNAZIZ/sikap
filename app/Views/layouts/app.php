@@ -1221,6 +1221,9 @@
         navigator.serviceWorker.register('<?= base_url('service-worker.js') ?>')
           .then(registration => {
             console.log('[PWA] Service Worker registered:', registration.scope);
+            if (typeof registration.update === 'function') {
+              registration.update();
+            }
           })
           .catch(error => {
             console.log('[PWA] Service Worker registration failed:', error);

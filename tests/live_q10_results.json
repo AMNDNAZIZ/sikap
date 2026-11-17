@@ -1,0 +1,87 @@
+{
+    "preflight": {
+        "sec_pass_before": true,
+        "sec_pass_after": true,
+        "user_id": 2,
+        "telemetry_tag": "groq:self:2",
+        "admin_used_before": 20,
+        "admin_used_after": 20
+    },
+    "trials": [
+        {
+            "trial": 1,
+            "timestamp": "2026-11-16 17:16:01",
+            "masked_conv_id": "c18be65a-****-****-****-bcf437f5beaf",
+            "client_message_id": "0010fdb6-5b0f-45dc-83dc-be00a0a0e164",
+            "key_source": "groq:self:2",
+            "key_owner_id": 2,
+            "provider": "groq",
+            "model": "openai\/gpt-oss-20b",
+            "latency_ms": 1727.86,
+            "prompt_tokens": 1841,
+            "completion_tokens": 330,
+            "classification": "LIVE_LLM_SUCCESS",
+            "has_json": true,
+            "contract_complete": true,
+            "explanation": "Mohon maaf, saya belum mengetahui mata pelajaran atau kelas mana yang Anda maksud. Silakan pilih salah satu penugasan aktif Anda: Pendidikan Pancasila Kelas 6A (Fase C), Bahasa Indonesia Kelas 6A (Fase C), Ilmu Pengetahuan Alam dan Sosial Kelas 6A (Fase C), atau Matematika Kelas 6A (Fase C).",
+            "intent": "CLARIFICATION",
+            "suggestions": [
+                "Pilih mata pelajaran yang ingin Anda ajarkan",
+                "Berikan nama mata pelajaran atau kelas yang dimaksud",
+                "Tanyakan penugasan aktif Anda"
+            ],
+            "error_code": null,
+            "error_msg": null
+        },
+        {
+            "trial": 2,
+            "timestamp": "2026-11-16 17:16:35",
+            "masked_conv_id": "c18be65a-****-****-****-bcf437f5beaf",
+            "client_message_id": "46c45c45-6b5e-4330-a6a4-662efb671e6d",
+            "key_source": "groq:self:2",
+            "key_owner_id": 2,
+            "provider": "groq",
+            "model": "openai\/gpt-oss-20b",
+            "latency_ms": 2457.77,
+            "prompt_tokens": 1841,
+            "completion_tokens": 312,
+            "classification": "LIVE_LLM_SUCCESS",
+            "has_json": true,
+            "contract_complete": true,
+            "explanation": "Mohon maaf, saya belum mengetahui mata pelajaran atau kelas mana yang Anda maksud. Silakan pilih salah satu dari penugasan aktif Anda: Pendidikan Pancasila Kelas 6A (Fase C), Bahasa Indonesia Kelas 6A (Fase C), Ilmu Pengetahuan Alam dan Sosial Kelas 6A (Fase C), atau Matematika Kelas 6A (Fase C).",
+            "intent": "CLARIFICATION",
+            "suggestions": [
+                "Pilih mata pelajaran yang ingin Anda ajarkan",
+                "Berikan nama mata pelajaran atau kelas yang dimaksud",
+                "Tanyakan kembali jika ada kebingungan"
+            ],
+            "error_code": null,
+            "error_msg": null
+        },
+        {
+            "trial": 3,
+            "timestamp": "2026-11-16 17:17:09",
+            "masked_conv_id": "c18be65a-****-****-****-bcf437f5beaf",
+            "client_message_id": "a3fc9af1-81f9-411b-9164-b2c4b27f59f9",
+            "key_source": "groq:self:2",
+            "key_owner_id": 2,
+            "provider": "groq",
+            "model": "openai\/gpt-oss-20b",
+            "latency_ms": 1507.97,
+            "prompt_tokens": 1841,
+            "completion_tokens": 322,
+            "classification": "LIVE_LLM_SUCCESS",
+            "has_json": true,
+            "contract_complete": true,
+            "explanation": "Mohon maaf, saya belum mengetahui mata pelajaran atau kelas mana yang Anda maksud. Silakan pilih salah satu dari penugasan aktif Anda: Pendidikan Pancasila Kelas 6A (Fase C), Bahasa Indonesia Kelas 6A (Fase C), Ilmu Pengetahuan Alam dan Sosial Kelas 6A (Fase C), Matematika Kelas 6A (Fase C).",
+            "intent": "CLARIFICATION",
+            "suggestions": [
+                "Pilih mata pelajaran yang ingin Anda ajarkan",
+                "Tanyakan penugasan aktif Anda",
+                "Buat modul untuk salah satu mata pelajaran"
+            ],
+            "error_code": null,
+            "error_msg": null
+        }
+    ]
+}

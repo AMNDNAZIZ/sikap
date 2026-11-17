@@ -17,11 +17,33 @@ class EspataFeatureKnowledge
     {
         return [
             [
+                'id'            => 'guide_lms_materi',
+                'feature_id'    => 'feat_lms_materials_seg',
+                'title'         => 'Panduan Mengunggah & Mengelola Materi Pembelajaran di LMS',
+                'category'      => 'LMS & Pembelajaran',
+                'allowed_roles' => [1, 3],
+                'keywords'      => ['cara membuat materi di lms', 'cara membuat materi lms', 'materi lms', 'materi di lms', 'upload materi lms', 'buat materi lms', 'mengelola materi pembelajaran di lms', 'materi pembelajaran di lms', 'unggah materi lms'],
+                'required_any'  => ['lms'],
+                'summary'       => 'Langkah-langkah mengunggah dan mengelola materi pembelajaran di portal LMS:',
+                'steps'         => [
+                    'Buka menu <strong>LMS & Pembelajaran</strong> &rarr; <strong>Materi Pembelajaran</strong>.',
+                    'Pilih <strong>Mata Pelajaran</strong> dan <strong>Kelas</strong> yang Anda ampu.',
+                    'Klik tombol <strong>Tambah Materi</strong> baru.',
+                    'Isikan judul materi, deskripsi singkat, dan tentukan tipe materi (teks artikel, dokumen PDF/PPT, atau tautan video YouTube).',
+                    'Atur segmen pembelajaran dan kelas sasaran, lalu klik <strong>Simpan</strong> agar materi dapat diakses oleh siswa.'
+                ],
+                'action_url'    => site_url('admin/materials'),
+                'action_label'  => 'Buka Materi Pembelajaran LMS',
+                'action_icon'   => 'bi bi-file-earmark-play-fill',
+            ],
+            [
                 'id'            => 'guide_modul_ajar',
+                'feature_id'    => 'feat_cur_modul_ajar',
                 'title'         => 'Panduan Membuat Modul Ajar (Kurikulum Merdeka)',
                 'category'      => 'Kurikulum & Pembelajaran',
                 'allowed_roles' => [1, 3],
-                'keywords'      => ['cara membuat modul', 'cara buat modul', 'panduan modul ajar', 'bikin rpp', 'perangkat ajar', 'generate modul ajar', 'modul ajar'],
+                'keywords'      => ['cara membuat modul ajar', 'cara buat modul ajar', 'panduan modul ajar', 'bikin rpp', 'perangkat ajar', 'generate modul ajar', 'modul ajar'],
+                'required_any'  => ['modul', 'rpp', 'perangkat ajar'],
                 'summary'       => 'Langkah-langkah menyusun Modul Ajar dan memanfaatkan Generator AI:',
                 'steps'         => [
                     'Buka menu <strong>Kurikulum & Pembelajaran</strong> &rarr; <strong>Perangkat Ajar (Modul Ajar)</strong>.',
@@ -36,10 +58,12 @@ class EspataFeatureKnowledge
             ],
             [
                 'id'            => 'guide_input_nilai',
+                'feature_id'    => 'feat_gra_input_grades',
                 'title'         => 'Panduan Penginputan Nilai Siswa & Asesmen',
                 'category'      => 'Penilaian & Rapor',
                 'allowed_roles' => [1, 3],
                 'keywords'      => ['cara input nilai', 'cara memasukkan nilai', 'panduan nilai', 'nilai tugas', 'nilai rapor', 'input nilai siswa'],
+                'required_any'  => ['nilai', 'asesmen', 'bobot'],
                 'summary'       => 'Langkah-langkah menginput nilai harian, formatif, sumatif, dan rapor:',
                 'steps'         => [
                     'Masuk ke menu <strong>Penilaian & Rapor</strong> &rarr; <strong>Input Nilai</strong>.',
@@ -54,10 +78,12 @@ class EspataFeatureKnowledge
             ],
             [
                 'id'            => 'guide_presensi_siswa',
+                'feature_id'    => 'feat_att_daily_class',
                 'title'         => 'Panduan Pencatatan Presensi Kehadiran Siswa',
                 'category'      => 'Akademik & KBM',
                 'allowed_roles' => [1, 3],
                 'keywords'      => ['cara absen siswa', 'cara presensi siswa', 'panduan kehadiran siswa', 'absen harian', 'presensi kelas'],
+                'required_any'  => ['siswa', 'murid'],
                 'summary'       => 'Langkah-langkah mencatat kehadiran harian siswa di kelas:',
                 'steps'         => [
                     'Buka menu <strong>Akademik & KBM</strong> &rarr; <strong>Presensi Siswa</strong>.',
@@ -72,10 +98,12 @@ class EspataFeatureKnowledge
             ],
             [
                 'id'            => 'guide_bank_soal_cbt',
+                'feature_id'    => 'feat_cbt_bank_soal',
                 'title'         => 'Panduan Mengelola Bank Soal Ujian CBT',
                 'category'      => 'Ujian Online CBT',
                 'allowed_roles' => [1, 3],
                 'keywords'      => ['cara buat soal cbt', 'tambah soal cbt', 'bank soal ujian', 'buat soal ujian', 'upload soal cbt'],
+                'required_any'  => ['soal', 'butir'],
                 'summary'       => 'Langkah-langkah menyusun bank soal untuk pelaksanaan ujian online:',
                 'steps'         => [
                     'Buka menu <strong>Ujian CBT</strong> &rarr; <strong>Bank Soal</strong>.',
@@ -91,10 +119,12 @@ class EspataFeatureKnowledge
             ],
             [
                 'id'            => 'guide_reset_ujian_cbt',
+                'feature_id'    => 'feat_cbt_monitoring',
                 'title'         => 'Panduan Reset Sesi Ujian Siswa Terkunci di CBT',
                 'category'      => 'Ujian Online CBT',
                 'allowed_roles' => [1, 2, 3],
                 'keywords'      => ['cara reset ujian', 'siswa terkunci', 'reset login cbt', 'ujian tab lain', 'buka sesi cbt', 'ujian terkunci', 'reset cbt'],
+                'required_any'  => ['reset', 'terkunci'],
                 'summary'       => 'Langkah-langkah membuka sesi ujian siswa yang terkunci atau pindah perangkat:',
                 'steps'         => [
                     'Buka menu <strong>Ujian CBT</strong> &rarr; <strong>Aktivitas & Monitoring</strong>.',
@@ -110,10 +140,12 @@ class EspataFeatureKnowledge
             ],
             [
                 'id'            => 'guide_rekap_absensi_guru',
+                'feature_id'    => 'feat_adm_teacher_attendance',
                 'title'         => 'Panduan Melihat Rekapitulasi Presensi Guru',
                 'category'      => 'Kepegawaian',
                 'allowed_roles' => [1, 2],
-                'keywords'      => ['cara melihat absen guru', 'rekap kehadiran guru', 'laporan absensi guru', 'kehadiran pegawai', 'pantau guru'],
+                'keywords'      => ['cara melihat absen guru', 'rekap kehadiran guru', 'laporan absensi guru', 'kehadiran pegawai', 'pantau guru', 'rekap absensi guru'],
+                'required_any'  => ['guru', 'pegawai', 'gtk'],
                 'summary'       => 'Langkah-langkah monitoring kehadiran guru dan tenaga pendidik:',
                 'steps'         => [
                     'Masuk ke menu <strong>Kepegawaian</strong> &rarr; <strong>Laporan Absensi Guru</strong>.',
@@ -127,10 +159,12 @@ class EspataFeatureKnowledge
             ],
             [
                 'id'            => 'guide_rapor_semester',
+                'feature_id'    => 'feat_grd_erapor',
                 'title'         => 'Panduan Pengolahan & Cetak Rapor Semester',
                 'category'      => 'Penilaian & Rapor',
                 'allowed_roles' => [1, 2, 3],
                 'keywords'      => ['cara cetak rapor', 'rapor semester', 'cetak nilai rapor', 'rapor kurikulum merdeka', 'kelulusan'],
+                'required_any'  => ['rapor', 'raport'],
                 'summary'       => 'Langkah-langkah finalisasi dan pencetakan buku rapor siswa:',
                 'steps'         => [
                     'Buka menu <strong>Penilaian & Rapor</strong> &rarr; <strong>Rapor Semester</strong>.',
@@ -145,10 +179,12 @@ class EspataFeatureKnowledge
             ],
             [
                 'id'            => 'guide_mutasi_siswa',
+                'feature_id'    => 'feat_std_mutation',
                 'title'         => 'Panduan Pencatatan Mutasi Siswa (Masuk / Keluar)',
                 'category'      => 'Administrasi Siswa',
                 'allowed_roles' => [1],
                 'keywords'      => ['cara mutasi siswa', 'siswa pindah', 'buku mutasi', 'siswa keluar', 'siswa masuk', 'pindah sekolah'],
+                'required_any'  => ['mutasi', 'pindah'],
                 'summary'       => 'Langkah-langkah mengelola buku mutasi siswa:',
                 'steps'         => [
                     'Buka menu <strong>Administrasi Siswa</strong> &rarr; <strong>Buku Mutasi Siswa</strong>.',
@@ -163,10 +199,12 @@ class EspataFeatureKnowledge
             ],
             [
                 'id'            => 'guide_surat_tu',
+                'feature_id'    => 'feat_com_letters_in_out',
                 'title'         => 'Panduan Pengelolaan Surat Masuk & Keluar',
                 'category'      => 'Tata Usaha & Surat',
                 'allowed_roles' => [1, 2],
                 'keywords'      => ['cara buat surat', 'surat masuk', 'surat keluar', 'agenda surat', 'tata usaha', 'nomor surat'],
+                'required_any'  => ['surat', 'agenda', 'ekspedisi'],
                 'summary'       => 'Langkah-langkah pencatatan surat dan arsip dinas:',
                 'steps'         => [
                     'Buka menu <strong>Tata Usaha & Surat</strong> &rarr; pilih <strong>Surat Masuk</strong> atau <strong>Surat Keluar</strong>.',
@@ -187,9 +225,9 @@ class EspataFeatureKnowledge
      */
     public static function findGuide(string $query, int $roleId): ?array
     {
-        $qClean = strtolower(preg_replace('/[^a-z0-9\s]/', ' ', $query));
+        $qClean = strtolower(trim(preg_replace('/[^a-zA-Z0-9\s]/', ' ', $query)));
         $tokens = array_filter(explode(' ', $qClean), function ($t) {
-            return strlen(trim($t)) >= 2;
+            return strlen(trim($t)) >= 2 && !in_array($t, ['cara', 'buat', 'membuat', 'bikin', 'lihat', 'melihat', 'panduan', 'bagaimana', 'di', 'ke', 'dan', 'pada', 'untuk', 'yang']);
         });
 
         if (empty($tokens)) {
@@ -204,6 +242,20 @@ class EspataFeatureKnowledge
             // Cek role izin
             if (!in_array($roleId, $guide['allowed_roles']) && $roleId !== 1) {
                 continue;
+            }
+
+            // Validasi kata kunci wajib (required_any)
+            if (!empty($guide['required_any'])) {
+                $hasRequired = false;
+                foreach ($guide['required_any'] as $req) {
+                    if (strpos($qClean, $req) !== false) {
+                        $hasRequired = true;
+                        break;
+                    }
+                }
+                if (!$hasRequired) {
+                    continue; // Skip jika kata kunci spesifik tidak ada sama sekali
+                }
             }
 
             $score = 0;
@@ -222,7 +274,7 @@ class EspataFeatureKnowledge
                 }
             }
 
-            // Cek kecocokan per kata (token)
+            // Cek kecocokan per kata (token) bermakna
             foreach ($tokens as $token) {
                 if (strpos($titleLower, $token) !== false) {
                     $score += 15;

@@ -1187,4 +1187,6 @@ $routes->group('api', ['namespace' => 'App\Controllers\Api'], function ($routes)
     $routes->get('ai-copilot/actions', 'AiCopilot::getActions', ['filter' => 'auth']);
     $routes->post('ai-copilot/ask', 'AiCopilot::ask', ['filter' => 'auth']);
     $routes->get('ai-copilot/morning-briefing', 'AiCopilot::morningBriefing', ['filter' => 'auth']);
+    $routes->get('ai-copilot/conversation/(:any)', 'AiCopilot::getConversationHistory/$1', ['filter' => 'auth']);
+    $routes->post('ai-copilot/conversation/new', 'AiCopilot::newConversation', ['filter' => 'auth']);
 });

@@ -661,10 +661,25 @@ class Kokurikuler extends BaseController
             $aiProvider = $userData['ai_provider'] ?? 'gemini';
         }
 
+        // Fallback: Gunakan API Key Administrator di tabel users jika akun guru belum memiliki kunci
+        if (empty($apiKey)) {
+            $db = \Config\Database::connect();
+            $adminUser = $db->table('users')
+                ->where('gemini_api_key !=', '')
+                ->where('gemini_api_key IS NOT NULL')
+                ->orderBy('id', 'ASC')
+                ->get()
+                ->getRowArray();
+            if ($adminUser && !empty($adminUser['gemini_api_key'])) {
+                $apiKey = $adminUser['gemini_api_key'];
+                $aiProvider = $adminUser['ai_provider'] ?? 'groq';
+            }
+        }
+
         if (empty($apiKey)) {
             return [
                 'success' => false,
-                'message' => 'API Key belum diatur. Silakan atur API Key terlebih dahulu.'
+                'message' => 'API Key belum diatur. Silakan atur API Key terlebih dahulu di menu Pengaturan AI.'
             ];
         }
 
@@ -1040,8 +1055,8 @@ class Kokurikuler extends BaseController
 
             $allTps = $this->tpModel
                 ->whereIn('subject_id', $subjectIds)
-                ->orderBy("CASE WHEN fase = " . $db->escape($fase) . " THEN 0 ELSE 1 END", 'ASC')
-                ->orderBy(!empty($classesInClause) ? "CASE WHEN kelas IN ({$classesInClause}) THEN 0 ELSE 1 END" : "id", 'ASC')
+                ->orderBy("CASE WHEN fase = " . $db->escape($fase) . " THEN 0 ELSE 1 END", 'ASC', false)
+                ->orderBy(!empty($classesInClause) ? "CASE WHEN kelas IN ({$classesInClause}) THEN 0 ELSE 1 END" : "id", 'ASC', false)
                 ->orderBy('subject_id', 'ASC')
                 ->orderBy('id', 'ASC')
                 ->findAll();
@@ -1083,21 +1098,9 @@ class Kokurikuler extends BaseController
             }
         }
 
-        // 2. Fallback: Cari API Key milik Guru manapun di tabel teachers
-        if (empty($apiKey)) {
-            $anyTeacher = $db->table('teachers')
-                ->where('gemini_api_key !=', '')
-                ->where('gemini_api_key IS NOT NULL')
-                ->orderBy('id', 'ASC')
-                ->get()
-                ->getRowArray();
-            if ($anyTeacher && !empty($anyTeacher['gemini_api_key'])) {
-                $apiKey = $anyTeacher['gemini_api_key'];
-                $aiProvider = $anyTeacher['ai_provider'] ?? 'groq';
-            }
-        }
-
-        // 3. Fallback: Cek environment variables (.env)
+        // 2. Fallback: Cek environment variables (.env)
+        // CATATAN KEAMANAN (EAO-MANDATE-2026-004): Fallback ke sembarang guru di tabel teachers DIHAPUS MUTLAK
+        // demi melindungi hak privasi dan mencegah penyedotan kuota API pribadi guru lain.
         if (empty($apiKey)) {
             $groqEnv = getenv('GROQ_API_KEY') ?: ($_ENV['GROQ_API_KEY'] ?? '');
             if (!empty($groqEnv)) {

@@ -1,0 +1,63 @@
+{
+    "metadata": {
+        "mandate": "EAO-HO-2026-038",
+        "validation_date": "2026-11-17",
+        "user_id": 2,
+        "teacher_id": 1,
+        "provider": "groq",
+        "model": "openai\/gpt-oss-20b",
+        "telemetry_tag": "groq:self:2",
+        "conversation_id": 124,
+        "conversation_uuid": "83c93ed4-063d-4d81-b873-9a65ccb16d7a",
+        "admin_quota_before": 0,
+        "admin_quota_after": 0,
+        "admin_quota_delta": 0,
+        "sec_pass": 1,
+        "all_success": true
+    },
+    "results": {
+        "Q4": {
+            "label": "Q4",
+            "query": "Sekarang buat materi Bahasa Indonesia.",
+            "classification": "LIVE_LLM_SUCCESS",
+            "http_code": 200,
+            "latency_ms": 1447.52,
+            "prompt_tokens": 1650,
+            "completion_tokens": 418,
+            "total_tokens": 2068,
+            "is_json_valid": true,
+            "contract_complete": true,
+            "final_intent": "TASK_ASSISTANCE",
+            "explanation": "Berikut materi Bahasa Indonesia untuk kelas 6A fase C. Materi dirancang singkat, padat, dan sesuai tingkat pemahaman siswa.",
+            "ai_content": "1. **Pengertian Bahasa Indonesia**\n   Bahasa Indonesia adalah bahasa resmi Indonesia yang digunakan sebagai media komunikasi antarwarga negara. Ia memiliki ciri khas tata bahasa yang sederhana dan kosakata yang berasal dari berbagai daerah.\n\n2. **Struktur Kalimat**\n   Kalimat dalam Bahasa Indonesia terdiri dari subjek, predikat, dan objek. Contoh: \"Anak membaca buku.\" Subjek (Anak), predikat (membaca), objek (buku).\n\n3. **Kata Kerja dan Kata Benda**\n   - Kata kerja: menunjukkan aksi atau keadaan (misalnya: membaca, menulis, berlari).\n   - Kata benda: menyebut orang, tempat, atau benda (misalnya: guru, sekolah, buku).",
+            "suggestions": [
+                "Berikan contoh soal latihan tentang struktur kalimat",
+                "Tanyakan apakah Anda membutuhkan materi tentang tata bahasa atau kosa kata"
+            ],
+            "error_msg": null,
+            "client_message_id": "0ae8866e-5ec6-46e5-9fe2-8cb75cf8bdfd"
+        },
+        "Q6": {
+            "label": "Q6",
+            "query": "Saya ingin membuat asesmen formatif.",
+            "classification": "LIVE_LLM_SUCCESS",
+            "http_code": 200,
+            "latency_ms": 1541.9,
+            "prompt_tokens": 1959,
+            "completion_tokens": 389,
+            "total_tokens": 2348,
+            "is_json_valid": true,
+            "contract_complete": true,
+            "final_intent": "TASK_ASSISTANCE",
+            "explanation": "Berikut contoh draf asesmen formatif Bahasa Indonesia untuk kelas 6A fase C. Dapat disesuaikan dengan materi yang telah diajarkan.",
+            "ai_content": "1. **Soal Pilihan Ganda (5 soal)** – Fokus pada pemahaman struktur kalimat dan penggunaan kata kerja. \n2. **Tugas Menulis Paragraf** – Siswa menulis paragraf singkat (3–4 kalimat) tentang kegiatan sehari‑hari menggunakan subjek, predikat, dan objek yang jelas. \n3. **Kuis Kecil (10 poin)** – Pertanyaan benar\/salah mengenai ciri bahasa Indonesia dan contoh kalimat. \n4. **Penilaian Reflektif** – Siswa menuliskan satu kalimat tentang apa yang telah dipelajari dan satu hal yang masih sulit. \n5. **Feedback Otomatis** – Guru dapat memberikan komentar singkat pada setiap jawaban untuk memperbaiki pemahaman siswa.",
+            "suggestions": [
+                "Simpan draf ini ke modul ajar",
+                "Kembangkan soal tambahan untuk evaluasi akhir",
+                "Berikan contoh jawaban model"
+            ],
+            "error_msg": null,
+            "client_message_id": "ad2feea0-4b7c-4485-b002-da1591631ab2"
+        }
+    }
+}

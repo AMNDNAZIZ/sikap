@@ -1,0 +1,92 @@
+[
+    {
+        "file": "tests\/test_q5_fix.php",
+        "suite_name": "Q5 Variable Scoping Regression",
+        "runner": "Custom PHP CLI runner",
+        "exit_code": 0,
+        "scenarios": 4,
+        "passed": 4,
+        "failed": 0,
+        "assertions": 5
+    },
+    {
+        "file": "tests\/test_prompt_anchor.php",
+        "suite_name": "Q10 Prompt Anchor Verification",
+        "runner": "Custom PHP CLI runner",
+        "exit_code": 0,
+        "scenarios": 5,
+        "passed": 5,
+        "failed": 0,
+        "assertions": 6
+    },
+    {
+        "file": "tests\/test_intent_q6_remediation.php",
+        "suite_name": "Q6 Intent Classifier Remediation",
+        "runner": "Custom PHP CLI runner",
+        "exit_code": 0,
+        "scenarios": 15,
+        "passed": 15,
+        "failed": 0,
+        "assertions": 15
+    },
+    {
+        "file": "tests\/test_intent.php",
+        "suite_name": "Baseline Intent Classifier 7 Domains",
+        "runner": "Custom PHP CLI runner",
+        "exit_code": 0,
+        "scenarios": 8,
+        "passed": 8,
+        "failed": 0,
+        "assertions": 8
+    },
+    {
+        "file": "tests\/test_cp2_bounded_content.php",
+        "suite_name": "Q4 Bounded Content Guideline",
+        "runner": "Custom PHP CLI runner",
+        "exit_code": 0,
+        "scenarios": 7,
+        "passed": 7,
+        "failed": 0,
+        "assertions": 8
+    },
+    {
+        "file": "tests\/test_cp3_error_diagnostic.php",
+        "suite_name": "Groq Adapter Diagnostic Sanitization",
+        "runner": "Custom PHP CLI runner",
+        "exit_code": 0,
+        "scenarios": 11,
+        "passed": 11,
+        "failed": 0,
+        "assertions": 12
+    },
+    {
+        "file": "tests\/test_phase1c_regression.php",
+        "suite_name": "Phase 1C 13-Point Governance Suite",
+        "runner": "Custom PHP CLI runner",
+        "exit_code": 0,
+        "scenarios": 0,
+        "passed": 0,
+        "failed": 0,
+        "assertions": 0
+    },
+    {
+        "file": "tests\/test_operational_context_provider.php",
+        "suite_name": "Operational Context Foundation Suite",
+        "runner": "Custom PHP CLI runner",
+        "exit_code": 0,
+        "scenarios": 0,
+        "passed": 0,
+        "failed": 0,
+        "assertions": 3
+    },
+    {
+        "file": "tests\/e2e_phase1d3_stage2_suite.php",
+        "suite_name": "Phase 1D.3 Stage 2 E2E & Context Suite",
+        "runner": "Custom PHP CLI runner",
+        "exit_code": 0,
+        "scenarios": 0,
+        "passed": 0,
+        "failed": 0,
+        "assertions": 2
+    }
+]

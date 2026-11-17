@@ -96,8 +96,20 @@
              ========================================== -->
         <div class="tab-pane fade" id="tab-chat" role="tabpanel">
           
+          <!-- Chat Session Toolbar (Fase 1D.2) -->
+          <div class="px-3 py-1 bg-white border-bottom d-flex align-items-center justify-content-between text-muted" style="font-size: 0.72rem;">
+            <span id="chatSessionBadge" class="d-inline-flex align-items-center gap-1 text-truncate" style="max-width: 65%;">
+              <i class="bi bi-clock-history text-primary"></i>
+              <span id="chatSessionTitle" class="fw-medium text-dark text-truncate">Percakapan Baru</span>
+            </span>
+            <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill py-0 px-2 d-inline-flex align-items-center gap-1 shadow-none" id="btnNewChatSession" title="Mulai Sesi Percakapan Baru">
+              <i class="bi bi-plus-circle"></i>
+              <span>Percakapan Baru</span>
+            </button>
+          </div>
+
           <!-- Chat Message Thread -->
-          <div class="p-3 copilot-chat-thread" id="copilotChatThread" style="height: 380px; overflow-y: auto; background: #f8fafc;">
+          <div class="p-3 copilot-chat-thread" id="copilotChatThread" style="height: 350px; overflow-y: auto; background: #f8fafc;">
             <!-- Bot Welcome Bubble -->
             <div class="d-flex align-items-start gap-2 mb-3">
               <div class="copilot-avatar-bot bg-primary text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 32px; height: 32px;">
@@ -389,9 +401,78 @@
 }
 </style>
 
+<script src="<?= base_url('assets/js/asis-copilot.js?v=20261117_064') ?>"></script>
 <script>
 (function() {
   'use strict';
+
+  // Safe helper functions for AsisCopilot state & idempotency (MANDAT EAO-HO-2026-062)
+  function isCopilotInProgress() {
+    return (typeof AsisCopilot !== 'undefined' && typeof AsisCopilot.isInProgress === 'function')
+      ? AsisCopilot.isInProgress()
+      : false;
+  }
+
+  function lockCopilotUi(btn, input) {
+    if (typeof AsisCopilot !== 'undefined' && typeof AsisCopilot.lockUi === 'function') {
+      AsisCopilot.lockUi(btn, input);
+    } else {
+      if (btn) { btn.disabled = true; btn.classList.add('disabled'); }
+      if (input) input.setAttribute('readonly', 'readonly');
+    }
+  }
+
+  function unlockCopilotUi(btn, input) {
+    if (typeof AsisCopilot !== 'undefined' && typeof AsisCopilot.unlockUi === 'function') {
+      AsisCopilot.unlockUi(btn, input);
+    } else {
+      if (btn) { btn.disabled = false; btn.classList.remove('disabled'); }
+      if (input) input.removeAttribute('readonly');
+    }
+  }
+
+  function getClientMessageIdSafe(forceNew = true) {
+    if (typeof AsisCopilot !== 'undefined' && typeof AsisCopilot.getOrCreateMessageId === 'function') {
+      return AsisCopilot.getOrCreateMessageId(forceNew);
+    }
+    return (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString());
+  }
+
+  function resetMessageIdSafe() {
+    if (typeof AsisCopilot !== 'undefined' && typeof AsisCopilot.resetMessageId === 'function') {
+      AsisCopilot.resetMessageId();
+    }
+  }
+
+  function getActiveConversationIdSafe() {
+    if (typeof AsisCopilot !== 'undefined' && typeof AsisCopilot.getActiveConversationId === 'function') {
+      return AsisCopilot.getActiveConversationId();
+    }
+    try {
+      return window.sessionStorage ? window.sessionStorage.getItem('espata_asis_conversation_id') : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function setActiveConversationIdSafe(uuid) {
+    if (typeof AsisCopilot !== 'undefined' && typeof AsisCopilot.setActiveConversationId === 'function') {
+      AsisCopilot.setActiveConversationId(uuid);
+    }
+    try {
+      if (window.sessionStorage) {
+        if (uuid) {
+          window.sessionStorage.setItem('espata_asis_conversation_id', uuid);
+        } else {
+          window.sessionStorage.removeItem('espata_asis_conversation_id');
+        }
+      }
+    } catch (e) {}
+  }
+
+  function clearActiveConversationIdSafe() {
+    setActiveConversationIdSafe(null);
+  }
 
   let cachedActions = [];
   let isFetchingActions = false;
@@ -435,6 +516,7 @@
       if (tabChatBtn) {
         const tab = new bootstrap.Tab(tabChatBtn);
         tab.show();
+        restoreActiveConversationIfNeeded();
         setTimeout(() => {
           chatInput.focus();
           if (initialQuery) {
@@ -476,6 +558,13 @@
         chatInput.value = q;
         submitChatMessage(q);
       }
+    });
+  }
+
+  const tabChatBtnEl = document.getElementById('tab-chat-btn');
+  if (tabChatBtnEl) {
+    tabChatBtnEl.addEventListener('shown.bs.tab', () => {
+      restoreActiveConversationIfNeeded();
     });
   }
 
@@ -757,53 +846,256 @@
     return loadingId;
   }
 
-  function submitChatMessage(query) {
-    appendUserBubble(query);
-    const loadingId = appendBotLoading();
+  function updateConversationHeader(title) {
+    const titleEl = document.getElementById('chatSessionTitle');
+    if (titleEl && title) {
+      titleEl.textContent = title;
+    }
+  }
 
-    const payload = { query: query };
-    payload[CSRF_TOKEN_NAME] = CSRF_HASH;
+  function resetChatThreadToWelcome() {
+    chatThread.innerHTML = `
+      <div class="d-flex align-items-start gap-2 mb-3">
+        <div class="copilot-avatar-bot bg-primary text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 32px; height: 32px;">
+          <i class="bi bi-stars" style="font-size: 0.9rem;"></i>
+        </div>
+        <div class="copilot-bubble-bot p-3 rounded-4 bg-white shadow-sm border" style="max-width: 85%;">
+          <div class="fw-semibold text-primary mb-1" style="font-size: 0.8rem;">Asisten AI ESPATA</div>
+          <p class="mb-2 text-dark small" style="line-height: 1.45;">
+            Sesi percakapan baru telah dimulai. Anda dapat menanyakan <strong>panduan penggunaan fitur</strong>, membuat draf tugas atau soal, memeriksa jadwal & presensi hari ini, atau langsung membuka halaman yang Anda tuju.
+          </p>
+          <div class="d-flex flex-wrap gap-1 mt-2">
+            <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill py-0 px-2 chat-prompt-chip" data-prompt="Bagaimana cara membuat modul ajar?">📖 Cara Buat Modul</button>
+            <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill py-0 px-2 chat-prompt-chip" data-prompt="Buatkan 5 soal pilihan ganda tentang pecahan">🔢 Buat 5 Soal Pecahan</button>
+            <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill py-0 px-2 chat-prompt-chip" data-prompt="Jadwal mengajar saya hari ini">📅 Jadwal Hari Ini</button>
+            <button type="button" class="btn btn-xs btn-outline-primary rounded-pill py-0 px-2" id="btnReplayBriefingFromChat">🔊 Sambutan Suara Hari Ini</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
 
-    fetch('<?= site_url('api/ai-copilot/ask') ?>', {
-      method: 'POST',
+  let hasRestoredSession = false;
+  function restoreActiveConversationIfNeeded() {
+    if (hasRestoredSession) return;
+    const activeUuid = getActiveConversationIdSafe();
+    if (!activeUuid) return;
+
+    fetch('<?= site_url('api/ai-copilot/conversation/') ?>' + encodeURIComponent(activeUuid), {
       headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRF-TOKEN': CSRF_HASH
-      },
-      body: JSON.stringify(payload)
+        'X-Requested-With': 'XMLHttpRequest'
+      }
     })
     .then(r => {
-      if (r.status === 401) {
-        throw new Error('UNAUTHORIZED');
-      }
-      if (r.status === 429) {
-        throw new Error('RATE_LIMITED');
-      }
+      if (!r.ok) throw new Error('SESSION_NOT_FOUND');
       return r.json();
     })
     .then(res => {
-      const loadingEl = document.getElementById(loadingId);
-      if (loadingEl) loadingEl.remove();
-
-      if (res.csrf_hash) {
-        CSRF_HASH = res.csrf_hash;
+      if (res.csrf_hash) CSRF_HASH = res.csrf_hash;
+      if (res.status === 'success' && Array.isArray(res.messages) && res.messages.length > 0) {
+        hasRestoredSession = true;
+        updateConversationHeader(res.title || 'Sesi Aktif');
+        chatThread.innerHTML = '';
+        res.messages.forEach(m => {
+          if (m.sender_role === 'user') {
+            appendUserBubble(m.message_text);
+          } else {
+            renderBotResponse({
+              explanation: m.message_text,
+              ai_content: m.ai_content,
+              matched_action: null,
+              suggestions: []
+            });
+          }
+        });
       }
-
-      renderBotResponse(res);
     })
-    .catch(err => {
+    .catch(() => {
+      clearActiveConversationIdSafe();
+    });
+  }
+
+  const btnNewChat = document.getElementById('btnNewChatSession');
+  if (btnNewChat) {
+    btnNewChat.addEventListener('click', function() {
+      if (isCopilotInProgress()) return;
+
+      const payload = {};
+      payload[CSRF_TOKEN_NAME] = CSRF_HASH;
+
+      fetch('<?= site_url('api/ai-copilot/conversation/new') ?>', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN': CSRF_HASH,
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.csrf_hash) CSRF_HASH = res.csrf_hash;
+        if (res.conversation_id) {
+          setActiveConversationIdSafe(res.conversation_id);
+        }
+        hasRestoredSession = true;
+        updateConversationHeader('Percakapan Baru');
+        resetChatThreadToWelcome();
+      })
+      .catch(() => {
+        clearActiveConversationIdSafe();
+        hasRestoredSession = true;
+        updateConversationHeader('Percakapan Baru');
+        resetChatThreadToWelcome();
+      });
+    });
+  }
+
+  function submitChatMessage(query) {
+    if (isCopilotInProgress()) {
+      return;
+    }
+
+    // Segera bersihkan input chat agar tidak tertahan di kotak ketik
+    if (chatInput) {
+      chatInput.value = '';
+    }
+
+    appendUserBubble(query);
+    const loadingId = appendBotLoading();
+
+    const btnSubmitChat = chatForm ? chatForm.querySelector('button[type="submit"]') : null;
+    lockCopilotUi(btnSubmitChat, chatInput);
+
+    // MANDAT EAO-HO-2026-062: AbortController with 25s timeout & guaranteed UI recovery
+    let timeoutTimer = null;
+    let abortController = null;
+    try {
+      abortController = new AbortController();
+      timeoutTimer = setTimeout(() => {
+        if (abortController) abortController.abort();
+      }, 25000);
+    } catch (e) {
+      console.warn('[AI Copilot] AbortController not supported:', e);
+    }
+
+    function cleanupLoadingAndUi() {
+      if (timeoutTimer) clearTimeout(timeoutTimer);
       const loadingEl = document.getElementById(loadingId);
       if (loadingEl) loadingEl.remove();
+      unlockCopilotUi(btnSubmitChat, chatInput);
+      resetMessageIdSafe();
+    }
 
-      if (err.message === 'UNAUTHORIZED') {
-        renderBotMessage('Sesi login Anda telah berakhir. Silakan muat ulang halaman atau login kembali.');
-      } else if (err.message === 'RATE_LIMITED') {
-        renderBotMessage('Anda mengirim pesan terlalu cepat. Harap tunggu beberapa detik sebelum mencoba lagi.');
-      } else {
-        renderBotMessage('Maaf, terjadi kendala saat memproses permintaan Anda. Silakan coba kembali.');
+    try {
+      // Force new client message ID untuk setiap kueri baru
+      const clientMessageId = getClientMessageIdSafe(true);
+      const activeConvId = getActiveConversationIdSafe();
+
+      const payload = {
+        query: query,
+        client_message_id: clientMessageId,
+        conversation_id: activeConvId
+      };
+      payload[CSRF_TOKEN_NAME] = CSRF_HASH;
+
+      const fetchHeaders = {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': CSRF_HASH,
+        'X-Client-Message-Id': clientMessageId
+      };
+      if (activeConvId) {
+        fetchHeaders['X-Conversation-Id'] = activeConvId;
       }
-    });
+
+      const fetchOptions = {
+        method: 'POST',
+        headers: fetchHeaders,
+        body: JSON.stringify(payload),
+        signal: abortController.signal
+      };
+
+      fetch('<?= site_url('api/ai-copilot/ask') ?>', fetchOptions)
+      .then(r => {
+        if (r.status === 401) {
+          throw new Error('UNAUTHORIZED');
+        }
+        if (r.status === 403) {
+          throw new Error('FORBIDDEN');
+        }
+        if (r.status === 404) {
+          throw new Error('NOT_FOUND');
+        }
+        if (r.status === 409) {
+          throw new Error('CONFLICT');
+        }
+        if (r.status === 410) {
+          throw new Error('PAYLOAD_EXPIRED');
+        }
+        if (r.status === 429) {
+          throw new Error('RATE_LIMITED');
+        }
+        if (r.status >= 500) {
+          throw new Error('SERVER_ERROR');
+        }
+        return r.json().catch(() => {
+          throw new Error('INVALID_JSON');
+        });
+      })
+      .then(res => {
+        cleanupLoadingAndUi();
+
+        if (res && res.csrf_hash) {
+          CSRF_HASH = res.csrf_hash;
+        }
+
+        if (res && res.conversation_id) {
+          setActiveConversationIdSafe(res.conversation_id);
+        }
+        if (res && res.title) {
+          updateConversationHeader(res.title);
+        } else {
+          updateConversationHeader('Sesi Aktif');
+        }
+
+        if (!res || (!res.explanation && !res.widget_type && !res.matched_action)) {
+          throw new Error('EMPTY_RESPONSE');
+        }
+
+        renderBotResponse(res);
+      })
+      .catch(err => {
+        cleanupLoadingAndUi();
+
+        if (err.name === 'AbortError') {
+          renderBotMessage('Waktu permintaan habis (timeout 25 detik). Silakan periksa koneksi internet Anda atau coba beberapa saat lagi.');
+        } else if (err.message === 'UNAUTHORIZED') {
+          renderBotMessage('Sesi login Anda telah berakhir. Silakan muat ulang halaman atau login kembali.');
+        } else if (err.message === 'FORBIDDEN') {
+          renderBotMessage('Akses tidak diizinkan atau sesi keamanan (CSRF) telah kedaluwarsa. Silakan muat ulang halaman.');
+        } else if (err.message === 'NOT_FOUND') {
+          renderBotMessage('Permintaan tidak ditemukan atau sesi percakapan tidak valid.');
+        } else if (err.message === 'CONFLICT') {
+          renderBotMessage('Permintaan sedang diproses atau terjadi konflik. Harap tunggu beberapa saat.');
+        } else if (err.message === 'PAYLOAD_EXPIRED') {
+          renderBotMessage('Riwayat jawaban untuk permintaan ini telah kedaluwarsa (>7 hari). Silakan tanyakan kembali.');
+        } else if (err.message === 'RATE_LIMITED') {
+          renderBotMessage('Anda mengirim pesan terlalu cepat atau kuota harian telah tercapai. Harap tunggu beberapa detik sebelum mencoba lagi.');
+        } else if (err.message === 'SERVER_ERROR') {
+          renderBotMessage('Terjadi kendala pada server internal (5xx). Silakan coba kembali beberapa saat lagi.');
+        } else if (err.message === 'INVALID_JSON') {
+          renderBotMessage('Gagal memproses data respons dari server. Silakan coba kembali.');
+        } else if (err.message === 'EMPTY_RESPONSE') {
+          renderBotMessage('Asisten AI tidak menghasilkan jawaban yang valid. Silakan coba tanyakan kembali.');
+        } else {
+          renderBotMessage('Maaf, terjadi kendala saat menghubungkan ke Asisten AI. (' + (err.message || 'Koneksi terputus') + ')');
+        }
+      });
+    } catch (dispatchErr) {
+      cleanupLoadingAndUi();
+      renderBotMessage('Gagal mengirim permintaan ke Asisten AI: ' + (dispatchErr.message || 'Kesalahan klien'));
+    }
   }
 
   function renderBotResponse(res) {
@@ -930,6 +1222,22 @@
           </a>
         </div>
       `;
+    }
+
+    // Saran Tindak Lanjut Interaktif (Interactive Suggestions Chips)
+    if (res.suggestions && Array.isArray(res.suggestions) && res.suggestions.length > 0) {
+      contentHtml += `<div class="mt-2 pt-2 border-top d-flex flex-wrap gap-1">`;
+      res.suggestions.forEach(s => {
+        const title = (typeof s === 'string') ? s : (s.title || s.name || '');
+        if (title) {
+          contentHtml += `
+            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill py-0 px-2 chat-prompt-chip shadow-none" data-prompt="${escapeHtml(title)}" style="font-size: 0.72rem;">
+              <i class="bi bi-lightbulb me-1"></i>${escapeHtml(title)}
+            </button>
+          `;
+        }
+      });
+      contentHtml += `</div>`;
     }
 
     bubble.innerHTML = `

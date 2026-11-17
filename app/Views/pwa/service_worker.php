@@ -2,7 +2,7 @@
 // Detect if running from root or public folder
 $publicPrefix = (strpos(FCPATH, 'public') === false && is_dir(FCPATH . 'public')) ? 'public/' : '';
 ?>
-const CACHE_NAME = 'siakad-cbt-v2';
+const CACHE_NAME = 'siakad-cbt-v4-eao062';
 const OFFLINE_URL = './offline.html';
 
 // Assets to cache on install
@@ -50,6 +50,33 @@ const url = new URL(request.url);
 
 // Skip cross-origin requests
 if (url.origin !== location.origin) {
+return;
+}
+
+// 🛑 1. NEVER intercept non-GET requests (POST, PUT, DELETE, PATCH, etc.)
+// POST requests have bodies/payloads that cannot be cached and break if intercepted.
+if (request.method !== 'GET') {
+return;
+}
+
+// 🛑 2. NEVER intercept API, Copilot, Admin, Dashboard, Auth, or dynamic session endpoints
+const dynamicPrefixes = [
+'/api/',
+'/admin/',
+'/dashboard',
+'/auth/',
+'/login',
+'/logout',
+'/ping-session',
+'/chat/',
+'/index.php/api/',
+'/index.php/admin/',
+'/index.php/dashboard',
+'/index.php/auth/',
+'/index.php/login',
+'/index.php/chat/'
+];
+if (dynamicPrefixes.some(p => url.pathname.includes(p))) {
 return;
 }
 
