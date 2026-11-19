@@ -61,7 +61,7 @@
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label">Nama Lengkap (Sesuai KTP)</label>
-                    <input type="text" name="name" value="<?= $teacher['name'] ?>" class="form-control" required>
+                    <input type="text" name="name" value="<?= esc($teacher['name'], 'attr') ?>" class="form-control" required>
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">NIK</label>
@@ -94,7 +94,7 @@
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Nama Ibu Kandung</label>
-                    <input type="text" name="mother_name" value="<?= $teacher['mother_name'] ?>" class="form-control">
+                    <input type="text" name="mother_name" value="<?= esc($teacher['mother_name'], 'attr') ?>" class="form-control">
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Status Pernikahan</label>
@@ -295,7 +295,7 @@
                   <?php else: ?>
                     <?php foreach ($trainings as $tr): ?>
                       <tr>
-                        <td><?= $tr['name'] ?></td>
+                        <td><?= esc($tr['name']) ?></td>
                         <td><?= $tr['year'] ?></td>
                         <td><?= $tr['organizer'] ?></td>
                         <td>
@@ -338,7 +338,7 @@
                       <tr>
                         <td><?= $cr['academic_year'] ?></td>
                         <td><?= $cr['sk_number'] ?></td>
-                        <td><?= $cr['assignment_description'] ?></td>
+                        <td><?= esc($cr['assignment_description']) ?></td>
                         <td>
                           <button type="button" class="btn btn-xs btn-danger btn-delete-sub" data-type="career"
                             data-id="<?= $cr['id'] ?>"><i class="fas fa-trash"></i></button>
@@ -616,7 +616,16 @@
         const title = this.dataset.title;
         if (confirm(`Apakah Anda yakin ingin menghapus dokumen "${title}"?`)) {
           const id = this.dataset.id;
-          window.location.href = `<?= base_url('admin/teachers/deleteDocument') ?>/${id}`;
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = `<?= base_url('admin/teachers/deleteDocument') ?>/${id}`;
+          const csrf = document.createElement('input');
+          csrf.type = 'hidden';
+          csrf.name = '<?= csrf_token() ?>';
+          csrf.value = '<?= csrf_hash() ?>';
+          form.appendChild(csrf);
+          document.body.appendChild(form);
+          form.submit();
         }
       });
     });

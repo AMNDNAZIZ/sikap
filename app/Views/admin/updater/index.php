@@ -131,17 +131,23 @@ $isLocalhost = file_exists(ROOTPATH . '.dev_mode');
                             <strong>Selalu backup sebelum update!</strong><br>
                             File backup berformat <code>.sql</code> untuk restore jika terjadi masalah.
                         </p>
-                        <a href="<?= base_url('admin/updater/backup-database') ?>" class="btn btn-danger w-100">
-                            💾 Download Backup
-                        </a>
+                        <form action="<?= base_url('admin/updater/backup-database') ?>" method="post">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn-danger w-100">
+                                💾 Download Backup
+                            </button>
+                        </form>
                         <small class="text-muted d-block mt-2">
                             <i class="bi bi-info-circle"></i> Disimpan di <code>writable/backups/</code>
                         </small>
                         <div class="mt-3 pt-2 border-top">
-                            <a href="<?= base_url('admin/updater/clean-backups') ?>" class="btn btn-outline-secondary btn-sm w-100"
-                                onclick="return confirm('Bersihkan file dan folder temporary sisa update di writable/backups/?')">
-                                🧹 Bersihkan File Sisa Update
-                            </a>
+                            <form action="<?= base_url('admin/updater/clean-backups') ?>" method="post">
+                                <?= csrf_field() ?>
+                                <button type="submit" class="btn btn-outline-secondary btn-sm w-100"
+                                    onclick="return confirm('Bersihkan file dan folder temporary sisa update di writable/backups/?')">
+                                    🧹 Bersihkan File Sisa Update
+                                </button>
+                            </form>
                         </div>
                     </div>
 
@@ -260,9 +266,12 @@ $isLocalhost = file_exists(ROOTPATH . '.dev_mode');
                             </p>
                         </div>
                         <div class="col-md-3 text-end">
-                            <a href="<?= base_url('admin/updater/generate-patch') ?>" class="btn btn-dark">
-                                ⬇️ Download Zip
-                            </a>
+                            <form action="<?= base_url('admin/updater/generate-patch') ?>" method="post" class="d-inline">
+                                <?= csrf_field() ?>
+                                <button type="submit" class="btn btn-dark">
+                                    ⬇️ Download Zip
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -369,9 +378,12 @@ $isLocalhost = file_exists(ROOTPATH . '.dev_mode');
                 </p>
 
                 <div class="d-grid mb-3">
-                    <a href="<?= base_url('admin/updater/run-migrations') ?>" class="btn btn-success">
-                        ⚡ Jalankan Migrasi
-                    </a>
+                    <form action="<?= base_url('admin/updater/run-migrations') ?>" method="post">
+                        <?= csrf_field() ?>
+                        <button type="submit" class="btn btn-success w-100">
+                            ⚡ Jalankan Migrasi
+                        </button>
+                    </form>
                 </div>
 
                 <div class="border-top pt-3">

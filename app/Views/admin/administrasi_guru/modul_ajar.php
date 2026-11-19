@@ -208,11 +208,12 @@
                                                 <button type="button" class="btn btn-sm btn-outline-secondary w-100 upload-pdf-btn" data-atp-id="<?= $atp['id'] ?>" data-materi="<?= esc($atp['lingkup_materi']) ?>">
                                                     <i class="bi bi-arrow-repeat"></i> Ganti File PDF
                                                 </button>
-                                                <a href="<?= base_url('admin/administrasi-guru/modul-ajar/delete/' . $atp['modul']['id'] . '/' . $selected_subject . '/' . $selected_class) ?>" 
-                                                   class="btn btn-sm btn-light text-danger w-100 border" 
-                                                   onclick="return confirm('Hapus file PDF modul ini?')">
-                                                    <i class="bi bi-trash"></i> Hapus Modul
-                                                </a>
+                                                <form action="<?= base_url('admin/administrasi-guru/modul-ajar/delete/' . $atp['modul']['id'] . '/' . $selected_subject . '/' . $selected_class) ?>" method="post" class="w-100" onsubmit="return confirm('Hapus file PDF modul ini?')">
+                                                    <?= csrf_field() ?>
+                                                    <button type="submit" class="btn btn-sm btn-light text-danger w-100 border">
+                                                        <i class="bi bi-trash"></i> Hapus Modul
+                                                    </button>
+                                                </form>
                                             </div>
                                         <?php else: ?>
                                             <div class="d-flex flex-column gap-1">
@@ -227,11 +228,12 @@
                                                 <button type="button" class="btn btn-sm btn-outline-secondary w-100 upload-pdf-btn" data-atp-id="<?= $atp['id'] ?>" data-materi="<?= esc($atp['lingkup_materi']) ?>">
                                                     <i class="bi bi-file-earmark-pdf"></i> Ganti dgn PDF
                                                 </button>
-                                                <a href="<?= base_url('admin/administrasi-guru/modul-ajar/delete/' . $atp['modul']['id'] . '/' . $selected_subject . '/' . $selected_class) ?>" 
-                                                   class="btn btn-sm btn-light text-danger w-100 border" 
-                                                   onclick="return confirm('Hapus modul ini?')">
-                                                    <i class="bi bi-trash"></i> Hapus Modul
-                                                </a>
+                                                <form action="<?= base_url('admin/administrasi-guru/modul-ajar/delete/' . $atp['modul']['id'] . '/' . $selected_subject . '/' . $selected_class) ?>" method="post" class="w-100" onsubmit="return confirm('Hapus modul ini?')">
+                                                    <?= csrf_field() ?>
+                                                    <button type="submit" class="btn btn-sm btn-light text-danger w-100 border">
+                                                        <i class="bi bi-trash"></i> Hapus Modul
+                                                    </button>
+                                                </form>
                                             </div>
                                         <?php endif; ?>
                                     <?php else: ?>

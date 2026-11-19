@@ -107,11 +107,12 @@
                         <?= $t['is_active'] ? '🚫' : '✅' ?>
                       </button>
 
-                      <a href="<?= base_url('admin/teachers/delete/' . $t['id']) ?>"
-                         class="btn btn-sm btn-danger"
-                         onclick="return confirm('Yakin hapus guru <?= esc($t['name'], 'js') ?>? Akun login terkait juga akan dihapus.')">
-                        🗑
-                      </a>
+                      <form action="<?= base_url('admin/teachers/delete/' . $t['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin hapus guru <?= esc($t['name'], 'js') ?>? Akun login terkait juga akan dihapus.');">
+                        <?= csrf_field() ?>
+                        <button type="submit" class="btn btn-sm btn-danger" title="Hapus">
+                          🗑
+                        </button>
+                      </form>
                     </div>
                   <?php else: ?>
                     <span class="badge bg-secondary">Read Only</span>

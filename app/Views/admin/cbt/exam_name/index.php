@@ -74,12 +74,12 @@
                           title="Edit">
                     <i class="bi bi-pencil"></i>
                   </button>
-                  <a href="<?= site_url('admin/cbt/examname/delete/' . $exam['id']) ?>"
-                     class="btn btn-danger btn-sm btn-action-touch"
-                     onclick="return confirm('Yakin hapus nama ujian ini?')"
-                     title="Hapus">
-                    <i class="bi bi-trash"></i>
-                  </a>
+                  <form action="<?= site_url('admin/cbt/examname/delete/' . $exam['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin hapus nama ujian ini?')">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-danger btn-sm btn-action-touch" title="Hapus">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
                 </div>
               </td>
               <?php endif; ?>

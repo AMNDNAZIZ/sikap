@@ -39,7 +39,7 @@ $routes->get('offline.html', 'Pwa::offline');
 // Tidak memerlukan session/CSRF — autentikasi via header X-Siakad-Sync-Token
 $routes->post('api/dapodik/receive', 'Api\DapodikReceive::index');
 
-$routes->post('/auth/attemptLogin', 'Auth::attemptLogin');
+$routes->post('/auth/attemptLogin', 'Auth::attemptLogin', ['filter' => 'ratelimit']);
 $routes->get('/logout', 'Auth::logout');
 $routes->match(['get', 'post'], '/auth/ping-session', 'Auth::pingSession'); // Keep session alive
 $routes->match(['get', 'post'], '/ping-session', 'Auth::pingSession');
@@ -48,10 +48,6 @@ $routes->post('/auth/update-password-required', 'Auth::updatePasswordRequired');
 $routes->get('berita', 'News::index');
 $routes->get('berita/(:any)', 'News::view/$1');
 $routes->get('/dashboard', 'Dashboard::index', ['filter' => 'auth']);
-
-// Maintenance Routes (Accessible even during license lock)
-$routes->get('maintenance/reset-hashes/(:any)', 'Maintenance::resetHashes/$1');
-$routes->get('maintenance/debug-token', 'Maintenance::debugToken');
 
 // ==================== ADMIN & GURU ROUTES ====================
 $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($routes) {
@@ -77,7 +73,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     // Session Management
     $routes->get('session-info', 'User::sessionInfo', $auth1);
     $routes->post('session-clean', 'User::sessionClean', $auth1);
-    $routes->get('users/delete/(:num)', 'User::delete/$1', $auth12);
+    $routes->post('users/delete/(:num)', 'User::delete/$1', $auth12);
     $routes->get('users/reset-password/(:num)', 'User::resetPassword/$1', $auth12);
 
     // Audit Trail
@@ -89,7 +85,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('role-permission/edit/(:num)', 'RolePermission::edit/$1', $auth1);
     $routes->post('role-permission/update/(:num)', 'RolePermission::update/$1', $auth1);
     $routes->post('role-permission/create-role', 'RolePermission::createRole', $auth1);
-    $routes->get('role-permission/delete/(:num)', 'RolePermission::deleteRole/$1', $auth1);
+    $routes->post('role-permission/delete/(:num)', 'RolePermission::deleteRole/$1', $auth1);
 
     // 2. Identitas & Pengaturan
     $routes->get('ekskul', 'Ekskul::index', $auth127);
@@ -144,25 +140,34 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     // Jenjang Master
     $routes->get('jenjang-master', 'JenjangMaster::index', $auth1);
     $routes->post('jenjang-master/store', 'JenjangMaster::store', $auth1);
-    $routes->get('jenjang-master/delete/(:num)', 'JenjangMaster::delete/$1', $auth1);
+    $routes->post('jenjang-master/delete/(:num)', 'JenjangMaster::delete/$1', $auth1);
 
     // Mapel Master
     $routes->get('mapel-master', 'MapelMaster::index', $auth12);
     $routes->post('mapel-master/store', 'MapelMaster::store', $auth12);
-    $routes->get('mapel-master/delete/(:num)', 'MapelMaster::delete/$1', $auth12);
+    $routes->post('mapel-master/delete/(:num)', 'MapelMaster::delete/$1', $auth12);
 
 
     // 3. Updater (Admin Only)
     $routes->get('updater', 'Updater::index', ['filter' => 'auth:1']);
-    $routes->post('updater/patch-files', 'Updater::patchFiles', ['filter' => 'auth:1']);
-    $routes->get('updater/run-migrations', 'Updater::runMigrations', ['filter' => 'auth:1']);
-    $routes->get('updater/generate-patch', 'Updater::generatePatch', ['filter' => 'auth:1']);
-    $routes->match(['get', 'post'], 'updater/generate-manifest', 'Updater::generateManifest', ['filter' => 'auth:1']);
     $routes->get('updater/check-online', 'Updater::checkOnlineUpdate', ['filter' => 'auth:1']);
+    $routes->post('updater/patch-files', 'Updater::patchFiles', ['filter' => 'auth:1']);
     $routes->post('updater/apply-online', 'Updater::applyOnlineUpdate', ['filter' => 'auth:1']);
-    $routes->get('updater/backup-database', 'Updater::backupDatabase', ['filter' => 'auth:1']);
     $routes->post('updater/restore-database', 'Updater::restoreDatabase', ['filter' => 'auth:1']);
-    $routes->get('updater/clean-backups', 'Updater::cleanBackups', ['filter' => 'auth:1']);
+
+    // State-mutating updater endpoints — STRICT POST ONLY
+    $routes->post('updater/run-migrations', 'Updater::runMigrations', ['filter' => 'auth:1']);
+    $routes->post('updater/generate-patch', 'Updater::generatePatch', ['filter' => 'auth:1']);
+    $routes->post('updater/generate-manifest', 'Updater::generateManifest', ['filter' => 'auth:1']);
+    $routes->post('updater/backup-database', 'Updater::backupDatabase', ['filter' => 'auth:1']);
+    $routes->post('updater/clean-backups', 'Updater::cleanBackups', ['filter' => 'auth:1']);
+
+    // GET fallbacks for state-mutating endpoints (read-only warning notice, strictly NO MUTATION)
+    $routes->get('updater/run-migrations', 'Updater::getNotAllowedNotice', ['filter' => 'auth:1']);
+    $routes->get('updater/generate-patch', 'Updater::getNotAllowedNotice', ['filter' => 'auth:1']);
+    $routes->get('updater/generate-manifest', 'Updater::getNotAllowedNotice', ['filter' => 'auth:1']);
+    $routes->get('updater/backup-database', 'Updater::getNotAllowedNotice', ['filter' => 'auth:1']);
+    $routes->get('updater/clean-backups', 'Updater::getNotAllowedNotice', ['filter' => 'auth:1']);
 
     // 4. Personalia & Kesiswaan (Admin & Principal)
     $routes->get('teachers', 'Teachers::index', $auth127);
@@ -173,16 +178,16 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('teachers/import-dapodik/preview', 'Teachers::importDapodikPreview', $auth127);
     $routes->post('teachers/import-dapodik', 'Teachers::importDapodik', $auth127);
     $routes->post('teachers/uploadDocument/(:num)', 'Teachers::uploadDocument/$1', $auth127);
-    $routes->get('teachers/deleteDocument/(:num)', 'Teachers::deleteDocument/$1', $auth127);
+    $routes->post('teachers/deleteDocument/(:num)', 'Teachers::deleteDocument/$1', $auth127);
     $routes->get('teachers/downloadDocument/(:num)', 'Teachers::downloadDocument/$1', $auth127);
     $routes->get('teachers/viewDocument/(:num)', 'Teachers::viewDocument/$1', $auth127);
     $routes->get('teachers/edit/(:num)', 'Teachers::edit/$1', $auth127);
     $routes->post('teachers/update/(:num)', 'Teachers::update/$1', $auth127);
-    $routes->get('teachers/delete/(:num)', 'Teachers::delete/$1', $auth127);
+    $routes->post('teachers/delete/(:num)', 'Teachers::delete/$1', $auth127);
     $routes->post('teachers/addEducation/(:num)', 'Teachers::addEducation/$1', $auth127);
     $routes->post('teachers/addTraining/(:num)', 'Teachers::addTraining/$1', $auth127);
     $routes->post('teachers/addCareer/(:num)', 'Teachers::addCareer/$1', $auth127);
-    $routes->get('teachers/deleteSub/(:segment)/(:num)', 'Teachers::deleteSub/$1/$2', $auth127);
+    $routes->post('teachers/deleteSub/(:segment)/(:num)', 'Teachers::deleteSub/$1/$2', $auth127);
     $routes->post('teachers/toggle-active/(:num)', 'Teachers::toggleActive/$1', $auth127);
 
     $routes->get('students', 'Students::index', $auth127);
@@ -207,7 +212,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('classes/store', 'Classes::store', $auth127);
     $routes->get('classes/edit/(:num)', 'Classes::edit/$1', $auth127);
     $routes->post('classes/update/(:num)', 'Classes::update/$1', $auth127);
-    $routes->get('classes/delete/(:num)', 'Classes::delete/$1', $auth127);
+    $routes->post('classes/delete/(:num)', 'Classes::delete/$1', $auth127);
     $routes->get('classes/toggle-active/(:num)', 'Classes::toggleActive/$1', $auth127);
 
     $routes->get('active-classes', 'ActiveClasses::index', $auth127);
@@ -258,7 +263,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('holidays/store', 'Holidays::store', $auth127);
     $routes->get('holidays/edit/(:num)', 'Holidays::edit/$1', $auth127);
     $routes->post('holidays/update/(:num)', 'Holidays::update/$1', $auth127);
-    $routes->get('holidays/delete/(:num)', 'Holidays::delete/$1', $auth127);
+    $routes->post('holidays/delete/(:num)', 'Holidays::delete/$1', $auth127);
     $routes->post('holidays/sync', 'Holidays::sync', $auth127);
 
     $routes->get('teachingassignments', 'TeachingAssignments::index', $auth127);
@@ -267,7 +272,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('teachingassignments/store', 'TeachingAssignments::store', $auth127);
     $routes->get('teachingassignments/edit/(:num)', 'TeachingAssignments::edit/$1', $auth127);
     $routes->post('teachingassignments/update/(:num)', 'TeachingAssignments::update/$1', $auth127);
-    $routes->get('teachingassignments/delete/(:num)', 'TeachingAssignments::delete/$1', $auth127);
+    $routes->post('teachingassignments/delete/(:num)', 'TeachingAssignments::delete/$1', $auth127);
     $routes->post('teachingassignments/bulk-delete', 'TeachingAssignments::bulkDelete', $auth127);
 
     // 5.8 Administrasi Guru (Kurikulum Merdeka)
@@ -280,16 +285,16 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         // CP Master CRUD
         $routes->get('cp-master', 'AdministrasiGuru::cpMasterIndex', $auth12);
         $routes->post('cp-master/store', 'AdministrasiGuru::cpMasterStore', $auth1);
-        $routes->get('cp-master/delete/(:num)', 'AdministrasiGuru::cpMasterDelete/$1', $auth1);
+        $routes->post('cp-master/delete/(:num)', 'AdministrasiGuru::cpMasterDelete/$1', $auth1);
 
         $routes->get('cp', 'AdministrasiGuru::cp');
         $routes->get('tp', 'AdministrasiGuru::tp');
         $routes->post('tp/store', 'AdministrasiGuru::tpStore');
-        $routes->get('tp/delete/(:num)', 'AdministrasiGuru::tpDelete/$1');
+        $routes->post('tp/delete/(:num)', 'AdministrasiGuru::tpDelete/$1');
         $routes->get('atp', 'AdministrasiGuru::atp');
         $routes->post('atp/store', 'AdministrasiGuru::atpStore');
-        $routes->get('atp/delete/(:num)', 'AdministrasiGuru::atpDelete/$1');
-        $routes->get('atp/delete-tp/(:num)', 'AdministrasiGuru::atpDeleteTp/$1');
+        $routes->post('atp/delete/(:num)', 'AdministrasiGuru::atpDelete/$1');
+        $routes->post('atp/delete-tp/(:num)', 'AdministrasiGuru::atpDeleteTp/$1');
         $routes->post('atp/copy-from-source', 'AdministrasiGuru::atpCopyFromSource');
         $routes->get('atp/print/(:num)/(:num)', 'AdministrasiGuru::atpPrint/$1/$2');
         $routes->get('prota-prosem', 'AdministrasiGuru::protaProsem');
@@ -309,13 +314,13 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->get('modul-ajar/edit/(:num)/(:num)', 'AdministrasiGuru::editModulAjar/$1/$2');
         $routes->post('modul-ajar/update', 'AdministrasiGuru::updateModulAjar');
         $routes->get('modul-ajar/print/(:num)/(:num)', 'AdministrasiGuru::printModulAjar/$1/$2');
-        $routes->get('modul-ajar/delete/(:num)/(:num)/(:num)', 'AdministrasiGuru::deleteModulAjar/$1/$2/$3');
+        $routes->post('modul-ajar/delete/(:num)/(:num)/(:num)', 'AdministrasiGuru::deleteModulAjar/$1/$2/$3');
         $routes->post('modul-ajar/copy', 'AdministrasiGuru::copyModulAjar');
 
         // KKTP (Kriteria Ketercapaian Tujuan Pembelajaran)
         $routes->get('kktp', 'AdministrasiGuru::kktp');
         $routes->post('kktp/store', 'AdministrasiGuru::kktpStore');
-        $routes->get('kktp/delete/(:num)', 'AdministrasiGuru::kktpDelete/$1');
+        $routes->post('kktp/delete/(:num)', 'AdministrasiGuru::kktpDelete/$1');
         $routes->get('kktp/print/(:num)/(:num)', 'AdministrasiGuru::kktpPrint/$1/$2');
 
         // Pembuatan Soal AI
@@ -334,7 +339,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->post('generate-ai/(:num)', 'Kokurikuler::generateAI/$1');
         $routes->get('view/(:num)', 'Kokurikuler::view/$1');
         $routes->get('export-pdf/(:num)', 'Kokurikuler::exportPDF/$1');
-        $routes->get('delete/(:num)', 'Kokurikuler::delete/$1');
+        $routes->post('delete/(:num)', 'Kokurikuler::delete/$1');
         $routes->get('get-atp/(:num)', 'Kokurikuler::getATPBySubject/$1');
         $routes->match(['get', 'post'], 'recommend-ai', 'Kokurikuler::recommendAI');
         
@@ -411,7 +416,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('surat-masuk/detail/(:num)', 'SuratMasuk::detail/$1', $auth127);
     $routes->get('surat-masuk/edit/(:num)', 'SuratMasuk::edit/$1', $auth127);
     $routes->post('surat-masuk/update/(:num)', 'SuratMasuk::update/$1', $auth127);
-    $routes->get('surat-masuk/delete/(:num)', 'SuratMasuk::delete/$1', $auth127);
+    $routes->post('surat-masuk/delete/(:num)', 'SuratMasuk::delete/$1', $auth127);
     $routes->get('surat-masuk/scan/(:num)', 'SuratMasuk::viewScan/$1', $auth127);
 
     // Surat Keluar
@@ -444,7 +449,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('buku-tamu', 'BukuTamuAdmin::index', $auth127);
     $routes->get('buku-tamu/export-pdf', 'BukuTamuAdmin::exportPdf', $auth127);
     $routes->get('buku-tamu/export-excel', 'BukuTamuAdmin::exportExcel', $auth127);
-    $routes->get('buku-tamu/delete/(:num)', 'BukuTamuAdmin::delete/$1', $auth127);
+    $routes->post('buku-tamu/delete/(:num)', 'BukuTamuAdmin::delete/$1', $auth127);
     $routes->get('buku-tamu/print-qr', 'BukuTamuAdmin::printQr', $auth127);
 
     // 6. Akademik & CBT (Admin, Principal, Guru)
@@ -469,7 +474,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('agendas/(:num)', 'Agendas::show/$1', $auth123);
     $routes->get('agendas/(:num)/edit', 'Agendas::edit/$1', $auth123);
     $routes->post('agendas/(:num)/update', 'Agendas::update/$1', $auth123);
-    $routes->get('agendas/(:num)/delete', 'Agendas::delete/$1', $auth123);
+    $routes->post('agendas/(:num)/delete', 'Agendas::delete/$1', $auth123);
 
     // Teaching Journal (Jurnal Mengajar) - Admin, Principal, Teacher
     $routes->get('teaching-journal', 'TeachingJournalController::index', $auth123);
@@ -480,7 +485,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('teaching-journal/add', 'TeachingJournalController::add', $auth123);
     $routes->get('teaching-journal/edit/(:num)', 'TeachingJournalController::edit/$1', $auth123);
     $routes->post('teaching-journal/store', 'TeachingJournalController::store', $auth123);
-    $routes->get('teaching-journal/delete/(:num)', 'TeachingJournalController::delete/$1', $auth123);
+    $routes->post('teaching-journal/delete/(:num)', 'TeachingJournalController::delete/$1', $auth123);
     $routes->get('teaching-journal/get-atps', 'TeachingJournalController::getAtps', $auth123);
     $routes->get('teaching-journal/get-moduls', 'TeachingJournalController::getModuls', $auth123);
     $routes->get('teaching-journal/get-modul-meetings', 'TeachingJournalController::getModulMeetings', $auth123);
@@ -496,14 +501,14 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('schedules/manage/(:num)', 'ScheduleController::manage/$1', $auth1237);
     $routes->post('schedules/store', 'ScheduleController::store', ['filter' => 'auth:1,3,7']);
     $routes->post('schedules/store-bulk', 'ScheduleController::storeBulk', ['filter' => 'auth:1,3,7']);
-    $routes->get('schedules/delete/(:num)', 'ScheduleController::delete/$1', ['filter' => 'auth:1,3,7']);
+    $routes->post('schedules/delete/(:num)', 'ScheduleController::delete/$1', ['filter' => 'auth:1,3,7']);
 
     $routes->get('announcements', 'Announcement::index', $auth123);
     $routes->get('announcements/create', 'Announcement::create', $auth123);
     $routes->post('announcements/store', 'Announcement::store', $auth123);
     $routes->get('announcements/edit/(:num)', 'Announcement::edit/$1', $auth123);
     $routes->post('announcements/update/(:num)', 'Announcement::update/$1', $auth123);
-    $routes->get('announcements/delete/(:num)', 'Announcement::delete/$1', $auth123);
+    $routes->post('announcements/delete/(:num)', 'Announcement::delete/$1', $auth123);
 
     // Monitoring Input Nilai Guru (Khusus Admin & Kepala Sekolah)
     $routes->get('grades/monitoring', 'GradeMonitoringController::index', $auth12);
@@ -565,12 +570,12 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('rapor-semester/print-mutasi-student/(:num)/(:num)', 'RaporSemester::cetakMutasiSiswa/$1/$2', $auth123);
     $routes->get('assessments/edit/(:num)/(:segment)', 'Assessment::edit/$1/$2', $auth123);
     $routes->post('assessments/update/(:num)/(:segment)', 'Assessment::update/$1/$2', $auth123);
-    $routes->get('assessments/deleteOne/(:num)/(:segment)', 'Assessment::deleteOne/$1/$2', $auth123);
+    $routes->post('assessments/deleteOne/(:num)/(:segment)', 'Assessment::deleteOne/$1/$2', $auth123);
     $routes->post('assessments/deleteSelected/(:segment)', 'Assessment::deleteSelected/$1', $auth123);
-    $routes->get('assessments/deleteBatch/formatif/(:num)/(:alpha)', 'Assessment::deleteBatch/formatif/$1/$2', $auth123);
-    $routes->get('assessments/deleteBatch/sumatif/(:num)/(:num)/(:segment)', 'Assessment::deleteBatch/sumatif/$1/$2/$3', $auth123);
-    $routes->get('assessments/deleteBatch/final/(:num)/(:num)', 'Assessment::deleteBatch/final/$1/$2', $auth123);
-    $routes->get('assessments/deleteBatch/pts/(:num)/(:num)', 'Assessment::deleteBatch/pts/$1/$2', $auth123);
+    $routes->post('assessments/deleteBatch/formatif/(:num)/(:alpha)', 'Assessment::deleteBatch/formatif/$1/$2', $auth123);
+    $routes->post('assessments/deleteBatch/sumatif/(:num)/(:num)/(:segment)', 'Assessment::deleteBatch/sumatif/$1/$2/$3', $auth123);
+    $routes->post('assessments/deleteBatch/final/(:num)/(:num)', 'Assessment::deleteBatch/final/$1/$2', $auth123);
+    $routes->post('assessments/deleteBatch/pts/(:num)/(:num)', 'Assessment::deleteBatch/pts/$1/$2', $auth123);
 
     // ─── Kirim Tugas ───
     $routes->get('tugas', 'Tugas::index', $auth123);
@@ -580,7 +585,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('tugas/(:num)', 'Tugas::show/$1', $auth123);
     $routes->get('tugas/edit/(:num)', 'Tugas::edit/$1', $auth123);
     $routes->post('tugas/update/(:num)', 'Tugas::update/$1', $auth123);
-    $routes->get('tugas/delete/(:num)', 'Tugas::delete/$1', $auth123);
+    $routes->post('tugas/delete/(:num)', 'Tugas::delete/$1', $auth123);
     $routes->post('tugas/(:num)/nilai/(:num)', 'Tugas::nilai/$1/$2', $auth123);
     $routes->post('tugas/(:num)/kirim-ke-buku-nilai', 'Tugas::kirimKeBukuNilai/$1', $auth123);
     $routes->post('tugas/upload-image', 'Tugas::uploadImage', $auth123);
@@ -616,7 +621,6 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('materials/store', 'Materials::store', $auth123);
     $routes->get('materials/edit/(:num)', 'Materials::edit/$1', $auth123);
     $routes->post('materials/update/(:num)', 'Materials::update/$1', $auth123);
-    $routes->get('materials/delete/(:num)', 'Materials::delete/$1', $auth123);
     $routes->post('materials/delete/(:num)', 'Materials::delete/$1', $auth123);
     $routes->get('materials/publish/(:num)',  'Materials::publishPage/$1',  $auth123);
     $routes->post('materials/publish/(:num)', 'Materials::publishSave/$1',  $auth123);
@@ -641,7 +645,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('student-notes/store', 'StudentNotes::store', $auth123);
     $routes->get('student-notes/edit/(:num)', 'StudentNotes::edit/$1', $auth123);
     $routes->post('student-notes/update/(:num)', 'StudentNotes::update/$1', $auth123);
-    $routes->get('student-notes/delete/(:num)', 'StudentNotes::delete/$1', $auth123);
+    $routes->post('student-notes/delete/(:num)', 'StudentNotes::delete/$1', $auth123);
 
     // Bimbingan Konseling (BK) Komprehensif (A-H)
     $routes->get('bk', 'BkModule::index', $auth1237);
@@ -768,7 +772,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('behaviors/store', 'Behaviors::store', $auth123);
     $routes->get('behaviors/edit/(:num)', 'Behaviors::edit/$1', $auth123);
     $routes->post('behaviors/update/(:num)', 'Behaviors::update/$1', $auth123);
-    $routes->get('behaviors/delete/(:num)', 'Behaviors::delete/$1', $auth123);
+    $routes->post('behaviors/delete/(:num)', 'Behaviors::delete/$1', $auth123);
 
     $routes->get('chat', 'Chat::index', $auth123);
     $routes->get('chat/room/(:num)', 'Chat::room/$1', $auth123);
@@ -791,7 +795,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('cbt/banksoal/updateQuestionAjax', 'CbtBankSoal::updateQuestionAjax', $auth123);
     $routes->post('cbt/banksoal/updateQuestionType', 'CbtBankSoal::updateQuestionType', $auth123);
     $routes->post('cbt/banksoal/deleteQuestionAjax', 'CbtBankSoal::deleteQuestionAjax', $auth123);
-    $routes->get('cbt/banksoal/deleteAudio/(:num)/(:any)', 'CbtBankSoal::deleteAudio/$1/$2', $auth123);
+    $routes->post('cbt/banksoal/deleteAudio/(:num)/(:any)', 'CbtBankSoal::deleteAudio/$1/$2', $auth123);
     $routes->get('cbt/banksoal/backup/(:num)', 'CbtBankSoal::backup/$1', $auth123);
     $routes->post('cbt/banksoal/restore', 'CbtBankSoal::restore', $auth123);
 
@@ -801,7 +805,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->post('exam-schedule/store', 'ExamSchedule::store', $auth123);
     $routes->get('exam-schedule/edit/(:num)', 'ExamSchedule::edit/$1', $auth123);
     $routes->post('exam-schedule/update/(:num)', 'ExamSchedule::update/$1', $auth123);
-    $routes->get('exam-schedule/delete/(:num)', 'ExamSchedule::delete/$1', $auth123);
+    $routes->post('exam-schedule/delete/(:num)', 'ExamSchedule::delete/$1', $auth123);
 
     $routes->get('kartu-peserta', 'KartuPeserta::index', $auth123);
     $routes->get('cbt/kartu-peserta-lihat/(:num)', 'KartuPeserta::lihat/$1', $auth123);
@@ -816,7 +820,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('cbt/banksoal/copy/(:num)', 'CbtBankSoal::copy/$1', $auth123);
     $routes->get('cbt/banksoal/detail/(:num)', 'CbtBankSoal::detail/$1', $auth123);
     $routes->get('cbt/banksoal/print/(:num)', 'CbtBankSoal::print/$1', $auth123);
-    $routes->get('cbt/banksoal/delete/(:num)', 'CbtBankSoal::delete/$1', $auth123);
+    $routes->post('cbt/banksoal/delete/(:num)', 'CbtBankSoal::delete/$1', $auth123);
     $routes->get('cbt/banksoal/toggle/(:num)', 'CbtBankSoal::toggle/$1', $auth123);
     $routes->get('cbt/banksoal/tambah_soal/(:num)', 'CbtBankSoal::tambahSoal/$1', $auth123);
     $routes->post('cbt/banksoal/parseSoal', 'CbtBankSoal::parseSoal', $auth123);
@@ -830,14 +834,14 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('cbt/examname', 'CbtExamName::index', $auth123);
     $routes->post('cbt/examname/store', 'CbtExamName::store', $auth123);
     $routes->post('cbt/examname/update/(:num)', 'CbtExamName::update/$1', $auth123);
-    $routes->get('cbt/examname/delete/(:num)', 'CbtExamName::delete/$1', $auth123);
+    $routes->post('cbt/examname/delete/(:num)', 'CbtExamName::delete/$1', $auth123);
 
     $routes->get('cbt/teststatus', 'CbtTestStatus::index', $auth123);
     $routes->get('cbt/teststatus/create', 'CbtTestStatus::create', $auth123);
     $routes->post('cbt/teststatus/store', 'CbtTestStatus::store', $auth123);
     $routes->get('cbt/teststatus/edit/(:num)', 'CbtTestStatus::edit/$1', $auth123);
     $routes->post('cbt/teststatus/update/(:num)', 'CbtTestStatus::update/$1', $auth123);
-    $routes->get('cbt/teststatus/delete/(:num)', 'CbtTestStatus::delete/$1', $auth123);
+    $routes->post('cbt/teststatus/delete/(:num)', 'CbtTestStatus::delete/$1', $auth123);
     $routes->get('cbt/teststatus/togglePause/(:num)', 'CbtTestStatus::togglePause/$1', $auth123);
     $routes->get('cbt/teststatus/toggleVisible/(:num)', 'CbtTestStatus::toggleVisible/$1', $auth123);
     $routes->get('cbt/teststatus/detail/(:num)', 'CbtTestStatus::detail/$1', $auth123);
@@ -920,7 +924,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->post('sliders/store', 'Cms\Sliders::store');
         $routes->get('sliders/edit/(:num)', 'Cms\Sliders::edit/$1');
         $routes->post('sliders/update/(:num)', 'Cms\Sliders::update/$1');
-        $routes->get('sliders/delete/(:num)', 'Cms\Sliders::delete/$1');
+        $routes->post('sliders/delete/(:num)', 'Cms\Sliders::delete/$1');
 
         $routes->get('links', 'Cms\Links::index');
         $routes->get('links/create', 'Cms\Links::create');
@@ -934,21 +938,21 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->post('facilities/store', 'Cms\Facilities::store');
         $routes->get('facilities/edit/(:num)', 'Cms\Facilities::edit/$1');
         $routes->post('facilities/update/(:num)', 'Cms\Facilities::update/$1');
-        $routes->get('facilities/delete/(:num)', 'Cms\Facilities::delete/$1');
+        $routes->post('facilities/delete/(:num)', 'Cms\Facilities::delete/$1');
 
         $routes->get('articles', 'Cms\Articles::index');
         $routes->get('articles/create', 'Cms\Articles::create');
         $routes->post('articles/store', 'Cms\Articles::store');
         $routes->get('articles/edit/(:num)', 'Cms\Articles::edit/$1');
         $routes->post('articles/update/(:num)', 'Cms\Articles::update/$1');
-        $routes->get('articles/delete/(:num)', 'Cms\Articles::delete/$1');
+        $routes->post('articles/delete/(:num)', 'Cms\Articles::delete/$1');
 
         $routes->get('activities', 'Cms\Activities::index');
         $routes->get('activities/create', 'Cms\Activities::create');
         $routes->post('activities/store', 'Cms\Activities::store');
         $routes->get('activities/edit/(:num)', 'Cms\Activities::edit/$1');
         $routes->post('activities/update/(:num)', 'Cms\Activities::update/$1');
-        $routes->get('activities/delete/(:num)', 'Cms\Activities::delete/$1');
+        $routes->post('activities/delete/(:num)', 'Cms\Activities::delete/$1');
 
         // Sambutan Kepala Sekolah
         $routes->get('sambutan', 'Cms\Sambutan::index');
@@ -960,7 +964,7 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
     $routes->get('changelogs/create', 'Changelogs::create');
     $routes->get('changelogs/edit/(:num)', 'Changelogs::edit/$1');
     $routes->post('changelogs/save', 'Changelogs::save');
-    $routes->get('changelogs/delete/(:num)', 'Changelogs::delete/$1');
+    $routes->post('changelogs/delete/(:num)', 'Changelogs::delete/$1');
 
     // ── Perpustakaan Digital (Admin, Guru Wali Kelas, Staf TU) ──────────────
     $auth137 = ['filter' => 'auth:1,3,7'];
@@ -1104,10 +1108,10 @@ $routes->group('profile', ['filter' => 'auth'], function ($routes) {
     $routes->post('update-teacher', 'Profile::updateTeacher');
     $routes->post('add-education', 'Profile::addEducation');
     $routes->post('add-training', 'Profile::addTraining');
-    $routes->get('delete-sub/(:segment)/(:num)', 'Profile::deleteSub/$1/$2');
+    $routes->post('delete-sub/(:segment)/(:num)', 'Profile::deleteSub/$1/$2');
     $routes->post('upload-document', 'Profile::uploadDocument');
     $routes->get('download-document/(:num)', 'Profile::downloadDocument/$1');
-    $routes->get('delete-document/(:num)', 'Profile::deleteDocument/$1');
+    $routes->post('delete-document/(:num)', 'Profile::deleteDocument/$1');
     $routes->get('documents', 'Profile::documents');
     $routes->get('preview-document/(:num)', 'Profile::previewDocument/$1');
 });

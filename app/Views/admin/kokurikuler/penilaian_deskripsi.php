@@ -4,7 +4,7 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <h5 class="mb-0"><?= $title ?></h5>
+            <h5 class="mb-0"><?= esc($title) ?></h5>
             <small class="text-muted">
                 <?= esc($document['year_name']) ?> - Semester <?= esc($document['semester']) ?> |
                 Fase <?= esc($document['fase']) ?> - Kelas <?= esc($document['level_kelas']) ?>

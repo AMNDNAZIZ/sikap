@@ -35,7 +35,7 @@
 
     <hr>
     <h6>Deskripsi</h6>
-    <div><?= $agenda['description'] ?></div>
+    <div><?= purify_html($agenda['description']) ?></div>
   </div>
 </div>
 

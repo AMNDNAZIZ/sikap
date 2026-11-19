@@ -26,10 +26,22 @@ class Updater extends BaseController
     }
 
     /**
-     * Handle File Patch (ZIP) with Auto-Migrate
+     * Fallback notice for GET requests on state-mutating updater endpoints.
+     * Prevents any mutation and provides informative feedback.
+     */
+    public function getNotAllowedNotice()
+    {
+        return redirect()->to(base_url('admin/updater'))->with('warning', 'Operasi ini memerlukan metode HTTP POST dengan token CSRF yang valid.');
+    }
+
+    /**
+     * Handle File Patch (ZIP) with Safe Staging & Auto-Migrate
      * 
-     * CRITICAL: This method uses maintenance mode to prevent race conditions
-     * between file extraction and database migration.
+     * SEC-ZIP-01 REMEDIATED:
+     * - Inspeksi & sanitasi entri (Zip Slip, Path Traversal, Protected Files, Zip Bomb)
+     * - Staging terisolasi di bawah WRITEPATH sebelum menulis ke ROOTPATH
+     * - Backup target files sebelum apply
+     * - Rollback otomatis jika terjadi kegagalan parsial atau pelanggaran integritas
      */
     public function patchFiles()
     {
@@ -40,71 +52,102 @@ class Updater extends BaseController
         }
 
         $zip = new \ZipArchive();
-        if ($zip->open($file->getTempName()) === TRUE) {
-            try {
-                // Step 0: Enable maintenance mode to prevent race conditions
-                $this->enableMaintenanceMode();
-
-                // Step 1: Read manifest (if exists)
-                $manifest = $this->readUpdateManifest($zip);
-
-                // Step 2: Backup critical files before extract
-                $backupPath = $this->backupCriticalFiles();
-
-                // Step 3: Extract files
-                $zip->extractTo(ROOTPATH);
-                $zip->close();
-
-                // Step 4: IMMEDIATELY auto-migrate database (before any request can access new code)
-                $migrateResult = $this->autoMigrateAfterUpdate();
-
-                // Step 5: Regenerate security hashes
-                $this->regenerateSecurityHashes();
-
-                // Step 6: Clear old sessions to prevent decode errors
-                $this->clearSessions();
-
-                // Step 7: Disable maintenance mode
-                $this->disableMaintenanceMode();
-
-                // Step 8: Bersihkan file/folder backup pre_update setelah update dipastikan sukses
-                $this->cleanupPreUpdateBackups($backupPath);
-
-                // Step 9: Clear update checker cache & mark update notifications as read
-                \App\Libraries\UpdateChecker::clearCache();
-                \App\Libraries\UpdateChecker::markUpdateNotifsRead();
-
-                // Build success message
-                $message = 'File sistem berhasil diperbarui.';
-
-                if ($manifest && isset($manifest['version'])) {
-                    $message .= ' Version: ' . $manifest['version'] . '.';
-                }
-
-                if ($migrateResult['executed']) {
-                    $message .= ' Database berhasil dimigrasi ke versi terbaru.';
-                } elseif ($migrateResult['already_latest']) {
-                    $message .= ' Database sudah dalam versi terbaru.';
-                }
-
-                if ($migrateResult['error']) {
-                    $message .= ' PERINGATAN: ' . $migrateResult['error'];
-                }
-
-                log_message('info', 'System updated successfully. Backup: ' . $backupPath);
-
-                return redirect()->back()->with('success', $message);
-
-            } catch (\Exception $e) {
-                // Disable maintenance mode on error
-                $this->disableMaintenanceMode();
-
-                log_message('error', 'Update failed: ' . $e->getMessage());
-                return redirect()->back()->with('error', 'Gagal mengekstrak: ' . $e->getMessage());
-            }
-        } else {
+        if ($zip->open($file->getTempName()) !== TRUE) {
             return redirect()->back()->with('error', 'Gagal membuka file zip.');
         }
+
+        $stagingDir = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'staging_' . bin2hex(random_bytes(8)) . DIRECTORY_SEPARATOR;
+        $backupDir = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'backups/pre_patch_' . date('Ymd_His') . DIRECTORY_SEPARATOR;
+
+        try {
+            // Step 1: Validasi Pra-Ekstraksi (Zip Slip, Path Traversal, Protected Files, Zip Bomb)
+            $validatedEntries = $this->sanitizeZipEntries($zip);
+
+            // Step 2: Enable maintenance mode to prevent race conditions
+            $this->enableMaintenanceMode();
+
+            // Step 3: Read manifest (if exists)
+            $manifest = $this->readUpdateManifest($zip);
+
+            // Step 4: Extract safely into isolated staging directory
+            if (!is_dir($stagingDir)) {
+                mkdir($stagingDir, 0755, true);
+            }
+            $extractedFiles = \App\Libraries\SafeZipExtractor::extractToStaging($zip, $validatedEntries, $stagingDir);
+            $zip->close();
+
+            // Step 5: Backup critical system files & target files to be overwritten
+            $backupPath = $this->backupCriticalFiles();
+            \App\Libraries\SafeZipExtractor::backupTargetFiles($extractedFiles, $backupDir);
+
+            // Step 6: Apply validated files from staging to ROOTPATH with automatic rollback
+            \App\Libraries\SafeZipExtractor::applyStagingToRoot($stagingDir, $extractedFiles, $backupDir);
+
+            // Step 7: IMMEDIATELY auto-migrate database (before any request can access new code)
+            $migrateResult = $this->autoMigrateAfterUpdate();
+
+            // Step 8: Regenerate security hashes
+            $this->regenerateSecurityHashes();
+
+            // Step 9: Clear old sessions to prevent decode errors
+            $this->clearSessions();
+
+            // Step 10: Disable maintenance mode & cleanup staging
+            $this->disableMaintenanceMode();
+            \App\Libraries\SafeZipExtractor::cleanupDirectory($stagingDir);
+
+            // Step 11: Bersihkan file/folder backup pre_update setelah update dipastikan sukses
+            $this->cleanupPreUpdateBackups($backupPath);
+
+            // Step 12: Clear update checker cache & mark update notifications as read
+            \App\Libraries\UpdateChecker::clearCache();
+            \App\Libraries\UpdateChecker::markUpdateNotifsRead();
+
+            // Build success message
+            $message = 'File sistem berhasil diperbarui dengan aman.';
+
+            if ($manifest && isset($manifest['version'])) {
+                $message .= ' Version: ' . $manifest['version'] . '.';
+            }
+
+            if ($migrateResult['executed']) {
+                $message .= ' Database berhasil dimigrasi ke versi terbaru.';
+            } elseif ($migrateResult['already_latest']) {
+                $message .= ' Database sudah dalam versi terbaru.';
+            }
+
+            if ($migrateResult['error']) {
+                $message .= ' PERINGATAN: ' . $migrateResult['error'];
+            }
+
+            log_message('info', 'System safely updated. Staging: ' . $stagingDir);
+
+            return redirect()->back()->with('success', $message);
+
+        } catch (\Throwable $e) {
+            // Disable maintenance mode on error & cleanup staging
+            $this->disableMaintenanceMode();
+            \App\Libraries\SafeZipExtractor::cleanupDirectory($stagingDir);
+
+            if (isset($zip) && is_object($zip) && @$zip->status === 0) {
+                @$zip->close();
+            }
+
+            log_message('error', 'Safe update failed: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal menerapkan patch keamanan: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Sanitasi dan validasi entri arsip ZIP (Centralized Wrapper)
+     *
+     * @param \ZipArchive $zip
+     * @return array
+     * @throws \App\Libraries\SafeZipExtractionException
+     */
+    public function sanitizeZipEntries(\ZipArchive $zip): array
+    {
+        return \App\Libraries\SafeZipExtractor::sanitizeZipEntries($zip);
     }
 
     /**
@@ -352,6 +395,10 @@ class Updater extends BaseController
      */
     public function runMigrations()
     {
+        if (strtolower($this->request->getMethod()) !== 'post') {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Metode request tidak diizinkan. Gunakan HTTP POST.');
+        }
+
         $migrate = \Config\Services::migrations();
 
         try {
@@ -383,6 +430,10 @@ class Updater extends BaseController
      */
     public function backupDatabase()
     {
+        if (strtolower($this->request->getMethod()) !== 'post') {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Metode request tidak diizinkan. Gunakan HTTP POST.');
+        }
+
         try {
             // Ensure backup directory exists
             $backupDir = WRITEPATH . 'backups/';
@@ -743,6 +794,10 @@ class Updater extends BaseController
      */
     public function generateManifest()
     {
+        if (strtolower($this->request->getMethod()) !== 'post') {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Metode request tidak diizinkan. Gunakan HTTP POST.');
+        }
+
         set_time_limit(600);
 
         $rootPath = rtrim(ROOTPATH, '/\\');
@@ -1349,6 +1404,10 @@ class Updater extends BaseController
      */
     public function cleanBackups()
     {
+        if (strtolower($this->request->getMethod()) !== 'post') {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Metode request tidak diizinkan. Gunakan HTTP POST.');
+        }
+
         $this->cleanupPreUpdateBackups();
         return redirect()->to(base_url('admin/updater'))->with('success', 'File dan folder sisa update di writable/backups/ berhasil dibersihkan.');
     }
@@ -1408,6 +1467,10 @@ class Updater extends BaseController
 
     public function generatePatch()
     {
+        if (strtolower($this->request->getMethod()) !== 'post') {
+            return redirect()->to(base_url('admin/updater'))->with('error', 'Metode request tidak diizinkan. Gunakan HTTP POST.');
+        }
+
         // Check if ZipArchive is available
         if (!class_exists('ZipArchive')) {
             return redirect()->back()->with(

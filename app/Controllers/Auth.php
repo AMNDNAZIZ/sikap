@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Models\UserModel;
+use App\Filters\RateLimitFilter;
 use CodeIgniter\Controller;
 
 class Auth extends BaseController
@@ -24,8 +25,9 @@ class Auth extends BaseController
         $session = session();
         $model = new UserModel();
 
-        $login = $this->request->getPost('username');
-        $password = $this->request->getPost('password');
+        $login = (string)$this->request->getPost('username');
+        $password = (string)$this->request->getPost('password');
+        $ip = $this->request->getIPAddress();
 
         $user = $model->groupStart()
             ->where('username', $login)
@@ -33,10 +35,24 @@ class Auth extends BaseController
             ->groupEnd()
             ->first();
 
+        // 🔒 Tier 1 Check: Jika akun ditemukan, periksa counter ID Akun sebelum verifikasi password
+        if ($user && RateLimitFilter::isAccountBlocked($ip, (int)$user['id'])) {
+            log_message('warning', "RateLimitFilter: Controller blocked user ID {$user['id']} from IP: {$ip}");
+            return RateLimitFilter::createBlockedResponse($this->request);
+        }
+
+        // Simpan pemetaan alias di cache untuk optimasi request berikutnya
+        if ($user) {
+            RateLimitFilter::setMappedUserId($ip, strtolower(trim($login)), (int)$user['id']);
+        }
+
         if ($user && password_verify($password, $user['password'])) {
             // Check if account is deactivated
             if (isset($user['is_active']) && $user['is_active'] == 0) {
-                return redirect()->back()->with('error', 'Akun Anda telah dinonaktifkan. Hubungi administrator sekolah.');
+                // Perlakukan sebagai kegagalan autentikasi: tambah counter, jangan pulihkan, jangan bocorkan status
+                RateLimitFilter::recordFailure($ip, (int)$user['id'], $login);
+                log_message('notice', "Login attempt for deactivated user ID {$user['id']} from IP {$ip}");
+                return redirect()->back()->with('error', 'Username atau password salah. Silakan coba lagi.');
             }
 
             // Regenerate session ID to prevent session fixation
@@ -87,6 +103,9 @@ class Auth extends BaseController
             helper('audit');
             audit_log('login', 'users', $user['id']);
 
+            // 🟢 PEMULIHAN COUNTER TIER 1 EKSPLISIT PADA KEBERHASILAN AUTENTIKASI AKTUAL
+            RateLimitFilter::recordSuccess($ip, (int)$user['id'], $login);
+
             // 🔒 Check if user must change password
             if ($user['must_change_password'] == 1) {
                 return redirect()->to('/auth/change-password-required')
@@ -95,6 +114,9 @@ class Auth extends BaseController
 
             return redirect()->to('/dashboard');
         }
+
+        // 🔴 AUTENTIKASI GAGAL: Catat kegagalan ke RateLimitFilter
+        RateLimitFilter::recordFailure($ip, $user ? (int)$user['id'] : null, $login);
 
         return redirect()->back()->with('error', 'Username atau password salah. Silakan coba lagi.');
     }

@@ -83,8 +83,10 @@
                             <td>
                                 <a href="<?= site_url('admin/teachingassignments/edit/' . $a['id']) ?>"
                                     class="btn btn-sm btn-warning">Edit</a>
-                                <a href="<?= site_url('admin/teachingassignments/delete/' . $a['id']) ?>"
-                                    class="btn btn-sm btn-danger" onclick="return confirm('Hapus data ini?')">Hapus</a>
+                                <form action="<?= site_url('admin/teachingassignments/delete/' . $a['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus data ini?')">
+                                    <?= csrf_field() ?>
+                                    <button type="submit" class="btn btn-sm btn-danger">Hapus</button>
+                                </form>
                             </td>
                         <?php endif; ?>
                     </tr>

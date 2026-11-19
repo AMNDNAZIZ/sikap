@@ -25,9 +25,10 @@
         <td><?= $b['type'] == 'positive' ? 'Positif' : 'Negatif' ?></td>
         <td>
           <a href="<?= base_url('admin/behaviors/edit/'.$b['id']) ?>" class="btn btn-sm btn-warning">Edit</a>
-          <a href="<?= base_url('admin/behaviors/delete/'.$b['id']) ?>" 
-             onclick="return confirm('Yakin hapus?')" 
-             class="btn btn-sm btn-danger">Hapus</a>
+          <form action="<?= base_url('admin/behaviors/delete/'.$b['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin hapus?')">
+            <?= csrf_field() ?>
+            <button type="submit" class="btn btn-sm btn-danger">Hapus</button>
+          </form>
         </td>
       </tr>
     <?php endforeach ?>

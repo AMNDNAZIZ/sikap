@@ -10,7 +10,7 @@
         <select name="teacher_id" class="form-control select2" required>
             <?php foreach ($teachers as $t): ?>
                 <option value="<?= $t['id'] ?>" <?= $assignment['teacher_id'] == $t['id'] ? 'selected' : '' ?>>
-                    <?= $t['name'] ?>
+                    <?= esc($t['name']) ?>
                 </option>
             <?php endforeach; ?>
         </select>
@@ -30,7 +30,7 @@
         <select name="class_id" class="form-control select2">
             <?php foreach ($classes as $c): ?>
                 <option value="<?= $c['id'] ?>" <?= $assignment['class_id'] == $c['id'] ? 'selected' : '' ?>>
-                    <?= $c['name'] ?>
+                    <?= esc($c['name']) ?>
                 </option>
             <?php endforeach; ?>
         </select>
@@ -42,7 +42,7 @@
         <select name="subject_id" class="form-control select2">
             <?php foreach ($subjects as $s): ?>
                 <option value="<?= $s['id'] ?>" <?= $assignment['subject_id'] == $s['id'] ? 'selected' : '' ?>>
-                    <?= $s['name'] ?>
+                    <?= esc($s['name']) ?>
                 </option>
             <?php endforeach; ?>
         </select>

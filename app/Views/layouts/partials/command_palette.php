@@ -401,7 +401,7 @@
 }
 </style>
 
-<script src="<?= base_url('assets/js/asis-copilot.js?v=20261117_064') ?>"></script>
+<script src="<?= base_url('assets/js/asis-copilot.js?v=20261117_065') ?>"></script>
 <script>
 (function() {
   'use strict';
@@ -983,6 +983,8 @@
       if (timeoutTimer) clearTimeout(timeoutTimer);
       const loadingEl = document.getElementById(loadingId);
       if (loadingEl) loadingEl.remove();
+      // Bersihkan seluruh indikator loading yang tertinggal demi mencegah infinite loading
+      document.querySelectorAll('[id^="bot-loading-"]').forEach(el => el.remove());
       unlockCopilotUi(btnSubmitChat, chatInput);
       resetMessageIdSafe();
     }

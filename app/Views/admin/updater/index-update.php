@@ -201,12 +201,12 @@
 
                         </p>
 
-                        <a
-                            href="<?= base_url('admin/updater/backup-database') ?>"
-                            class="btn btn-danger w-100"
-                        >
-                            💾 Download Backup
-                        </a>
+                        <form action="<?= base_url('admin/updater/backup-database') ?>" method="post">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn-danger w-100">
+                                💾 Download Backup
+                            </button>
+                        </form>
 
                         <small class="text-muted d-block mt-2">
 
@@ -409,15 +409,12 @@
                         </div>
 
                         <div class="d-grid">
-
-                            <a
-                                href="<?= base_url('admin/updater/run-migrations') ?>"
-                                class="btn btn-success"
-                                id="btn-migration"
-                            >
-                                ⚡ Jalankan Migrasi Database
-                            </a>
-
+                            <form action="<?= base_url('admin/updater/run-migrations') ?>" method="post">
+                                <?= csrf_field() ?>
+                                <button type="submit" class="btn btn-success w-100" id="btn-migration">
+                                    ⚡ Jalankan Migrasi Database
+                                </button>
+                            </form>
                         </div>
 
                     </div>

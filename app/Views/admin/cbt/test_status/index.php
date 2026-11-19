@@ -211,7 +211,7 @@
               <label class="form-label">Kelas Peserta</label>
               <select name="class_codes[]" class="form-select select2-add" multiple style="width:100%;">
                 <?php foreach ($classes as $c): ?>
-                  <option value="<?= $c['name'] ?>"><?= esc($c['name']) ?></option>
+                  <option value="<?= esc($c['name'], 'attr') ?>"><?= esc($c['name']) ?></option>
                 <?php endforeach; ?>
               </select>
             </div>
@@ -456,7 +456,7 @@
               <label class="form-label">Kelas Peserta</label>
               <select name="class_codes[]" class="form-select select2Edit" multiple style="width:100%;">
                 <?php foreach ($classes as $c): ?>
-                  <option value="<?= $c['name'] ?>"><?= esc($c['name']) ?></option>
+                  <option value="<?= esc($c['name'], 'attr') ?>"><?= esc($c['name']) ?></option>
                 <?php endforeach; ?>
               </select>
             </div>
@@ -855,7 +855,16 @@
         cancelButtonText: 'Batal'
       }).then((r) => {
         if (r.isConfirmed) {
-          window.location.href = "<?= site_url('admin/cbt/teststatus/delete/') ?>" + id;
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = "<?= site_url('admin/cbt/teststatus/delete/') ?>" + id;
+          const csrf = document.createElement('input');
+          csrf.type = 'hidden';
+          csrf.name = '<?= csrf_token() ?>';
+          csrf.value = '<?= csrf_hash() ?>';
+          form.appendChild(csrf);
+          document.body.appendChild(form);
+          form.submit();
         }
       });
     });

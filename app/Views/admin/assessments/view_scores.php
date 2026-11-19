@@ -225,12 +225,12 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
                              class="btn btn-warning" title="Edit Nilai">
                             ✏️ Edit
                           </a>
-                        <a href="<?= site_url("admin/assessments/deleteOne/{$s['id']}/{$type}") ?>"
-                           class="btn btn-danger"
-                           onclick="return confirm('Yakin ingin menghapus nilai siswa <?= esc($s['student_name'] ?? '-') ?>?')"
-                           title="Hapus Nilai">
-                          🗑 Hapus
-                        </a>
+                        <form action="<?= site_url("admin/assessments/deleteOne/{$s['id']}/{$type}") ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus nilai siswa <?= esc($s['student_name'] ?? '-') ?>?')">
+                          <?= csrf_field() ?>
+                          <button type="submit" class="btn btn-danger" title="Hapus Nilai">
+                            🗑 Hapus
+                          </button>
+                        </form>
                       </div>
                     </td>
                   </tr>
@@ -284,29 +284,33 @@ function buildTabUrl($type, $entityId, $method, $semester = null, $classId = nul
       <div>
         <?php if (!empty($scores)): ?>
           <?php if ($type === 'formatif'): ?>
-            <a href="<?= site_url("admin/assessments/deleteBatch/formatif/{$material['id']}/{$selected_method}" . (!empty($class_id) ? "?class_id={$class_id}" : "")) ?>"
-               class="btn btn-danger"
-               onclick="return confirm('Yakin ingin menghapus semua nilai formatif untuk materi dan metode ini di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
-              🗑 Hapus Semua (<?= count($scores) ?>)
-            </a>
+            <form action="<?= site_url("admin/assessments/deleteBatch/formatif/{$material['id']}/{$selected_method}" . (!empty($class_id) ? "?class_id={$class_id}" : "")) ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus semua nilai formatif untuk materi dan metode ini di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
+              <?= csrf_field() ?>
+              <button type="submit" class="btn btn-danger">
+                🗑 Hapus Semua (<?= count($scores) ?>)
+              </button>
+            </form>
           <?php elseif ($type === 'sumatif'): ?>
-            <a href="<?= site_url("admin/assessments/deleteBatch/sumatif/{$subject['id']}/{$semester}/{$selected_method}" . ($class_id ? "?class_id={$class_id}" : "")) ?>"
-               class="btn btn-danger"
-               onclick="return confirm('Yakin ingin menghapus semua nilai sumatif untuk semester dan metode ini di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
-              🗑 Hapus Semua (<?= count($scores) ?>)
-            </a>
+            <form action="<?= site_url("admin/assessments/deleteBatch/sumatif/{$subject['id']}/{$semester}/{$selected_method}" . ($class_id ? "?class_id={$class_id}" : "")) ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus semua nilai sumatif untuk semester dan metode ini di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
+              <?= csrf_field() ?>
+              <button type="submit" class="btn btn-danger">
+                🗑 Hapus Semua (<?= count($scores) ?>)
+              </button>
+            </form>
           <?php elseif ($type === 'final'): ?>
-            <a href="<?= site_url("admin/assessments/deleteBatch/final/{$subject['id']}" . ($class_id ? "?class_id={$class_id}" : "")) ?>"
-               class="btn btn-danger"
-               onclick="return confirm('Yakin ingin menghapus semua nilai ujian akhir di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
-              🗑 Hapus Semua (<?= count($scores) ?>)
-            </a>
+            <form action="<?= site_url("admin/assessments/deleteBatch/final/{$subject['id']}" . ($class_id ? "?class_id={$class_id}" : "")) ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus semua nilai ujian akhir di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
+              <?= csrf_field() ?>
+              <button type="submit" class="btn btn-danger">
+                🗑 Hapus Semua (<?= count($scores) ?>)
+              </button>
+            </form>
           <?php elseif ($type === 'pts'): ?>
-            <a href="<?= site_url("admin/assessments/deleteBatch/pts/{$subject['id']}/{$semester}" . ($class_id ? "?class_id={$class_id}" : "")) ?>"
-               class="btn btn-danger"
-               onclick="return confirm('Yakin ingin menghapus semua nilai PTS semester ini di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
-              🗑 Hapus Semua (<?= count($scores) ?>)
-            </a>
+            <form action="<?= site_url("admin/assessments/deleteBatch/pts/{$subject['id']}/{$semester}" . ($class_id ? "?class_id={$class_id}" : "")) ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus semua nilai PTS semester ini di kelas <?= esc($currentClass['name'] ?? '') ?>?')">
+              <?= csrf_field() ?>
+              <button type="submit" class="btn btn-danger">
+                🗑 Hapus Semua (<?= count($scores) ?>)
+              </button>
+            </form>
           <?php endif; ?>
         <?php endif; ?>
       </div>

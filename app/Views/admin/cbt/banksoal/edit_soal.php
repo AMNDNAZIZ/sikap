@@ -405,7 +405,10 @@ window.MathJax = {
       if (result.isConfirmed) {
         $.ajax({
           url: "<?= site_url('admin/cbt/banksoal/deleteAudio/') ?>" + id + "/" + type,
-          type: "GET",
+          type: "POST",
+          data: {
+            '<?= csrf_token() ?>': '<?= csrf_hash() ?>'
+          },
           success: function (response) {
             if (response.success) {
               Swal.fire('Terhapus', 'Audio berhasil dihapus.', 'success');

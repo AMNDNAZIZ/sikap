@@ -52,9 +52,10 @@
                                 <td>
                                     <a href="<?= base_url('admin/cms/facilities/edit/' . $f['id']) ?>"
                                         class="btn btn-sm btn-warning">✏️</a>
-                                    <a href="<?= base_url('admin/cms/facilities/delete/' . $f['id']) ?>"
-                                        class="btn btn-sm btn-danger"
-                                        onclick="return confirm('Hapus fasilitas ini?')">🗑️</a>
+                                    <form action="<?= base_url('admin/cms/facilities/delete/' . $f['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus fasilitas ini?')">
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="btn btn-sm btn-danger">🗑️</button>
+                                    </form>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

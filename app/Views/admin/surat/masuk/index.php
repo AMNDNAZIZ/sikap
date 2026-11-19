@@ -142,11 +142,12 @@
                      class="btn btn-outline-primary btn-sm" title="Detail"><i class="bi bi-eye"></i></a>
                   <a href="<?= base_url('admin/surat-masuk/edit/' . $l['id']) ?>"
                      class="btn btn-outline-warning btn-sm" title="Edit"><i class="bi bi-pencil"></i></a>
-                  <a href="<?= base_url('admin/surat-masuk/delete/' . $l['id']) ?>"
-                     class="btn btn-outline-danger btn-sm" title="Hapus"
-                     onclick="return confirm('Hapus surat masuk ini?')" id="btn-del-<?= $l['id'] ?>">
-                    <i class="bi bi-trash"></i>
-                  </a>
+                  <form action="<?= base_url('admin/surat-masuk/delete/' . $l['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus surat masuk ini?')" id="form-del-<?= $l['id'] ?>">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Hapus" id="btn-del-<?= $l['id'] ?>">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
                 </td>
               </tr>
             <?php endforeach; ?>

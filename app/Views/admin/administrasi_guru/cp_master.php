@@ -177,9 +177,12 @@
                                     data-tahun="<?= $cp['tahun'] ?>">
                                     <i class="bi bi-pencil-square"></i>
                                 </button>
-                                <a href="<?= base_url('admin/administrasi-guru/cp-master/delete/'.$cp['id']) ?>" class="btn btn-sm btn-danger" onclick="return confirm('Hapus CP master ini?')">
-                                    <i class="bi bi-trash"></i>
-                                </a>
+                                <form action="<?= base_url('admin/administrasi-guru/cp-master/delete/'.$cp['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus CP master ini?')">
+                                    <?= csrf_field() ?>
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Hapus">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                             <?php endif; ?>
                         </tr>

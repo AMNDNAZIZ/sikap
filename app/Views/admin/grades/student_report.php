@@ -1,7 +1,7 @@
 <?= $this->extend('layouts/app') ?>
 <?= $this->section('content') ?>
 
-<h2>Raport Siswa - <?= $student['name'] ?> (Semester <?= ucfirst($semester) ?>)</h2>
+<h2>Raport Siswa - <?= esc($student['name']) ?> (Semester <?= ucfirst($semester) ?>)</h2>
 
 <div class="table-responsive">
 <table class="table table-bordered table-striped align-middle">

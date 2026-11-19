@@ -59,8 +59,10 @@
                                 <td>
                                     <a href="<?= base_url('admin/cms/sliders/edit/' . $s['id']) ?>"
                                         class="btn btn-sm btn-warning">✏️</a>
-                                    <a href="<?= base_url('admin/cms/sliders/delete/' . $s['id']) ?>"
-                                        class="btn btn-sm btn-danger" onclick="return confirm('Hapus slider ini?')">🗑️</a>
+                                    <form action="<?= base_url('admin/cms/sliders/delete/' . $s['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus slider ini?')">
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="btn btn-sm btn-danger">🗑️</button>
+                                    </form>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

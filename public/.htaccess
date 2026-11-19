@@ -15,6 +15,15 @@ Options -Indexes
 # ----------------------------------------------------------------------
 # Rewrite engine
 # ----------------------------------------------------------------------
+# Never cache Service Worker file (PWA best practice)
+<Files "service-worker.js">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires 0
+    </IfModule>
+</Files>
+
 <IfModule mod_rewrite.c>
 	Options +FollowSymlinks
 	RewriteEngine On

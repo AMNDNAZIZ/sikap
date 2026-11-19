@@ -51,10 +51,14 @@
                       <li>
                         <hr class="dropdown-divider">
                       </li>
-                      <li><a class="dropdown-item text-danger"
-                          href="<?= base_url('admin/announcements/delete/' . $a['id']) ?>"
-                          onclick="return confirm('Yakin ingin menghapus pengumuman ini?')"><i class="bi bi-trash me-2"></i>
-                          Hapus</a></li>
+                      <li>
+                        <form action="<?= base_url('admin/announcements/delete/' . $a['id']) ?>" method="post" onsubmit="return confirm('Yakin ingin menghapus pengumuman ini?')">
+                          <?= csrf_field() ?>
+                          <button type="submit" class="dropdown-item text-danger border-0 bg-transparent w-100 text-start">
+                            <i class="bi bi-trash me-2"></i>Hapus
+                          </button>
+                        </form>
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -179,10 +183,14 @@
                       <li>
                         <hr class="dropdown-divider">
                       </li>
-                      <li><a class="dropdown-item text-danger"
-                          href="<?= base_url('admin/announcements/delete/' . $a['id']) ?>"
-                          onclick="return confirm('Yakin ingin menghapus pengumuman ini?')"><i class="bi bi-trash me-2"></i>
-                          Hapus</a></li>
+                      <li>
+                        <form action="<?= base_url('admin/announcements/delete/' . $a['id']) ?>" method="post" onsubmit="return confirm('Yakin ingin menghapus pengumuman ini?')">
+                          <?= csrf_field() ?>
+                          <button type="submit" class="dropdown-item text-danger border-0 bg-transparent w-100 text-start">
+                            <i class="bi bi-trash me-2"></i>Hapus
+                          </button>
+                        </form>
+                      </li>
                     </ul>
                   </div>
                 </div>

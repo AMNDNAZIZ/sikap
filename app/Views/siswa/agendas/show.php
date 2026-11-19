@@ -44,7 +44,7 @@
       <i class="bi bi-card-text me-1 text-primary"></i> Deskripsi
     </div>
     <div class="card-body">
-      <?= $agenda['description'] ?>
+      <?= purify_html($agenda['description']) ?>
     </div>
   </div>
   <?php endif; ?>

@@ -40,9 +40,12 @@
                                     data-nama="<?= $j['nama'] ?>">
                                     <i class="bi bi-pencil-square"></i>
                                 </button>
-                                <a href="<?= base_url('admin/jenjang-master/delete/'.$j['id']) ?>" class="btn btn-sm btn-danger" onclick="return confirm('Hapus jenjang ini?')">
-                                    <i class="bi bi-trash"></i>
-                                </a>
+                                <form action="<?= base_url('admin/jenjang-master/delete/'.$j['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus jenjang ini?')">
+                                    <?= csrf_field() ?>
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Hapus">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     <?php endforeach; ?>

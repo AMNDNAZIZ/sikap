@@ -43,7 +43,7 @@
                                         </td>
                                         <td class="text-center"><i class="bi <?= $link['icon']; ?> fs-4"></i></td>
                                         <td>
-                                            <?= $link['title']; ?>
+                                            <?= esc($link['title']); ?>
                                         </td>
                                         <td><a href="<?= $link['url']; ?>" target="_blank">
                                                 <?= $link['url']; ?>

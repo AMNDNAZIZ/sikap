@@ -180,7 +180,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('<?= base_url('service-worker.js') ?>')
+        navigator.serviceWorker.register('<?= base_url('service-worker.js?v=20261117_064') ?>')
           .then(registration => {
             // Service worker registered
           })

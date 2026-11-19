@@ -68,8 +68,10 @@
                                 <td>
                                     <a href="<?= base_url('admin/cms/articles/edit/' . $a['id']) ?>"
                                         class="btn btn-sm btn-warning">✏️</a>
-                                    <a href="<?= base_url('admin/cms/articles/delete/' . $a['id']) ?>"
-                                        class="btn btn-sm btn-danger" onclick="return confirm('Hapus artikel ini?')">🗑️</a>
+                                    <form action="<?= base_url('admin/cms/articles/delete/' . $a['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus artikel ini?')">
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="btn btn-sm btn-danger">🗑️</button>
+                                    </form>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

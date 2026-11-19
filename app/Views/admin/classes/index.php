@@ -59,10 +59,12 @@
                     <a href="<?= base_url('admin/classes/edit/' . $c['id']) ?>" class="btn btn-sm btn-warning">
                       <i class="bi bi-pencil-square"></i> Edit
                     </a>
-                    <a href="<?= base_url('admin/classes/delete/' . $c['id']) ?>" class="btn btn-sm btn-danger"
-                      onclick="return confirm('Yakin hapus kelas ini?')">
-                      <i class="bi bi-trash"></i> Hapus
-                    </a>
+                    <form action="<?= base_url('admin/classes/delete/' . $c['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin hapus kelas ini?')">
+                      <?= csrf_field() ?>
+                      <button type="submit" class="btn btn-sm btn-danger" title="Hapus">
+                        <i class="bi bi-trash"></i> Hapus
+                      </button>
+                    </form>
                   <?php else: ?>
                     <span class="badge bg-secondary">Read Only</span>
                   <?php endif; ?>

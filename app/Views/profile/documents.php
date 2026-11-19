@@ -115,12 +115,12 @@
                                                class="btn btn-sm btn-outline-success" title="Download">
                                                 <i class="bi bi-download"></i>
                                             </a>
-                                            <a href="<?= base_url('profile/delete-document/' . $doc['id']) ?>"
-                                               class="btn btn-sm btn-outline-danger ms-1"
-                                               onclick="return confirm('Hapus dokumen \'<?= esc($doc['title'], 'js') ?>\'?')"
-                                               title="Hapus">
-                                                <i class="bi bi-trash3"></i>
-                                            </a>
+                                            <form action="<?= base_url('profile/delete-document/' . $doc['id']) ?>" method="post" class="d-inline ms-1" onsubmit="return confirm('Hapus dokumen \'<?= esc($doc['title'], 'js') ?>\'?')">
+                                                <?= csrf_field() ?>
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus">
+                                                    <i class="bi bi-trash3"></i>
+                                                </button>
+                                            </form>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>

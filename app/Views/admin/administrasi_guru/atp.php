@@ -349,12 +349,12 @@
                                                                         <span><?= esc($tp['deskripsi']) ?></span>
                                                                     </div>
                                                                     <?php if (!$readonly): ?>
-                                                                        <a href="<?= base_url('admin/administrasi-guru/atp/delete-tp/' . $tp['id']) ?>"
-                                                                           class="text-danger ms-2 flex-shrink-0"
-                                                                           title="Hapus TP ini"
-                                                                           onclick="return confirm('Hapus Tujuan Pembelajaran (TP) ini?\n\nKode: <?= esc($tp['kode_tp'], 'js') ?>\nDeskripsi: <?= esc(addslashes($tp['deskripsi'])) ?>')">
-                                                                            <i class="bi bi-trash"></i>
-                                                                        </a>
+                                                                        <form action="<?= base_url('admin/administrasi-guru/atp/delete-tp/' . $tp['id']) ?>" method="post" class="d-inline ms-2 flex-shrink-0" onsubmit="return confirm('Hapus Tujuan Pembelajaran (TP) ini?\n\nKode: <?= esc($tp['kode_tp'], 'js') ?>\nDeskripsi: <?= esc(addslashes($tp['deskripsi'])) ?>')">
+                                                                            <?= csrf_field() ?>
+                                                                            <button type="submit" class="btn btn-link p-0 text-danger border-0" title="Hapus TP ini">
+                                                                                <i class="bi bi-trash"></i>
+                                                                            </button>
+                                                                        </form>
                                                                     <?php endif; ?>
                                                                 </li>
                                                             <?php endforeach; ?>
@@ -666,7 +666,16 @@ function reindexElemen() {
 
 function confirmDeleteAtp(id) {
     if (confirm('Hapus alur ini beserta semua Elemen CP dan TP-nya?')) {
-        window.location.href = "<?= base_url('admin/administrasi-guru/atp/delete/') ?>" + id;
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = "<?= base_url('admin/administrasi-guru/atp/delete/') ?>" + id;
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = '<?= csrf_token() ?>';
+        csrf.value = '<?= csrf_hash() ?>';
+        form.appendChild(csrf);
+        document.body.appendChild(form);
+        form.submit();
     }
 }
 </script>

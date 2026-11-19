@@ -92,7 +92,6 @@ class Filters extends BaseFilters
                 'siswa/cbt/saveAnswersBulk', // AJAX bulk save + offline queue flush
                 'siswa/cbt/submit/*',     // Submit ujian — token di-embed saat render view
                 'api/dapodik/receive',   // Sync Agent dari PowerShell bridge — auth via token header
-                'admin/updater/*',       // Updater — admin only, auth sudah dijaga oleh filter auth:1
             ]],
             // 'invalidchars',
             'maintenance', // Check maintenance mode (setelah csrf agar session sudah siap)

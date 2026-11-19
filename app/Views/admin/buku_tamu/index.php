@@ -188,12 +188,12 @@
                 <td><?= esc($tamu['bertemu_dengan'] ?? '-') ?></td>
                 <td><?= esc($tamu['no_hp'] ?? '-') ?></td>
                 <td>
-                  <a href="<?= base_url('admin/buku-tamu/delete/' . $tamu['id']) ?>"
-                     class="btn btn-outline-danger btn-sm"
-                     onclick="return confirm('Hapus data tamu ini?')"
-                     id="btn-hapus-<?= $tamu['id'] ?>">
-                    <i class="bi bi-trash"></i>
-                  </a>
+                  <form action="<?= base_url('admin/buku-tamu/delete/' . $tamu['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus data tamu ini?')" id="form-hapus-<?= $tamu['id'] ?>">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Hapus" id="btn-hapus-<?= $tamu['id'] ?>">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
                 </td>
               </tr>
             <?php endforeach; ?>

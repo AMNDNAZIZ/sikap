@@ -79,11 +79,12 @@
                   <a href="<?= site_url('admin/tugas/edit/' . $t['id']) ?>" class="btn btn-sm btn-outline-secondary">
                     <i class="bi bi-pencil"></i>
                   </a>
-                  <a href="<?= site_url('admin/tugas/delete/' . $t['id']) ?>"
-                     class="btn btn-sm btn-outline-danger"
-                     onclick="return confirm('Hapus tugas ini? Semua jawaban siswa akan ikut terhapus.')">
-                    <i class="bi bi-trash"></i>
-                  </a>
+                  <form action="<?= site_url('admin/tugas/delete/' . $t['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus tugas ini? Semua jawaban siswa akan ikut terhapus.')">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
                   <?php endif; ?>
                 </td>
               </tr>
@@ -135,11 +136,12 @@
           <a href="<?= site_url('admin/tugas/edit/' . $t['id']) ?>" class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-pencil"></i>
           </a>
-          <a href="<?= site_url('admin/tugas/delete/' . $t['id']) ?>"
-             class="btn btn-sm btn-outline-danger"
-             onclick="return confirm('Hapus tugas ini?')">
-            <i class="bi bi-trash"></i>
-          </a>
+          <form action="<?= site_url('admin/tugas/delete/' . $t['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus tugas ini?')">
+            <?= csrf_field() ?>
+            <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus">
+              <i class="bi bi-trash"></i>
+            </button>
+          </form>
           <?php endif; ?>
         </div>
       </div>

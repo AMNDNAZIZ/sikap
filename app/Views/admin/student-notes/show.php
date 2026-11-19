@@ -60,8 +60,10 @@
           <?php if (session()->get('user')['role_id'] != 2): ?>
             <td>
               <a href="<?= base_url('admin/student-notes/edit/' . $n['id']) ?>" class="btn btn-sm btn-warning">Edit</a>
-              <a href="<?= base_url('admin/student-notes/delete/' . $n['id']) ?>" class="btn btn-sm btn-danger"
-                onclick="return confirm('Yakin ingin menghapus catatan ini?')">Hapus</a>
+              <form action="<?= base_url('admin/student-notes/delete/' . $n['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus catatan ini?')">
+                <?= csrf_field() ?>
+                <button type="submit" class="btn btn-sm btn-danger">Hapus</button>
+              </form>
             </td>
           <?php endif; ?>
         </tr>

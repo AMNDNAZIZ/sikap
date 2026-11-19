@@ -89,12 +89,12 @@
                                                class="btn btn-outline-warning" title="Edit Album">
                                                 <i class="bi bi-pencil-square"></i>
                                             </a>
-                                            <a href="<?= base_url('admin/cms/activities/delete/' . $a['id']) ?>"
-                                               class="btn btn-outline-danger"
-                                               onclick="return confirm('Apakah Anda yakin ingin menghapus album kegiatan ini beserta seluruh fotonya?')"
-                                               title="Hapus Album">
-                                                <i class="bi bi-trash"></i>
-                                            </a>
+                                            <form action="<?= base_url('admin/cms/activities/delete/' . $a['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus album kegiatan ini beserta seluruh fotonya?')">
+                                                <?= csrf_field() ?>
+                                                <button type="submit" class="btn btn-outline-danger" title="Hapus Album">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
                                         </div>
                                     </td>
                                 </tr>

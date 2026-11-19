@@ -21,7 +21,12 @@
     <tr>
       <td><?= esc($h['date']) ?></td>
       <td><?= esc($h['title']) ?></td>
-      <td><a class="btn btn-sm btn-danger" href="<?= base_url('admin/holidays/delete/'.$h['id']) ?>" onclick="return confirm('Hapus libur?')">Hapus</a></td>
+      <td>
+        <form action="<?= base_url('admin/holidays/delete/'.$h['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus libur?')">
+          <?= csrf_field() ?>
+          <button type="submit" class="btn btn-sm btn-danger">Hapus</button>
+        </form>
+      </td>
     </tr>
   <?php endforeach ?>
   </tbody>

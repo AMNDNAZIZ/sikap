@@ -232,11 +232,13 @@
                 </a>
               </div>
               <div class="col">
-                <a href="<?= site_url('admin/cbt/banksoal/delete/' . $bank['id']) ?>" class="btn btn-outline-danger w-100 bank-btn-action"
-                  onclick="return confirm('Hapus bank soal ini beserta semua soalnya?')" title="Hapus Bank Soal">
-                  <i class="bi bi-trash fs-6"></i>
-                  <span>Hapus</span>
-                </a>
+                <form action="<?= site_url('admin/cbt/banksoal/delete/' . $bank['id']) ?>" method="post" class="w-100" onsubmit="return confirm('Hapus bank soal ini beserta semua soalnya?')">
+                  <?= csrf_field() ?>
+                  <button type="submit" class="btn btn-outline-danger w-100 bank-btn-action" title="Hapus Bank Soal">
+                    <i class="bi bi-trash fs-6"></i>
+                    <span>Hapus</span>
+                  </button>
+                </form>
               </div>
             </div>
           </div>
@@ -308,10 +310,12 @@
                       class="btn btn-outline-secondary btn-sm" title="Cetak PDF"><i class="bi bi-printer"></i></a>
                     <a href="<?= site_url('admin/cbt/banksoal/backup/' . $bank['id']) ?>"
                       class="btn btn-outline-dark btn-sm" title="Backup Bank Soal"><i class="bi bi-download"></i></a>
-                    <a href="<?= site_url('admin/cbt/banksoal/delete/' . $bank['id']) ?>"
-                      class="btn btn-outline-danger btn-sm"
-                      onclick="return confirm('Hapus bank soal ini beserta semua soalnya?')" title="Hapus Bank Soal"><i
-                        class="bi bi-trash"></i></a>
+                    <form action="<?= site_url('admin/cbt/banksoal/delete/' . $bank['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus bank soal ini beserta semua soalnya?')">
+                      <?= csrf_field() ?>
+                      <button type="submit" class="btn btn-outline-danger btn-sm" title="Hapus Bank Soal">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
                   </div>
                 </td>
               </tr>
@@ -544,7 +548,7 @@
                <a href="<?= site_url('admin/cbt/banksoal/detail/') ?>${d.id}" class="btn btn-outline-info btn-sm" title="Rincian"><i class="bi bi-list-ul"></i></a>
                <a href="<?= site_url('admin/cbt/banksoal/print/') ?>${d.id}" class="btn btn-outline-secondary btn-sm" title="Cetak"><i class="bi bi-printer"></i></a>
                <a href="<?= site_url('admin/cbt/banksoal/backup/') ?>${d.id}" class="btn btn-outline-dark btn-sm" title="Backup"><i class="bi bi-download"></i></a>
-               <a href="<?= site_url('admin/cbt/banksoal/delete/') ?>${d.id}" class="btn btn-outline-danger btn-sm" title="Hapus" onclick="return confirm('Hapus bank soal ini beserta semua soalnya?')"><i class="bi bi-trash"></i></a>
+               <form action="<?= site_url('admin/cbt/banksoal/delete/') ?>${d.id}" method="post" class="d-inline" onsubmit="return confirm(\'Hapus bank soal ini beserta semua soalnya?\')"><?= csrf_field() ?><button type="submit" class="btn btn-outline-danger btn-sm" title="Hapus"><i class="bi bi-trash"></i></button></form>
              </div>`
             ]).draw().node();
 
@@ -628,7 +632,7 @@
                <a href="<?= site_url('admin/cbt/banksoal/detail/') ?>${d.id}" class="btn btn-outline-info btn-sm" title="Rincian"><i class="bi bi-list-ul"></i></a>
                <a href="<?= site_url('admin/cbt/banksoal/print/') ?>${d.id}" class="btn btn-outline-secondary btn-sm" title="Cetak"><i class="bi bi-printer"></i></a>
                <a href="<?= site_url('admin/cbt/banksoal/backup/') ?>${d.id}" class="btn btn-outline-dark btn-sm" title="Backup"><i class="bi bi-download"></i></a>
-               <a href="<?= site_url('admin/cbt/banksoal/delete/') ?>${d.id}" class="btn btn-outline-danger btn-sm" title="Hapus" onclick="return confirm('Hapus bank soal ini beserta semua soalnya?')"><i class="bi bi-trash"></i></a>
+               <form action="<?= site_url('admin/cbt/banksoal/delete/') ?>${d.id}" method="post" class="d-inline" onsubmit="return confirm(\'Hapus bank soal ini beserta semua soalnya?\')"><?= csrf_field() ?><button type="submit" class="btn btn-outline-danger btn-sm" title="Hapus"><i class="bi bi-trash"></i></button></form>
              </div>`
             ]).draw(false);
 

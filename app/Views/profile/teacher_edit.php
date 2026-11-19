@@ -60,7 +60,7 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label">Nama Lengkap</label>
-                                        <input type="text" name="name" value="<?= $teacher['name'] ?>"
+                                        <input type="text" name="name" value="<?= esc($teacher['name'], 'attr') ?>"
                                             class="form-control" required>
                                     </div>
                                     <div class="col-md-6">
@@ -111,7 +111,7 @@
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Nama Ibu Kandung</label>
-                                        <input type="text" name="mother_name" value="<?= $teacher['mother_name'] ?>"
+                                        <input type="text" name="mother_name" value="<?= esc($teacher['mother_name'], 'attr') ?>"
                                             class="form-control">
                                     </div>
                                 </div>
@@ -291,7 +291,7 @@
                                         <?php foreach ($trainings as $tr): ?>
                                             <tr>
                                                 <td>
-                                                    <?= $tr['name'] ?>
+                                                    <?= esc($tr['name']) ?>
                                                 </td>
                                                 <td>
                                                     <?= $tr['year'] ?>
@@ -342,7 +342,7 @@
                                                     <?= $cr['sk_number'] ?>
                                                 </td>
                                                 <td>
-                                                    <?= $cr['assignment_description'] ?>
+                                                    <?= esc($cr['assignment_description']) ?>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -375,11 +375,11 @@
                                 <h6>Informasi Akun</h6>
                                 <div class="mb-3">
                                     <label class="form-label">Username</label>
-                                    <input type="text" value="<?= $user['username'] ?>" class="form-control" readonly>
+                                    <input type="text" value="<?= esc($user['username'], 'attr') ?>" class="form-control" readonly>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Email Terdaftar</label>
-                                    <input type="text" value="<?= $user['email'] ?>" class="form-control" readonly>
+                                    <input type="text" value="<?= esc($user['email'], 'attr') ?>" class="form-control" readonly>
                                 </div>
                             </div>
                         </div>

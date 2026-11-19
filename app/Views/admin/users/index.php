@@ -169,11 +169,12 @@
                              onclick="return confirm('Reset password user ini ke 123456?');">
                             <i class="bi bi-key"></i>
                           </a>
-                          <a href="<?= base_url('admin/users/delete/' . $u['id']) ?>"
-                             class="btn btn-outline-danger" title="Hapus"
-                             onclick="return confirm('Yakin hapus user <?= esc(addslashes($u['fullname'] ?: $u['username'])) ?>?');">
-                            <i class="bi bi-trash"></i>
-                          </a>
+                          <form action="<?= base_url('admin/users/delete/' . $u['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin hapus user <?= esc(addslashes($u['fullname'] ?: $u['username'])) ?>?');">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn-outline-danger" title="Hapus">
+                              <i class="bi bi-trash"></i>
+                            </button>
+                          </form>
                         </div>
                       <?php else: ?>
                         <span class="badge bg-light text-muted border small">Read Only</span>

@@ -61,9 +61,12 @@
                                     data-kelompok="<?= $m['kelompok'] ?>">
                                     <i class="bi bi-pencil-square"></i>
                                 </button>
-                                <a href="<?= base_url('admin/mapel-master/delete/'.$m['id']) ?>" class="btn btn-sm btn-danger" onclick="return confirm('Hapus mapel master ini?')">
-                                    <i class="bi bi-trash"></i>
-                                </a>
+                                <form action="<?= base_url('admin/mapel-master/delete/'.$m['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus mapel master ini?')">
+                                    <?= csrf_field() ?>
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Hapus">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                             <?php endif; ?>
                         </tr>

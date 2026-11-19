@@ -88,11 +88,12 @@
                                         <td><?= esc($row['teacher_name']) ?></td>
                                         <?php if ($canManage): ?>
                                             <td class="text-center">
-                                                <a href="<?= base_url('admin/schedules/delete/' . $row['id']) ?>" 
-                                                   class="btn btn-sm btn-outline-danger border-0" 
-                                                   onclick="return confirm('Hapus slot jadwal ini?')">
-                                                    <i class="bi bi-trash"></i>
-                                                </a>
+                                                <form action="<?= base_url('admin/schedules/delete/' . $row['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus slot jadwal ini?')">
+                                                    <?= csrf_field() ?>
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Hapus">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
                                             </td>
                                         <?php endif; ?>
                                     </tr>

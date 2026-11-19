@@ -281,7 +281,10 @@
                         <?php if (!$readonly): ?>
                         <td>
                             <a href="<?= base_url('admin/teaching-journal/edit/' . $j['id']) ?>" class="btn btn-sm btn-warning">✏️ Edit</a>
-                            <a href="<?= base_url('admin/teaching-journal/delete/' . $j['id']) ?>" class="btn btn-sm btn-danger" onclick="return confirm('Hapus jurnal ini?')">🗑️ Hapus</a>
+                            <form action="<?= base_url('admin/teaching-journal/delete/' . $j['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus jurnal ini?')">
+                                <?= csrf_field() ?>
+                                <button type="submit" class="btn btn-sm btn-danger">🗑️ Hapus</button>
+                            </form>
                         </td>
                         <?php endif; ?>
                     </tr>

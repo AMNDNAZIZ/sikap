@@ -61,23 +61,26 @@
   <a href="<?= site_url('admin/assessments') ?>" class="btn btn-secondary">⬅️ Kembali ke Daftar Penilaian</a>
 
   <?php if ($type === 'formatif'): ?>
-    <a href="<?= site_url("admin/assessments/deleteBatch/formatif/{$info['id']}/{$info['method']}") ?>"
-       class="btn btn-danger"
-       onclick="return confirm('Yakin ingin menghapus semua nilai formatif ini?')">
-      🗑 Hapus Semua
-    </a>
+    <form action="<?= site_url("admin/assessments/deleteBatch/formatif/{$info['id']}/{$info['method']}") ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus semua nilai formatif ini?')">
+      <?= csrf_field() ?>
+      <button type="submit" class="btn btn-danger">
+        🗑 Hapus Semua
+      </button>
+    </form>
   <?php elseif ($type === 'sumatif'): ?>
-    <a href="<?= site_url("admin/assessments/deleteBatch/sumatif/{$info['id']}/{$info['semester']}/{$info['method']}") ?>"
-       class="btn btn-danger"
-       onclick="return confirm('Yakin ingin menghapus semua nilai sumatif ini?')">
-      🗑 Hapus Semua
-    </a>
+    <form action="<?= site_url("admin/assessments/deleteBatch/sumatif/{$info['id']}/{$info['semester']}/{$info['method']}") ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus semua nilai sumatif ini?')">
+      <?= csrf_field() ?>
+      <button type="submit" class="btn btn-danger">
+        🗑 Hapus Semua
+      </button>
+    </form>
   <?php elseif ($type === 'final'): ?>
-    <a href="<?= site_url("admin/assessments/deleteBatch/final/{$info['id']}/{$info['semester']}") ?>"
-       class="btn btn-danger"
-       onclick="return confirm('Yakin ingin menghapus semua nilai ujian akhir ini?')">
-      🗑 Hapus Semua
-    </a>
+    <form action="<?= site_url("admin/assessments/deleteBatch/final/{$info['id']}/{$info['semester']}") ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus semua nilai ujian akhir ini?')">
+      <?= csrf_field() ?>
+      <button type="submit" class="btn btn-danger">
+        🗑 Hapus Semua
+      </button>
+    </form>
   <?php endif; ?>
 </div>
 

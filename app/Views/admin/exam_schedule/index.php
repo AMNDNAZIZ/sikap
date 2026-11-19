@@ -44,10 +44,12 @@
                 <a href="<?= site_url('admin/exam-schedule/edit/' . $s['id']) ?>" class="btn btn-sm btn-warning">
                   <i class="bi bi-pencil"></i>
                 </a>
-                <a href="<?= site_url('admin/exam-schedule/delete/' . $s['id']) ?>"
-                  onclick="return confirm('Yakin ingin menghapus jadwal ini?')" class="btn btn-sm btn-danger">
-                  <i class="bi bi-trash"></i>
-                </a>
+                <form action="<?= site_url('admin/exam-schedule/delete/' . $s['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus jadwal ini?')">
+                  <?= csrf_field() ?>
+                  <button type="submit" class="btn btn-sm btn-danger" title="Hapus">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </form>
               </td>
             </tr>
           <?php endforeach; ?>

@@ -75,11 +75,12 @@
                                                     <i class="bi bi-shield-lock me-1"></i>Atur Permission
                                                 </a>
                                                 <?php if ((int)$role['id'] > 7): ?>
-                                                    <a href="<?= base_url('admin/role-permission/delete/' . $role['id']) ?>"
-                                                       class="btn btn-sm btn-outline-danger rounded-pill ms-1"
-                                                       onclick="return confirm('Yakin hapus role ini?')">
-                                                        <i class="bi bi-trash"></i>
-                                                    </a>
+                                                    <form action="<?= base_url('admin/role-permission/delete/' . $role['id']) ?>" method="post" class="d-inline ms-1" onsubmit="return confirm('Yakin hapus role ini?')">
+                                                        <?= csrf_field() ?>
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill" title="Hapus">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </form>
                                                 <?php endif; ?>
                                             <?php endif; ?>
                                         </td>

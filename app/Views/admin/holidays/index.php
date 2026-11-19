@@ -43,7 +43,10 @@
         <td><?= esc($h['description']) ?></td>
         <td>
           <a href="<?= base_url('admin/holidays/edit/'.$h['id']) ?>" class="btn btn-sm btn-warning">✏️ Edit</a>
-          <a href="<?= base_url('admin/holidays/delete/'.$h['id']) ?>" class="btn btn-sm btn-danger" onclick="return confirm('Yakin hapus?')">🗑️ Hapus</a>
+          <form action="<?= base_url('admin/holidays/delete/'.$h['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin hapus?')">
+            <?= csrf_field() ?>
+            <button type="submit" class="btn btn-sm btn-danger">🗑️ Hapus</button>
+          </form>
         </td>
       </tr>
       <?php endforeach; else: ?>

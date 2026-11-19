@@ -121,12 +121,12 @@
                                                title="Aktifkan ke Tahun Ajaran Baru">
                                                 <i class="bi bi-arrow-repeat"></i>
                                             </a>
-                                            <a href="<?= base_url('admin/kokurikuler/delete/' . $doc['id']) ?>" 
-                                               class="btn btn-danger" 
-                                               onclick="return confirm('Yakin ingin menghapus dokumen ini?')"
-                                               title="Hapus">
-                                                <i class="bi bi-trash"></i>
-                                            </a>
+                                            <form action="<?= base_url('admin/kokurikuler/delete/' . $doc['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus dokumen ini?')">
+                                                <?= csrf_field() ?>
+                                                <button type="submit" class="btn btn-danger" title="Hapus">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
                                         </div>
                                     </td>
                                 </tr>

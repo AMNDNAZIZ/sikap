@@ -67,11 +67,12 @@
                                                 class="btn btn-warning btn-sm">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <a href="<?= base_url('admin/changelogs/delete/' . $log['id']) ?>"
-                                                class="btn btn-danger btn-sm"
-                                                onclick="return confirm('Yakin ingin menghapus changelog ini?')">
-                                                <i class="fas fa-trash"></i>
-                                            </a>
+                                            <form action="<?= base_url('admin/changelogs/delete/' . $log['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus changelog ini?')">
+                                                <?= csrf_field() ?>
+                                                <button type="submit" class="btn btn-danger btn-sm" title="Hapus">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
                                         </div>
                                     </td>
                                 </tr>

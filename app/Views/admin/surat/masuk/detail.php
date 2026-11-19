@@ -18,11 +18,12 @@
         <i class="bi bi-eye me-1"></i>Lihat Scan
       </a>
     <?php endif; ?>
-    <a href="<?= base_url('admin/surat-masuk/delete/' . $letter['id']) ?>"
-       class="btn btn-outline-danger btn-sm"
-       onclick="return confirm('Hapus surat ini?')">
-      <i class="bi bi-trash me-1"></i>Hapus
-    </a>
+    <form action="<?= base_url('admin/surat-masuk/delete/' . $letter['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Hapus surat ini?')">
+      <?= csrf_field() ?>
+      <button type="submit" class="btn btn-outline-danger btn-sm" title="Hapus">
+        <i class="bi bi-trash me-1"></i>Hapus
+      </button>
+    </form>
   </div>
 </div>
 
