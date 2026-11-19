@@ -135,6 +135,11 @@ class Tugas extends BaseController
             if (!empty($existing['nilai']) || $existing['nilai_angka'] !== null) {
                 return redirect()->back()->with('error', 'Tugas sudah dinilai dan tidak dapat diubah.');
             }
+        }
+
+        // Simpan jawaban dalam transaksi database untuk menjamin integritas
+        $this->db->transStart();
+        if ($existing) {
             $this->submissionModel->update($existing['id'], [
                 'jawaban'     => $jawaban,
                 'dikumpul_at' => $now,
@@ -147,24 +152,23 @@ class Tugas extends BaseController
                 'dikumpul_at' => $now,
             ]);
         }
+        $this->db->transComplete();
 
-        // Kirim notifikasi ke guru pengampu tugas
+        if ($this->db->transStatus() === false) {
+            return redirect()->back()->with('error', 'Gagal menyimpan pengumpulan tugas. Silakan coba lagi.');
+        }
+
+        // Kirim notifikasi ke guru pengampu tugas yang sah via NotificationRecipientResolver
+        // NOTIFIKASI HANYA DIKIRIM SETELAH TRANSAKSI DATABASE DIPASTIKAN BERHASIL DI-COMMIT
         try {
             helper('notification');
-            $teacherUserId = (int) ($tugas['created_by'] ?? 0);
-            if ($teacherUserId <= 0 && !empty($tugas['teacher_id'])) {
-                $teacherUser = $this->db->table('users')
-                    ->select('id')
-                    ->where('role_id', 3)
-                    ->where('related_id', $tugas['teacher_id'])
-                    ->get()->getRowArray();
-                $teacherUserId = (int) ($teacherUser['id'] ?? 0);
-            }
+            $resolver = new \App\Libraries\NotificationRecipientResolver();
+            $teacherUserIds = $resolver->resolveRegularTaskRecipients((int) $info['student_id'], $tugas);
 
-            if ($teacherUserId > 0) {
+            if (!empty($teacherUserIds)) {
                 $studentName = $info['user']['fullname'] ?? ($info['user']['username'] ?? 'Siswa');
-                notify_user(
-                    $teacherUserId,
+                notify_users(
+                    $teacherUserIds,
                     'info',
                     'Tugas Dikumpulkan: ' . $studentName,
                     "{$studentName} telah mengumpulkan tugas: {$tugas['judul']}",
@@ -172,6 +176,8 @@ class Tugas extends BaseController
                     'tugas_submission',
                     (int) $id
                 );
+            } else {
+                log_message('notice', "[Siswa\Tugas::submit] Tidak ada guru pengampu valid untuk tugas ID {$id} siswa ID {$info['student_id']}. Notifikasi fail-silent.");
             }
         } catch (\Throwable $e) {
             log_message('error', '[Siswa\Tugas::submit] Gagal kirim notif ke guru: ' . $e->getMessage());

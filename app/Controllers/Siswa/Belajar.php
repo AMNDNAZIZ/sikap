@@ -671,10 +671,13 @@ class Belajar extends BaseController
         $existing = $submissionModel->getByTugasAndStudent($taskRow['id'], $studentId);
         $now = date('Y-m-d H:i:s');
 
+        if ($existing && (!empty($existing['nilai']) || $existing['nilai_angka'] !== null)) {
+            return redirect()->back()->with('error', 'Tugas sudah dinilai oleh guru dan tidak dapat diubah.');
+        }
+
+        // Simpan jawaban dalam transaksi database untuk menjamin integritas
+        $this->db->transStart();
         if ($existing) {
-            if (!empty($existing['nilai']) || $existing['nilai_angka'] !== null) {
-                return redirect()->back()->with('error', 'Tugas sudah dinilai oleh guru dan tidak dapat diubah.');
-            }
             $submissionModel->update($existing['id'], [
                 'jawaban'     => $jawaban,
                 'dikumpul_at' => $now,
@@ -687,16 +690,24 @@ class Belajar extends BaseController
                 'dikumpul_at' => $now,
             ]);
         }
+        $this->db->transComplete();
 
-        // Kirim notifikasi ke guru
+        if ($this->db->transStatus() === false) {
+            return redirect()->back()->with('error', 'Gagal menyimpan pengumpulan tugas. Silakan coba lagi.');
+        }
+
+        // Kirim notifikasi ke guru pengampu yang sah (Opsi A: Guru Utama & Pendamping kelas aktif)
+        // NOTIFIKASI HANYA DIKIRIM SETELAH TRANSAKSI DATABASE DIPASTIKAN BERHASIL DI-COMMIT
         try {
             helper('notification');
-            $teacherUserId = (int) ($taskRow['created_by'] ?? 0);
-            if ($teacherUserId > 0) {
+            $resolver = new \App\Libraries\NotificationRecipientResolver();
+            $teacherUserIds = $resolver->resolveLmsTaskRecipients($studentId, $taskRow);
+
+            if (!empty($teacherUserIds)) {
                 $user = session()->get('user') ?? [];
                 $studentName = $user['fullname'] ?? ($user['username'] ?? 'Siswa');
-                notify_user(
-                    $teacherUserId,
+                notify_users(
+                    $teacherUserIds,
                     'info',
                     'Tugas Langkah Dikumpulkan: ' . $studentName,
                     "{$studentName} telah mengirimkan tugas pada langkah: {$segment['title']}",
@@ -704,6 +715,8 @@ class Belajar extends BaseController
                     'tugas_submission',
                     (int) $taskRow['id']
                 );
+            } else {
+                log_message('notice', "[Belajar::submitSegmentTask] Tidak ada guru pengampu valid untuk tugas LMS ID {$taskRow['id']} siswa ID {$studentId}. Notifikasi fail-silent.");
             }
         } catch (\Throwable $e) {
             log_message('error', '[Belajar::submitSegmentTask] Notif error: ' . $e->getMessage());

@@ -73,20 +73,30 @@ class Counseling extends BaseController
         $this->appointmentModel->insert($data);
         $insertId = $this->appointmentModel->getInsertID();
 
-        // Notifikasi ke Admin & Guru BK
+        // Notifikasi ke Wali Kelas & Guru BK yang sah (Anti-Broadcast, topik dirahasiakan)
         try {
             helper('notification');
+            $resolver = new \App\Libraries\NotificationRecipientResolver();
+            $recipients = $resolver->resolveCounselingRecipients($studentId);
+
             $student = (new \App\Models\StudentModel())->find($studentId);
             $studentName = $student['name'] ?? 'Siswa';
-            notify_by_role(
-                [1, 3], // Admin & Guru (termasuk Guru BK)
-                'info',
-                'Pengajuan Janji Temu BK: ' . $studentName,
-                "Topik: {$data['topic']} · Menunggu konfirmasi jadwal",
-                base_url('admin/counseling-appointment'),
-                'bk_appointment',
-                $insertId ?: null
-            );
+            $title = 'Pengajuan Janji Temu BK: ' . $studentName;
+            $msg   = 'Siswa telah mengajukan permohonan janji temu konseling. Silakan buka menu Konseling untuk memverifikasi jadwal.';
+            $url   = base_url('admin/counseling-appointment');
+
+            if (!empty($recipients)) {
+                notify_users($recipients, 'info', $title, $msg, $url, 'bk_appointment', $insertId ?: null);
+            } else {
+                // Fail-safe: jika pembina belum dikonfigurasi, kirim peringatan konfigurasi sistem ke Admin tanpa identitas siswa
+                $adminUserIds = $resolver->getAdminUserIds();
+                if (!empty($adminUserIds)) {
+                    $adminTitle = '[Pemberitahuan Sistem] Penugasan Pembina Siswa Belum Diatur';
+                    $adminMsg   = 'Terdapat permohonan konseling baru, namun belum ada Wali Kelas atau Guru BK yang dikonfigurasi untuk kelas terkait. Mohon atur penugasan di menu Kelas dan Penugasan BK.';
+                    notify_users($adminUserIds, 'warning', $adminTitle, $adminMsg, base_url('admin/classes'), 'bk_appointment', $insertId ?: null);
+                }
+                log_message('warning', "[Siswa\Counseling::store] Tidak ada wali kelas atau guru BK terdaftar untuk siswa ID {$studentId}. Peringatan sistem dikirim ke Admin.");
+            }
         } catch (\Throwable $e) {
             log_message('error', '[Siswa\Counseling::store] Gagal kirim notif: ' . $e->getMessage());
         }
