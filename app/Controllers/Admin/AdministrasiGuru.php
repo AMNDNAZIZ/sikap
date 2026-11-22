@@ -2788,13 +2788,11 @@ class AdministrasiGuru extends BaseController
                 'Authorization: Bearer ' . $apiKey,
                 'Content-Type: application/json'
             ];
-            // Model rekomendasi resmi Groq (Llama 3.3 70B sudah didekomisi per 16 Agustus 2026)
+            // Model rekomendasi resmi Groq yang aktif
             $groqModels = [
                 'openai/gpt-oss-120b',
-                'qwen/qwen3.6-27b',
-                'openai/gpt-oss-20b',
-                'qwen-2.5-32b',
-                'llama-3.1-8b-instant'
+                'qwen/qwen3.8-27b',
+                'openai/gpt-oss-20b'
             ];
 
             foreach ($groqModels as $model) {
@@ -2825,6 +2823,11 @@ class AdministrasiGuru extends BaseController
 
                     if ($httpCode === 200) {
                         break 2; // Sukses, keluar dari perulangan model
+                    }
+
+                    // Jika API Key tidak valid (401/403), tidak perlu coba model lain
+                    if (in_array($httpCode, [401, 403])) {
+                        break 2;
                     }
 
                     // Jika 400 atau 404 (model tidak didukung/tidak ada akses di akun ini), coba model berikutnya
@@ -4112,13 +4115,11 @@ class AdministrasiGuru extends BaseController
         if ($aiProvider === 'groq') {
             $url = 'https://api.groq.com/openai/v1/chat/completions';
             $headers = ['Authorization: Bearer ' . $apiKey, 'Content-Type: application/json'];
-            // Model rekomendasi resmi Groq (Llama 3.3 70B sudah didekomisi per 16 Agustus 2026)
+            // Model rekomendasi resmi Groq yang aktif
             $groqModels = [
                 'openai/gpt-oss-120b',
-                'qwen/qwen3.6-27b',
-                'openai/gpt-oss-20b',
-                'qwen-2.5-32b',
-                'llama-3.1-8b-instant'
+                'qwen/qwen3.8-27b',
+                'openai/gpt-oss-20b'
             ];
 
             foreach ($groqModels as $model) {
@@ -4148,8 +4149,14 @@ class AdministrasiGuru extends BaseController
                         break 2;
                     }
 
-                    if (in_array($httpCode, [400, 401, 403, 404])) {
-                        break 2; // Jika API key tidak valid (401/403) atau model salah, tidak perlu retry loop
+                    // Jika API key tidak valid (401/403), tidak perlu coba model lain
+                    if (in_array($httpCode, [401, 403])) {
+                        break 2;
+                    }
+
+                    // Jika model tidak ada atau dekomisi (400/404), lanjut ke model berikutnya
+                    if (in_array($httpCode, [400, 404])) {
+                        break;
                     }
 
                     if ($httpCode === 429 || $httpCode === 503) {
@@ -4190,8 +4197,12 @@ class AdministrasiGuru extends BaseController
                         break 2;
                     }
 
-                    if (in_array($httpCode, [400, 401, 403, 404])) {
+                    if (in_array($httpCode, [401, 403])) {
                         break 2;
+                    }
+
+                    if (in_array($httpCode, [400, 404])) {
+                        break;
                     }
 
                     if ($httpCode === 429 || $httpCode === 503) {
@@ -4245,16 +4256,19 @@ class AdministrasiGuru extends BaseController
 
         foreach ($soalList as &$s) {
             if (isset($s['question'])) {
-                $s['question'] = str_replace(["\\r\\n", "\\r", "\\n"], ["\r\n", "\r", "\n"], (string)$s['question']);
+                $s['question'] = $this->cleanSoalString((string)$s['question']);
                 $s['question'] = $this->splitWacanaQuestion($s['question']);
             }
             if (isset($s['options']) && is_array($s['options'])) {
                 foreach ($s['options'] as $ok => $ov) {
-                    $s['options'][$ok] = str_replace(["\\r\\n", "\\r", "\\n"], ["\r\n", "\r", "\n"], (string)$ov);
+                    $s['options'][$ok] = $this->cleanSoalString((string)$ov);
                 }
             }
             if (isset($s['explanation'])) {
-                $s['explanation'] = str_replace(["\\r\\n", "\\r", "\\n"], ["\r\n", "\r", "\n"], (string)$s['explanation']);
+                $s['explanation'] = $this->cleanSoalString((string)$s['explanation']);
+            }
+            if (isset($s['answer'])) {
+                $s['answer'] = $this->cleanSoalString((string)$s['answer']);
             }
         }
         unset($s);
@@ -4350,6 +4364,41 @@ class AdministrasiGuru extends BaseController
     }
 
     /**
+     * Memulihkan karakter kontrol yang ter-decode oleh json_decode dari perintah LaTeX.
+     * Misalnya \frac ter-decode menjadi form-feed (\x0c) yang merusak rendering MathJax.
+     */
+    private function restoreLatexControlChars($data)
+    {
+        if (is_array($data)) {
+            foreach ($data as $k => $v) {
+                $data[$k] = $this->restoreLatexControlChars($v);
+            }
+            return $data;
+        }
+        if (is_string($data)) {
+            $data = str_replace("\x0C", "\\f", $data);
+            $data = preg_replace('/\x08([a-zA-Z])/', '\\\\b$1', $data);
+            $data = preg_replace('/\t([a-zA-Z])/', '\\\\t$1', $data);
+            $data = preg_replace('/\r(?![ \t]*\n)([a-zA-Z])/', '\\\\r$1', $data);
+            return $data;
+        }
+        return $data;
+    }
+
+    /**
+     * Membersihkan teks soal: memulihkan karakter kontrol LaTeX dan
+     * menormalisasi newline literal tanpa merusak perintah LaTeX.
+     */
+    private function cleanSoalString(?string $text): string
+    {
+        if ($text === null || $text === '') {
+            return '';
+        }
+        $text = $this->restoreLatexControlChars($text);
+        return preg_replace('/\\\\r\\\\n|\\\\n(?![a-zA-Z])|\\\\r(?![a-zA-Z])/', "\n", $text);
+    }
+
+    /**
      * Parse & bersihkan output JSON dari AI secara komprehensif
      * Menangani markdown codeblocks, unescaped quotes, trailing comma, placeholder berpetik, dan karakter kontrol.
      */
@@ -4368,7 +4417,7 @@ class AdministrasiGuru extends BaseController
         // 1. Coba decode langsung jika sudah valid
         $decoded = json_decode($content, true);
         if (is_array($decoded) && !empty($decoded)) {
-            return $decoded;
+            return $this->restoreLatexControlChars($decoded);
         }
 
         // 2. Pembersihan karakter tak kasat mata
@@ -4389,7 +4438,7 @@ class AdministrasiGuru extends BaseController
 
         $decoded = json_decode($clean, true);
         if (is_array($decoded) && !empty($decoded)) {
-            return $decoded;
+            return $this->restoreLatexControlChars($decoded);
         }
 
         return null;
@@ -4714,6 +4763,7 @@ class AdministrasiGuru extends BaseController
         if (!is_array($soalList) || empty($soalList)) {
             return $this->response->setJSON(['success' => false, 'error' => 'Data soal kosong atau tidak valid.']);
         }
+        $soalList = $this->restoreLatexControlChars($soalList);
 
         $questionModel = new \App\Models\CbtQuestionModel();
         $bankModel = new \App\Models\CbtBankSoalModel();
@@ -4759,8 +4809,8 @@ class AdministrasiGuru extends BaseController
                 }
             }
 
-            // Normalisasi literal '\n' dan '\r\n' jika masih berbentuk teks literal
-            $cleanQuestionText = str_replace(["\\r\\n", "\\r", "\\n"], ["\r\n", "\r", "\n"], (string)($soal['question'] ?? ''));
+            // Normalisasi teks pertanyaan dengan aman tanpa merusak ekspresi LaTeX
+            $cleanQuestionText = $this->cleanSoalString((string)($soal['question'] ?? ''));
             $cleanQuestionText = $this->splitWacanaQuestion($cleanQuestionText);
             $qHtml = nl2br(trim($cleanQuestionText), false);
 
@@ -4775,7 +4825,7 @@ class AdministrasiGuru extends BaseController
             $cleanOptions = [];
             if (!empty($soal['options']) && is_array($soal['options'])) {
                 foreach ($soal['options'] as $key => $val) {
-                    $cleanVal = str_replace(["\\r\\n", "\\r", "\\n"], ["\r\n", "\r", "\n"], (string) $val);
+                    $cleanVal = $this->cleanSoalString((string) $val);
                     $optKey = strtoupper(trim((string)$key));
                     $cleanOptions[$optKey] = $cleanVal;
                     $rawText .= '<p>' . $optKey . '. ' . nl2br(trim($cleanVal), false) . '</p>';

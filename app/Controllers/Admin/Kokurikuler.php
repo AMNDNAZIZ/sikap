@@ -694,13 +694,11 @@ class Kokurikuler extends BaseController
                 'Authorization: Bearer ' . $apiKey,
                 'Content-Type: application/json'
             ];
-            // Model rekomendasi resmi Groq (Llama 3.3 70B sudah didekomisi per 16 Agustus 2026)
+            // Model rekomendasi resmi Groq yang aktif
             $groqModels = [
                 'openai/gpt-oss-120b',
-                'qwen/qwen3.6-27b',
-                'openai/gpt-oss-20b',
-                'qwen-2.5-32b',
-                'llama-3.1-8b-instant'
+                'qwen/qwen3.8-27b',
+                'openai/gpt-oss-20b'
             ];
 
             foreach ($groqModels as $model) {
@@ -730,6 +728,10 @@ class Kokurikuler extends BaseController
                     curl_close($ch);
 
                     if ($httpCode === 200) {
+                        break 2;
+                    }
+
+                    if (in_array($httpCode, [401, 403])) {
                         break 2;
                     }
 
@@ -776,6 +778,10 @@ class Kokurikuler extends BaseController
                     curl_close($ch);
 
                     if ($httpCode === 200) {
+                        break 2;
+                    }
+
+                    if (in_array($httpCode, [401, 403])) {
                         break 2;
                     }
 

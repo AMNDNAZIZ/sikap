@@ -199,12 +199,24 @@ function setGenerateButtons(disabled) {
     document.getElementById('btn-manual-prompt').disabled = disabled;
 }
 
+function restoreLatexControlChars(text) {
+    if (text === null || text === undefined) return '';
+    let s = String(text);
+    // Pulihkan form-feed (\x0c) yang ter-decode dari \frac oleh parser JSON
+    s = s.replace(/\x0c/g, '\\f');
+    // Pulihkan backspace (\x08), tab (\t), carriage return (\r) yang menabrak perintah LaTeX
+    s = s.replace(/\x08([a-zA-Z])/g, '\\b$1');
+    s = s.replace(/\t([a-zA-Z])/g, '\\t$1');
+    s = s.replace(/\r(?![ \t]*\n)([a-zA-Z])/g, '\\r$1');
+    return s;
+}
+
 function unescapeNewlines(text) {
     if (text === null || text === undefined) return '';
-    return String(text)
+    return restoreLatexControlChars(text)
         .replace(/\\r\\n/g, '\n')
-        .replace(/\\n/g, '\n')
-        .replace(/\\r/g, '\n');
+        .replace(/\\n(?![a-zA-Z])/g, '\n')
+        .replace(/\\r(?![a-zA-Z])/g, '\n');
 }
 
 /**
@@ -497,10 +509,10 @@ function renderHasil(soal) {
      */
     function unescapeNewlines(text) {
         if (text === null || text === undefined) return '';
-        return String(text)
+        return restoreLatexControlChars(text)
             .replace(/\\r\\n/g, '\n')
-            .replace(/\\n/g, '\n')
-            .replace(/\\r/g, '\n');
+            .replace(/\\n(?![a-zA-Z])/g, '\n')
+            .replace(/\\r(?![a-zA-Z])/g, '\n');
     }
 
     function renderMath(text) {
@@ -1070,6 +1082,13 @@ function parseAiJson(raw) {
     // 3. Hapus karakter tidak terlihat
     s = s.replace(/[\uFEFF\u200B\u200C\u200D\u00AD]/g, '');
 
+    // 3b. FIX LaTeX backslash — kritis untuk soal matematika.
+    // PENTING: Dijalankan SEBELUM JSON.parse. Di JSON standar RFC 8259, \f adalah escape valid
+    // untuk form-feed (\u000c). Jika JSON.parse dijalankan mendahului fixLatexBackslashes,
+    // string \frac di-decode menjadi \x0crac. JSON.parse tidak gagal (karena escape \f sah),
+    // tetapi LaTeX menjadi rusak dan MathJax melempar "Math input error".
+    s = fixLatexBackslashes(s);
+
     // Coba decode langsung jika output sudah valid JSON
     try {
         const direct = JSON.parse(s);
@@ -1086,12 +1105,6 @@ function parseAiJson(raw) {
 
     // 5. Hapus trailing comma
     s = s.replace(/,(\s*[\}\]])/g, '$1');
-
-    // 5b. FIX LaTeX backslash — kritis untuk soal matematika.
-    // AI sering menulis "$\frac{1}{2}$" (single backslash). Di JSON, \f = form-feed,
-    // \s = invalid escape → LaTeX rusak → "Math input error" di MathJax.
-    // Solusi: escape backslash yang BUKAN escape JSON valid menjadi \\.
-    s = fixLatexBackslashes(s);
 
     // 6. Coba: parse setelah cleanJsonString
     try {

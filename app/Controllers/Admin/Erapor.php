@@ -994,9 +994,8 @@ KEMBALIKAN HANYA kalimat hasil perbaikan tanpa tanda petik, tanpa pengantar, dan
                 'Content-Type: application/json'
             ];
             $groqModels = [
-                'llama-3.3-70b-versatile',
-                'llama-3.1-8b-instant',
-                'qwen/qwen3.6-27b',
+                'openai/gpt-oss-120b',
+                'qwen/qwen3.8-27b',
                 'openai/gpt-oss-20b'
             ];
 
