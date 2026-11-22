@@ -474,6 +474,48 @@ class CbtBankSoal extends BaseController
     }
 
     /**
+     * 🗑️ Hapus masal butir soal terpilih dari bank soal (AJAX)
+     */
+    public function bulkDeleteQuestionsAjax()
+    {
+        $ids = $this->request->getPost('ids');
+        $bankId = $this->request->getPost('bank_id');
+
+        if (empty($ids) || !is_array($ids) || empty($bankId)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Pilih minimal satu butir soal untuk dihapus.']);
+        }
+
+        // 🔒 Validasi ownership / hak akses bank soal
+        if (!can_access_cbt_bank($bankId)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Anda tidak memiliki akses ke bank soal ini.']);
+        }
+
+        // 🔒 Pastikan soal yang dihapus benar-benar milik bank soal ini
+        $validQuestions = $this->questionModel
+            ->where('bank_id', $bankId)
+            ->whereIn('id', $ids)
+            ->findAll();
+
+        if (empty($validQuestions)) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Tidak ada butir soal valid yang ditemukan untuk dihapus.']);
+        }
+
+        $validIds = array_column($validQuestions, 'id');
+
+        // 🧹 Hapus soal secara masal
+        $this->questionModel->whereIn('id', $validIds)->delete();
+
+        // 🔁 Perbarui total statistik bank soal
+        $this->updateBankTotals($bankId);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => count($validIds) . ' butir soal berhasil dihapus secara masal.',
+            csrf_token() => csrf_hash()
+        ]);
+    }
+
+    /**
      * 🔄 Hitung ulang statistik bank setelah hapus soal
      */
     private function recountBankStats($bankId)

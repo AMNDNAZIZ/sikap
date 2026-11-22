@@ -100,13 +100,36 @@ window.MathJax = {
       </small>
     </div>
 
-    <div class="d-flex gap-2 w-100 w-sm-auto justify-content-end">
+    <div class="d-flex gap-2 w-100 w-sm-auto justify-content-end align-items-center flex-wrap">
+      <button type="button" id="btnBulkDeleteTop" class="btn btn-danger rounded-pill px-3 py-2 fw-semibold shadow-sm d-none align-items-center justify-content-center">
+        <i class="bi bi-trash me-1"></i> Hapus Terpilih (<span class="count-selected-badge">0</span>)
+      </button>
       <a href="<?= site_url('admin/cbt/banksoal/tambah_soal/' . $bank['id']) ?>" class="btn btn-success rounded-pill px-3 py-2 fw-semibold shadow-sm flex-fill flex-sm-grow-0 d-inline-flex align-items-center justify-content-center">
         <i class="bi bi-plus-circle me-1"></i> Tambah Soal
       </a>
       <a href="<?= site_url('admin/cbt/banksoal') ?>" class="btn btn-outline-secondary rounded-pill px-3 py-2 flex-fill flex-sm-grow-0 d-inline-flex align-items-center justify-content-center">
         <i class="bi bi-arrow-left me-1"></i> Kembali
       </a>
+    </div>
+  </div>
+
+  <!-- 🗑️ Bar Aksi Hapus Masal -->
+  <div id="bulkActionBar" class="alert alert-danger d-none align-items-center justify-content-between py-2.5 px-3 mb-3 shadow-sm border-0" style="border-radius: 12px; background: #fff5f5; border-left: 4px solid #dc3545 !important;">
+    <div class="d-flex align-items-center gap-2">
+      <div class="rounded-circle bg-danger bg-opacity-10 text-danger p-1 d-inline-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+        <i class="bi bi-check2-square fs-6"></i>
+      </div>
+      <div>
+        <span class="fw-bold text-danger"><span class="count-selected-badge">0</span> butir soal</span> terpilih
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <button type="button" id="btnCancelBulkSelect" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1">
+        Batal
+      </button>
+      <button type="button" class="btn btn-sm btn-danger rounded-pill px-3 py-1 btn-do-bulk-delete shadow-sm">
+        <i class="bi bi-trash me-1"></i> Hapus Masal
+      </button>
     </div>
   </div>
 
@@ -119,10 +142,16 @@ window.MathJax = {
         <input type="text" id="searchQuestionMobile" class="form-control border-start-0" placeholder="Cari nomor atau isi soal...">
       </div>
       <div class="d-flex justify-content-between align-items-center pt-2">
-        <span class="small text-muted">Total: <strong><?= count($questions) ?> Butir Soal</strong></span>
-        <a href="<?= site_url('admin/cbt/banksoal/tambah_soal/' . $bank['id']) ?>" class="btn btn-sm btn-outline-success py-1 px-2 rounded-pill">
-          <i class="bi bi-plus-circle me-1"></i> Tambah
-        </a>
+        <div class="form-check mb-0 d-flex align-items-center gap-1">
+          <input type="checkbox" id="checkAllQuestionsMobile" class="form-check-input mt-0" style="width: 18px; height: 18px; cursor: pointer;">
+          <label class="form-check-label small fw-semibold text-muted ms-1" for="checkAllQuestionsMobile" style="cursor: pointer;">Pilih Semua</label>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="small text-muted">Total: <strong><?= count($questions) ?> Butir Soal</strong></span>
+          <a href="<?= site_url('admin/cbt/banksoal/tambah_soal/' . $bank['id']) ?>" class="btn btn-sm btn-outline-success py-1 px-2 rounded-pill">
+            <i class="bi bi-plus-circle me-1"></i> Tambah
+          </a>
+        </div>
       </div>
     </div>
 
@@ -148,11 +177,14 @@ window.MathJax = {
       ?>
         <div class="card border-0 shadow-sm mb-3 question-card-item" style="border-radius: 14px;" data-search="<?= strtolower(esc(($i + 1) . ' ' . $previewText . ' ' . $typeName)) ?>">
           <div class="card-body p-3">
-            <!-- Top Row: No, Tipe, Skor -->
+            <!-- Top Row: Checkbox, No, Tipe, Skor -->
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="badge bg-secondary bg-opacity-10 text-secondary border font-monospace px-2 py-1">
-                SOAL NO. <?= $i + 1 ?>
-              </span>
+              <div class="d-flex align-items-center gap-2">
+                <input type="checkbox" class="form-check-input question-checkbox-item mt-0" value="<?= $q['id'] ?>" style="width: 19px; height: 19px; cursor: pointer;">
+                <span class="badge bg-secondary bg-opacity-10 text-secondary border font-monospace px-2 py-1">
+                  SOAL NO. <?= $i + 1 ?>
+                </span>
+              </div>
               <div class="d-flex gap-1 align-items-center">
                 <div class="dropdown">
                   <button class="badge <?= $badgeColor ?> border-0 dropdown-toggle px-2 py-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Klik untuk ubah jenis soal">
@@ -215,6 +247,9 @@ window.MathJax = {
       <table id="tableQuestions" class="table table-striped align-middle w-100 mb-0">
         <thead class="table-light">
           <tr>
+            <th width="40" class="text-center">
+              <input type="checkbox" id="checkAllQuestionsDesktop" class="form-check-input mt-0" style="width: 18px; height: 18px; cursor: pointer;" title="Pilih Semua Soal">
+            </th>
             <th width="5%">No</th>
             <th>Soal</th>
             <th width="10%">Jenis</th>
@@ -225,6 +260,9 @@ window.MathJax = {
         <tbody>
           <?php foreach ($questions as $i => $q): ?>
             <tr>
+              <td class="text-center">
+                <input type="checkbox" class="form-check-input question-checkbox-item mt-0" value="<?= $q['id'] ?>" style="width: 18px; height: 18px; cursor: pointer;">
+              </td>
               <td><?= $i + 1 ?></td>
               <td>
                 <?php
@@ -736,6 +774,129 @@ foreach ($questions as $idx => $q) {
           $(this).show();
         } else {
           $(this).hide();
+        }
+      });
+    });
+
+    /** ========================
+     * Hapus Masal Butir Soal (Bulk Delete)
+     * ======================== */
+    const currentBankId = '<?= $bank['id'] ?>';
+
+    function updateBulkState() {
+      const checkedVals = new Set();
+      $('.question-checkbox-item:checked').each(function () {
+        checkedVals.add($(this).val());
+      });
+
+      const count = checkedVals.size;
+      $('.count-selected-badge').text(count);
+
+      if (count > 0) {
+        $('#bulkActionBar').removeClass('d-none').addClass('d-flex');
+        $('#btnBulkDeleteTop').removeClass('d-none').addClass('d-inline-flex');
+      } else {
+        $('#bulkActionBar').removeClass('d-flex').addClass('d-none');
+        $('#btnBulkDeleteTop').removeClass('d-inline-flex').addClass('d-none');
+      }
+
+      // Sync checkbox antar desktop dan mobile
+      $('.question-checkbox-item').each(function () {
+        $(this).prop('checked', checkedVals.has($(this).val()));
+      });
+
+      // Update status master checkbox
+      const allItemCount = $('.question-card-item').length || $('#tableQuestions tbody tr').length;
+      const allChecked = allItemCount > 0 && count === allItemCount;
+      $('#checkAllQuestionsDesktop, #checkAllQuestionsMobile').prop('checked', allChecked);
+    }
+
+    // Master checkbox desktop & mobile
+    $('#checkAllQuestionsDesktop, #checkAllQuestionsMobile').on('change', function () {
+      const isChecked = this.checked;
+      $('#checkAllQuestionsDesktop, #checkAllQuestionsMobile').prop('checked', isChecked);
+      $('.question-checkbox-item').prop('checked', isChecked);
+      updateBulkState();
+    });
+
+    // Checkbox per butir soal
+    $(document).on('change', '.question-checkbox-item', function () {
+      const val = $(this).val();
+      const isChecked = this.checked;
+      $(`.question-checkbox-item[value="${val}"]`).prop('checked', isChecked);
+      updateBulkState();
+    });
+
+    // Tombol Batal Pilihan
+    $('#btnCancelBulkSelect').on('click', function () {
+      $('.question-checkbox-item, #checkAllQuestionsDesktop, #checkAllQuestionsMobile').prop('checked', false);
+      updateBulkState();
+    });
+
+    // Eksekusi Hapus Masal
+    $(document).on('click', '.btn-do-bulk-delete, #btnBulkDeleteTop', function () {
+      const selectedIds = [];
+      const seen = new Set();
+      $('.question-checkbox-item:checked').each(function () {
+        const id = $(this).val();
+        if (!seen.has(id)) {
+          seen.add(id);
+          selectedIds.push(id);
+        }
+      });
+
+      if (selectedIds.length === 0) {
+        Swal.fire('Perhatian', 'Pilih minimal satu butir soal untuk dihapus.', 'warning');
+        return;
+      }
+
+      Swal.fire({
+        title: 'Hapus Masal Soal?',
+        html: `Apakah Anda yakin ingin menghapus <b>${selectedIds.length} butir soal terpilih</b> secara permanen dari bank soal ini?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '<i class="bi bi-trash me-1"></i> Ya, Hapus Masal',
+        cancelButtonText: 'Batal'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          Swal.fire({
+            title: 'Menghapus Soal...',
+            text: 'Mohon tunggu sebentar...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+          });
+
+          $.ajax({
+            url: '<?= site_url('admin/cbt/banksoal/bulkDeleteQuestionsAjax') ?>',
+            method: 'POST',
+            dataType: 'json',
+            data: {
+              ids: selectedIds,
+              bank_id: currentBankId,
+              [csrfName]: csrfHash
+            },
+            success: function (res) {
+              if (res[csrfName]) csrfHash = res[csrfName];
+              if (res.success) {
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Berhasil',
+                  text: res.message,
+                  confirmButtonText: 'OK'
+                }).then(() => {
+                  location.reload();
+                });
+              } else {
+                Swal.fire('Gagal', res.error || 'Terjadi kesalahan saat menghapus.', 'error');
+              }
+            },
+            error: function (xhr) {
+              console.error(xhr.responseText);
+              Swal.fire('Error', 'Gagal menghapus soal masal. Periksa koneksi atau log server.', 'error');
+            }
+          });
         }
       });
     });
