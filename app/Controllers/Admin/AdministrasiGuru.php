@@ -4246,6 +4246,7 @@ class AdministrasiGuru extends BaseController
         foreach ($soalList as &$s) {
             if (isset($s['question'])) {
                 $s['question'] = str_replace(["\\r\\n", "\\r", "\\n"], ["\r\n", "\r", "\n"], (string)$s['question']);
+                $s['question'] = $this->splitWacanaQuestion($s['question']);
             }
             if (isset($s['options']) && is_array($s['options'])) {
                 foreach ($s['options'] as $ok => $ov) {
@@ -4395,6 +4396,123 @@ class AdministrasiGuru extends BaseController
     }
 
     /**
+     * Memisahkan antara perintah soal (stimulus lead-in), isi wacana/bacaan/ayat,
+     * dan kalimat pertanyaan agar berada dalam baris yang berbeda.
+     */
+    private function splitWacanaQuestion(string $text): string
+    {
+        $text = trim($text);
+        if (empty($text)) {
+            return '';
+        }
+
+        // Normalisasi newline
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
+
+        // Jika sudah tersusun 3 baris atau lebih dan baris pertama adalah perintah wacana, rapikan spasi
+        $existingLines = array_values(array_filter(array_map('trim', explode("\n", $text)), 'strlen'));
+        if (count($existingLines) >= 3) {
+            $firstLine = $existingLines[0];
+            if (preg_match('/^(?:(?:Soal\s*(?:no\.?|nomor)?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*)?(?:Bacalah|Perhatikan|Cermatilah|Cermati|Simaklah|Simak|Pahamilah|Pahami|Amatilah|Amati|Pelajarilah|Pelajari)\b/iu', $firstLine)) {
+                return implode("\n\n", $existingLines);
+            }
+        }
+
+        // 1. Deteksi Perintah Soal (Lead-in)
+        // Menangkap "Bacalah...", "Perhatikan...", "Cermatilah...", dll. yang diakhiri tanda : atau !
+        $leadInPattern = '/^(?:(?:Soal\s*(?:no\.?|nomor)?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*)?'
+            . '((?:Bacalah|Perhatikan|Cermatilah|Cermati|Simaklah|Simak|Pahamilah|Pahami|Amatilah|Amati|Pelajarilah|Pelajari)'
+            . '[^\n\r:!]{2,120}?'
+            . '[:!])\s*/iu';
+
+        if (!preg_match($leadInPattern, $text, $m)) {
+            $leadInPatternDot = '/^(?:(?:Soal\s*(?:no\.?|nomor)?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*)?'
+                . '((?:Bacalah|Perhatikan|Cermatilah|Cermati|Simaklah|Simak|Pahamilah|Pahami|Amatilah|Amati|Pelajarilah|Pelajari)'
+                . '\s+(?:[^\n\r\.]{2,80})?'
+                . '(?:berikut(?:\s+ini)?|di\s+bawah\s+ini|ini|saksama|seksama)\.)\s*/iu';
+            if (!preg_match($leadInPatternDot, $text, $m)) {
+                return $text;
+            }
+        }
+
+        $leadIn = trim($m[1]);
+        $rest = trim(substr($text, strlen($m[0])));
+
+        if (empty($rest)) {
+            return $text;
+        }
+
+        // 2. Deteksi Kalimat Pertanyaan di bagian akhir
+        $questionLeadPattern = '/(?:[\.\?\!\;\"\']\s+|\n+|\)\s+)'
+            . '('
+            . '(?:Berdasarkan|Dari|Sesuai(?:\s+dengan)?|Menurut)\s+(?:wacana|teks|kutipan|bacaan|paragraf|ayat|hadits?|stimulus|kasus|data|tabel|grafik|dialog|pernyataan|cerita|kisah|narasi|cuplikan|deskripsi|informasi|penjelasan|uraian|isi)\b.*'
+            . '|'
+            . '(?:Makna|Arti|Maksud)\s+(?:kata|frasa|istilah|ungkapan|peribahasa|ayat|hadits?|tersirat|tersurat|yang\s+terkandung)\b.*'
+            . '|'
+            . '(?:Hikmah|Pesan|Amanat|Nilai|Keteladanan)\s+(?:moral|karakter|agama|sosial|edukasi|budaya|kehidupan)?.*?(?:terkandung|terdapat|adalah|dipetik).*'
+            . '|'
+            . '(?:Ide\s+pokok|Gagasan\s+utama|Gagasan\s+pokok|Pokok\s+pikiran|Pikiran\s+utama|Kalimat\s+utama|Kalimat\s+penjelas|Topik\s+utama)\b.*'
+            . '|'
+            . '(?:Simpulan|Kesimpulan)\s+(?:yang\s+(?:tepat|benar|paling\s+tepat)|dari\s+teks|bacaan|wacana)?\b.*'
+            . '|'
+            . '(?:Pernyataan\s+yang\s+(?:sesuai|benar|tepat|tidak\s+sesuai|salah|paling\s+tepat|merupakan))\b.*'
+            . '|'
+            . '(?:Tujuan\s+(?:utama|penulis|dari\s+teks|penulisan))\b.*'
+            . '|'
+            . '(?:Sikap|Perilaku|Tindakan)\s+(?:yang\s+(?:mencerminkan|menunjukkan|sesuai))\b.*'
+            . '|'
+            . '(?:Ciri-ciri|Faktor-faktor|Penyebab|Dampak|Upaya|Langkah-langkah)\b.*?(?:ditunjukkan\s+oleh|adalah).*'
+            . '|'
+            . '(?:Pernyataan|Karakteristik|Pasangan|Hal)\s+(?:yang\s+tepat\s+ditunjukkan|yang\s+benar\s+adalah|di\s+atas\s+yang\s+benar).*'
+            . '|'
+            . '(?:(?:Pertanyaan|Soal)\s*[:]\s*.*)'
+            . '|'
+            . '(?:(?:Apa|Apakah|Siapa|Siapakah|Mengapa|Bagaimana|Bagaimanakah|Kapan|Kapankah|Di\s+mana|Di\s+manakah|Ke\s+mana|Dari\s+mana|Berapa|Berapakah|Manakah)\b.*)'
+            . ')$/ius';
+
+        $wacana = $rest;
+        $pertanyaan = '';
+
+        if (preg_match($questionLeadPattern, $rest, $qm, PREG_OFFSET_CAPTURE)) {
+            $qPos = $qm[1][1];
+            $wacana = trim(substr($rest, 0, $qPos));
+            $pertanyaan = trim(substr($rest, $qPos));
+        } else {
+            // Fallback: deteksi kalimat terakhir berakhiran '?' atau '...'
+            if (preg_match('/^(.*?[a-z0-9\)\"\'][\.\!\?])\s+((?:[A-Z]|Berdasarkan|Dari|Apa|Siapa|Mengapa|Bagaimana|Manakah|Keteladanan).*?[\?\.\:]|\.{3})$/us', $rest, $sm)) {
+                $candidateQ = trim($sm[2]);
+                if (str_ends_with($candidateQ, '?') || str_ends_with($candidateQ, '...') || preg_match('/(adalah|merupakan|sebagai|yaitu|ditunjukkan)\s*(?:[\.\:]|\.{3})$/i', $candidateQ)) {
+                    $wacana = trim($sm[1]);
+                    $pertanyaan = $candidateQ;
+                }
+            }
+        }
+
+        if (empty($pertanyaan)) {
+            if (preg_match('/^(.*?\([0-9]+\)[^\(\)]+?)\s+((?:Ciri-ciri|Pernyataan|Karakteristik|Faktor|Pasangan|Berdasarkan|Nomor|Manakah)\b.*)$/ius', $wacana, $pm)) {
+                $wacana = trim($pm[1]);
+                $pertanyaan = trim($pm[2]);
+            }
+        }
+
+        // Format pernyataan bernomor (1)... (2)... atau 1)... 2)...
+        if (preg_match('/(?:\([0-9]+\)|(?<=\s|^)[0-9]+\))/', $wacana)) {
+            $wacana = preg_replace('/\s*(\([0-9]+\))\s*/', "\n$1 ", $wacana);
+            $wacana = preg_replace('/(?<=\s|^)([0-9]+\))\s*/', "\n$1 ", $wacana);
+            $wacana = trim($wacana);
+        }
+
+        $wacanaLines = array_map('trim', explode("\n", $wacana));
+        $wacana = implode("\n", array_filter($wacanaLines, 'strlen'));
+
+        if (!empty($pertanyaan)) {
+            return $leadIn . "\n\n" . $wacana . "\n\n" . $pertanyaan;
+        }
+
+        return $leadIn . "\n\n" . $wacana;
+    }
+
+    /**
      * Membangun prompt profesional berstandar nasional untuk AI
      * Menegakkan kaidah penulisan butir soal: kesetaraan panjang opsi, distraktor berkualitas & homogen, paralelisme gramatikal, dan pencegahan clue verbal.
      */
@@ -4521,11 +4639,16 @@ class AdministrasiGuru extends BaseController
             . "   - 20% soal C1-C2 (Mengingat & Memahami): fakta, definisi, konsep dasar\n"
             . "   - 30% soal C3 (Menerapkan): penerapan konsep dalam situasi baru / kontekstual\n"
             . "   - 50% soal C4-C6 (HOTS - Menganalisis, Mengevaluasi, Mencipta): analisis data/teks, pemecahan masalah, penarikan kesimpulan\n\n"
-            . "3. STIMULUS SOAL HOTS & SOAL MANDIRI:\n"
-            . "   - Soal HOTS wajib menyertakan stimulus (wacana singkat, data, tabel, kasus kehidupan nyata) di awal field 'question'.\n"
+            . "3. ATURAN STRUKTUR SOAL BERWACANA / STIMULUS (WAJIB DIPATUHI):\n"
+            . "   - Jika butir soal menggunakan stimulus (wacana, teks bacaan, kutipan cerpen/puisi, ayat Al-Qur'an, hadits, tabel, data, kasus, atau beberapa pernyataan):\n"
+            . "   - WAJIB memisahkan bagian-bagian soal menjadi BARIS YANG BERBEDA (gunakan newline \\n\\n di dalam nilai field 'question') dengan susunan:\n"
+            . "     * Baris 1: Perintah soal (contoh: 'Bacalah wacana berikut!' / 'Perhatikan teks berikut:' / 'Perhatikan ayat berikut:' / 'Cermatilah kutipan cerpen berikut:')\n"
+            . "     * Baris 2: Isi teks wacana / bacaan / kutipan dalil / daftar pernyataan bernomor (1) (2) dst.\n"
+            . "     * Baris 3: Kalimat pertanyaan inti (contoh: 'Berdasarkan wacana di atas, fungsi utama...' / 'Makna yang terkandung dalam ayat tersebut adalah...')\n"
+            . "   - DILARANG KERAS menggabungkan perintah soal, isi wacana, dan kalimat pertanyaan menjadi satu baris/paragraf bersambung tanpa jeda baris baru!\n"
             . "   - PENTING (Ujian CBT Digital): Soal diacak oleh sistem. Setiap butir soal HARUS MANDIRI (self-contained). DILARANG membuat satu stimulus untuk beberapa nomor (misal 'Perhatikan teks berikut untuk soal 1-3'). Bila ada soal merujuk teks yang sama, tulis ulang teks secara utuh di masing-masing nomor soal.\n\n"
             . "4. UNTUK MAPEL BAHASA (Indonesia/Inggris/Daerah):\n"
-            . "   - Wajib sertakan kutipan teks wacana bacaan yang relevan di field 'question' dengan label 'Bacalah teks berikut!' kemudian buat baris baru.\n\n"
+            . "   - Wajib sertakan kutipan teks wacana bacaan yang relevan di field 'question' dengan label perintah (misal 'Bacalah teks berikut!'), lalu beri baris baru (\\n\\n) untuk isi bacaan, dan baris baru (\\n\\n) untuk pertanyaannya.\n\n"
             . "5. UNTUK SOAL YANG MEMBUTUHKAN GAMBAR:\n"
             . "   - Tulis deskripsinya dalam kurung siku: [Gambar: deskripsi visual yang jelas]\n"
             . "   - Kurung siku HANYA untuk deskripsi gambar. DILARANG menggunakan kurung siku untuk ayat/hadits (tulis dalil nyata)!\n\n"
@@ -4638,6 +4761,7 @@ class AdministrasiGuru extends BaseController
 
             // Normalisasi literal '\n' dan '\r\n' jika masih berbentuk teks literal
             $cleanQuestionText = str_replace(["\\r\\n", "\\r", "\\n"], ["\r\n", "\r", "\n"], (string)($soal['question'] ?? ''));
+            $cleanQuestionText = $this->splitWacanaQuestion($cleanQuestionText);
             $qHtml = nl2br(trim($cleanQuestionText), false);
 
             // Build raw_text for editor compatibility

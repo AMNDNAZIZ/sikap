@@ -206,6 +206,100 @@ function unescapeNewlines(text) {
         .replace(/\\n/g, '\n')
         .replace(/\\r/g, '\n');
 }
+
+/**
+ * Memisahkan antara perintah soal (stimulus lead-in), isi wacana/bacaan/ayat,
+ * dan kalimat pertanyaan agar berada dalam baris yang berbeda.
+ */
+function splitWacanaQuestion(text) {
+    if (!text || typeof text !== 'string') return '';
+    text = text.trim();
+    if (!text) return '';
+
+    // Normalisasi newline
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    // Jika sudah memiliki 3 baris terpisah atau lebih dan diawali perintah wacana, rapikan spasi
+    const existingLines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    if (existingLines.length >= 3) {
+        const firstLine = existingLines[0];
+        if (/^(?:(?:Soal\s*(?:no\.?|nomor)?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*)?(?:Bacalah|Perhatikan|Cermatilah|Cermati|Simaklah|Simak|Pahamilah|Pahami|Amatilah|Amati|Pelajarilah|Pelajari)\b/i.test(firstLine)) {
+            return existingLines.join('\n\n');
+        }
+    }
+
+    // 1. Deteksi Perintah Soal (Lead-in)
+    const leadInPattern = /^(?:(?:Soal\s*(?:no\.?|nomor)?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*)?((?:Bacalah|Perhatikan|Cermatilah|Cermati|Simaklah|Simak|Pahamilah|Pahami|Amatilah|Amati|Pelajarilah|Pelajari)[^\n\r:!]{2,120}?[:!])\s*/i;
+
+    let leadIn = '';
+    let rest = text;
+
+    const m = text.match(leadInPattern);
+    if (m) {
+        leadIn = m[1].trim();
+        rest = text.substring(m[0].length).trim();
+    } else {
+        const leadInPatternDot = /^(?:(?:Soal\s*(?:no\.?|nomor)?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*)?((?:Bacalah|Perhatikan|Cermatilah|Cermati|Simaklah|Simak|Pahamilah|Pahami|Amatilah|Amati|Pelajarilah|Pelajari)\s+(?:[^\n\r\.]{2,80})?(?:berikut(?:\s+ini)?|di\s+bawah\s+ini|ini|saksama|seksama)\.)\s*/i;
+        const md = text.match(leadInPatternDot);
+        if (md) {
+            leadIn = md[1].trim();
+            rest = text.substring(md[0].length).trim();
+        } else {
+            return text;
+        }
+    }
+
+    if (!rest) return text;
+
+    // 2. Deteksi Kalimat Pertanyaan di bagian akhir
+    const questionLeadPattern = /(?:[\.\?\!\;\"\']\s+|\n+|\)\s+)((?:Berdasarkan|Dari|Sesuai(?:\s+dengan)?|Menurut)\s+(?:wacana|teks|kutipan|bacaan|paragraf|ayat|hadits?|stimulus|kasus|data|tabel|grafik|dialog|pernyataan|cerita|kisah|narasi|cuplikan|deskripsi|informasi|penjelasan|uraian|isi)\b.*|(?:Makna|Arti|Maksud)\s+(?:kata|frasa|istilah|ungkapan|peribahasa|ayat|hadits?|tersirat|tersurat|yang\s+terkandung)\b.*|(?:Hikmah|Pesan|Amanat|Nilai|Keteladanan)\s+(?:moral|karakter|agama|sosial|edukasi|budaya|kehidupan)?.*?(?:terkandung|terdapat|adalah|dipetik).*|(?:Ide\s+pokok|Gagasan\s+utama|Gagasan\s+pokok|Pokok\s+pikiran|Pikiran\s+utama|Kalimat\s+utama|Kalimat\s+penjelas|Topik\s+utama)\b.*|(?:Simpulan|Kesimpulan)\s+(?:yang\s+(?:tepat|benar|paling\s+tepat)|dari\s+teks|bacaan|wacana)?\b.*|(?:Pernyataan\s+yang\s+(?:sesuai|benar|tepat|tidak\s+sesuai|salah|paling\s+tepat|merupakan))\b.*|(?:Tujuan\s+(?:utama|penulis|dari\s+teks|penulisan))\b.*|(?:Sikap|Perilaku|Tindakan)\s+(?:yang\s+(?:mencerminkan|menunjukkan|sesuai))\b.*|(?:Ciri-ciri|Faktor-faktor|Penyebab|Dampak|Upaya|Langkah-langkah)\b.*?(?:ditunjukkan\s+oleh|adalah).*|(?:Pernyataan|Karakteristik|Pasangan|Hal)\s+(?:yang\s+tepat\s+ditunjukkan|yang\s+benar\s+adalah|di\s+atas\s+yang\s+benar).*|(?:(?:Pertanyaan|Soal)\s*[:]\s*.*)|(?:(?:Apa|Apakah|Siapa|Siapakah|Mengapa|Bagaimana|Bagaimanakah|Kapan|Kapankah|Di\s+mana|Di\s+manakah|Ke\s+mana|Dari\s+mana|Berapa|Berapakah|Manakah)\b.*))$/is;
+
+    let wacana = rest;
+    let pertanyaan = '';
+
+    const qm = rest.match(questionLeadPattern);
+    if (qm && qm.index !== undefined) {
+        const matchCapture = qm[1];
+        const qPos = rest.lastIndexOf(matchCapture);
+        if (qPos > 0) {
+            wacana = rest.substring(0, qPos).trim();
+            pertanyaan = rest.substring(qPos).trim();
+        }
+    } else {
+        const sm = rest.match(/^(.*?[a-z0-9\)\"\'][\.\!\?])\s+((?:[A-Z]|Berdasarkan|Dari|Apa|Siapa|Mengapa|Bagaimana|Manakah|Keteladanan).*?[\?\.\:]|\.{3})$/s);
+        if (sm) {
+            const candidateQ = sm[2].trim();
+            if (candidateQ.endsWith('?') || candidateQ.endsWith('...') || /(adalah|merupakan|sebagai|yaitu|ditunjukkan)\s*(?:[\.\:]|\.{3})$/i.test(candidateQ)) {
+                wacana = sm[1].trim();
+                pertanyaan = candidateQ;
+            }
+        }
+    }
+
+    if (!pertanyaan) {
+        const pm = wacana.match(/^(.*?\([0-9]+\)[^\(\)]+?)\s+((?:Ciri-ciri|Pernyataan|Karakteristik|Faktor|Pasangan|Berdasarkan|Nomor|Manakah)\b.*)$/is);
+        if (pm) {
+            wacana = pm[1].trim();
+            pertanyaan = pm[2].trim();
+        }
+    }
+
+    // Format pernyataan bernomor (1)... (2)... atau 1)... 2)...
+    if (/\([0-9]+\)|(?<=\s|^)[0-9]+\)/.test(wacana)) {
+        wacana = wacana.replace(/\s*(\([0-9]+\))\s*/g, "\n$1 ");
+        wacana = wacana.replace(/(?<=\s|^)([0-9]+\))\s*/g, "\n$1 ");
+        wacana = wacana.trim();
+    }
+
+    const wacanaLines = wacana.split('\n').map(l => l.trim()).filter(Boolean);
+    wacana = wacanaLines.join('\n');
+
+    if (pertanyaan) {
+        return leadIn + "\n\n" + wacana + "\n\n" + pertanyaan;
+    }
+
+    return leadIn + "\n\n" + wacana;
+}
 // Data ATP untuk sumatif
 const allAtp = <?= json_encode($atp_list) ?>;
 
@@ -340,7 +434,7 @@ document.getElementById('btn-generate')?.addEventListener('click', async functio
 
         if (data.success && Array.isArray(data.soal)) {
             data.soal.forEach(s => {
-                if (s.question) s.question = unescapeNewlines(s.question);
+                if (s.question) s.question = splitWacanaQuestion(unescapeNewlines(s.question));
                 if (s.options && typeof s.options === 'object') {
                     for (const k in s.options) {
                         s.options[k] = unescapeNewlines(s.options[k]);
@@ -415,6 +509,21 @@ function renderHasil(soal) {
         return escHtml(cleaned).replace(/\r?\n/g, '<br>');
     }
 
+    function renderQuestionContent(text) {
+        if (text === null || text === undefined) return '';
+        const cleaned = unescapeNewlines(text);
+        const parts = cleaned.split(/\n\n+/);
+        if (parts.length >= 3 && /^(?:(?:Soal\s*(?:no\.?|nomor)?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*)?(?:Bacalah|Perhatikan|Cermatilah|Cermati|Simaklah|Simak|Pahamilah|Pahami|Amatilah|Amati|Pelajarilah|Pelajari)\b/i.test(parts[0].trim())) {
+            const lead = escHtml(parts[0].trim());
+            const wacana = parts.slice(1, -1).map(p => escHtml(p.trim()).replace(/\r?\n/g, '<br>')).join('<br><br>');
+            const q = escHtml(parts[parts.length - 1].trim()).replace(/\r?\n/g, '<br>');
+            return `<div class="mb-1 text-primary-emphasis fw-semibold"><i class="bi bi-card-text me-1"></i>${lead}</div>` +
+                   `<div class="p-2.5 mb-2 bg-light rounded border-start border-3 border-primary text-secondary small fw-normal" style="white-space: pre-wrap;">${wacana}</div>` +
+                   `<div class="fw-bold text-dark">${q}</div>`;
+        }
+        return `<span class="fw-bold text-dark">${escHtml(cleaned).replace(/\r?\n/g, '<br>')}</span>`;
+    }
+
     function escHtml(s) {
         // Hanya escape < dan > (untuk cegah injeksi tag).
         // & TIDAK di-escape agar entity LaTeX & perintah tetap utuh.
@@ -425,7 +534,7 @@ function renderHasil(soal) {
     container.innerHTML = soal.map((s, i) => {
         let html = `<div class="list-group-item">
             <div class="d-flex justify-content-between align-items-start mb-2">
-                <div class="fw-bold me-2" style="flex:1">${i+1}. <span class="math-content">${renderMath(s.question)}</span></div>
+                <div class="me-2" style="flex:1"><span class="fw-bold">${i+1}. </span><span class="math-content">${renderQuestionContent(s.question)}</span></div>
                 <div class="d-flex align-items-center gap-1 flex-shrink-0">
                     <span class="badge bg-secondary me-1">${tipeLabel[s.type] || s.type}</span>
                     <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" onclick="editSoalItem(${i})" title="Edit Soal & Opsi">
@@ -535,7 +644,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const index = parseInt(document.getElementById('editSoalIndex').value);
         if (isNaN(index) || !generatedSoal[index]) return;
         
-        generatedSoal[index].question = document.getElementById('editSoalQuestion').value.trim();
+        generatedSoal[index].question = splitWacanaQuestion(document.getElementById('editSoalQuestion').value.trim());
         generatedSoal[index].answer = document.getElementById('editSoalAnswer').value.trim();
         
         const optInputs = document.querySelectorAll('.edit-opt-val');
@@ -1105,7 +1214,7 @@ document.getElementById('parseSoalManual').addEventListener('click', function ()
             // Normalisasi tipe & bersihkan literal newline yang mungkin tertinggal
             rawArr.forEach(s => {
                 s.type = normalizeSoalType(s.type);
-                if (s.question) s.question = unescapeNewlines(s.question);
+                if (s.question) s.question = splitWacanaQuestion(unescapeNewlines(s.question));
                 if (s.options && typeof s.options === 'object') {
                     for (const k in s.options) {
                         s.options[k] = unescapeNewlines(s.options[k]);
