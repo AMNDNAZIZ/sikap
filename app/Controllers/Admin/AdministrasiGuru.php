@@ -3772,14 +3772,63 @@ class AdministrasiGuru extends BaseController
         $data['subject'] = $this->subjectModel->find($modul['subject_id']);
         $data['atp'] = $this->atpModel->find($modul['atp_id']);
         $data['class'] = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
-        $data['school'] = $this->schoolModel->getProfile();
+        $school = $this->schoolModel->getProfile();
+        $data['school'] = $school;
+
+        // Ambil tahun ajaran aktif untuk memastikan data guru sesuai tahun ajaran yang berlaku
+        $activeYear = $this->yearModel->getActiveYear();
+        $activeYearId = $activeYear ? $activeYear['id'] : null;
+
+        // Cari guru pengampu: prioritas 1 dari teacher_id modul, prioritas 2 dari teaching assignment
+        $teacher = !empty($modul['teacher_id']) ? $this->teacherModel->find($modul['teacher_id']) : null;
+        if (!$teacher) {
+            $assignment = $this->teachingAssignmentModel
+                ->where('class_id', $classId)
+                ->where('subject_id', $modul['subject_id'])
+                ->where('academic_year_id', $activeYearId)
+                ->first();
+
+            // Fallback: jika tidak ditemukan di tahun ajaran aktif, cari tanpa filter tahun ajaran
+            if (!$assignment) {
+                $assignment = $this->teachingAssignmentModel
+                    ->where('class_id', $classId)
+                    ->where('subject_id', $modul['subject_id'])
+                    ->first();
+            }
+
+            $teacher = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
+        }
+
+        // Fallback jika belum ter-assign: cek sesi login jika login sebagai guru
+        if (!$teacher) {
+            $user = session()->get('user');
+            if ($user && ($user['role_id'] ?? 0) == 3) {
+                $teacher = $this->teacherModel->where('user_id', $user['id'])->first();
+            }
+        }
+        $data['teacher'] = $teacher;
+
+        // Path tanda tangan Guru Mapel
+        $teacherSigPath = !empty($teacher['signature']) ? $teacher['signature'] : '';
+
+        // Konversi ke base64 data URI agar render cetak stabil, offline-ready & tajam
+        $data['teacher_sig_base64'] = $this->imageToBase64($teacherSigPath);
+        $data['teacher_id']         = $teacher['id'] ?? 0;
+
+        // Path tanda tangan Kepala Sekolah (dari school_profile atau settings)
+        $settingsModel = new \App\Models\SettingsModel();
+        $ksSigPath = !empty($school['principal_signature']) 
+            ? $school['principal_signature'] 
+            : ($settingsModel->getValue('ks_signature_path') ?? '');
+        $data['principal_sig_base64'] = $this->imageToBase64($ksSigPath);
 
         $bulanIndo = [
             1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
             5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
             9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
         ];
-        $data['formatted_date'] = date('j') . ' ' . ($bulanIndo[(int)date('n')] ?? date('F')) . ' ' . date('Y');
+        $data['formatted_date']   = date('j') . ' ' . ($bulanIndo[(int)date('n')] ?? date('F')) . ' ' . date('Y');
+        $data['current_date_iso'] = date('Y-m-d');
 
         return view('admin/administrasi_guru/modul_ajar_lkpd_print', $data);
     }
