@@ -3433,7 +3433,7 @@ class AdministrasiGuru extends BaseController
         }
 
         $generatedHtml = preg_replace('/```(?:html)?([\s\S]*?)```/s', '$1', $generatedHtml);
-        $generatedHtml = trim($generatedHtml);
+        $generatedHtml = $this->sanitizeLkpdContent($generatedHtml);
 
         if (empty($generatedHtml)) {
             return $this->response->setJSON(['success' => false, 'message' => 'AI tidak menghasilkan konten LKPD. Silakan coba kembali.']);
@@ -3649,6 +3649,7 @@ class AdministrasiGuru extends BaseController
         $pertemuan = (int)$this->request->getPost('pertemuan');
         $title     = trim((string)$this->request->getPost('title'));
         $content   = trim((string)$this->request->getPost('content'));
+        $content   = $this->sanitizeLkpdContent($content);
 
         if ($modulId <= 0 || $pertemuan <= 0 || empty($content)) {
             return $this->response->setJSON(['success' => false, 'message' => 'Data LKPD tidak lengkap.']);
@@ -3761,6 +3762,9 @@ class AdministrasiGuru extends BaseController
             return redirect()->back()->with('error', "Konten LKPD Pertemuan {$pertemuan} masih kosong.");
         }
 
+        // Sanitasi otomatis saat cetak (sembuhkan jika ada teks CSS mentah yang terlanjur tersimpan)
+        $lkpdItem['content'] = $this->sanitizeLkpdContent($lkpdItem['content']);
+
         $data['modul'] = $modul;
         $data['class_id'] = $classId;
         $data['pertemuan'] = (int)$pertemuan;
@@ -3864,10 +3868,10 @@ class AdministrasiGuru extends BaseController
             . "- Fokus Kegiatan di Modul: {$kegiatanPertemuan}\n"
             . (!empty($tpList) ? "- Tujuan Pembelajaran (TP): {$tpList}\n" : "")
             . "\n"
-            . "INSTRUKSI STRUKTUR LKPD (KEMBALIKAN HANYA PURE HTML TANPA MARKDOWN / TANPA CODE BLOCK):\n"
-            . "1. HEADER LEMBAR KERJA:\n"
-            . "   - Judul LKPD Menarik (misal: 'LEMBAR KERJA PESERTA DIDIK (LKPD) - [Tema/Topik Menantang]').\n"
-            . "   - Tabel/Kotak Identitas Siswa: Nama Siswa/Kelompok, Kelas, No. Absen, Tanggal, dan Alokasi Waktu.\n\n"
+            . "INSTRUKSI STRUKTUR LKPD:\n"
+            . "PENTING: JANGAN membuat kop nama sekolah atau tabel identitas siswa (Nama Siswa, Kelas, Hari/Tanggal) karena template resmi cetak sistem sudah menyediakannya otomatis di bagian paling atas dokumen.\n\n"
+            . "MULAI LANGSUNG DARI ISI AKTIVITAS SISWA:\n"
+            . "1. JUDUL & TOPIK AKTIVITAS: Gunakan <h3>...</h3> dengan judul yang menantang dan memantik rasa ingin tahu siswa.\n\n"
             . "2. TUJUAN AKTIVITAS:\n"
             . "   - 2-3 butir tujuan konkret apa yang akan dieksplorasi dan dihasilkan siswa pada pertemuan ini.\n\n"
             . "3. STIMULUS VISUAL & GRAFIK (SANGAT PENTING - WAJIB ADA ILUSTRASI/DIAGRAM SVG):\n"
@@ -3883,11 +3887,73 @@ class AdministrasiGuru extends BaseController
             . "   - Sediakan kotak/ruang jawaban bergaris (atau kotak ber-border putus-putus/garis) yang cukup untuk tulisan tangan siswa.\n\n"
             . "6. KESIMPULAN & REFLEKSI DIRI (JOYFUL):\n"
             . "   - Kolom penarikan kesimpulan akhir oleh siswa.\n"
-            . "   - Kotak refleksi diri dengan checklist emotikon perasaan belajar (Senang/Paham, Cukup Paham, Butuh Bantuan) dan 1 pertanyaan refleksi reflektif.\n\n"
-            . "ATURAN MUTLAK:\n"
-            . "- Format PURE HTML langsung (jangan gunakan ```html ... ```).\n"
-            . "- DILARANG menggunakan tanda backslash (\\) liar.\n"
-            . "- Desain CSS inline/class semantik yang elegan dan ramah cetak hitam-putih maupun berwarna.\n";
+            . "   - Kotak refleksi diri dengan checklist emotikon perasaan belajar (Senang/Paham, Cukup Paham, Butuh Bantuan) dan 1 pertanyaan reflektif.\n\n"
+            . "ATURAN MUTLAK FORMAT KODE:\n"
+            . "- Kembalikan HANYA cuplikan kode HTML langsung (JANGAN gunakan markdown code block ```html atau ```css).\n"
+            . "- Jika Anda menggunakan aturan styling CSS (class), WAJIB seluruh kode CSS ditaruh di dalam tag <style>...</style> di baris paling atas, atau gunakan atribut inline style='...' pada elemen HTML.\n"
+            . "- DILARANG KERAS mengeluarkan kode CSS polos di luar tag <style> karena akan tercetak sebagai teks di kertas siswa.\n"
+            . "- JANGAN sertakan <!DOCTYPE html>, <html>, <head>, atau <body>.\n"
+            . "- DILARANG menggunakan tanda backslash (\\) liar.\n";
+    }
+
+    /**
+     * Sanitasi dan pembersihan konten LKPD agar bebas dari markdown code blocks,
+     * CSS mentah yang bocor di luar tag <style>, dan tag dokumen luar.
+     */
+    protected function sanitizeLkpdContent(string $content): string
+    {
+        $content = trim($content);
+        if ($content === '') {
+            return '';
+        }
+
+        // 1. Ubah markdown ```css ... ``` menjadi <style>...</style>
+        $content = preg_replace_callback('/```css\s*([\s\S]*?)```/i', function($m) {
+            return "<style>\n" . trim($m[1]) . "\n</style>";
+        }, $content);
+
+        // 2. Bersihkan markdown code blocks (```html atau ```)
+        $content = preg_replace('/```(?:html|xml)?\s*([\s\S]*?)```/i', '$1', $content);
+        $content = preg_replace('/```\s*$/m', '', $content);
+
+        // 3. Jika dokumen mengandung DOCTYPE/HTML/HEAD/BODY, ekstrak style dan body
+        if (stripos($content, '<html') !== false || stripos($content, '<body') !== false) {
+            $styles = '';
+            if (preg_match_all('/<style\b[^>]*>([\s\S]*?)<\/style>/i', $content, $sm)) {
+                $styles = implode("\n", $sm[0]);
+            }
+            if (preg_match('/<body\b[^>]*>([\s\S]*?)<\/body>/i', $content, $bm)) {
+                $content = $styles . "\n" . $bm[1];
+            } else {
+                $content = preg_replace('/<\/?(?:html|head|body|meta|title)\b[^>]*>/i', '', $content);
+                $content = preg_replace('/<!DOCTYPE[^>]*>/i', '', $content);
+            }
+        }
+
+        // 4. Deteksi CSS mentah di luar tag <style>
+        // Contoh kasus AI: menulis /* 1. HEADER */ .lkpd-header { ... } di awal teks tanpa tag <style>
+        if (preg_match('/^\s*(\/\*[\s\S]*?\*\/[\s\S]*?)(<(?:h[1-6]|div|table|p|section|svg|article|ul|ol)\b)/iu', $content, $match)) {
+            $rawCss = trim($match[1]);
+            $restHtml = $match[2] . substr($content, strlen($match[0]));
+            if (strpos($rawCss, '{') !== false && strpos($rawCss, '}') !== false) {
+                $content = "<style>\n" . $rawCss . "\n</style>\n" . $restHtml;
+            }
+        } elseif (preg_match('/^\s*([.#a-zA-Z0-9_\-\s,>:+*]+\s*\{[\s\S]*?\})\s*(<(?:h[1-6]|div|table|p|section|svg|article|ul|ol)\b)/iu', $content, $match)) {
+            $rawCss = trim($match[1]);
+            $restHtml = $match[2] . substr($content, strlen($match[0]));
+            if (strpos($rawCss, '{') !== false && strpos($rawCss, '}') !== false) {
+                $content = "<style>\n" . $rawCss . "\n</style>\n" . $restHtml;
+            }
+        }
+
+        // 5. Bersihkan backslash LaTeX berlebih
+        $content = str_replace(
+            ['\div', '\times', '\pm', '\le', '\leq', '\ge', '\geq', '\cdot', '\approx', '\neq', '\ne', '\infty', '\degree'],
+            ['÷', '×', '±', '≤', '≤', '≥', '≥', '·', '≈', '≠', '≠', '∞', '°'],
+            $content
+        );
+
+        return trim($content);
     }
 
     /**

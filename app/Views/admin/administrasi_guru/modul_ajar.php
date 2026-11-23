@@ -1031,6 +1031,9 @@
 
     $('#lkpdEditForm').on('submit', function(e) {
         e.preventDefault();
+        var el = $('#editLkpdContent');
+        el.val(cleanLkpdInput(el.val()));
+
         const btn = $('#saveLkpdBtn');
         btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...');
 
@@ -1126,17 +1129,41 @@
         $('#lkpdPromptStep').show();
     });
 
+    function cleanLkpdInput(val) {
+        if (!val) return val;
+
+        // Ubah markdown ```css ... ``` menjadi tag <style>
+        val = val.replace(/```css\s*([\s\S]*?)```/gi, '<style>\n$1\n</style>');
+
+        // Hapus markdown code blocks lainnya
+        val = val.replace(/```(?:html|xml)?\s*([\s\S]*?)```/gi, '$1');
+        val = val.replace(/```\s*$/gm, '');
+
+        // Deteksi CSS mentah tanpa tag <style> di awal dokumen (misal /* 1. HEADER */ .lkpd-header { ... })
+        var cssMatch = val.match(/^\s*(\/\*[\s\S]*?\*\/[\s\S]*?)(<(?:h[1-6]|div|table|p|section|svg|article|ul|ol)\b)/i);
+        if (cssMatch && cssMatch[1].indexOf('{') !== -1 && cssMatch[1].indexOf('}') !== -1) {
+            val = '<style>\n' + cssMatch[1].trim() + '\n</style>\n' + cssMatch[2] + val.substring(cssMatch[0].length);
+        } else {
+            var cssMatch2 = val.match(/^\s*([.#a-zA-Z0-9_\-\s,>:+*]+\s*\{[\s\S]*?\})\s*(<(?:h[1-6]|div|table|p|section|svg|article|ul|ol)\b)/i);
+            if (cssMatch2 && cssMatch2[1].indexOf('{') !== -1 && cssMatch2[1].indexOf('}') !== -1) {
+                val = '<style>\n' + cssMatch2[1].trim() + '\n</style>\n' + cssMatch2[2] + val.substring(cssMatch2[0].length);
+            }
+        }
+
+        return cleanModulInput(val);
+    }
+
     $('#manualLkpdPasteArea').on('paste', function() {
         setTimeout(function() {
             var el = $('#manualLkpdPasteArea');
-            el.val(cleanModulInput(el.val()));
+            el.val(cleanLkpdInput(el.val()));
         }, 50);
     });
 
     $('#lkpdManualSaveForm').on('submit', function(e) {
         e.preventDefault();
         var el = $('#manualLkpdPasteArea');
-        el.val(cleanModulInput(el.val()));
+        el.val(cleanLkpdInput(el.val()));
 
         const btn = $('#btnSaveManualLkpd');
         btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...');
