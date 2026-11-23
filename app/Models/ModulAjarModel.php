@@ -16,6 +16,7 @@ class ModulAjarModel extends Model
         'content',
         'tipe',
         'file_pdf',
+        'lkpd_content',
     ];
     protected $useTimestamps = true;
     protected $createdField  = 'created_at';

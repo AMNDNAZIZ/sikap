@@ -3041,7 +3041,8 @@ class AdministrasiGuru extends BaseController
         $data['modul'] = $modul;
         $data['class_id'] = $classId;
         $data['subject'] = $this->subjectModel->find($modul['subject_id']);
-        $data['school'] = $this->schoolModel->getProfile();
+        $school = $this->schoolModel->getProfile();
+        $data['school'] = $school;
 
         // Ambil tahun ajaran aktif untuk memastikan data guru sesuai tahun ajaran yang berlaku
         $activeYear = $this->yearModel->getActiveYear();
@@ -3062,9 +3063,831 @@ class AdministrasiGuru extends BaseController
                 ->first();
         }
 
-        $data['teacher'] = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
+        $teacher = $assignment ? $this->teacherModel->find($assignment['teacher_id']) : null;
+        if (!$teacher) {
+            $user = session()->get('user');
+            if ($user && ($user['role_id'] ?? 0) == 3) {
+                $teacher = $this->teacherModel->where('user_id', $user['id'])->first();
+            }
+        }
+        $data['teacher'] = $teacher;
+
+        // Path tanda tangan Kepala Sekolah (dari school_profile atau settings)
+        $settingsModel = new \App\Models\SettingsModel();
+        $ksSigPath = !empty($school['principal_signature']) 
+            ? $school['principal_signature'] 
+            : ($settingsModel->getValue('ks_signature_path') ?? '');
+
+        // Path tanda tangan Guru Mapel
+        $teacherSigPath = !empty($teacher['signature']) ? $teacher['signature'] : '';
+
+        // Konversi ke base64 data URI agar render cetak stabil, offline-ready & tajam
+        $data['principal_sig_base64'] = $this->imageToBase64($ksSigPath);
+        $data['teacher_sig_base64']   = $this->imageToBase64($teacherSigPath);
+        $data['teacher_id']           = $teacher['id'] ?? 0;
+
+        $bulanIndo = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $data['formatted_date']   = date('j') . ' ' . ($bulanIndo[(int)date('n')] ?? date('F')) . ' ' . date('Y');
+        $data['current_date_iso'] = date('Y-m-d');
         
         return view('admin/administrasi_guru/modul_ajar_print', $data);
+    }
+
+    /**
+     * Upload tanda tangan scan (Kepala Sekolah atau Guru Mapel) langsung dari antarmuka cetak
+     */
+    public function uploadSignature()
+    {
+        $user = session()->get('user');
+        if (!$user) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Sesi login telah berakhir.']);
+        }
+
+        $type = $this->request->getPost('type'); // 'principal' atau 'teacher'
+        $teacherId = (int) $this->request->getPost('teacher_id');
+        $file = $this->request->getFile('signature_file');
+
+        if (!$file || !$file->isValid() || $file->hasMoved()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'File tidak valid atau gagal diunggah.']);
+        }
+
+        $allowedExt = ['png', 'jpg', 'jpeg', 'webp'];
+        $ext = strtolower($file->getExtension());
+        if (!in_array($ext, $allowedExt, true)) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Format file harus PNG, JPG, atau WEBP (disarankan PNG transparan).']);
+        }
+
+        if ($file->getSizeByUnit('mb') > 2) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Ukuran file tanda tangan maksimal 2 MB.']);
+        }
+
+        $targetDir = FCPATH . 'uploads/signatures/';
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0755, true);
+        }
+
+        $newName = ($type === 'principal' ? 'principal_' : 'teacher_' . $teacherId . '_') . time() . '.' . $ext;
+        $file->move($targetDir, $newName);
+        $relPath = 'uploads/signatures/' . $newName;
+
+        if ($type === 'principal') {
+            $school = $this->schoolModel->getProfile();
+            if ($school) {
+                $this->schoolModel->update($school['id'], ['principal_signature' => $relPath]);
+            }
+            try {
+                $settingsModel = new \App\Models\SettingsModel();
+                $settingsModel->setValue('ks_signature_path', $relPath);
+            } catch (\Throwable $e) {}
+        } elseif ($type === 'teacher' && $teacherId > 0) {
+            $this->teacherModel->update($teacherId, ['signature' => $relPath]);
+        }
+
+        $base64 = $this->imageToBase64($relPath);
+
+        return $this->response->setJSON([
+            'success'  => true,
+            'message'  => 'Tanda tangan berhasil diunggah dan disimpan.',
+            'base64'   => $base64,
+            'filepath' => base_url($relPath),
+        ]);
+    }
+
+    /**
+     * Konversi file gambar lokal ke data URI Base64 agar dapat dicetak tanpa dependensi jaringan
+     */
+    protected function imageToBase64(?string $path): string
+    {
+        if (empty($path)) {
+            return '';
+        }
+        $cleanPath = ltrim(str_replace('\\', '/', $path), '/');
+
+        $candidatePaths = [
+            FCPATH . $cleanPath,
+            FCPATH . 'uploads/signatures/' . basename($cleanPath),
+            FCPATH . 'uploads/signature/' . basename($cleanPath),
+            FCPATH . 'uploads/logo/' . basename($cleanPath),
+            FCPATH . 'uploads/settings/' . basename($cleanPath),
+            FCPATH . 'uploads/' . $cleanPath,
+            ROOTPATH . 'public/' . $cleanPath,
+            ROOTPATH . 'public/uploads/signatures/' . basename($cleanPath),
+            ROOTPATH . 'public/uploads/signature/' . basename($cleanPath),
+            ROOTPATH . 'public/uploads/logo/' . basename($cleanPath),
+            ROOTPATH . 'public/uploads/settings/' . basename($cleanPath),
+            ROOTPATH . 'public/uploads/' . $cleanPath,
+        ];
+
+        $abs = null;
+        foreach ($candidatePaths as $candidate) {
+            if (file_exists($candidate) && !is_dir($candidate)) {
+                $abs = $candidate;
+                break;
+            }
+        }
+
+        if (!$abs) {
+            return '';
+        }
+
+        $ext  = strtolower(pathinfo($abs, PATHINFO_EXTENSION));
+        $mime = in_array($ext, ['jpg', 'jpeg']) ? 'jpeg' : ($ext === 'png' ? 'png' : ($ext === 'webp' ? 'webp' : 'gif'));
+        return 'data:image/' . $mime . ';base64,' . base64_encode(file_get_contents($abs));
+    }
+
+    // =========================================================================
+    // FITUR LEMBAR KERJA PESERTA DIDIK (LKPD) PER PERTEMUAN
+    // =========================================================================
+
+    /**
+     * Mengambil daftar pertemuan dan status LKPD dari suatu Modul Ajar
+     */
+    public function lkpdIndex($modulId, $classId)
+    {
+        $modulModel = new \App\Models\ModulAjarModel();
+        $modul = $modulModel->find($modulId);
+        if (!$modul) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Modul Ajar tidak ditemukan.']);
+        }
+
+        $atp = $this->atpModel->find($modul['atp_id']);
+        $subject = $this->subjectModel->find($modul['subject_id']);
+        $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+
+        $user = session()->get('user');
+        $canManage = in_array((int)($user['role_id'] ?? 0), [1, 3]);
+
+        $meetings = $this->extractPertemuanFromModul($modul['content'] ?? '');
+        $lkpdData = json_decode($modul['lkpd_content'] ?? '', true) ?: [];
+
+        $list = [];
+        foreach ($meetings as $m) {
+            $pNum = (int)$m['pertemuan'];
+            $isPdf = isset($lkpdData[$pNum]) && ((($lkpdData[$pNum]['tipe'] ?? '') === 'pdf') || !empty($lkpdData[$pNum]['file_pdf']));
+            $hasLkpd = isset($lkpdData[$pNum]) && (!empty(trim($lkpdData[$pNum]['content'] ?? '')) || $isPdf);
+            $list[] = [
+                'pertemuan'  => $pNum,
+                'title'      => $m['title'],
+                'label'      => $m['title'],
+                'has_lkpd'   => $hasLkpd,
+                'tipe'       => $isPdf ? 'pdf' : 'editor',
+                'file_pdf'   => $lkpdData[$pNum]['file_pdf'] ?? null,
+                'lkpd_item'  => $lkpdData[$pNum] ?? null,
+                'updated_at' => $lkpdData[$pNum]['updated_at'] ?? null,
+            ];
+        }
+
+        return $this->response->setJSON([
+            'success'        => true,
+            'modul_id'       => (int)$modulId,
+            'class_id'       => (int)$classId,
+            'materi'         => $atp['lingkup_materi'] ?? '-',
+            'subject_name'   => $subject['name'] ?? '-',
+            'class_name'     => $classInfo['name'] ?? '-',
+            'pertemuan_list' => $list,
+            'meetings'       => $list,
+            'lkpd_data'      => $lkpdData,
+            'can_manage'     => $canManage,
+        ]);
+    }
+
+    /**
+     * Generate LKPD untuk pertemuan tertentu menggunakan AI
+     */
+    public function generateLkpd()
+    {
+        @set_time_limit(180);
+
+        $user = session()->get('user');
+        if (!in_array($user['role_id'], [1, 3])) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Hanya guru atau admin yang berhak membuat LKPD.']);
+        }
+
+        $modulId   = (int)$this->request->getPost('modul_id');
+        $pertemuan = (int)$this->request->getPost('pertemuan');
+
+        if ($modulId <= 0 || $pertemuan <= 0) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Parameter modul atau pertemuan tidak valid.']);
+        }
+
+        $modulModel = new \App\Models\ModulAjarModel();
+        $modul = $modulModel->find($modulId);
+        if (!$modul) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Modul Ajar tidak ditemukan.']);
+        }
+
+        // Resolusi API Key & AI Provider
+        if ($user['role_id'] == 3) {
+            $teacher = $this->teacherModel->find($user['related_id']);
+            $apiKey = $teacher['gemini_api_key'] ?? '';
+            $aiProvider = $teacher['ai_provider'] ?? 'gemini';
+        } else {
+            $userData = $this->db->table('users')->where('id', $user['id'])->get()->getRowArray();
+            $apiKey = $userData['gemini_api_key'] ?? '';
+            $aiProvider = $userData['ai_provider'] ?? 'gemini';
+        }
+
+        if (empty($apiKey)) {
+            return $this->response->setJSON(['success' => false, 'message' => 'API Key belum dikonfigurasi. Silakan atur API Key terlebih dahulu.']);
+        }
+
+        $atp = $this->atpModel->find($modul['atp_id']);
+        $subject = $this->subjectModel->find($modul['subject_id']);
+        $classInfo = $this->db->table('classes')->where('id', $modul['class_id'])->get()->getRowArray();
+        $school = $this->schoolModel->getProfile();
+
+        $meetings = $this->extractPertemuanFromModul($modul['content'] ?? '');
+        $meetingInfo = "Pertemuan {$pertemuan}";
+        foreach ($meetings as $m) {
+            if ($m['pertemuan'] == $pertemuan) {
+                $meetingInfo = $m['title'];
+                break;
+            }
+        }
+
+        $kegiatanPertemuan = $this->extractPertemuanSection($modul['content'] ?? '', $pertemuan);
+
+        $prompt = $this->buildLkpdPrompt([
+            'subject_name'       => $subject['name'] ?? 'Mata Pelajaran',
+            'materi_pokok'       => $atp['lingkup_materi'] ?? '-',
+            'class_name'         => $classInfo['name'] ?? '-',
+            'jenjang'            => $school['level'] ?? 'SMP',
+            'pertemuan'          => $pertemuan,
+            'pertemuan_label'    => $meetingInfo,
+            'kegiatan_pertemuan' => $kegiatanPertemuan,
+            'tp_list'            => $atp['tujuan_pembelajaran'] ?? '',
+        ]);
+
+        $response = null;
+        $httpCode = 0;
+        $curlError = '';
+
+        if ($aiProvider === 'groq') {
+            $url = 'https://api.groq.com/openai/v1/chat/completions';
+            $headers = [
+                'Authorization: Bearer ' . $apiKey,
+                'Content-Type: application/json'
+            ];
+            $groqModels = [
+                'openai/gpt-oss-120b',
+                'qwen/qwen3.8-27b',
+                'openai/gpt-oss-20b'
+            ];
+
+            foreach ($groqModels as $model) {
+                $payload = json_encode([
+                    "model" => $model,
+                    "messages" => [
+                        ["role" => "user", "content" => $prompt]
+                    ],
+                    "temperature" => 0.7,
+                    "max_tokens" => 8192,
+                ]);
+
+                $ch = curl_init($url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlError = curl_error($ch);
+                curl_close($ch);
+
+                if ($httpCode === 200) {
+                    break;
+                }
+                if (in_array($httpCode, [401, 403])) {
+                    break;
+                }
+            }
+        } else {
+            // Gemini Provider
+            $geminiModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+            $headers = ['Content-Type: application/json'];
+            $payload = json_encode([
+                "contents" => [
+                    ["parts" => [["text" => $prompt]]]
+                ],
+                "generationConfig" => [
+                    "maxOutputTokens" => 8192,
+                    "temperature" => 0.7
+                ]
+            ]);
+
+            foreach ($geminiModels as $gModel) {
+                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$gModel}:generateContent?key=" . $apiKey;
+                $ch = curl_init($url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlError = curl_error($ch);
+                curl_close($ch);
+
+                if ($httpCode === 200) {
+                    break;
+                }
+                if (in_array($httpCode, [401, 403])) {
+                    break;
+                }
+            }
+        }
+
+        if ($httpCode !== 200) {
+            $errorMsg = "Gagal generate LKPD via AI (HTTP {$httpCode}). ";
+            if ($response) {
+                $errRes = json_decode($response, true);
+                if (isset($errRes['error']['message'])) {
+                    $errorMsg .= $errRes['error']['message'];
+                }
+            } elseif ($curlError) {
+                $errorMsg .= "cURL: {$curlError}";
+            }
+            return $this->response->setJSON(['success' => false, 'message' => $errorMsg]);
+        }
+
+        $resData = json_decode($response, true);
+        if ($aiProvider === 'groq') {
+            $generatedHtml = $resData['choices'][0]['message']['content'] ?? '';
+            $generatedHtml = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $generatedHtml);
+        } else {
+            $generatedHtml = '';
+            if (!empty($resData['candidates'][0]['content']['parts'])) {
+                foreach ($resData['candidates'][0]['content']['parts'] as $part) {
+                    if (!empty($part['text'])) {
+                        $generatedHtml .= $part['text'];
+                    }
+                }
+            }
+        }
+
+        $generatedHtml = preg_replace('/```(?:html)?([\s\S]*?)```/s', '$1', $generatedHtml);
+        $generatedHtml = trim($generatedHtml);
+
+        if (empty($generatedHtml)) {
+            return $this->response->setJSON(['success' => false, 'message' => 'AI tidak menghasilkan konten LKPD. Silakan coba kembali.']);
+        }
+
+        // Simpan ke JSON modul_ajar.lkpd_content
+        $lkpdData = json_decode($modul['lkpd_content'] ?? '', true) ?: [];
+        $title = "LKPD Pertemuan {$pertemuan} - " . ($atp['lingkup_materi'] ?? $subject['name']);
+
+        $lkpdData[$pertemuan] = [
+            'pertemuan'  => $pertemuan,
+            'title'      => $title,
+            'content'    => $generatedHtml,
+            'created_at' => $lkpdData[$pertemuan]['created_at'] ?? date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
+        $modulModel->update($modulId, [
+            'lkpd_content' => json_encode($lkpdData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            'updated_at'   => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->response->setJSON([
+            'success'   => true,
+            'message'   => "LKPD Pertemuan {$pertemuan} berhasil digenerate!",
+            'pertemuan' => $pertemuan,
+            'title'     => $title,
+            'content'   => $generatedHtml,
+        ]);
+    }
+
+    /**
+     * Mengambil prompt AI khusus LKPD pertemuan tertentu untuk generate manual
+     */
+    public function getLkpdPrompt()
+    {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'] ?? 0, [1, 3])) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Tidak diizinkan.']);
+        }
+
+        $modulId   = (int)$this->request->getPost('modul_id');
+        $classId   = (int)$this->request->getPost('class_id');
+        $pertemuan = (int)$this->request->getPost('pertemuan');
+        $title     = trim((string)$this->request->getPost('title'));
+
+        $modulModel = new \App\Models\ModulAjarModel();
+        $modul = $modulModel->find($modulId);
+        if (!$modul) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Modul Ajar tidak ditemukan.']);
+        }
+
+        $atp = $this->atpModel->find($modul['atp_id']);
+        $subject = $this->subjectModel->find($modul['subject_id']);
+        $classInfo = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+        $school = $this->schoolModel->getProfile();
+
+        $jenjang = match((int)($school['level'] ?? 2)) {
+            1 => 'SD/MI',
+            2 => 'SMP/MTs',
+            3 => 'SMA/MA/SMK',
+            default => 'SMP/MTs'
+        };
+
+        $pertemuanContent = $this->extractPertemuanSection($modul['content'] ?? '', $pertemuan);
+
+        $promptData = [
+            'subject_name'       => $subject['name'] ?? 'Mata Pelajaran',
+            'materi_pokok'       => $atp['lingkup_materi'] ?? '-',
+            'class_name'         => $classInfo['name'] ?? '-',
+            'jenjang'            => $jenjang,
+            'fase'               => $atp['fase'] ?? 'D',
+            'alokasi_waktu'      => '1 Pertemuan',
+            'pertemuan'          => $pertemuan,
+            'pertemuan_title'    => !empty($title) ? $title : "Pertemuan {$pertemuan}",
+            'pertemuan_activity' => $pertemuanContent,
+        ];
+
+        $prompt = $this->buildLkpdPrompt($promptData);
+
+        return $this->response->setJSON([
+            'success'   => true,
+            'prompt'    => $prompt,
+            'pertemuan' => $pertemuan,
+            'title'     => !empty($title) ? $title : "Pertemuan {$pertemuan}",
+        ]);
+    }
+
+    /**
+     * Upload / Import Dokumen PDF LKPD untuk pertemuan tertentu
+     */
+    public function uploadLkpdPdf()
+    {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'] ?? 0, [1, 3])) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses ditolak.']);
+        }
+
+        $modulId   = (int)$this->request->getPost('modul_id');
+        $pertemuan = (int)$this->request->getPost('pertemuan');
+        $title     = trim((string)$this->request->getPost('title'));
+
+        if ($modulId <= 0 || $pertemuan <= 0) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Parameter tidak valid.']);
+        }
+
+        $file = $this->request->getFile('pdf_file');
+        if (!$file || !$file->isValid()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'File PDF wajib diunggah atau file rusak.']);
+        }
+
+        $ext = strtolower($file->getExtension());
+        if ($ext !== 'pdf') {
+            return $this->response->setJSON(['success' => false, 'message' => 'Hanya file berekstensi .pdf yang diperbolehkan.']);
+        }
+
+        if ($file->getSize() > 15 * 1024 * 1024) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Ukuran file PDF maksimal 15 MB.']);
+        }
+
+        $modulModel = new \App\Models\ModulAjarModel();
+        $modul = $modulModel->find($modulId);
+        if (!$modul) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Modul Ajar tidak ditemukan.']);
+        }
+
+        $uploadDir = FCPATH . 'uploads/modul_ajar/lkpd/';
+        if (!is_dir($uploadDir)) {
+            @mkdir($uploadDir, 0755, true);
+        }
+
+        $lkpdData = json_decode($modul['lkpd_content'] ?? '', true) ?: [];
+
+        // Hapus file fisik PDF lama jika ada
+        if (!empty($lkpdData[$pertemuan]['file_pdf'])) {
+            $oldFilePath = $uploadDir . $lkpdData[$pertemuan]['file_pdf'];
+            if (file_exists($oldFilePath)) {
+                @unlink($oldFilePath);
+            }
+        }
+
+        $newFileName = 'lkpd_m' . $modulId . '_p' . $pertemuan . '_' . time() . '.' . $ext;
+        if (!$file->move($uploadDir, $newFileName)) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Gagal memindahkan file ke direktori server.']);
+        }
+
+        $lkpdData[$pertemuan] = [
+            'pertemuan'  => $pertemuan,
+            'tipe'       => 'pdf',
+            'title'      => !empty($title) ? $title : "LKPD Pertemuan {$pertemuan}",
+            'content'    => null,
+            'file_pdf'   => $newFileName,
+            'created_at' => $lkpdData[$pertemuan]['created_at'] ?? date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
+        $modulModel->update($modulId, [
+            'lkpd_content' => json_encode($lkpdData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            'updated_at'   => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => "File PDF LKPD Pertemuan {$pertemuan} berhasil diunggah.",
+        ]);
+    }
+
+    /**
+     * Menampilkan dokumen PDF LKPD secara inline di browser
+     */
+    public function viewLkpdPdf($modulId, $pertemuan)
+    {
+        $user = session()->get('user');
+        if (!$user) {
+            return redirect()->to(base_url('auth/login'));
+        }
+
+        $modulModel = new \App\Models\ModulAjarModel();
+        $modul = $modulModel->find($modulId);
+        if (!$modul) {
+            return redirect()->back()->with('error', 'Modul Ajar tidak ditemukan.');
+        }
+
+        $lkpdData = json_decode($modul['lkpd_content'] ?? '', true) ?: [];
+        $item = $lkpdData[(int)$pertemuan] ?? null;
+
+        if (!$item || empty($item['file_pdf'])) {
+            return redirect()->back()->with('error', 'Dokumen PDF LKPD untuk pertemuan ini tidak ditemukan.');
+        }
+
+        $filePath = FCPATH . 'uploads/modul_ajar/lkpd/' . $item['file_pdf'];
+        if (!file_exists($filePath)) {
+            return redirect()->back()->with('error', 'File fisik PDF LKPD tidak ditemukan di server.');
+        }
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', 'inline; filename="' . basename($item['file_pdf']) . '"')
+            ->setBody(file_get_contents($filePath));
+    }
+
+    /**
+     * Menyimpan hasil edit LKPD manual dari guru
+     */
+    public function saveLkpd()
+    {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'], [1, 3])) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses ditolak.']);
+        }
+
+        $modulId   = (int)$this->request->getPost('modul_id');
+        $pertemuan = (int)$this->request->getPost('pertemuan');
+        $title     = trim((string)$this->request->getPost('title'));
+        $content   = trim((string)$this->request->getPost('content'));
+
+        if ($modulId <= 0 || $pertemuan <= 0 || empty($content)) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Data LKPD tidak lengkap.']);
+        }
+
+        $modulModel = new \App\Models\ModulAjarModel();
+        $modul = $modulModel->find($modulId);
+        if (!$modul) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Modul Ajar tidak ditemukan.']);
+        }
+
+        $uploadDir = FCPATH . 'uploads/modul_ajar/lkpd/';
+        $lkpdData = json_decode($modul['lkpd_content'] ?? '', true) ?: [];
+
+        // Jika sebelumnya tipe PDF dan sekarang disimpan teks manual, bersihkan file PDF lama
+        if (!empty($lkpdData[$pertemuan]['file_pdf'])) {
+            $oldFilePath = $uploadDir . $lkpdData[$pertemuan]['file_pdf'];
+            if (file_exists($oldFilePath)) {
+                @unlink($oldFilePath);
+            }
+        }
+
+        $lkpdData[$pertemuan] = [
+            'pertemuan'  => $pertemuan,
+            'tipe'       => 'editor',
+            'title'      => !empty($title) ? $title : "LKPD Pertemuan {$pertemuan}",
+            'content'    => $content,
+            'file_pdf'   => null,
+            'created_at' => $lkpdData[$pertemuan]['created_at'] ?? date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
+        $modulModel->update($modulId, [
+            'lkpd_content' => json_encode($lkpdData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            'updated_at'   => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Perubahan LKPD berhasil disimpan.',
+        ]);
+    }
+
+    /**
+     * Menghapus LKPD pertemuan tertentu
+     */
+    public function deleteLkpd()
+    {
+        $user = session()->get('user');
+        if (!in_array($user['role_id'], [1, 3])) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Akses ditolak.']);
+        }
+
+        $modulId   = (int)$this->request->getPost('modul_id');
+        $pertemuan = (int)$this->request->getPost('pertemuan');
+
+        $modulModel = new \App\Models\ModulAjarModel();
+        $modul = $modulModel->find($modulId);
+        if (!$modul) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Modul Ajar tidak ditemukan.']);
+        }
+
+        $lkpdData = json_decode($modul['lkpd_content'] ?? '', true) ?: [];
+        if (isset($lkpdData[$pertemuan])) {
+            // Hapus file fisik PDF jika ada
+            if (!empty($lkpdData[$pertemuan]['file_pdf'])) {
+                $oldFilePath = FCPATH . 'uploads/modul_ajar/lkpd/' . $lkpdData[$pertemuan]['file_pdf'];
+                if (file_exists($oldFilePath)) {
+                    @unlink($oldFilePath);
+                }
+            }
+
+            unset($lkpdData[$pertemuan]);
+            $modulModel->update($modulId, [
+                'lkpd_content' => json_encode($lkpdData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                'updated_at'   => date('Y-m-d H:i:s'),
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => "LKPD Pertemuan {$pertemuan} berhasil dihapus.",
+        ]);
+    }
+
+    /**
+     * Tampilan cetak A4 Lembar Kerja Peserta Didik (LKPD) khusus siswa
+     */
+    public function printLkpd($modulId, $classId, $pertemuan)
+    {
+        $modulModel = new \App\Models\ModulAjarModel();
+        $modul = $modulModel->find($modulId);
+        if (!$modul) {
+            return redirect()->back()->with('error', 'Modul Ajar tidak ditemukan.');
+        }
+
+        $lkpdData = json_decode($modul['lkpd_content'] ?? '', true) ?: [];
+        $lkpdItem = $lkpdData[(int)$pertemuan] ?? null;
+
+        if (!$lkpdItem) {
+            return redirect()->back()->with('error', "LKPD Pertemuan {$pertemuan} belum dibuat.");
+        }
+
+        // Jika bertipe PDF, langsung redirect ke viewer PDF
+        if (($lkpdItem['tipe'] ?? '') === 'pdf' && !empty($lkpdItem['file_pdf'])) {
+            return redirect()->to(base_url("admin/administrasi-guru/modul-ajar/lkpd/pdf/{$modulId}/{$pertemuan}"));
+        }
+
+        if (empty(trim($lkpdItem['content'] ?? ''))) {
+            return redirect()->back()->with('error', "Konten LKPD Pertemuan {$pertemuan} masih kosong.");
+        }
+
+        $data['modul'] = $modul;
+        $data['class_id'] = $classId;
+        $data['pertemuan'] = (int)$pertemuan;
+        $data['lkpd'] = $lkpdItem;
+        $data['subject'] = $this->subjectModel->find($modul['subject_id']);
+        $data['atp'] = $this->atpModel->find($modul['atp_id']);
+        $data['class'] = $this->db->table('classes')->where('id', $classId)->get()->getRowArray();
+        $data['school'] = $this->schoolModel->getProfile();
+
+        $bulanIndo = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $data['formatted_date'] = date('j') . ' ' . ($bulanIndo[(int)date('n')] ?? date('F')) . ' ' . date('Y');
+
+        return view('admin/administrasi_guru/modul_ajar_lkpd_print', $data);
+    }
+
+    /**
+     * Mengekstrak daftar pertemuan dari konten HTML Modul Ajar
+     */
+    protected function extractPertemuanFromModul(string $content): array
+    {
+        $pertemuanList = [];
+        
+        // Pola 1: Header/Heading atau Baris Tag Tebal (h2-h6, p, div, td, li)
+        if (preg_match_all('/<(?:h[2-6]|p|div|td|th|li)\b[^>]*>\s*(?:<strong>|<b>)?\s*Pertemuan\s*(?:ke-)?\s*(\d+)\s*(?:[—–\-:]\s*([^<]+?))?\s*(?:<\/strong>|<\/b>)?\s*<\/(?:h[2-6]|p|div|td|th|li)>/iu', $content, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $m) {
+                $num = (int)$m[1];
+                $rawTitle = trim(strip_tags($m[2] ?? ''));
+                if (!isset($pertemuanList[$num]) || empty($pertemuanList[$num]['title']) || $pertemuanList[$num]['title'] === "Pertemuan {$num}") {
+                    $pertemuanList[$num] = [
+                        'pertemuan' => $num,
+                        'title'     => !empty($rawTitle) ? $rawTitle : "Pertemuan {$num}",
+                    ];
+                }
+            }
+        }
+        
+        // Pola 2: Jika tidak ada heading khusus, cari pola teks "Pertemuan ke-X"
+        if (empty($pertemuanList)) {
+            if (preg_match_all('/(?:Pertemuan\s*(?:ke-)?\s*(\d+)\s*(?:[—–\-:]\s*([^\r\n<]+?))?(?=[\r\n<]|$))/iu', $content, $matches, PREG_SET_ORDER)) {
+                foreach ($matches as $m) {
+                    $num = (int)$m[1];
+                    $rawTitle = trim(strip_tags($m[2] ?? ''));
+                    if (!isset($pertemuanList[$num])) {
+                        $pertemuanList[$num] = [
+                            'pertemuan' => $num,
+                            'title'     => !empty($rawTitle) ? $rawTitle : "Pertemuan {$num}",
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Fallback jika tidak terdeteksi sama sekali tapi modul ada isinya
+        if (empty($pertemuanList) && trim($content) !== '') {
+            $pertemuanList[1] = [
+                'pertemuan' => 1,
+                'title'     => 'Pertemuan 1',
+            ];
+        }
+
+        ksort($pertemuanList);
+        return array_values($pertemuanList);
+    }
+
+    /**
+     * Mengambil cuplikan konten/tabel khusus pertemuan tertentu dari Modul Ajar
+     */
+    protected function extractPertemuanSection(string $content, int $pertemuan): string
+    {
+        $pattern = '/<(?:h[2-6]|p|div)\b[^>]*>\s*(?:<strong>|<b>)?\s*Pertemuan\s*(?:ke-)?\s*' . $pertemuan . '\b[\s\S]*?(?=<(?:h[2-6]|p|div)\b[^>]*>\s*(?:<strong>|<b>)?\s*Pertemuan\s*(?:ke-)?\s*(?:' . ($pertemuan + 1) . '|\d+)\b|<h[2-3]>\s*[G-Z]\.|\z)/iu';
+        if (preg_match($pattern, $content, $match)) {
+            return strip_tags($match[0], '<p><br><table><tr><th><td><ul><ol><li><strong>');
+        }
+        return '';
+    }
+
+    /**
+     * Membangun prompt AI untuk pembuatan LKPD per pertemuan dengan ilustrasi SVG
+     */
+    protected function buildLkpdPrompt(array $data): string
+    {
+        $mapel = $data['subject_name'] ?? 'Mata Pelajaran';
+        $materi = $data['materi_pokok'] ?? '-';
+        $kelas = $data['class_name'] ?? '-';
+        $jenjang = $data['jenjang'] ?? 'SMP';
+        $pertemuan = $data['pertemuan'] ?? 1;
+        $pertemuanLabel = $data['pertemuan_label'] ?? "Pertemuan {$pertemuan}";
+        $kegiatanPertemuan = $data['kegiatan_pertemuan'] ?? '';
+        $tpList = $data['tp_list'] ?? '';
+
+        return "Buatkan Lembar Kerja Peserta Didik (LKPD) Kurikulum Merdeka (Deep Learning/MJM) yang SANGAT MENARIK, EDUKATIF, dan SIAP CETAK (A4 Portrait) untuk SISWA.\n\n"
+            . "DATA PEMBELAJARAN:\n"
+            . "- Mata Pelajaran: {$mapel}\n"
+            . "- Materi Pokok: {$materi}\n"
+            . "- Jenjang / Kelas: {$jenjang} / {$kelas}\n"
+            . "- Pertemuan ke: {$pertemuan} ({$pertemuanLabel})\n"
+            . "- Fokus Kegiatan di Modul: {$kegiatanPertemuan}\n"
+            . (!empty($tpList) ? "- Tujuan Pembelajaran (TP): {$tpList}\n" : "")
+            . "\n"
+            . "INSTRUKSI STRUKTUR LKPD (KEMBALIKAN HANYA PURE HTML TANPA MARKDOWN / TANPA CODE BLOCK):\n"
+            . "1. HEADER LEMBAR KERJA:\n"
+            . "   - Judul LKPD Menarik (misal: 'LEMBAR KERJA PESERTA DIDIK (LKPD) - [Tema/Topik Menantang]').\n"
+            . "   - Tabel/Kotak Identitas Siswa: Nama Siswa/Kelompok, Kelas, No. Absen, Tanggal, dan Alokasi Waktu.\n\n"
+            . "2. TUJUAN AKTIVITAS:\n"
+            . "   - 2-3 butir tujuan konkret apa yang akan dieksplorasi dan dihasilkan siswa pada pertemuan ini.\n\n"
+            . "3. STIMULUS VISUAL & GRAFIK (SANGAT PENTING - WAJIB ADA ILUSTRASI/DIAGRAM SVG):\n"
+            . "   - Cerita pemantik, kasus nyata, atau fenomena sehari-hari yang relevan dengan materi.\n"
+            . "   - WAJIB SERTAKAN SEBUAH GRAFIK / ILUSTRASI / BAGAN VEKTOR MENGGUNAKAN ELEMEN <svg ...> INLINE YANG VALID DAN INDAH.\n"
+            . "     * Contoh: Diagram alur pemecahan masalah, bagan siklus konsep, grafik perbandingan data (batang/garis/lingkaran), struktur klasifikasi, ilustrasi skema eksperimen sederhana, atau peta konsep interaktif.\n"
+            . "     * Spesifikasi SVG: Gunakan atribut viewBox='0 0 500 220' (atau proporsional), width='100%', style='max-height: 220px; display: block; margin: 10px auto;', dengan warna-warna harmonis (#3b82f6, #10b981, #f59e0b, #6366f1, #e0e7ff, dll.) serta teks label yang jelas dan mudah dibaca.\n\n"
+            . "4. LANGKAH KERJA & AKTIVITAS EKSPLORASI:\n"
+            . "   - Langkah-langkah instruksi yang jelas, runtut, dan mudah dipahami siswa.\n"
+            . "   - Tabel pengamatan / tabel pengisian data eksperimen / lembar checklist observasi berformat rapi (dengan border hitam solid tipis).\n\n"
+            . "5. PERTANYAAN ANALISIS & PENALARAN KRITIS:\n"
+            . "   - 3-4 pertanyaan pemandu analisis berbasis data / stimulus yang melatih penalaran kritis.\n"
+            . "   - Sediakan kotak/ruang jawaban bergaris (atau kotak ber-border putus-putus/garis) yang cukup untuk tulisan tangan siswa.\n\n"
+            . "6. KESIMPULAN & REFLEKSI DIRI (JOYFUL):\n"
+            . "   - Kolom penarikan kesimpulan akhir oleh siswa.\n"
+            . "   - Kotak refleksi diri dengan checklist emotikon perasaan belajar (Senang/Paham, Cukup Paham, Butuh Bantuan) dan 1 pertanyaan refleksi reflektif.\n\n"
+            . "ATURAN MUTLAK:\n"
+            . "- Format PURE HTML langsung (jangan gunakan ```html ... ```).\n"
+            . "- DILARANG menggunakan tanda backslash (\\) liar.\n"
+            . "- Desain CSS inline/class semantik yang elegan dan ramah cetak hitam-putih maupun berwarna.\n";
     }
 
     /**

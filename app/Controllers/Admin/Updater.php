@@ -795,6 +795,12 @@ class Updater extends BaseController
     public function generateManifest()
     {
         if (strtolower($this->request->getMethod()) !== 'post') {
+            if ($this->request->isAJAX()) {
+                return $this->response->setStatusCode(405)->setJSON([
+                    'success' => false,
+                    'message' => 'Metode request tidak diizinkan. Gunakan HTTP POST.'
+                ]);
+            }
             return redirect()->to(base_url('admin/updater'))->with('error', 'Metode request tidak diizinkan. Gunakan HTTP POST.');
         }
 
@@ -837,7 +843,14 @@ class Updater extends BaseController
         if ($pullCode !== 0 
             && strpos($pullOutput, 'Already up to date') === false 
             && strpos($pullOutput, 'Current branch main is up to date') === false) {
-            return redirect()->back()->with('warning', 'Pull dari origin gagal: ' . $pullOutput . '. Silakan periksa status git Anda.');
+            $pullErrMsg = 'Pull dari origin gagal: ' . $pullOutput . '. Silakan periksa status git Anda.';
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => $pullErrMsg
+                ]);
+            }
+            return redirect()->to(base_url('admin/updater'))->with('warning', $pullErrMsg);
         }
 
         // Step 3: Scan app/ dan public/ untuk membuat update_manifest.json
@@ -890,7 +903,23 @@ class Updater extends BaseController
             $message .= ' ⚠️ Push ke espata-update gagal: ' . $pushResult['error'];
         }
 
-        return redirect()->back()->with($pushResult['success'] ? 'success' : 'warning', $message);
+        $isOverallSuccess = $pushResult['success'] && ($pushOriginCode === 0);
+
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON([
+                'success' => $isOverallSuccess,
+                'message' => $message,
+                'details' => [
+                    'version' => $syncedVersion,
+                    'total_files' => count($files),
+                    'has_local_changes' => $hasLocalChanges,
+                    'push_origin_success' => ($pushOriginCode === 0),
+                    'push_update_success' => $pushResult['success']
+                ]
+            ]);
+        }
+
+        return redirect()->to(base_url('admin/updater'))->with($pushResult['success'] ? 'success' : 'warning', $message);
     }
 
     /**
@@ -976,6 +1005,9 @@ class Updater extends BaseController
         $constantsContent = file_get_contents(APPPATH . 'Config/Constants.php');
         preg_match("/define\('APP_VERSION',\s*'([^']+)'\)/", $constantsContent, $vMatch);
         $version = $vMatch[1] ?? (defined('APP_VERSION') ? APP_VERSION : '1.0.0');
+
+        // Pastikan branch temporer _update_push dibersihkan jika pernah tertinggal dari proses sebelumnya
+        exec("cd /d \"{$rootPath}\" && {$git} branch -D _update_push 2>&1", $preBranchResult);
 
         $commands = [
             "{$git} checkout --orphan _update_push 2>&1",

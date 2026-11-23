@@ -314,6 +314,15 @@ $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($rou
         $routes->get('modul-ajar/edit/(:num)/(:num)', 'AdministrasiGuru::editModulAjar/$1/$2');
         $routes->post('modul-ajar/update', 'AdministrasiGuru::updateModulAjar');
         $routes->get('modul-ajar/print/(:num)/(:num)', 'AdministrasiGuru::printModulAjar/$1/$2');
+        $routes->post('modul-ajar/upload-signature', 'AdministrasiGuru::uploadSignature');
+        $routes->get('modul-ajar/lkpd/(:num)/(:num)', 'AdministrasiGuru::lkpdIndex/$1/$2');
+        $routes->post('modul-ajar/lkpd/generate', 'AdministrasiGuru::generateLkpd');
+        $routes->post('modul-ajar/lkpd/prompt', 'AdministrasiGuru::getLkpdPrompt');
+        $routes->post('modul-ajar/lkpd/upload-pdf', 'AdministrasiGuru::uploadLkpdPdf');
+        $routes->get('modul-ajar/lkpd/pdf/(:num)/(:num)', 'AdministrasiGuru::viewLkpdPdf/$1/$2');
+        $routes->post('modul-ajar/lkpd/save', 'AdministrasiGuru::saveLkpd');
+        $routes->post('modul-ajar/lkpd/delete', 'AdministrasiGuru::deleteLkpd');
+        $routes->get('modul-ajar/lkpd/print/(:num)/(:num)/(:num)', 'AdministrasiGuru::printLkpd/$1/$2/$3');
         $routes->post('modul-ajar/delete/(:num)/(:num)/(:num)', 'AdministrasiGuru::deleteModulAjar/$1/$2/$3');
         $routes->post('modul-ajar/copy', 'AdministrasiGuru::copyModulAjar');
 

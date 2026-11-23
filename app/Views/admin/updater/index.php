@@ -218,7 +218,7 @@ $isLocalhost = file_exists(ROOTPATH . '.dev_mode');
         <div class="modal fade" id="modalGeneratePush" tabindex="-1" aria-labelledby="modalGeneratePushLabel" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
-                    <form method="post" action="<?= base_url('admin/updater/generate-manifest') ?>">
+                    <form id="formGeneratePush" method="post" action="<?= base_url('admin/updater/generate-manifest') ?>">
                         <?= csrf_field() ?>
                         <div class="modal-header bg-info bg-opacity-10">
                             <h5 class="modal-title" id="modalGeneratePushLabel">🚀 Rilis Update Otomatis (1-Click)</h5>
@@ -237,8 +237,7 @@ $isLocalhost = file_exists(ROOTPATH . '.dev_mode');
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                            <button type="submit" class="btn btn-info fw-semibold" id="btnSubmitGenerate"
-                                    onclick="this.innerHTML='⏳ Sedang Memproses & Mengirim...';this.classList.add('disabled');this.form.submit();">
+                            <button type="submit" class="btn btn-info fw-semibold" id="btnSubmitGenerate">
                                 🚀 Jalankan Rilis Sekarang
                             </button>
                         </div>
@@ -415,8 +414,126 @@ $isLocalhost = file_exists(ROOTPATH . '.dev_mode');
 
 <?= $this->section('scripts') ?>
 <script>
+// Tampilkan SweetAlert untuk Flashdata session (jika ada setelah reload)
+<?php if (session()->getFlashdata('success')): ?>
+    Swal.fire({
+        icon: 'success',
+        title: 'Berhasil!',
+        html: <?= json_encode(session()->getFlashdata('success')) ?>,
+        confirmButtonText: 'OK'
+    });
+<?php elseif (session()->getFlashdata('warning')): ?>
+    Swal.fire({
+        icon: 'warning',
+        title: 'Pemberitahuan',
+        html: <?= json_encode(session()->getFlashdata('warning')) ?>,
+        confirmButtonText: 'OK'
+    });
+<?php elseif (session()->getFlashdata('error')): ?>
+    Swal.fire({
+        icon: 'error',
+        title: 'Terjadi Kesalahan!',
+        html: <?= json_encode(session()->getFlashdata('error')) ?>,
+        confirmButtonText: 'Tutup'
+    });
+<?php elseif (session()->getFlashdata('info')): ?>
+    Swal.fire({
+        icon: 'info',
+        title: 'Informasi',
+        html: <?= json_encode(session()->getFlashdata('info')) ?>,
+        confirmButtonText: 'OK'
+    });
+<?php endif; ?>
+
+// Handle form "Generate & Push" dengan AJAX + Loading SweetAlert interaktif
+document.getElementById('formGeneratePush')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const form = this;
+    const modalEl = document.getElementById('modalGeneratePush');
+    const modalInst = bootstrap.Modal.getInstance(modalEl);
+    if (modalInst) {
+        modalInst.hide();
+    }
+
+    // Tampilkan loading modal yang informatif
+    Swal.fire({
+        title: '🚀 Memproses Rilis & Push...',
+        html: `
+            <div class="py-2 text-center">
+                <div class="spinner-border text-info mb-3" style="width: 3rem; height: 3rem;" role="status">
+                    <span class="visually-hidden">Memproses...</span>
+                </div>
+                <p class="mb-2 fw-semibold text-dark">
+                    Sistem sedang memproses rilis update online:
+                </p>
+                <div class="small text-muted text-start bg-light p-3 rounded border">
+                    <div>• Melakukan auto-commit perubahan file lokal</div>
+                    <div>• Menyinkronkan update dengan origin/main</div>
+                    <div>• Membuat <code>update_manifest.json</code> baru</div>
+                    <div>• Merilis update ke repository <code>espata-update</code></div>
+                </div>
+                <small class="text-secondary d-block mt-3">
+                    <i class="bi bi-hourglass-split me-1"></i>Proses membutuhkan waktu 10-30 detik tergantung koneksi. Mohon jangan menutup halaman ini...
+                </small>
+            </div>
+        `,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false
+    });
+
+    const formData = new FormData(form);
+
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(async response => {
+        const text = await response.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (_) {
+            throw new Error('Server tidak merespons dalam format JSON (HTTP ' + response.status + ').<br><small class="text-muted">' + text.substring(0, 150) + '</small>');
+        }
+        return data;
+    })
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Rilis & Push Berhasil!',
+                html: `<div class="text-start">${data.message}</div>`,
+                confirmButtonText: '<i class="bi bi-arrow-clockwise me-1"></i> Muat Ulang Halaman',
+                confirmButtonColor: '#0dcaf0'
+            }).then(() => {
+                window.location.reload();
+            });
+        } else {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Pemberitahuan Rilis',
+                html: `<div class="text-start">${data.message || 'Proses rilis selesai namun terdapat beberapa catatan.'}</div>`,
+                confirmButtonText: 'Tutup'
+            });
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Gagal Memproses Rilis',
+            html: `<div class="text-start text-danger mb-2">Terjadi kendala saat proses rilis update:</div><div class="small p-2 bg-light border rounded font-monospace text-start">${error.message || error}</div>`,
+            confirmButtonText: 'Tutup'
+        });
+    });
+});
+
 // Handle form upload patch dengan progress indicator
-document.getElementById('patch-form').addEventListener('submit', function(e) {
+document.getElementById('patch-form')?.addEventListener('submit', function(e) {
     var file = document.getElementById('patch_file').files[0];
     if (!file) return;
 
