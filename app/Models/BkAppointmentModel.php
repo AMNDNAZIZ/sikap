@@ -28,10 +28,21 @@ class BkAppointmentModel extends Model
      */
     public function getAppointmentsWithDetails($counselor_id = null, $status = null)
     {
-        $builder = $this->select('bk_appointments.*, students.name as student_name, students.nis, classes.name as class_name, users.fullname as counselor_name')
+        $activeYearId = null;
+        try {
+            $ay = (new \App\Models\AcademicYearModel())->getActiveYear();
+            $activeYearId = $ay['id'] ?? null;
+        } catch (\Throwable $e) {}
+
+        $builder = $this->select('bk_appointments.*, students.name as student_name, students.nis, COALESCE(c_active.name, c_rec.name, c_direct.name) as class_name, users.fullname as counselor_name')
                         ->join('students', 'students.id = bk_appointments.student_id')
-                        ->join('classes', 'classes.id = students.class_id', 'left')
-                        ->join('users', 'users.id = bk_appointments.counselor_id', 'left');
+                        ->join('student_records sr_active', 'sr_active.student_id = students.id AND sr_active.status = "aktif"' . ($activeYearId ? ' AND sr_active.academic_year_id = ' . (int)$activeYearId : ''), 'left')
+                        ->join('classes c_active', 'c_active.id = sr_active.class_id', 'left')
+                        ->join('student_records sr_rec', 'sr_rec.student_id = students.id AND sr_rec.status = "aktif"', 'left')
+                        ->join('classes c_rec', 'c_rec.id = sr_rec.class_id', 'left')
+                        ->join('classes c_direct', 'c_direct.id = students.class_id', 'left')
+                        ->join('users', 'users.id = bk_appointments.counselor_id', 'left')
+                        ->groupBy('bk_appointments.id');
 
         if ($counselor_id) {
             $builder->where('bk_appointments.counselor_id', $counselor_id);

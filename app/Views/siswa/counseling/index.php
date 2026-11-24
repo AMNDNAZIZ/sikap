@@ -89,6 +89,22 @@
         <div class="card-body">
           <form action="<?= base_url('siswa/counseling/store') ?>" method="post">
             <?= csrf_field() ?>
+            <?php if (!empty($counselors)): ?>
+              <div class="mb-3">
+                <label class="form-label fw-semibold small">Ditujukan Kepada</label>
+                <select name="counselor_teacher_id" class="form-select">
+                  <?php if (count($counselors) > 1): ?>
+                    <option value="">Semua (Guru BK & Wali Kelas)</option>
+                  <?php endif; ?>
+                  <?php foreach ($counselors as $c): ?>
+                    <option value="<?= $c['teacher_id'] ?>">
+                      <?= esc($c['name']) ?> (<?= esc($c['role_label']) ?>)
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+                <div class="form-text">Pilih guru yang ingin Anda temui untuk berkonsultasi.</div>
+              </div>
+            <?php endif; ?>
             <div class="mb-3">
               <label class="form-label fw-semibold small">Topik / Keluhan <span class="text-danger">*</span></label>
               <textarea name="topic" class="form-control" rows="3"

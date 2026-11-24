@@ -52,6 +52,11 @@ $routes->get('/dashboard', 'Dashboard::index', ['filter' => 'auth']);
 // ==================== ADMIN & GURU ROUTES ====================
 $routes->group('admin', ['namespace' => 'App\Controllers\Admin'], function ($routes) {
 
+    // Redirect alias /admin/dashboard -> /dashboard (mencegah error 404 dari tautan breadcrumb/riwayat lama)
+    $routes->get('dashboard', function () {
+        return redirect()->to(base_url('dashboard'));
+    }, ['filter' => 'auth']);
+
     // Helper to apply auth filter to subgroups
     $auth1 = ['filter' => 'auth:1'];
     $auth12 = ['filter' => 'auth:1,2'];

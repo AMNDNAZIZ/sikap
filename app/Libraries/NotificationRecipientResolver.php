@@ -37,22 +37,25 @@ class NotificationRecipientResolver
     /**
      * Resolusi penerima notifikasi permohonan janji temu konseling BK.
      *
-     * @param int      $studentId     ID siswa pengaju konseling
-     * @param int|null $contextYearId ID tahun ajaran konteks (opsional, default: tahun aktif)
-     * @return int[]   Array of user_id penerima sah (Wali Kelas + Guru BK terplot)
+     * @param int      $studentId                  ID siswa pengaju konseling
+     * @param int|null $contextYearId              ID tahun ajaran konteks (opsional, default: tahun aktif)
+     * @param int|null $preferredCounselorTeacherId ID guru terpilih (opsional, jika siswa memilih guru tertentu)
+     * @return int[]   Array of user_id penerima sah (Wali Kelas + Guru BK terplot, DILARANG Admin)
      */
-    public function resolveCounselingRecipients(int $studentId, ?int $contextYearId = null): array
+    public function resolveCounselingRecipients(int $studentId, ?int $contextYearId = null, ?int $preferredCounselorTeacherId = null): array
     {
         if ($studentId <= 0) {
             return [];
         }
 
-        $yearId = $contextYearId ?? $this->getActiveAcademicYearId();
-        if (!$yearId) {
-            return [];
+        // Jika siswa secara spesifik memilih satu guru konselor/wali kelas tertentu
+        if ($preferredCounselorTeacherId && $preferredCounselorTeacherId > 0) {
+            return $this->mapTeachersToActiveUserIds([$preferredCounselorTeacherId]);
         }
 
-        // Cari kelas aktif siswa pada tahun ajaran ini
+        $yearId = $contextYearId ?? $this->getActiveAcademicYearId();
+
+        // Cari kelas aktif siswa
         $classId = $this->getActiveStudentClassId($studentId, $yearId);
         if (!$classId) {
             return [];
@@ -73,13 +76,37 @@ class NotificationRecipientResolver
 
         // 2. Ambil Guru BK yang secara resmi diplot untuk kelas ini
         if ($this->db->tableExists('bk_counselor_assignments')) {
-            $bkRows = $this->db->table('bk_counselor_assignments')
+            $bkBuilder = $this->db->table('bk_counselor_assignments')
                 ->select('teacher_id')
-                ->where('class_id', $classId)
-                ->where('year_id', $yearId)
-                ->get()->getResultArray();
+                ->where('class_id', $classId);
+            if ($yearId) {
+                $bkBuilder->where('year_id', $yearId);
+            }
+            $bkRows = $bkBuilder->get()->getResultArray();
+
+            // Fallback jika tidak ada di tahun ajaran aktif, cari tanpa batasan tahun
+            if (empty($bkRows) && $yearId) {
+                $bkRows = $this->db->table('bk_counselor_assignments')
+                    ->select('teacher_id')
+                    ->where('class_id', $classId)
+                    ->get()->getResultArray();
+            }
 
             foreach ($bkRows as $row) {
+                $btId = (int) ($row['teacher_id'] ?? 0);
+                if ($btId > 0) {
+                    $teacherIds[] = $btId;
+                }
+            }
+        }
+
+        // 3. Fallback: jika kelas belum memiliki wali kelas atau ploting BK spesifik,
+        // cari seluruh Guru BK yang terdaftar dalam penugasan BK di sekolah
+        if (empty($teacherIds) && $this->db->tableExists('bk_counselor_assignments')) {
+            $allBk = $this->db->table('bk_counselor_assignments')
+                ->select('teacher_id')
+                ->get()->getResultArray();
+            foreach ($allBk as $row) {
                 $btId = (int) ($row['teacher_id'] ?? 0);
                 if ($btId > 0) {
                     $teacherIds[] = $btId;
@@ -268,22 +295,46 @@ class NotificationRecipientResolver
     }
 
     /**
-     * Dapatkan ID kelas aktif siswa pada tahun ajaran tertentu.
+     * Dapatkan ID kelas aktif siswa pada tahun ajaran tertentu (dengan fallback otomatis).
      *
-     * @param int $studentId
-     * @param int $yearId
+     * @param int      $studentId
+     * @param int|null $yearId
      * @return int|null
      */
-    public function getActiveStudentClassId(int $studentId, int $yearId): ?int
+    public function getActiveStudentClassId(int $studentId, ?int $yearId = null): ?int
     {
-        $row = $this->db->table('student_records')
+        if ($yearId && $yearId > 0) {
+            $row = $this->db->table('student_records')
+                ->select('class_id')
+                ->where('student_id', $studentId)
+                ->where('academic_year_id', $yearId)
+                ->where('status', 'aktif')
+                ->get()->getRowArray();
+
+            $classId = (int) ($row['class_id'] ?? 0);
+            if ($classId > 0) {
+                return $classId;
+            }
+        }
+
+        // Fallback 1: Cari dari student_records aktif terbaru (jika data tahun aktif belum di-rollover)
+        $latestRecord = $this->db->table('student_records')
             ->select('class_id')
             ->where('student_id', $studentId)
-            ->where('academic_year_id', $yearId)
             ->where('status', 'aktif')
+            ->orderBy('academic_year_id', 'DESC')
             ->get()->getRowArray();
+        $classId = (int) ($latestRecord['class_id'] ?? 0);
+        if ($classId > 0) {
+            return $classId;
+        }
 
-        $classId = (int) ($row['class_id'] ?? 0);
+        // Fallback 2: Cari langsung dari kolom students.class_id
+        $studentRow = $this->db->table('students')
+            ->select('class_id')
+            ->where('id', $studentId)
+            ->get()->getRowArray();
+        $classId = (int) ($studentRow['class_id'] ?? 0);
         return $classId > 0 ? $classId : null;
     }
 
