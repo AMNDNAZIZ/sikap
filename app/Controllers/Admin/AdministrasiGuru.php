@@ -5750,14 +5750,24 @@ class AdministrasiGuru extends BaseController
             // Normalisasi teks pertanyaan dengan aman tanpa merusak ekspresi LaTeX
             $cleanQuestionText = $this->cleanSoalString((string)($soal['question'] ?? ''));
             $cleanQuestionText = $this->splitWacanaQuestion($cleanQuestionText);
-            $qHtml = nl2br(trim($cleanQuestionText), false);
 
-            // Build raw_text for editor compatibility
-            $rawText = '<p>' . $qHtml . '</p>';
+            // Susun paragraf HTML per blok (\n\n -> <p>...</p>) agar CKEditor 5 tidak merombak struktur baris wacana saat diedit
+            $paragraphs = preg_split('/\n{2,}/', trim($cleanQuestionText)) ?: [];
+            $rawParagraphs = [];
+            foreach ($paragraphs as $para) {
+                $paraTrim = trim($para);
+                if ($paraTrim !== '') {
+                    $rawParagraphs[] = '<p>' . nl2br(htmlspecialchars($paraTrim, ENT_NOQUOTES, 'UTF-8'), false) . '</p>';
+                }
+            }
+            $rawText = !empty($rawParagraphs) ? implode('', $rawParagraphs) : '<p></p>';
+
             if ($tipe === 'benar_salah') {
                 $rawText .= '<p>Tipe: BS</p>';
             } elseif ($tipe === 'pg_kompleks') {
                 $rawText .= '<p>Tipe: PGK</p>';
+            } elseif ($tipe === 'pg') {
+                $rawText .= '<p>Tipe: PG</p>';
             }
             
             $cleanOptions = [];
@@ -5766,15 +5776,18 @@ class AdministrasiGuru extends BaseController
                     $cleanVal = $this->cleanSoalString((string) $val);
                     $optKey = strtoupper(trim((string)$key));
                     $cleanOptions[$optKey] = $cleanVal;
-                    $rawText .= '<p>' . $optKey . '. ' . nl2br(trim($cleanVal), false) . '</p>';
+                    // Gunakan pemisah ':' (A: ...) agar CKEditor 5 Autoformat tidak mengubahnya menjadi <ol><li> otomatis
+                    $rawText .= '<p>' . $optKey . ': ' . nl2br(htmlspecialchars(trim($cleanVal), ENT_NOQUOTES, 'UTF-8'), false) . '</p>';
                 }
             }
             
             if ($tipe !== 'esai') {
-                $rawText .= '<p>Kunci: ' . $ans . '</p>';
+                $rawText .= '<p>Kunci: ' . htmlspecialchars((string) $ans, ENT_NOQUOTES, 'UTF-8') . '</p>';
             } else {
                 $rawText .= '<p>Kunci: esai</p>';
-                $rawText .= '<p>Jawaban: ' . $ans . '</p>';
+                if (!empty($ans)) {
+                    $rawText .= '<p>Jawaban: ' . nl2br(htmlspecialchars(trim((string) $ans), ENT_NOQUOTES, 'UTF-8'), false) . '</p>';
+                }
             }
 
             $data = [
@@ -5835,6 +5848,9 @@ class AdministrasiGuru extends BaseController
             'total_bs' => $totalBs,
             'total_esai' => $totalEsai,
         ]);
+
+        cache()->delete('cbt_all_questions_bank_' . $bankId);
+        cache()->delete('cbt_questions_bank_' . $bankId);
 
         $message = "{$inserted} soal berhasil ditambahkan ke bank soal.";
         if ($failed > 0) {

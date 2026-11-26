@@ -157,10 +157,16 @@ window.MathJax = {
 
     <div id="mobileQuestionCardsContainer">
       <?php foreach ($questions as $i => $q): 
-        $rawTextClean = preg_replace('/^(?:Soal\s*[:.]?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*/iu', '', trim((string)$q['question_text']));
-        $previewText = strip_tags($rawTextClean);
-        $previewText = str_replace(['\\r\\n', '\\n', '\\r', "\r\n", "\n", "\r"], ' ', $previewText);
-        $previewSnippet = substr($previewText, 0, 140) . (strlen($previewText) > 140 ? '...' : '');
+        $plainMobile = html_entity_decode(strip_tags((string)($q['question_text'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $plainMobile = str_replace(['\\r\\n', '\\n', '\\r', "\r\n", "\n", "\r"], ' ', $plainMobile);
+        $plainMobile = preg_replace('/\A\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*/iu', '', trim($plainMobile));
+        $previewText = trim((string) preg_replace('/\s+/u', ' ', (string) $plainMobile));
+        if ($previewText === '' && preg_match('/<img\b/i', (string)($q['question_text'] ?? '') . ' ' . (string)($q['raw_text'] ?? ''))) {
+          $previewText = '[Soal Bergambar]';
+        }
+        $previewSnippet = mb_strlen($previewText, 'UTF-8') > 140
+          ? mb_substr($previewText, 0, 140, 'UTF-8') . '...'
+          : $previewText;
 
         $badgeColor = 'bg-primary';
         $typeName = 'PG';
@@ -266,10 +272,18 @@ window.MathJax = {
               <td><?= $i + 1 ?></td>
               <td>
                 <?php
-                  $tableTextClean = preg_replace('/^(?:Soal\s*[:.]?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*/iu', '', trim((string)$q['question_text']));
+                  $plainTable = html_entity_decode(strip_tags((string)($q['question_text'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                  $plainTable = str_replace(['\\r\\n', '\\n', '\\r', "\r\n", "\r", "\n"], ' ', $plainTable);
+                  $plainTable = preg_replace('/\A\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*/iu', '', trim($plainTable));
+                  $plainTable = trim((string) preg_replace('/\s+/u', ' ', (string) $plainTable));
+                  if ($plainTable === '' && preg_match('/<img\b/i', (string)($q['question_text'] ?? '') . ' ' . (string)($q['raw_text'] ?? ''))) {
+                    $plainTable = '[Soal Bergambar]';
+                  }
+                  $tableSnippet = mb_strlen($plainTable, 'UTF-8') > 100
+                    ? mb_substr($plainTable, 0, 100, 'UTF-8') . '...'
+                    : $plainTable;
                 ?>
-                <?= strip_tags(substr(str_replace(['\\r\\n', '\\n', '\\r', "\r\n", "\r", "\n"], ' ', $tableTextClean), 0, 100)) ?>
-                <?= strlen($tableTextClean) > 100 ? '...' : '' ?>
+                <?= esc($tableSnippet) ?>
               </td>
               <td>
                 <div class="dropdown">
@@ -387,7 +401,7 @@ window.MathJax = {
   .soal-text img {
     display: block;
     /* agar tidak sejajar dengan teks */
-    margin: 10px left;
+    margin: 10px auto;
     /* jarak atas bawah dan center horizontal */
     max-width: 100%;
     /* responsif */
@@ -435,6 +449,9 @@ foreach ($questions as $idx => $q) {
     'id' => (int) $q['id'],
     'text' => !empty($q['raw_text']) ? (string)$q['raw_text'] : (string)($q['question_text'] ?? ''),
     'plain' => (string)($q['question_text'] ?? ''),
+    'raw_text' => (string)($q['raw_text'] ?? ''),
+    'question_text' => (string)($q['question_text'] ?? ''),
+    'essay_answer' => (string)($q['essay_answer'] ?? ''),
     'type' => (string)($q['question_type'] ?? 'pg'),
     'score' => (string)($q['score'] ?? '0'),
     'options' => [
@@ -470,86 +487,105 @@ foreach ($questions as $idx => $q) {
       else if (q.type === 'esai' || q.type === 'essay') typeBadge = '<span class="badge bg-secondary">Esai</span>';
       $('#viewTypeBadgeContainer').html(typeBadge);
 
+      const isEssayType = (q.type === 'esai' || q.type === 'essay');
+      const hasObjectiveOptions = ['A', 'B', 'C', 'D', 'E'].some(k => parsed[k] && String(parsed[k]).trim() !== '');
+
       function cleanRawText(html) {
         if (!html) return '';
-        let out = html;
-        
-        // Normalisasi literal \n dan \r\n jika masih tersimpan sebagai teks literal
+        let out = String(html);
+
+        // 1. Normalisasi literal \n dan \r\n jika tersimpan sebagai teks literal
         out = out.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\\r/g, '\n');
 
-        // Preserve img tags by temporarily replacing them
-        const imgTags = [];
-        out = out.replace(/<img[^>]*>/gi, function(match) {
-          imgTags.push(match);
-          return `___IMG_PLACEHOLDER_${imgTags.length - 1}___`;
+        // 2. Lindungi tabel dan gambar dengan placeholder agar isi tabel/gambar tidak pernah terpotong regex
+        const protectedBlocks = [];
+        out = out.replace(/<figure[^>]*class="[^"]*table[^"]*"[^>]*>[\s\S]*?<\/figure>|<table[\s\S]*?<\/table>|<img[^>]*>/gi, function (match) {
+          protectedBlocks.push(match);
+          return `___PROTECTED_BLOCK_${protectedBlocks.length - 1}___`;
         });
 
-        // Hapus kode/header penomoran soal (misal: "Soal:1)", "Soal: 1)", "Soal 1)", "1)", "1.")
-        out = out.replace(/(<\s*(?:p|div)[^>]*>)\s*(?:Soal\s*[:.]?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*/gi, '$1');
-        out = out.replace(/<\s*(?:strong|b|span)[^>]*>\s*(?:Soal\s*[:.]?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*<\/\s*(?:strong|b|span)\s*>\s*/gi, '');
-        out = out.replace(/^\s*(?:Soal\s*[:.]?\s*\d+[\).:]?|(?:\d{1,3})[\).])\s*/gim, '');
-        
-        // Clean formatting tags
-        out = out.replace(/<\/?(span|strong|em|font|u|b|i)[^>]*>/gi, '');
-        
-        // Remove option lines (A-E)
-        out = out.replace(/<p[^>]*>\s*[\(]?[A-Ea-e]\s*(?:[:.)]|\s+-)\s*[\s\S]*?<\/p>/gi, '');
-        out = out.replace(/^\s*[\(]?[A-Ea-e]\s*(?:[:.)]|\s+-)\s*.*$/gim, '');
-        
-        // Remove Kunci and Tipe lines
-        out = out.replace(/<p[^>]*>\s*Kunci\s*[\:\=\-]\s*[\s\S]*?<\/p>/gi, '');
-        out = out.replace(/^\s*Kunci\s*[\:\=\-]\s*.*$/gim, '');
-        out = out.replace(/<p[^>]*>\s*Tipe\s*[\:\=\-]\s*[\s\S]*?<\/p>/gi, '');
-        out = out.replace(/^\s*Tipe\s*[\:\=\-]\s*.*$/gim, '');
-        
-        // Remove empty paragraphs
-        out = out.replace(/<p[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '');
+        // 3. Jika ada list alfabet CKEditor (<ol style="list-style-type:upper-alpha">) untuk soal objektif yang sudah punya opsi di DB, bersihkan list opsi tersebut
+        if (!isEssayType && hasObjectiveOptions) {
+          out = out.replace(/<ol[^>]*(?:list-style-type\s*:\s*(?:upper|lower)-alpha|type\s*=\s*["']?[Aa]["']?)[^>]*>[\s\S]*?<\/ol>/gi, '');
+        }
 
-        // Remove inline Tipe: and Kunci: patterns
-        out = out.replace(/Tipe\s*:\s*[A-Za-z0-9_]+/gi, '');
-        out = out.replace(/Kunci\s*:\s*[A-Za-z0-9,\s]+/gi, '');
+        // 4. Hapus penanda header soal HANYA di awal teks (JANGAN global agar pernyataan 1), 2), 3) di dalam wacana tetap utuh!)
+        out = out.replace(/^\s*(<(?:p|div)[^>]*>\s*)?(?:<(?:strong|b|span)[^>]*>\s*)?Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*(?:\[\d+\]|\[no\]|\d+)\s*[\).:]?\s*(?:<\/(?:strong|b|span)>\s*)?/i, '$1');
 
-        // Inline Truncation (Aggressive) - but preserve img placeholders
-        out = out.replace(/([\s\.,;>\?!]|&nbsp;)([\(]?[A-Ea-e]\s*[:.)-][\s\S]*)$/i, '$1');
-        out = out.replace(/([\s\.,;>\?!]|&nbsp;)(Kunci\s*[:=][\s\S]*)$/i, '$1');
+        // Angka "1." / "1)" tanpa kata "Soal" di paling awal hanya dihapus jika BUKAN daftar pernyataan bernomor (tidak diikuti 2. / 2))
+        const startsWithStatementList = /^\s*(?:<[^>]+>\s*)*1([\).])\s*[\s\S]*?(?:<\/p>\s*<p[^>]*>|\n|<br\s*\/?>)\s*(?:<[^>]+>\s*)*2\1/i.test(out);
+        if (!startsWithStatementList) {
+          out = out.replace(/^\s*(<(?:p|div)[^>]*>\s*)?(?:<(?:strong|b|span)[^>]*>\s*)?(?:\d{1,3})[\).]\s*(?:<\/(?:strong|b|span)>\s*)?/i, '$1');
+        }
 
-        // Restore img tags
-        imgTags.forEach((imgTag, idx) => {
-          out = out.replace(`___IMG_PLACEHOLDER_${idx}___`, imgTag);
+        // 5. Hapus baris Opsi (A-E) pada paragraf/baris tersendiri untuk soal objektif (tanpa merusak singkatan seperti R.A. Kartini atau Vitamin C. di tengah kalimat)
+        if (!isEssayType) {
+          out = out.replace(/<p[^>]*>\s*(?:<(?:strong|b|span)[^>]*>\s*)?[\(]?[A-Ea-e]\s*(?:[:.)]|\s+-)\s*(?:<\/(?:strong|b|span)>\s*)?[\s\S]*?<\/p>/gi, '');
+          out = out.replace(/^[ \t]*[\(]?[A-Ea-e]\s*(?:[:.)]|\s+-)\s+.*$/gm, '');
+        }
+
+        // 6. Hapus baris metadata Tipe, Kunci, Kunci Jawaban, dan Jawaban (rubrik esai)
+        out = out.replace(/<p[^>]*>\s*(?:<(?:strong|b|span)[^>]*>\s*)?(?:Kunci(?:\s+Jawaban)?|Jawaban|Tipe)\s*[:=\-][\s\S]*?<\/p>/gi, '');
+        out = out.replace(/^[ \t]*(?:Kunci(?:\s+Jawaban)?|Jawaban|Tipe)\s*[:=\-].*$/gim, '');
+
+        // 7. Bersihkan tag <font> warisan tanpa menghapus format penting (bold, italic, underline, sub, sup, list tetap dipertahankan)
+        out = out.replace(/<\/?font[^>]*>/gi, '');
+
+        // 8. Hapus paragraf kosong
+        out = out.replace(/<p[^>]*>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '');
+
+        // 9. Rapikan baris baru: jika belum memiliki elemen blok HTML, ubah \n menjadi <br>
+        const hasBlockHtml = /<(?:p|div|table|ul|ol|blockquote|h[1-6])\b/i.test(out);
+        if (!hasBlockHtml) {
+          out = out.trim().replace(/\r?\n/g, '<br>');
+        } else {
+          out = out.replace(/>\s*\r?\n\s*</g, '><').replace(/\r?\n/g, '<br>');
+        }
+
+        // 10. Kembalikan blok tabel dan gambar
+        protectedBlocks.forEach((block, idx) => {
+          out = out.split(`___PROTECTED_BLOCK_${idx}___`).join(block);
         });
-
-        // Ganti newline asli yang tersisa menjadi <br> agar baris baru dirender
-        out = out.replace(/\r?\n/g, '<br>');
 
         return out.trim();
       }
 
       function formatOptionText(text) {
         if (!text) return '';
-        return String(text)
-          .replace(/\\r\\n/g, '<br>')
-          .replace(/\\n/g, '<br>')
-          .replace(/\\r/g, '<br>')
-          .replace(/\r?\n/g, '<br>');
+        const str = String(text)
+          .replace(/\\r\\n/g, '\n')
+          .replace(/\\n/g, '\n')
+          .replace(/\\r/g, '\n');
+        if (/<(?:p|div|table|ul|ol)\b/i.test(str)) {
+          return str;
+        }
+        return str.replace(/\r?\n/g, '<br>');
       }
 
-      let cleanText = cleanRawText(q.text);
+      // Pilih sumber teks soal terbaik: jika question_text sudah bersih namun raw_text memiliki gambar/tabel ekstra, utamakan raw_text yang dibersihkan secara aman
+      const qPlainSource = q.question_text || q.plain || '';
+      const qRawSource = q.raw_text || q.text || '';
+      let cleanText = '';
+
+      if (qRawSource.trim() !== '') {
+        cleanText = cleanRawText(qRawSource);
+      }
       if (!cleanText || cleanText.trim() === '') {
-        cleanText = cleanRawText(q.plain || q.text || '');
+        cleanText = cleanRawText(qPlainSource);
       }
       $('#viewText').html(cleanText || '<em class="text-muted">Tidak ada teks soal.</em>');
 
       let html = '';
       if (q.type === 'pg' || q.type === 'pg_kompleks') {
-        const keys = (parsed.key || '').split(',').map(k => k.trim());
+        const keys = (parsed.key || '').split(',').map(k => k.trim().toUpperCase()).filter(Boolean);
         let hasOptions = false;
         ['A', 'B', 'C', 'D', 'E'].forEach(opt => {
-          if (parsed[opt]) {
+          if (parsed[opt] !== undefined && String(parsed[opt]).trim() !== '') {
             hasOptions = true;
             const isSelected = keys.includes(opt);
             const active = isSelected ? 'bg-primary text-white fw-bold' : '';
             html += `
-            <div class="p-2 mb-2 border rounded d-flex align-items-center ${active}">
+            <div class="p-2 mb-2 border rounded d-flex align-items-start ${active}">
               <div class="me-2 fw-bold">${opt}.</div>
               <div>${formatOptionText(parsed[opt])}</div>
             </div>
@@ -560,11 +596,11 @@ foreach ($questions as $idx => $q) {
           html = `<div class="text-muted fst-italic">Pilihan jawaban belum diatur. Kunci: <strong>${parsed.key || '-'}</strong></div>`;
         }
       } else if (q.type === 'benar_salah') {
-        const keys = (parsed.key || '').split(',').map(k => k.trim());
+        const keys = (parsed.key || '').split(',').map(k => k.trim()).filter(Boolean);
         let hasOptions = false;
         let rows = '';
         ['A', 'B', 'C', 'D', 'E'].forEach((opt, idx) => {
-          if (parsed[opt]) {
+          if (parsed[opt] !== undefined && String(parsed[opt]).trim() !== '') {
             hasOptions = true;
             const keyVal = keys[idx] || '-';
             rows += `
@@ -592,7 +628,15 @@ foreach ($questions as $idx => $q) {
           html = `<div class="text-muted fst-italic">Pernyataan belum diatur. Kunci: <strong>${parsed.key || '-'}</strong></div>`;
         }
       } else {
-        html = `<div class="alert alert-info mb-0">Soal Esai - Tidak memiliki opsi jawaban berganda.</div>`;
+        if (q.essay_answer && String(q.essay_answer).trim() !== '') {
+          html = `
+            <div class="p-3 border border-success border-opacity-25 rounded bg-success bg-opacity-10">
+              <div class="small fw-bold text-success mb-1"><i class="bi bi-check2-circle me-1"></i>Kunci / Pedoman Jawaban Esai:</div>
+              <div class="text-dark">${formatOptionText(q.essay_answer)}</div>
+            </div>`;
+        } else {
+          html = `<div class="alert alert-info mb-0">Soal Esai - Tidak memiliki opsi jawaban berganda (dinilai manual oleh guru).</div>`;
+        }
       }
 
       $('#optionList').html(html);

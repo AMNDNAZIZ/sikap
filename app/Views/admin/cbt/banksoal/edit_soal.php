@@ -51,7 +51,10 @@
 
         <div class="mb-3">
           <label class="form-label fw-bold">Edit Soal (lengkap beserta opsi dan gambar)</label>
-          <textarea id="editor" name="raw_text" style="min-height: 600px;"><?= esc($soal['raw_text'] ?? $soal['question_text']) ?></textarea>
+          <textarea id="editor" name="raw_text" style="min-height: 600px;"><?= esc($soal['editor_html'] ?? $soal['raw_text'] ?? $soal['question_text'] ?? '') ?></textarea>
+          <div class="form-text text-muted mt-1">
+            Format standar: tulis teks/wacana soal di bagian atas, diikuti baris opsi <code>A: ...</code> s.d. <code>E: ...</code> (untuk soal objektif), lalu baris <code>Kunci: ...</code> (atau <code>Jawaban: ...</code> untuk Esai).
+          </div>
         </div>
 
         <!-- 🎵 AUDIO UPLOAD -->
@@ -154,8 +157,10 @@ window.MathJax = {
 
 <script>
   $(function () {
-    const draftKey = 'cbt_edit_soal_' + <?= $bank['id'] ?> + '_<?= $soal['id'] ?>';
-    const oldContent = <?= json_encode($soal['raw_text'] ?? $soal['question_text']) ?>;
+    const bankId = <?= (int) $bank['id'] ?>;
+    const draftKey = 'cbt_edit_soal_' + bankId + '_<?= (int) $soal['id'] ?>';
+    const oldContent = <?= json_encode($soal['editor_html'] ?? $soal['raw_text'] ?? $soal['question_text'] ?? '', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
+    const csrfTokenName = '<?= csrf_token() ?>';
     let editorInstance = null;
 
     // 🔧 Inisialisasi CKEditor Superbuild
@@ -293,65 +298,140 @@ window.MathJax = {
           };
         };
 
-        // Load konten: prioritas draft > old content
-        const savedDraft = localStorage.getItem(draftKey);
-        if (savedDraft && savedDraft.trim() !== '') {
-          editor.setData(savedDraft);
-        } else if (oldContent && oldContent.trim() !== '') {
+        // Bersihkan draft lawas agar data terbaru dari database selalu menjadi acuan utama saat halaman dibuka
+        localStorage.removeItem(draftKey);
+        if (oldContent && oldContent.trim() !== '') {
           editor.setData(oldContent);
         }
-
-        // Auto-save draft saat ada perubahan
-        editor.model.document.on('change:data', () => {
-          localStorage.setItem(draftKey, editor.getData());
-        });
       })
       .catch(error => {
         console.error('Error loading CKEditor:', error);
         Swal.fire('Error', 'Gagal memuat editor. Silakan refresh halaman.', 'error');
       });
 
-    // 🔍 Preview Parsing
+    function getCurrentCsrfHash() {
+      return $('input[name="' + csrfTokenName + '"]').val() || '<?= csrf_hash() ?>';
+    }
+
+    function updateCsrfHash(newHash) {
+      if (newHash) {
+        $('input[name="' + csrfTokenName + '"]').val(newHash);
+      }
+    }
+
+    // 🔍 Preview Parsing (menggunakan parser server tunggal yang sama persis dengan proses Simpan)
     $('#btnPreview').on('click', function () {
       if (!editorInstance) {
         Swal.fire('Error', 'Editor belum siap', 'error');
         return;
       }
-      const content = editorInstance.getData();
+      const content = editorInstance.getData().trim();
       const plain = $('<div>').html(content).text().trim();
+      const hasImg = /<img\b/i.test(content);
 
-      if (!plain) return Swal.fire('Kosong', 'Silakan tempelkan soal terlebih dahulu.', 'warning');
-
-      const blocks = plain.split(/Soal:\s*\d+\)/i).filter(b => b.trim() !== '');
-      const total = blocks.length;
-      const pgCount = (plain.match(/Kunci\s*[:.]?\s*[A-E]/gi) || []).length;
-      const bsCount = (plain.match(/Tipe\s*[:.]?\s*bs/gi) || []).length;
-      const esaiCount = (plain.match(/Kunci\s*[:.]?\s*esai/gi) || []).length;
-
-      let preview = '';
-      blocks.slice(0, 3).forEach((b, i) => {
-        const cut = b.length > 200 ? b.substring(0, 200) + '...' : b;
-        preview += `<div class="p-2 mb-2 border rounded bg-white">
-        <strong>Soal ${i + 1}:</strong> ${cut}
-      </div>`;
-      });
-
-      $('#previewResult').html(`
-      <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white">
-          <i class="bi bi-eye"></i> Preview Soal
-        </div>
-        <div class="card-body">
-          <p><strong>Total Soal:</strong> ${total} | PG: ${pgCount} | BS: ${bsCount} | Esai: ${esaiCount}</p>
-          ${preview}
-        </div>
-      </div>
-    `);
-
-      // Render MathJax pada preview
-      if (typeof MathJax !== 'undefined') {
-        MathJax.typesetPromise().catch((err) => console.log('MathJax error:', err));
+      if (!plain && !hasImg) {
+        return Swal.fire('Kosong', 'Silakan isi teks soal terlebih dahulu.', 'warning');
       }
+
+      const $btn = $(this);
+      $btn.prop('disabled', true).html('<i class="bi bi-hourglass-split me-1"></i> Memproses Preview...');
+
+      const postData = {
+        text: content,
+        bank_id: bankId,
+        single: 1,
+        question_type: $('#questionTypeSelect').val()
+      };
+      postData[csrfTokenName] = getCurrentCsrfHash();
+
+      $.ajax({
+        url: '<?= site_url("admin/cbt/banksoal/parseSoal") ?>',
+        type: 'POST',
+        dataType: 'json',
+        data: postData,
+        success: function (res) {
+          if (res && res.csrf) {
+            updateCsrfHash(res.csrf);
+          }
+
+          if (!res || !res.success || !res.preview || !res.preview.length) {
+            Swal.fire('Format Belum Sesuai', (res && res.error) ? res.error : 'Gagal membaca format soal.', 'warning');
+            return;
+          }
+
+          const item = res.preview[0];
+          const typeLabels = {
+            pg: '<span class="badge bg-primary">Pilihan Ganda (PG)</span>',
+            pg_kompleks: '<span class="badge bg-info text-dark">PG Kompleks</span>',
+            benar_salah: '<span class="badge bg-warning text-dark">Benar / Salah</span>',
+            esai: '<span class="badge bg-secondary">Esai / Uraian</span>'
+          };
+          const badgeHtml = typeLabels[item.type] || `<span class="badge bg-primary">${item.type}</span>`;
+
+          let optionsHtml = '';
+          const opts = item.options || {};
+          const optKeys = ['A', 'B', 'C', 'D', 'E'].filter(k => opts[k] !== undefined && String(opts[k]).trim() !== '');
+
+          if (item.type === 'esai') {
+            const rubric = item.essay_answer || item.answer || '';
+            optionsHtml = rubric
+              ? `<div class="p-2 border border-success border-opacity-25 rounded bg-success bg-opacity-10 mt-2">
+                   <div class="small fw-bold text-success mb-1">Kunci / Pedoman Jawaban Esai:</div>
+                   <div>${rubric}</div>
+                 </div>`
+              : `<div class="alert alert-info py-2 mb-0 mt-2 small">Soal Esai tanpa kunci spesifik (dinilai manual).</div>`;
+          } else if (item.type === 'benar_salah') {
+            const ansArr = String(item.answer || '').split(',').map(s => s.trim());
+            if (optKeys.length === 0) {
+              optionsHtml = `<div class="alert alert-warning py-2 mb-0 mt-2 small"><i class="bi bi-exclamation-triangle me-1"></i>Pernyataan A, B, C... belum terdeteksi! Pastikan ditulis dengan awalan <code>A: ...</code> di baris baru.</div>`;
+            } else {
+              let rows = '';
+              optKeys.forEach((k, idx) => {
+                rows += `<tr><td>${opts[k]}</td><td class="text-center fw-bold text-primary">${ansArr[idx] || '-'}</td></tr>`;
+              });
+              optionsHtml = `<div class="table-responsive mt-2"><table class="table table-bordered table-sm mb-0"><thead class="table-light"><tr><th>Pernyataan</th><th width="90" class="text-center">Kunci</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+            }
+          } else {
+            const ansArr = String(item.answer || '').split(',').map(s => s.trim().toUpperCase());
+            if (optKeys.length === 0) {
+              optionsHtml = `<div class="alert alert-warning py-2 mb-0 mt-2 small"><i class="bi bi-exclamation-triangle me-1"></i>Opsi jawaban A–E belum terdeteksi! Pastikan setiap opsi diawali <code>A: ...</code>, <code>B: ...</code> pada baris tersendiri.</div>`;
+            } else {
+              optKeys.forEach(k => {
+                const isKey = ansArr.includes(k);
+                optionsHtml += `<div class="p-2 mb-1 border rounded d-flex align-items-start ${isKey ? 'bg-primary text-white fw-semibold' : 'bg-light'}">
+                  <span class="me-2 fw-bold">${k}.</span>
+                  <div>${opts[k]}</div>
+                </div>`;
+              });
+              optionsHtml += `<div class="small text-muted mt-2">Kunci Terdeteksi: <strong>${item.answer || '(Belum diatur - kunci lama akan dipertahankan)'}</strong></div>`;
+            }
+          }
+
+          $('#previewResult').html(`
+            <div class="card shadow-sm border-0">
+              <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-eye me-1"></i> Hasil Preview Parsing Server</span>
+                ${badgeHtml}
+              </div>
+              <div class="card-body">
+                <div class="p-3 mb-3 border rounded bg-white">${item.text || '<em class="text-muted">Teks soal kosong</em>'}</div>
+                <h6 class="fw-bold mb-2">Opsi & Kunci Jawaban</h6>
+                ${optionsHtml}
+              </div>
+            </div>
+          `);
+
+          if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+            MathJax.typesetPromise([document.getElementById('previewResult')]).catch((err) => console.warn('MathJax error:', err));
+          }
+        },
+        error: function () {
+          Swal.fire('Gagal', 'Tidak dapat menghubungi server untuk memproses preview.', 'error');
+        },
+        complete: function () {
+          $btn.prop('disabled', false).html('<i class="bi bi-eye me-1"></i> Preview Parsing');
+        }
+      });
     });
 
     // 💾 Simpan Perubahan
@@ -363,7 +443,7 @@ window.MathJax = {
         return;
       }
       const html = editorInstance.getData().trim();
-      if (!html) return Swal.fire('Kosong', 'Silakan tempelkan soal terlebih dahulu.', 'warning');
+      if (!html) return Swal.fire('Kosong', 'Silakan isi soal terlebih dahulu.', 'warning');
 
       $('#btnSave').prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Menyimpan...');
 
@@ -373,20 +453,42 @@ window.MathJax = {
       $.ajax({
         url: $(this).attr('action'),
         type: 'POST',
+        dataType: 'json',
         data: formData,
         processData: false,
         contentType: false,
         success: function (res) {
-          localStorage.removeItem(draftKey);
-          Swal.fire('Berhasil', 'Soal berhasil diperbarui!', 'success').then(() => {
-            window.location.href = "<?= site_url('admin/cbt/banksoal/detail/' . $bank['id']) ?>";
-          });
+          if (typeof res === 'string') {
+            try { res = JSON.parse(res); } catch (err) { res = null; }
+          }
+          if (res && res.csrf) {
+            updateCsrfHash(res.csrf);
+          }
+
+          if (res && res.success) {
+            localStorage.removeItem(draftKey);
+            Swal.fire('Berhasil', res.message || 'Soal berhasil diperbarui!', 'success').then(() => {
+              window.location.href = "<?= site_url('admin/cbt/banksoal/detail/' . $bank['id']) ?>";
+            });
+          } else {
+            Swal.fire(
+              'Gagal Menyimpan',
+              (res && res.error) ? res.error : 'Format soal belum sesuai. Pastikan opsi jawaban (A: ... s.d. D/E: ...) tertulis lengkap.',
+              'warning'
+            );
+          }
         },
-        error: function () {
-          Swal.fire('Gagal', 'Terjadi kesalahan saat menyimpan soal.', 'error');
+        error: function (xhr) {
+          let errMsg = 'Terjadi kesalahan saat menyimpan soal.';
+          if (xhr.status === 403) {
+            errMsg = 'Sesi keamanan (CSRF) kedaluwarsa. Silakan muat ulang halaman lalu coba lagi.';
+          } else if (xhr.responseJSON && xhr.responseJSON.error) {
+            errMsg = xhr.responseJSON.error;
+          }
+          Swal.fire('Gagal', errMsg, 'error');
         },
         complete: function () {
-          $('#btnSave').prop('disabled', false).html('<i class="bi bi-save"></i> Simpan Perubahan');
+          $('#btnSave').prop('disabled', false).html('<i class="bi bi-save me-1"></i> Simpan Perubahan');
         }
       });
     });

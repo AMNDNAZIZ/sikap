@@ -1191,16 +1191,17 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         // 3. Ganti <br> dengan newline
         $out = preg_replace('/<br\s*\/?>/i', "\n", $out);
 
-        // 4. Regex opsi & kunci
+        // 4. Regex opsi & kunci (termasuk Jawaban esai agar tidak bocor ke halaman ujian siswa)
         $out = preg_replace('/^(?:<[^>]+>)*[\s\xc2\xa0\x{00a0}]*[\(]?[A-Ea-e]\s*(?:[:.)]|\s+-)\s*.*$/imu', '', $out);
-        $out = preg_replace('/^(?:<[^>]+>)*[\s\xc2\xa0\x{00a0}]*(?:Kunci|Tipe)\s*[\:\=\-]\s*.*$/imu', '', $out);
+        $out = preg_replace('/^(?:<[^>]+>)*[\s\xc2\xa0\x{00a0}]*(?:Kunci(?:\s+Jawaban)?|Jawaban|Tipe)\s*[\:\=\-]\s*.*$/imu', '', $out);
         $out = preg_replace('/Tipe\s*:\s*[A-Za-z0-9_]+/i', '', $out);
         $out = preg_replace('/Kunci\s*:\s*[A-Za-z0-9,\s]+/i', '', $out);
 
-        // 4b. Hapus kode/header penomoran soal (misal: "Soal:1)", "Soal: 1)", "Soal:[no])", "1)", "1.")
-        $out = preg_replace('/(<\s*(?:p|div)[^>]*>)\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*/iu', '$1', $out);
-        $out = preg_replace('/<\s*(?:strong|b|span)[^>]*>\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*<\/\s*(?:strong|b|span)\s*>\s*/iu', '', $out);
-        $out = preg_replace('/^\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*/imu', '', $out);
+        // 4b. Hapus kode/header penomoran soal HANYA di awal soal (agar pernyataan 1), 2), 3) di dalam wacana tidak hilang)
+        $out = preg_replace('/\A[\s\n\r]*(<(?:p|div)[^>]*>\s*)?(?:<(?:strong|b|span)[^>]*>\s*)?Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?\s*(?:<\/(?:strong|b|span)>\s*)?/iu', '$1', $out);
+        if (!preg_match('/\A[\s\n\r]*(?:<[^>]+>\s*)*1([\).])\s*[\s\S]*?\n[\s\n\r]*(?:<[^>]+>\s*)*2\1/iu', $out)) {
+            $out = preg_replace('/\A[\s\n\r]*(<(?:p|div)[^>]*>\s*)?(?:<(?:strong|b|span)[^>]*>\s*)?(?:\d{1,3})[\).]\s*(?:<\/(?:strong|b|span)>\s*)?/iu', '$1', $out);
+        }
 
         // 5. Hapus span/font
         $out = preg_replace('/<\/?(span|font)[^>]*>/i', '', $out);

@@ -2651,31 +2651,26 @@ class Cbt extends BaseController
             return '[[IMG_' . (count($imgTags) - 1) . ']]';
         }, $out);
 
-        // Hapus kode/header penomoran soal (misal: "Soal:1)", "Soal: 1)", "Soal:[no])", "1)", "1.")
-        $out = preg_replace('/(<\s*(?:p|div)[^>]*>)\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*/iu', '$1', $out);
-        $out = preg_replace('/<\s*(?:strong|b|span)[^>]*>\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*<\/\s*(?:strong|b|span)\s*>\s*/iu', '', $out);
-        $out = preg_replace('/^\s*(?:Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?|(?:\d{1,3})[\).:])\s*/imu', '', $out);
+        // Hapus kode/header penomoran soal HANYA di awal soal (jangan hapus pernyataan 1), 2), 3) di dalam wacana!)
+        $out = preg_replace('/\A\s*(<(?:p|div)[^>]*>\s*)?(?:<(?:strong|b|span)[^>]*>\s*)?Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*\[?(?:\d+|no)\]?\s*[\).:]?\s*(?:<\/(?:strong|b|span)>\s*)?/iu', '$1', $out);
+        if (!preg_match('/\A\s*(?:<[^>]+>\s*)*1([\).])\s*[\s\S]*?(?:<\/p>\s*<p[^>]*>|\n|<br\s*\/?>)\s*(?:<[^>]+>\s*)*2\1/iu', $out)) {
+            $out = preg_replace('/\A\s*(<(?:p|div)[^>]*>\s*)?(?:<(?:strong|b|span)[^>]*>\s*)?(?:\d{1,3})[\).]\s*(?:<\/(?:strong|b|span)>\s*)?/iu', '$1', $out);
+        }
 
-        // Remove formatting tags (tapi biarkan p, br, ul, ol, li, table, dll)
+        // Remove formatting tags (tapi biarkan p, br, strong, em, u, sub, sup, ul, ol, li, table, dll)
         $out = preg_replace('/<\/?(span|font)[^>]*>/i', '', $out);
 
-        // Remove option lines in <p> tags - HANYA yang benar-benar opsi
-        $out = preg_replace('/<p[^>]*>\s*[\(]?[A-Ea-e]\s*[:.)\-]\s*[^<]*<\/p>/i', '', $out);
+        // Remove option lines in <p> tags (termasuk opsi yang mengandung format inline seperti <strong>/<sub>)
+        $out = preg_replace('/<p[^>]*>\s*(?:<(?:strong|b)[^>]*>\s*)?[\(]?[A-Ea-e]\s*(?:[:.)]|\s+-)\s*(?:<\/(?:strong|b)>\s*)?(?:(?!<\/p>).)*<\/p>/isu', '', $out);
 
         // Remove option lines (plain text) - HANYA di awal baris
-        $out = preg_replace('/^[\(]?[A-Ea-e]\s*[:.)\-]\s*[^\n]*$/im', '', $out);
+        $out = preg_replace('/^[ \t]*[\(]?[A-Ea-e]\s*(?:[:.)]|\s+-)\s+[^\n]*$/imu', '', $out);
 
-        // Remove Kunci lines in <p> tags
-        $out = preg_replace('/<p[^>]*>\s*Kunci\s*[\:\=\-]\s*[^<]*<\/p>/i', '', $out);
+        // Remove Kunci / Jawaban / Tipe lines in <p> tags (mencegah kebocoran kunci & rubrik esai ke siswa)
+        $out = preg_replace('/<p[^>]*>\s*(?:<(?:strong|b)[^>]*>\s*)?(?:Kunci(?:\s+Jawaban)?|Jawaban|Tipe)\s*[:=\-](?:(?!<\/p>).)*<\/p>/isu', '', $out);
 
-        // Remove Kunci lines (plain text)
-        $out = preg_replace('/^Kunci\s*[\:\=\-]\s*.*$/im', '', $out);
-
-        // Remove Tipe lines in <p> tags
-        $out = preg_replace('/<p[^>]*>\s*Tipe\s*[\:\=\-]\s*[^<]*<\/p>/i', '', $out);
-
-        // Remove Tipe lines (plain text)
-        $out = preg_replace('/^Tipe\s*[\:\=\-]\s*.*$/im', '', $out);
+        // Remove Kunci / Jawaban / Tipe lines (plain text)
+        $out = preg_replace('/^[ \t]*(?:Kunci(?:\s+Jawaban)?|Jawaban|Tipe)\s*[:=\-].*$/imu', '', $out);
 
         // Remove ONLY truly empty paragraphs (no content at all)
         $out = preg_replace('/<p[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/p>/i', '', $out);

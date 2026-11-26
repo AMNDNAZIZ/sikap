@@ -308,12 +308,19 @@ class CbtBankSoal extends BaseController
             return redirect()->back()->with('error', 'Anda tidak memiliki akses ke bank soal ini.');
         }
 
-        $bank = $this->bankModel->find($bankId);
+        $bank = $this->bankModel
+            ->select('cbt_question_banks.*, subjects.name AS subject_name')
+            ->join('subjects', 'subjects.id = cbt_question_banks.subject_id', 'left')
+            ->find($bankId);
         $soal = $this->questionModel->find($questionId);
 
-        if (!$bank || !$soal) {
+        if (!$bank || !$soal || (int) $soal['bank_id'] !== (int) $bankId) {
             throw new \CodeIgniter\Exceptions\PageNotFoundException('Soal tidak ditemukan');
         }
+
+        // Pastikan konten awal CKEditor lengkap (memuat soal, tipe, opsi A-E, dan kunci)
+        // walaupun raw_text sebelumnya kosong atau berasal dari impor/generate lama
+        $soal['editor_html'] = $this->buildCanonicalRawHtmlFromRecord($soal);
 
         return view('admin/cbt/banksoal/edit_soal', [
             'title' => 'Edit Soal',
@@ -322,59 +329,184 @@ class CbtBankSoal extends BaseController
         ]);
     }
 
+    /**
+     * Bangun HTML editor yang utuh & konsisten untuk CKEditor pada halaman edit_soal.
+     * Jika raw_text sudah lengkap (memuat opsi/kunci yang sesuai), pertahankan format asli CKEditor
+     * namun konversi awalan opsi "A. " di awal <p> menjadi "A: " agar CKEditor 5 tidak mengubahnya jadi <ol><li>.
+     */
+    private function buildCanonicalRawHtmlFromRecord(array $soal): string
+    {
+        $type = (string) ($soal['question_type'] ?? 'pg');
+        $raw = trim((string) ($soal['raw_text'] ?? ''));
+
+        $hasDbOptions = false;
+        foreach (['a', 'b', 'c', 'd', 'e'] as $opt) {
+            if (trim((string) ($soal['option_' . $opt] ?? '')) !== '') {
+                $hasDbOptions = true;
+                break;
+            }
+        }
+
+        // Cek apakah raw_text sudah memiliki penanda Kunci/Opsi lengkap
+        $rawHasKey = (bool) preg_match('/(?:Kunci\s*Jawaban|Kunci|Key|Ans)\s*[:.)=]/iu', strip_tags($raw));
+        $rawHasOpts = !$hasDbOptions || (bool) preg_match('/(?:^|\n)\s*(?:\([A-Ea-e]\)|[A-Ea-e])\s*[:.)]/u', preg_replace('/<[^>]+>/', "\n", $raw));
+
+        if ($raw !== '' && $rawHasKey && $rawHasOpts) {
+            // Amankan awalan <p>A. ... menjadi <p>A: ... supaya CKEditor 5 Autoformat tidak mengubah opsi menjadi <ol><li>
+            return preg_replace('/(<p[^>]*>\s*)([A-E])\.\s+/u', '$1$2: ', $raw);
+        }
+
+        // Rekonstruksi utuh dari kolom terstruktur database
+        $qText = trim((string) ($soal['question_text'] ?? ''));
+        if (preg_match('/<(?:p|div|table|ul|ol|blockquote|h[1-6]|img)\b/i', $qText)) {
+            $html = $qText;
+        } else {
+            $paragraphs = preg_split('/\r?\n{2,}/', $qText) ?: [];
+            $pHtml = [];
+            foreach ($paragraphs as $p) {
+                $pt = trim($p);
+                if ($pt !== '') {
+                    $pHtml[] = '<p>' . nl2br(htmlspecialchars($pt, ENT_NOQUOTES, 'UTF-8'), false) . '</p>';
+                }
+            }
+            $html = !empty($pHtml) ? implode('', $pHtml) : '<p></p>';
+        }
+
+        if ($type === 'benar_salah') {
+            $html .= '<p>Tipe: BS</p>';
+        } elseif ($type === 'pg_kompleks') {
+            $html .= '<p>Tipe: PGK</p>';
+        } elseif ($type === 'pg') {
+            $html .= '<p>Tipe: PG</p>';
+        }
+
+        if ($type !== 'esai') {
+            foreach (['A', 'B', 'C', 'D', 'E'] as $optKey) {
+                $val = trim((string) ($soal['option_' . strtolower($optKey)] ?? ''));
+                if ($val !== '') {
+                    $optFormatted = preg_match('/<[a-z][\s\S]*>/i', $val)
+                        ? $val
+                        : nl2br(htmlspecialchars($val, ENT_NOQUOTES, 'UTF-8'), false);
+                    $html .= '<p>' . $optKey . ': ' . $optFormatted . '</p>';
+                }
+            }
+            $keyVal = trim((string) ($soal['correct_option'] ?? ''));
+            if ($keyVal !== '') {
+                $html .= '<p>Kunci: ' . htmlspecialchars($keyVal, ENT_NOQUOTES, 'UTF-8') . '</p>';
+            }
+        } else {
+            $html .= '<p>Kunci: esai</p>';
+            $essayAns = trim((string) ($soal['essay_answer'] ?? ''));
+            if ($essayAns !== '') {
+                $html .= '<p>Jawaban: ' . nl2br(htmlspecialchars($essayAns, ENT_NOQUOTES, 'UTF-8'), false) . '</p>';
+            }
+        }
+
+        return $html;
+    }
+
     public function updateSoal($bankId, $questionId)
     {
         // Validasi ownership
         if (!can_access_cbt_bank($bankId)) {
-            return redirect()->back()->with('error', 'Anda tidak memiliki akses ke bank soal ini.');
+            return $this->response->setJSON(['success' => false, 'error' => 'Anda tidak memiliki akses ke bank soal ini.']);
+        }
+
+        $existing = $this->questionModel->find($questionId);
+        if (!$existing || (int) $existing['bank_id'] !== (int) $bankId) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Butir soal tidak ditemukan pada bank soal ini.']);
         }
 
         $rawHtml = $this->request->getPost('raw_text');
 
-        if (empty($rawHtml)) {
-            return $this->response->setJSON(['error' => 'Soal tidak boleh kosong.']);
+        if (empty(trim((string) $rawHtml))) {
+            return $this->response->setJSON(['success' => false, 'error' => 'Soal tidak boleh kosong.']);
         }
 
-        // Process embedded images
+        $explicitType = trim((string) $this->request->getPost('question_type'));
+        $validTypes = ['pg', 'pg_kompleks', 'benar_salah', 'esai'];
+        $forcedType = in_array($explicitType, $validTypes, true) ? $explicitType : null;
+
+        // Process embedded images (ubah base64 menjadi URL file gambar lokal)
         $cleanHtml = $this->processEmbeddedImages($rawHtml);
 
-        // Parse HTML to extract question data
-        $parsedQuestions = $this->extractQuestionsFromHtml($cleanHtml);
+        // Parse HTML dalam mode SOAL TUNGGAL ($singleQuestion = true) agar pernyataan bernomor 1. / 1) di dalam wacana TIDAK memotong soal!
+        $parsedQuestions = $this->extractQuestionsFromHtml($cleanHtml, true, $forcedType);
 
         if (empty($parsedQuestions)) {
-            return $this->response->setJSON(['error' => 'Tidak ada soal valid yang ditemukan dalam format yang diberikan.']);
+            return $this->response->setJSON(['success' => false, 'error' => 'Tidak ada soal valid yang ditemukan dalam format yang diberikan.']);
         }
 
-        // Use first parsed question (since we're editing one question at a time)
         $q = $parsedQuestions[0];
 
-        $explicitType = $this->request->getPost('question_type');
-        $targetType = $q['type'];
-        if (!empty($explicitType) && in_array($explicitType, ['pg', 'pg_kompleks', 'benar_salah', 'esai'], true)) {
-            $targetType = $explicitType;
+        $targetType = $forcedType ?? $q['type'];
+
+        // Validasi kelengkapan opsi untuk soal objektif agar hasil simpan tidak rusak diam-diam
+        if ($targetType !== 'esai' && empty($q['options'])) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error'   => 'Opsi jawaban (A, B, C, D) tidak terdeteksi. Pastikan setiap opsi berada di baris tersendiri dengan awalan A: / A. diikuti teks opsi.'
+            ]);
         }
 
         $correctOption = $q['key'] ?? null;
-        if ($targetType === 'pg' && !empty($correctOption) && strpos($correctOption, ',') !== false) {
-            $keyParts = array_filter(array_map('trim', explode(',', $correctOption)));
-            $correctOption = reset($keyParts);
+        if ($targetType === 'esai') {
+            $correctOption = null;
+        } else {
+            // Jika guru tidak mengubah/menulis ulang baris Kunci:, pertahankan kunci sebelumnya bila masih sesuai tipe
+            if (($correctOption === null || $correctOption === '') && !empty($existing['correct_option']) && $existing['question_type'] === $targetType) {
+                $correctOption = $existing['correct_option'];
+            }
+            if ($targetType === 'pg' && !empty($correctOption) && strpos($correctOption, ',') !== false) {
+                $keyParts = array_filter(array_map('trim', explode(',', $correctOption)));
+                $correctOption = reset($keyParts);
+            }
         }
+
+        $essayAnswer = null;
+        if ($targetType === 'esai') {
+            $essayAnswer = $q['essay_answer'] ?? $existing['essay_answer'] ?? null;
+        }
+
+        // Pertahankan skor khusus yang sudah ada kecuali berubah antara esai <-> objektif
+        $existingScore = (float) ($existing['score'] ?? 1);
+        if ($targetType === 'esai') {
+            $newScore = ($existing['question_type'] === 'esai') ? $existingScore : 0;
+        } else {
+            $newScore = ($existing['question_type'] !== 'esai' && $existingScore > 0) ? $existingScore : 1;
+        }
+
+        // Bangun raw_text yang bersih & sinkron dengan tipe serta hasil edit (mempertahankan HTML & gambar soal)
+        $syncedRecord = [
+            'question_type'  => $targetType,
+            'question_text'  => trim($q['question_html'] ?? $q['question']),
+            'option_a'       => $targetType === 'esai' ? null : ($q['options']['A'] ?? null),
+            'option_b'       => $targetType === 'esai' ? null : ($q['options']['B'] ?? null),
+            'option_c'       => $targetType === 'esai' ? null : ($q['options']['C'] ?? null),
+            'option_d'       => $targetType === 'esai' ? null : ($q['options']['D'] ?? null),
+            'option_e'       => $targetType === 'esai' ? null : ($q['options']['E'] ?? null),
+            'correct_option' => $correctOption,
+            'essay_answer'   => $essayAnswer,
+            'raw_text'       => '',
+        ];
+        $canonicalRawText = $this->buildCanonicalRawHtmlFromRecord($syncedRecord);
 
         // Prepare data for update
         $data = [
-            'question_text' => trim($q['question']),
-            'option_a' => $q['options']['A'] ?? null,
-            'option_b' => $q['options']['B'] ?? null,
-            'option_c' => $q['options']['C'] ?? null,
-            'option_d' => $q['options']['D'] ?? null,
-            'option_e' => $q['options']['E'] ?? null,
+            'question_text'  => trim($q['question_html'] ?? $q['question']),
+            'option_a'       => $syncedRecord['option_a'],
+            'option_b'       => $syncedRecord['option_b'],
+            'option_c'       => $syncedRecord['option_c'],
+            'option_d'       => $syncedRecord['option_d'],
+            'option_e'       => $syncedRecord['option_e'],
             'correct_option' => $correctOption,
-            'question_type' => $targetType,
-            'score' => $targetType === 'esai' ? 0 : 1,
-            'media_image' => json_encode($q['images'] ?? []),
-            'has_image' => !empty($q['images']) ? 1 : 0,
-            'raw_text' => $rawHtml,
-            'updated_at' => date('Y-m-d H:i:s'),
+            'essay_answer'   => $essayAnswer,
+            'question_type'  => $targetType,
+            'score'          => $newScore,
+            'media_image'    => json_encode($q['images'] ?? []),
+            'has_image'      => !empty($q['images']) ? 1 : 0,
+            'raw_text'       => $canonicalRawText,
+            'updated_at'     => date('Y-m-d H:i:s'),
         ];
 
         // Handle audio file uploads
@@ -397,6 +529,8 @@ class CbtBankSoal extends BaseController
         // Update the question
         $this->questionModel->update($questionId, $data);
         $this->updateBankTotals($bankId);
+        cache()->delete('cbt_all_questions_bank_' . $bankId);
+        cache()->delete('cbt_questions_bank_' . $bankId);
 
         return $this->response->setJSON([
             'success' => true,
@@ -703,8 +837,15 @@ class CbtBankSoal extends BaseController
             }
         }
 
+        // Sinkronkan juga raw_text agar saat dibuka di Edit Soal atau Modal Lihat Soal tidak kembali ke tipe lama
+        $mergedQuestion = array_merge($question, $data);
+        $mergedQuestion['raw_text'] = '';
+        $data['raw_text'] = $this->buildCanonicalRawHtmlFromRecord($mergedQuestion);
+
         $this->questionModel->update($id, $data);
         $this->updateBankTotals($bankId);
+        cache()->delete('cbt_all_questions_bank_' . $bankId);
+        cache()->delete('cbt_questions_bank_' . $bankId);
 
         $typeNames = [
             'pg' => 'Pilihan Ganda (PG)',
@@ -789,6 +930,9 @@ class CbtBankSoal extends BaseController
 
         $rawText = $this->request->getPost('text');
         $bankId = $this->request->getPost('bank_id');
+        $isSingle = (bool) $this->request->getPost('single');
+        $explicitType = trim((string) $this->request->getPost('question_type'));
+        $forcedType = in_array($explicitType, ['pg', 'pg_kompleks', 'benar_salah', 'esai'], true) ? $explicitType : null;
 
         // Validasi ownership
         if ($bankId && !can_access_cbt_bank($bankId)) {
@@ -799,7 +943,7 @@ class CbtBankSoal extends BaseController
             return $this->response->setJSON(['success' => false, 'error' => 'Teks soal kosong.']);
         }
 
-        $parsedQuestions = $this->extractQuestionsFromHtml($rawText);
+        $parsedQuestions = $this->extractQuestionsFromHtml($rawText, $isSingle, $forcedType);
         if (empty($parsedQuestions)) {
             return $this->response->setJSON(['success' => false, 'error' => 'Format tidak dikenali. Pastikan format mengikuti contoh.']);
         }
@@ -807,18 +951,20 @@ class CbtBankSoal extends BaseController
         $preview = [];
         foreach ($parsedQuestions as $q) {
             $preview[] = [
-                'nomor'   => $q['nomor'] ?? (count($preview) + 1),
-                'text'    => $q['question'],
-                'options' => $q['options'],
-                'answer'  => $q['key'] ?? '',
-                'type'    => $q['type']
+                'nomor'        => $q['nomor'] ?? (count($preview) + 1),
+                'text'         => !empty($q['question_html']) ? $q['question_html'] : nl2br($q['question'], false),
+                'options'      => $q['options'],
+                'answer'       => $q['type'] === 'esai' ? ($q['essay_answer'] ?? '') : ($q['key'] ?? ''),
+                'type'         => $q['type'],
+                'essay_answer' => $q['essay_answer'] ?? ''
             ];
         }
 
         return $this->response->setJSON([
             'success' => true,
             'count'   => count($preview),
-            'preview' => $preview
+            'preview' => $preview,
+            'csrf'    => csrf_hash()
         ]);
     }
 
@@ -916,40 +1062,87 @@ class CbtBankSoal extends BaseController
     }
 
 
-    private function extractQuestionsFromHtml($html)
+    private function extractQuestionsFromHtml($html, bool $singleQuestion = false, ?string $forcedType = null)
     {
-        // 🔹 Simpan tag <img> agar tidak hilang saat pembersihan teks
-        preg_match_all('/<img[^>]+>/i', $html, $imgTags);
-        $imgList = $imgTags[0] ?? [];
-        $tmp = preg_replace('/<img[^>]+>/i', '[[IMG_TAG_PLACEHOLDER]]', $html);
+        // 🔹 1. Simpan blok <table> (beserta wrapper <figure class="table">) agar tabel di dalam soal tidak hancur
+        $tableList = [];
+        $workHtml = preg_replace_callback('/<figure[^>]*class="[^"]*table[^"]*"[^>]*>[\s\S]*?<\/figure>|<table\b[^>]*>[\s\S]*?<\/table>/iu', function ($m) use (&$tableList) {
+            $idx = count($tableList);
+            $tableList[$idx] = $m[0];
+            return "\n[[TABLE_BLOCK_{$idx}]]\n";
+        }, (string) $html);
 
-        // 🔹 Konversi tag-tag block & break HTML menjadi newline
-        $normalized = preg_replace('/<(?:br|\/p|\/div|\/li|\/tr|\/td|\/h[1-6]|\/blockquote|\/section|\/article)[^>]*>/i', "\n", $tmp);
-        $normalized = preg_replace('/<(?:p|div|li|tr|h[1-6]|blockquote|section|article)[^>]*>/i', "\n", $normalized);
+        // 🔹 2. Konversi <ol> dan <ul> dari CKEditor 5 menjadi baris berpenanda eksplisit
+        //       - <ol style="list-style-type:upper-alpha"> / type="A" -> A: ..., B: ..., dst.
+        //       - <ol> biasa (daftar pernyataan bernomor di wacana) -> (1) ..., (2) ..., dst.
+        //       - <ul> -> • ...
+        $workHtml = preg_replace_callback('/<ol\b([^>]*)>([\s\S]*?)<\/ol>/iu', function ($m) {
+            $attrs = strtolower($m[1] ?? '');
+            $inner = $m[2] ?? '';
+            $isAlpha = (strpos($attrs, 'alpha') !== false) || (bool) preg_match('/type\s*=\s*["\']?[ab]["\']?/i', $m[1] ?? '');
+            preg_match_all('/<li\b[^>]*>([\s\S]*?)<\/li>/iu', $inner, $liMatches);
+            $items = $liMatches[1] ?? [];
+            $outLines = [];
+            $letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+            foreach ($items as $i => $itemHtml) {
+                $itemClean = trim(preg_replace('/<\/?p[^>]*>/i', ' ', $itemHtml));
+                if ($isAlpha && isset($letters[$i])) {
+                    $outLines[] = '<p>' . $letters[$i] . ': ' . $itemClean . '</p>';
+                } else {
+                    $num = $i + 1;
+                    $outLines[] = '<p>(' . $num . ') ' . $itemClean . '</p>';
+                }
+            }
+            return implode("\n", $outLines);
+        }, $workHtml);
 
-        // 🔹 Bersihkan HTML lain & decode entitas (spasi non-breaking, &nbsp;, dsb)
-        $clean = strip_tags($normalized, '');
+        $workHtml = preg_replace_callback('/<ul\b[^>]*>([\s\S]*?)<\/ul>/iu', function ($m) {
+            preg_match_all('/<li\b[^>]*>([\s\S]*?)<\/li>/iu', $m[1] ?? '', $liMatches);
+            $outLines = [];
+            foreach (($liMatches[1] ?? []) as $itemHtml) {
+                $itemClean = trim(preg_replace('/<\/?p[^>]*>/i', ' ', $itemHtml));
+                $outLines[] = '<p>• ' . $itemClean . '</p>';
+            }
+            return implode("\n", $outLines);
+        }, $workHtml);
+
+        // 🔹 3. Simpan tag <img> dengan placeholder berindeks
+        $imgList = [];
+        $tmp = preg_replace_callback('/<img[^>]+>/i', function ($m) use (&$imgList) {
+            $idx = count($imgList);
+            $imgList[$idx] = $m[0];
+            return "[[IMG_TAG_PLACEHOLDER_{$idx}]]";
+        }, $workHtml);
+
+        // 🔹 4. Konversi tag-tag block & break HTML menjadi newline
+        $normalized = preg_replace('/<(?:br\s*\/?)>/i', "\n", $tmp);
+        $normalized = preg_replace('/<\/(?:p|div|li|h[1-6]|blockquote|section|article)>/i', "\n\n", $normalized);
+        $normalized = preg_replace('/<(?:p|div|li|h[1-6]|blockquote|section|article)\b[^>]*>/i', "\n", $normalized);
+
+        // 🔹 5. Pertahankan tag pemformatan teks inline penting (tebal, miring, garis bawah, sub/sup)
+        $allowedInlineTags = '<strong><b><em><i><u><sub><sup>';
+        $clean = strip_tags($normalized, $allowedInlineTags);
         $clean = html_entity_decode($clean, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $clean = str_replace(["\r", "\xc2\xa0", "&nbsp;"], ' ', $clean);
 
-        // 🔹 Kembalikan tag <img> ke tempat semula
-        foreach ($imgList as $tag) {
-            $clean = preg_replace('/\[\[IMG_TAG_PLACEHOLDER\]\]/', $tag, $clean, 1);
+        // 🔹 6. Kembalikan tag <img> ke tempat semula
+        foreach ($imgList as $idx => $tag) {
+            $clean = str_replace("[[IMG_TAG_PLACEHOLDER_{$idx}]]", $tag, $clean);
         }
 
-        // 🔹 KUNCI KETANGGUHAN (ROBUSTNESS):
-        // Jika soal, opsi A-E, kunci, atau tipe tersambung tanpa baris baru (hasil copy-paste Word/web),
-        // sisipkan baris baru secara otomatis di depan penandanya.
-        // 1. Awal soal (Soal: 1), Soal 1), dsb)
-        $clean = preg_replace('/(?<!\n)\s*(?=(?:Soal\s*[:.]?\s*\d+[\).:]?))/iu', "\n\n", $clean);
-        // 2. Lindungi baris Kunci/Tipe agar tidak terpecah jika kunci ditulis "B." atau "(B)"
-        $clean = preg_replace_callback('/((?:Kunci\s*Jawaban|Kunci|Jawaban|Tipe|Key|Ans)\s*[:.)=][^\n]*)/iu', function($m) {
+        // 🔹 7. KUNCI KETANGGUHAN (ROBUSTNESS) untuk copy-paste tersambung:
+        if (!$singleQuestion) {
+            $clean = preg_replace('/(?<!\n)\s*(?=(?:Soal\s*[:.]?\s*\d+[\).:]?))/iu', "\n\n", $clean);
+        }
+        // Lindungi baris Kunci/Tipe/Jawaban agar tidak terpecah jika nilai kunci ditulis "B." atau "(B)"
+        $clean = preg_replace_callback('/((?:Kunci\s*Jawaban|Kunci|Jawaban|Tipe|Key|Ans)\s*[:.)=][^\n]*)/iu', function ($m) {
             return "\n[[KEY_PLACEHOLDER_" . base64_encode($m[1]) . "]]";
         }, $clean);
-        // 3. Opsi A-E (harus didahului spasi atau awal baris, bukan bagian dari kata)
-        $clean = preg_replace('/(?<!\n)(?<=\s|^|[>])(?=(?:[A-Ea-e]\s*[:.)]|(?:\([A-Ea-e]\))\s*[:.)]?))/iu', "\n", $clean);
-        // 4. Kembalikan baris Kunci/Tipe
-        $clean = preg_replace_callback('/\[\[KEY_PLACEHOLDER_([^\]]+)\]\]/', function($m) {
+        // Pisahkan opsi A-E yang menyatu di baris yang sama hanya bila eksplisit berformat opsi di awal kalimat/setelah spasi
+        if (!$singleQuestion) {
+            $clean = preg_replace('/(?<!\n)(?<=\s|^|[>])(?=(?:[A-E]\s*[:.)]\s+\S|(?:\([A-E]\))\s*[:.)]?\s+\S))/u', "\n", $clean);
+        }
+        $clean = preg_replace_callback('/\[\[KEY_PLACEHOLDER_([^\]]+)\]\]/', function ($m) {
             return base64_decode($m[1]);
         }, $clean);
 
@@ -962,161 +1155,287 @@ class CbtBankSoal extends BaseController
             }
         }
 
+        $restoreTables = function (string $str) use ($tableList): string {
+            foreach ($tableList as $idx => $tblHtml) {
+                $str = str_replace("[[TABLE_BLOCK_{$idx}]]", $tblHtml, $str);
+            }
+            return $str;
+        };
+
+        $normalizeBsKey = function (string $rawKey): string {
+            $tokens = preg_split('/[\s,;\/|]+/', trim($rawKey), -1, PREG_SPLIT_NO_EMPTY);
+            if (count($tokens) > 1) {
+                $mapped = [];
+                foreach ($tokens as $tk) {
+                    $low = strtolower(trim($tk, "().:"));
+                    if (in_array($low, ['b', 'benar', 'true', 't', 'ya'], true)) {
+                        $mapped[] = 'B';
+                    } elseif (in_array($low, ['s', 'salah', 'false', 'f', 'tidak'], true)) {
+                        $mapped[] = 'S';
+                    }
+                }
+                if (!empty($mapped)) {
+                    return implode(',', $mapped);
+                }
+            }
+            $compact = strtoupper(preg_replace('/[^BSbs]/', '', $rawKey));
+            if ($compact !== '') {
+                return implode(',', str_split($compact));
+            }
+            return strtoupper(preg_replace('/\s+/', '', $rawKey));
+        };
+
         $questions = [];
         $current = null;
         $lastOptionKey = null;
+        $inEssayAnswer = false;
 
-        $flushQuestion = function() use (&$questions, &$current) {
-            if (!$current) return;
+        $initQuestion = function (int $num, array $firstLines, string $rawLine) use ($forcedType): array {
+            return [
+                'nomor'          => $num,
+                'question_lines' => $firstLines,
+                'options'        => [],
+                'key'            => null,
+                'raw_key_string' => null,
+                'essay_answer'   => null,
+                'type'           => $forcedType ?? 'pg',
+                'type_locked'    => ($forcedType !== null),
+                'raw_html'       => $rawLine,
+            ];
+        };
 
-            $qText = trim(preg_replace('/\s+/', ' ', implode(' ', $current['question_lines'])));
-            if (strlen(strip_tags($qText)) < 3 && empty($current['options'])) {
+        $flushQuestion = function () use (&$questions, &$current, $restoreTables, $normalizeBsKey, $forcedType) {
+            if (!$current) {
+                return;
+            }
+
+            // Pertahankan struktur baris / paragraf soal dengan \n\n agar wacana & daftar pernyataan tetap rapi
+            $cleanQLines = [];
+            $htmlParagraphs = [];
+            foreach ($current['question_lines'] as $qLine) {
+                $restored = trim($restoreTables($qLine));
+                if ($restored === '') {
+                    continue;
+                }
+                $cleanQLines[] = $restored;
+                if (preg_match('/^<(?:table|figure)\b/i', $restored)) {
+                    $htmlParagraphs[] = $restored;
+                } else {
+                    $htmlParagraphs[] = '<p>' . $restored . '</p>';
+                }
+            }
+
+            $qText = trim(implode("\n\n", $cleanQLines));
+            $qHtml = trim(implode('', $htmlParagraphs));
+
+            $hasImgInQ = (stripos($qText, '<img') !== false) || (stripos($qHtml, '<img') !== false);
+            if (!$hasImgInQ && strlen(trim(strip_tags($qText))) < 2 && empty($current['options'])) {
                 $current = null;
                 return;
             }
 
-            $type = $current['type'];
-            $options = $current['options'];
-            $key = $current['key'];
+            $options = [];
+            foreach ($current['options'] as $k => $v) {
+                $options[$k] = trim($restoreTables($v));
+            }
 
-            if ($type === 'benar_salah') {
-                // Tetap benar_salah
-            } elseif (empty($options)) {
+            $type = $forcedType ?? $current['type'];
+            $typeLocked = ($forcedType !== null) || !empty($current['type_locked']);
+            $rawKeyStr = $current['raw_key_string'];
+            $key = $current['key'];
+            $essayAnswer = $current['essay_answer'];
+
+            // Tentukan tipe final terlebih dahulu
+            if ($type === 'esai') {
+                $key = null;
+                if (($essayAnswer === null || $essayAnswer === '') && $rawKeyStr !== null && strtolower($rawKeyStr) !== 'esai') {
+                    $essayAnswer = $rawKeyStr;
+                }
+            } elseif ($type === 'benar_salah') {
+                if ($rawKeyStr !== null && strtolower($rawKeyStr) !== 'esai') {
+                    $key = $normalizeBsKey($rawKeyStr);
+                }
+            } elseif (empty($options) && !$typeLocked) {
                 $type = 'esai';
+                if (($essayAnswer === null || $essayAnswer === '') && $rawKeyStr !== null && strtolower($rawKeyStr) !== 'esai') {
+                    $essayAnswer = $rawKeyStr;
+                }
+                $key = null;
             } else {
-                if (!empty($current['type_locked'])) {
-                    $type = $current['type'];
-                } elseif (!empty($key) && strpos($key, ',') !== false) {
-                    $type = 'pg_kompleks';
-                } else {
-                    $type = 'pg';
+                // PG atau PG Kompleks
+                if ($rawKeyStr !== null && strtolower($rawKeyStr) !== 'esai') {
+                    preg_match_all('/\b([A-Ea-e])\b/u', $rawKeyStr, $keyMatches);
+                    $extractedKeys = !empty($keyMatches[1])
+                        ? array_values(array_unique(array_map('strtoupper', $keyMatches[1])))
+                        : [];
+
+                    if (empty($extractedKeys) && preg_match('/^[A-Ea-e]{1,5}$/u', $rawKeyStr)) {
+                        $extractedKeys = array_values(array_unique(str_split(strtoupper($rawKeyStr))));
+                    }
+
+                    if (!empty($extractedKeys)) {
+                        sort($extractedKeys);
+                        if (!$typeLocked && count($extractedKeys) > 1) {
+                            $type = 'pg_kompleks';
+                        }
+                        if ($type === 'pg' && count($extractedKeys) > 1) {
+                            $extractedKeys = [reset($extractedKeys)];
+                        }
+                        $key = implode(',', $extractedKeys);
+                    }
                 }
             }
 
-            preg_match_all('/<img[^>]+src="([^">]+)"/i', $current['raw_html'] . ' ' . $qText . ' ' . implode(' ', $options), $imgMatches);
+            $rawRestored = $restoreTables($current['raw_html']);
+            preg_match_all('/<img[^>]+src="([^">]+)"/i', $rawRestored . ' ' . $qHtml . ' ' . implode(' ', $options), $imgMatches);
             $images = array_values(array_unique($imgMatches[1] ?? []));
 
             $questions[] = [
-                'nomor'    => $current['nomor'],
-                'question' => $qText,
-                'options'  => $options,
-                'key'      => $key,
-                'type'     => $type,
-                'images'   => $images,
-                'raw_html' => $current['raw_html'],
+                'nomor'         => $current['nomor'],
+                'question'      => $qText,
+                'question_html' => $qHtml,
+                'options'       => $options,
+                'key'           => $key,
+                'essay_answer'  => $essayAnswer !== null ? trim($restoreTables($essayAnswer)) : null,
+                'type'          => $type,
+                'images'        => $images,
+                'raw_html'      => $rawRestored,
             ];
 
             $current = null;
         };
 
         foreach ($lines as $line) {
-            // 1. Deteksi Awal Soal:
-            if (preg_match('/^(?:Soal\s*[:.]?\s*(\d+)[\).:]?|(\d{1,3})[\).])\s*(.*)/iu', $line, $m)) {
-                $flushQuestion();
-                $num = !empty($m[1]) ? $m[1] : $m[2];
-                $soalText = trim($m[3]);
-                $current = [
-                    'nomor'          => (int) $num,
-                    'question_lines' => $soalText !== '' ? [$soalText] : [],
-                    'options'        => [],
-                    'key'            => null,
-                    'type'           => 'pg',
-                    'raw_html'       => $line,
-                ];
-                $lastOptionKey = null;
-                continue;
+            $plainLine = trim(strip_tags($line));
+
+            // 1. Deteksi Awal Soal
+            if ($singleQuestion) {
+                // Mode edit 1 butir soal tunggal: JANGAN PERNAH memotong soal di tengah wacana!
+                if ($current === null) {
+                    $cleanedFirst = $line;
+                    if (preg_match('/^(?:<[^>]+>)*\s*Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*(\d+)[\).:]?\s*(.*)$/iu', $line, $mFirst)) {
+                        $num = (int) $mFirst[1];
+                        $cleanedFirst = trim($mFirst[2]);
+                    } else {
+                        $num = 1;
+                    }
+                    $current = $initQuestion($num, $cleanedFirst !== '' ? [$cleanedFirst] : [], $line);
+                    $lastOptionKey = null;
+                    $inEssayAnswer = false;
+                    continue;
+                }
+            } else {
+                // Mode batch (tambah_soal):
+                // a) Awalan eksplisit "Soal: 1)" / "Soal 1." selalu memulai soal baru
+                if (preg_match('/^(?:<[^>]+>)*\s*Soal\s*(?:No\.?|Nomor)?\s*[:.]?\s*(\d+)[\).:]?\s*(.*)$/iu', $line, $mSoal)) {
+                    $flushQuestion();
+                    $num = (int) $mSoal[1];
+                    $soalText = trim($mSoal[2]);
+                    $current = $initQuestion($num, $soalText !== '' ? [$soalText] : [], $line);
+                    $lastOptionKey = null;
+                    $inEssayAnswer = false;
+                    continue;
+                }
+                // b) Angka "1." atau "1)" tanpa kata "Soal" HANYA memulai soal baru jika $current belum ada
+                //    ATAU soal sebelumnya sudah selesai mengumpulkan opsi/kunci (mencegah pernyataan 1. 2. 3. di wacana memotong soal!)
+                $prevComplete = ($current !== null) && (!empty($current['options']) || $current['raw_key_string'] !== null || $current['essay_answer'] !== null);
+                if (($current === null || $prevComplete) && preg_match('/^(?:<[^>]+>)*\s*(\d{1,3})[\).]\s*(.*)$/u', $line, $mNum)) {
+                    $flushQuestion();
+                    $num = (int) $mNum[1];
+                    $soalText = trim($mNum[2]);
+                    $current = $initQuestion($num, $soalText !== '' ? [$soalText] : [], $line);
+                    $lastOptionKey = null;
+                    $inEssayAnswer = false;
+                    continue;
+                }
             }
 
-            // Jika belum ada header Soal tapi ada baris pertama yang berisi soal
             if ($current === null) {
-                $current = [
-                    'nomor'          => count($questions) + 1,
-                    'question_lines' => [$line],
-                    'options'        => [],
-                    'key'            => null,
-                    'type'           => 'pg',
-                    'raw_html'       => $line,
-                ];
+                $current = $initQuestion(count($questions) + 1, [$line], $line);
                 $lastOptionKey = null;
+                $inEssayAnswer = false;
                 continue;
             }
 
             $current['raw_html'] .= "\n" . $line;
 
-            // 2. Deteksi Opsi Jawaban (A: ..., A. ..., A) ..., (A) ...)
-            if (preg_match('/^(?:(?:\(([A-Ea-e])\))|([A-Ea-e]))\s*[:.)]\s*(.*)$/iu', $line, $m)) {
-                $optLetter = strtoupper(!empty($m[1]) ? $m[1] : $m[2]);
-                $optVal = trim($m[3]);
-                $current['options'][$optLetter] = $optVal;
+            // 2. Deteksi Tipe Soal (Tipe: BS / PGK / PG / Esai)
+            if (preg_match('/^Tipe\s*[:.)=]?\s*(.+)$/iu', $plainLine, $mTipe)) {
+                if ($forcedType === null) {
+                    $tipeVal = strtolower(trim($mTipe[1]));
+                    if (preg_match('/(bs|benar\s*salah|benar\/salah)/', $tipeVal)) {
+                        $current['type'] = 'benar_salah';
+                        $current['type_locked'] = true;
+                    } elseif (preg_match('/(pgk|kompleks)/', $tipeVal)) {
+                        $current['type'] = 'pg_kompleks';
+                        $current['type_locked'] = true;
+                    } elseif (preg_match('/(esai|essay|uraian)/', $tipeVal)) {
+                        $current['type'] = 'esai';
+                        $current['type_locked'] = true;
+                    } elseif (preg_match('/(pg|pilihan\s*ganda|tunggal|single)/', $tipeVal)) {
+                        $current['type'] = 'pg';
+                        $current['type_locked'] = true;
+                    }
+                }
+                $lastOptionKey = null;
+                $inEssayAnswer = false;
+                continue;
+            }
+
+            // 3. Deteksi Kunci Jawaban / Jawaban Esai
+            if (preg_match('/^(Kunci\s*Jawaban|Kunci|Jawaban|Key|Ans)\s*[:.)=]\s*(.*)$/iu', $plainLine, $mKey)) {
+                $labelLower = strtolower(preg_replace('/\s+/', ' ', trim($mKey[1])));
+                $rawKey = trim($mKey[2]);
+
+                if (strtolower($rawKey) === 'esai' || strtolower($rawKey) === 'essay' || strtolower($rawKey) === 'uraian') {
+                    if ($forcedType === null) {
+                        $current['type'] = 'esai';
+                        $current['type_locked'] = true;
+                    }
+                    $current['raw_key_string'] = 'esai';
+                    $lastOptionKey = null;
+                    $inEssayAnswer = false;
+                    continue;
+                }
+
+                // Jika soal bertipe esai (atau baris berlabel "Jawaban:" setelah "Kunci: esai"), simpan sebagai rubrik esai!
+                if (($forcedType === 'esai') || ($current['type'] === 'esai') || ($labelLower === 'jawaban' && empty($current['options']))) {
+                    if ($forcedType === null && $current['raw_key_string'] === 'esai') {
+                        $current['type'] = 'esai';
+                        $current['type_locked'] = true;
+                    }
+                    if (($forcedType === 'esai') || ($current['type'] === 'esai')) {
+                        $current['essay_answer'] = $rawKey;
+                        $lastOptionKey = null;
+                        $inEssayAnswer = true;
+                        continue;
+                    }
+                }
+
+                $current['raw_key_string'] = $rawKey;
+                $lastOptionKey = null;
+                $inEssayAnswer = false;
+                continue;
+            }
+
+            // 4. Deteksi Opsi Jawaban (A: ..., A. ..., A) ..., (A) ...)
+            //    Catatan: Pada mode esai, jangan salah menganggap kalimat "A. ..." di rubrik sebagai opsi PG.
+            if (($forcedType !== 'esai' && $current['type'] !== 'esai') && preg_match('/^(?:<[^>]+>)*\s*(?:\(([A-Ea-e])\)|([A-Ea-e]))\s*[:.)]\s*(.*)$/isu', $line, $mOpt)) {
+                $optLetter = strtoupper(!empty($mOpt[1]) ? $mOpt[1] : $mOpt[2]);
+                $optVal = trim($mOpt[3]);
+                // Bersihkan tag penutup yatim di awal nilai opsi jika huruf opsi sebelumnya dibungkus <strong>A.</strong>
+                $optVal = preg_replace('/^(?:<\/(?:strong|b|em|i|u)>)+/i', '', $optVal);
+                $current['options'][$optLetter] = trim($optVal);
                 $lastOptionKey = $optLetter;
+                $inEssayAnswer = false;
                 continue;
             }
 
-            // 3. Deteksi Tipe Soal (Tipe: BS / PGK / PG / Esai)
-            if (preg_match('/^Tipe\s*[:.)=]?\s*(.+)$/iu', $line, $mTipe)) {
-                $tipeVal = strtolower(trim($mTipe[1]));
-                if (preg_match('/(bs|benar\s*salah|benar\/salah)/', $tipeVal)) {
-                    $current['type'] = 'benar_salah';
-                    $current['type_locked'] = true;
-                } elseif (preg_match('/(pgk|kompleks)/', $tipeVal)) {
-                    $current['type'] = 'pg_kompleks';
-                    $current['type_locked'] = true;
-                } elseif (preg_match('/(esai|uraian)/', $tipeVal)) {
-                    $current['type'] = 'esai';
-                    $current['type_locked'] = true;
-                } elseif (preg_match('/(pg|pilihan\s*ganda|tunggal|single)/', $tipeVal)) {
-                    $current['type'] = 'pg';
-                    $current['type_locked'] = true;
-                }
-                $lastOptionKey = null;
-                continue;
-            }
-
-            // 4. Deteksi Kunci Jawaban
-            if (preg_match('/^(?:Kunci\s*Jawaban|Kunci|Jawaban|Key|Ans)\s*[:.)=]?\s*(.*)$/iu', $line, $m)) {
-                $rawKey = trim($m[1]);
-                if (strtolower($rawKey) === 'esai') {
-                    $current['type'] = 'esai';
-                    $current['type_locked'] = true;
-                    $current['key'] = null;
-                } elseif ($current['type'] === 'benar_salah') {
-                    $rawKey = strtoupper(preg_replace('/\s+/', '', $rawKey));
-                    if (strpos($rawKey, ',') !== false) {
-                        $current['key'] = $rawKey;
-                    } else {
-                        $chars = str_split($rawKey);
-                        $current['key'] = implode(',', $chars);
-                    }
-                } else {
-                    // Ekstrak huruf kunci mandiri (word boundary) agar kata seperti "(benar)", "pembahasan", dll tidak ikut terdeteksi!
-                    preg_match_all('/\b([A-Ea-e])\b/u', $rawKey, $keyMatches);
-                    $extractedKeys = !empty($keyMatches[1]) ? array_values(array_unique(array_map('strtoupper', $keyMatches[1]))) : [];
-
-                    // Jika tidak ditemukan via word boundary tapi formatnya bersambung seperti "ACD" atau "ABD"
-                    if (empty($extractedKeys) && preg_match('/^[A-Ea-e]{1,5}$/u', $rawKey)) {
-                        $extractedKeys = array_values(array_unique(str_split(strtoupper($rawKey))));
-                    }
-
-                    if (!empty($extractedKeys)) {
-                        sort($extractedKeys);
-                        if (empty($current['type_locked']) && count($extractedKeys) > 1) {
-                            $current['type'] = 'pg_kompleks';
-                        }
-                        if (!empty($current['type_locked']) && $current['type'] === 'pg' && count($extractedKeys) > 1) {
-                            $extractedKeys = [reset($extractedKeys)];
-                        }
-                        $current['key'] = implode(',', $extractedKeys);
-                    } else {
-                        $current['key'] = $rawKey !== '' ? substr($rawKey, 0, 10) : null;
-                    }
-                }
-                $lastOptionKey = null;
-                continue;
-            }
-
-            // 5. Konten lanjutan (multi-line option atau multi-line question)
-            if ($lastOptionKey !== null && isset($current['options'][$lastOptionKey])) {
-                $current['options'][$lastOptionKey] .= ' ' . $line;
+            // 5. Konten lanjutan (multi-line essay answer, multi-line option, atau multi-line question/stimulus)
+            if ($inEssayAnswer && $current['essay_answer'] !== null) {
+                $current['essay_answer'] .= "\n" . $line;
+            } elseif ($lastOptionKey !== null && isset($current['options'][$lastOptionKey])) {
+                $current['options'][$lastOptionKey] .= '<br>' . $line;
             } else {
                 $current['question_lines'][] = $line;
             }
