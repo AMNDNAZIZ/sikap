@@ -357,16 +357,17 @@ class CbtBankSoal extends BaseController
         }
 
         // Rekonstruksi utuh dari kolom terstruktur database
+        $toBr = static fn(string $s): string => str_replace("\n", '<br>', str_replace(["\r\n", "\r"], "\n", htmlspecialchars($s, ENT_NOQUOTES, 'UTF-8')));
         $qText = trim((string) ($soal['question_text'] ?? ''));
         if (preg_match('/<(?:p|div|table|ul|ol|blockquote|h[1-6]|img)\b/i', $qText)) {
-            $html = $qText;
+            $html = preg_replace('/<br\s*\/?>\s*\r?\n/i', '<br>', $qText);
         } else {
             $paragraphs = preg_split('/\r?\n{2,}/', $qText) ?: [];
             $pHtml = [];
             foreach ($paragraphs as $p) {
                 $pt = trim($p);
                 if ($pt !== '') {
-                    $pHtml[] = '<p>' . nl2br(htmlspecialchars($pt, ENT_NOQUOTES, 'UTF-8'), false) . '</p>';
+                    $pHtml[] = '<p>' . $toBr($pt) . '</p>';
                 }
             }
             $html = !empty($pHtml) ? implode('', $pHtml) : '<p></p>';
@@ -385,8 +386,8 @@ class CbtBankSoal extends BaseController
                 $val = trim((string) ($soal['option_' . strtolower($optKey)] ?? ''));
                 if ($val !== '') {
                     $optFormatted = preg_match('/<[a-z][\s\S]*>/i', $val)
-                        ? $val
-                        : nl2br(htmlspecialchars($val, ENT_NOQUOTES, 'UTF-8'), false);
+                        ? preg_replace('/<br\s*\/?>\s*\r?\n/i', '<br>', $val)
+                        : $toBr($val);
                     $html .= '<p>' . $optKey . ': ' . $optFormatted . '</p>';
                 }
             }
@@ -398,7 +399,7 @@ class CbtBankSoal extends BaseController
             $html .= '<p>Kunci: esai</p>';
             $essayAns = trim((string) ($soal['essay_answer'] ?? ''));
             if ($essayAns !== '') {
-                $html .= '<p>Jawaban: ' . nl2br(htmlspecialchars($essayAns, ENT_NOQUOTES, 'UTF-8'), false) . '</p>';
+                $html .= '<p>Jawaban: ' . $toBr($essayAns) . '</p>';
             }
         }
 
@@ -1114,9 +1115,10 @@ class CbtBankSoal extends BaseController
             return "[[IMG_TAG_PLACEHOLDER_{$idx}]]";
         }, $workHtml);
 
-        // 🔹 4. Konversi tag-tag block & break HTML menjadi newline
+        // 🔹 4. Konversi tag-tag block & break HTML menjadi newline (bedakan <br> vs batas paragraf </p> agar jarak baris tidak melebar)
+        $tmp = preg_replace('/<br\s*\/?>\s*\r?\n/i', '<br>', $tmp);
         $normalized = preg_replace('/<(?:br\s*\/?)>/i', "\n", $tmp);
-        $normalized = preg_replace('/<\/(?:p|div|li|h[1-6]|blockquote|section|article)>/i', "\n\n", $normalized);
+        $normalized = preg_replace('/<\/(?:p|div|li|h[1-6]|blockquote|section|article)>/i', "\n[[PARA_BREAK]]\n", $normalized);
         $normalized = preg_replace('/<(?:p|div|li|h[1-6]|blockquote|section|article)\b[^>]*>/i', "\n", $normalized);
 
         // 🔹 5. Pertahankan tag pemformatan teks inline penting (tebal, miring, garis bawah, sub/sup)
@@ -1209,23 +1211,48 @@ class CbtBankSoal extends BaseController
                 return;
             }
 
-            // Pertahankan struktur baris / paragraf soal dengan \n\n agar wacana & daftar pernyataan tetap rapi
-            $cleanQLines = [];
-            $htmlParagraphs = [];
+            // Kelompokkan baris berdasarkan [[PARA_BREAK]] sehingga <br> tetap menyatu dalam satu <p>, bukan dipecah jadi banyak <p> renggang
+            $paraGroups = [];
+            $currentGroup = [];
             foreach ($current['question_lines'] as $qLine) {
+                if ($qLine === '[[PARA_BREAK]]') {
+                    if (!empty($currentGroup)) {
+                        $paraGroups[] = $currentGroup;
+                        $currentGroup = [];
+                    }
+                    continue;
+                }
                 $restored = trim($restoreTables($qLine));
                 if ($restored === '') {
                     continue;
                 }
-                $cleanQLines[] = $restored;
                 if (preg_match('/^<(?:table|figure)\b/i', $restored)) {
-                    $htmlParagraphs[] = $restored;
+                    if (!empty($currentGroup)) {
+                        $paraGroups[] = $currentGroup;
+                        $currentGroup = [];
+                    }
+                    $paraGroups[] = [$restored];
                 } else {
-                    $htmlParagraphs[] = '<p>' . $restored . '</p>';
+                    $currentGroup[] = $restored;
+                }
+            }
+            if (!empty($currentGroup)) {
+                $paraGroups[] = $currentGroup;
+            }
+
+            $cleanQParas = [];
+            $htmlParagraphs = [];
+            foreach ($paraGroups as $grp) {
+                if (count($grp) === 1 && preg_match('/^<(?:table|figure)\b/i', $grp[0])) {
+                    $cleanQParas[] = $grp[0];
+                    $htmlParagraphs[] = $grp[0];
+                } else {
+                    $cleanQParas[] = implode("\n", $grp);
+                    $htmlParagraphs[] = '<p>' . implode('<br>', $grp) . '</p>';
                 }
             }
 
-            $qText = trim(implode("\n\n", $cleanQLines));
+            $qText = trim(implode("\n\n", $cleanQParas));
             $qHtml = trim(implode('', $htmlParagraphs));
 
             $hasImgInQ = (stripos($qText, '<img') !== false) || (stripos($qHtml, '<img') !== false);
@@ -1307,6 +1334,17 @@ class CbtBankSoal extends BaseController
 
         foreach ($lines as $line) {
             $plainLine = trim(strip_tags($line));
+
+            // Tangani penanda batas paragraf [[PARA_BREAK]] agar hanya memisahkan paragraf di batang soal (bukan menempel di opsi/jawaban)
+            if ($plainLine === '[[PARA_BREAK]]') {
+                if ($current !== null && !$inEssayAnswer && $lastOptionKey === null && empty($current['options']) && $current['raw_key_string'] === null) {
+                    $lastQLine = end($current['question_lines']);
+                    if ($lastQLine !== false && $lastQLine !== '[[PARA_BREAK]]') {
+                        $current['question_lines'][] = '[[PARA_BREAK]]';
+                    }
+                }
+                continue;
+            }
 
             // 1. Deteksi Awal Soal
             if ($singleQuestion) {

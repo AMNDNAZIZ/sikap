@@ -2,6 +2,11 @@
 <?= $this->section('content') ?>
 
 <style>
+  .ck-editor__editable p {
+    margin-top: 0;
+    margin-bottom: 0.3rem;
+    line-height: 1.45;
+  }
   @media (max-width: 768px) {
     #editor {
       min-height: 320px !important;

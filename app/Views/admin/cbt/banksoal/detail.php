@@ -391,29 +391,44 @@ window.MathJax = {
   </div>
 </div>
 <style>
-  /* Pastikan area soal rapi */
+  /* Pastikan area soal rapi & jarak antarbaris/enter proporsional (tidak terlalu renggang) */
   .soal-text {
-    line-height: 1.6;
+    line-height: 1.45;
     font-size: 1rem;
   }
 
   /* Gambar tampil di tengah dan di baris sendiri */
   .soal-text img {
     display: block;
-    /* agar tidak sejajar dengan teks */
-    margin: 10px auto;
-    /* jarak atas bawah dan center horizontal */
+    margin: 8px auto;
     max-width: 100%;
-    /* responsif */
     height: auto;
-    /* menjaga rasio */
     border-radius: 6px;
-    /* opsional agar lembut */
   }
 
-  /* Agar gambar tidak terlalu menempel ke teks */
+  /* Jarak antar-paragraf hasil Enter di CKEditor dibuat rapat & rapi */
   .soal-text p {
-    margin-bottom: 0.8rem;
+    margin-top: 0;
+    margin-bottom: 0.28rem;
+  }
+
+  .soal-text p:last-child,
+  .soal-text ul:last-child,
+  .soal-text ol:last-child,
+  .soal-text table:last-child,
+  .soal-text figure:last-child {
+    margin-bottom: 0;
+  }
+
+  .soal-text ul,
+  .soal-text ol {
+    margin-top: 0;
+    margin-bottom: 0.3rem;
+    padding-left: 1.35rem;
+  }
+
+  .soal-text li {
+    margin-bottom: 0.12rem;
   }
 
   .font-control-btn {
@@ -531,15 +546,22 @@ foreach ($questions as $idx => $q) {
         // 7. Bersihkan tag <font> warisan tanpa menghapus format penting (bold, italic, underline, sub, sup, list tetap dipertahankan)
         out = out.replace(/<\/?font[^>]*>/gi, '');
 
-        // 8. Hapus paragraf kosong
+        // 8. Bersihkan spasi/break berlebih di dalam maupun antar paragraf agar jarak Enter tidak ganda
+        out = out.replace(/<br\s*\/?>\s*\r?\n/gi, '<br>');
+        out = out.replace(/(?:<br\s*\/?>\s*){2,}/gi, '<br>');
+        out = out.replace(/(<p[^>]*>)(?:\s|&nbsp;|<br\s*\/?>)+/gi, '$1');
+        out = out.replace(/(?:\s|&nbsp;|<br\s*\/?>)+(<\/p>)/gi, '$1');
         out = out.replace(/<p[^>]*>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '');
 
-        // 9. Rapikan baris baru: jika belum memiliki elemen blok HTML, ubah \n menjadi <br>
+        // 9. Rapikan baris baru:
+        //    - Jika sudah memakai elemen blok HTML (<p>, <div>, dll.), \n di source HTML adalah whitespace biasa (JANGAN diubah jadi <br> kedua!)
+        //    - Jika masih berupa teks polos murni, konversi blok paragraf & baris baru secara proporsional
         const hasBlockHtml = /<(?:p|div|table|ul|ol|blockquote|h[1-6])\b/i.test(out);
         if (!hasBlockHtml) {
-          out = out.trim().replace(/\r?\n/g, '<br>');
+          out = out.trim().replace(/\r\n|\r/g, '\n').replace(/\n{2,}/g, '\n');
+          out = out.replace(/\n/g, '<br>');
         } else {
-          out = out.replace(/>\s*\r?\n\s*</g, '><').replace(/\r?\n/g, '<br>');
+          out = out.replace(/>\s*\r?\n\s*</g, '><').replace(/\r?\n/g, ' ');
         }
 
         // 10. Kembalikan blok tabel dan gambar
@@ -552,12 +574,13 @@ foreach ($questions as $idx => $q) {
 
       function formatOptionText(text) {
         if (!text) return '';
-        const str = String(text)
+        let str = String(text)
           .replace(/\\r\\n/g, '\n')
           .replace(/\\n/g, '\n')
-          .replace(/\\r/g, '\n');
+          .replace(/\\r/g, '\n')
+          .replace(/<br\s*\/?>\s*\r?\n/gi, '<br>');
         if (/<(?:p|div|table|ul|ol)\b/i.test(str)) {
-          return str;
+          return str.replace(/>\s*\r?\n\s*</g, '><').replace(/\r?\n/g, ' ');
         }
         return str.replace(/\r?\n/g, '<br>');
       }

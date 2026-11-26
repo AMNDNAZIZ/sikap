@@ -5751,13 +5751,14 @@ class AdministrasiGuru extends BaseController
             $cleanQuestionText = $this->cleanSoalString((string)($soal['question'] ?? ''));
             $cleanQuestionText = $this->splitWacanaQuestion($cleanQuestionText);
 
-            // Susun paragraf HTML per blok (\n\n -> <p>...</p>) agar CKEditor 5 tidak merombak struktur baris wacana saat diedit
+            // Susun paragraf HTML per blok (\n\n -> <p>...</p>) dengan <br> murni (tanpa \n ganda) agar jarak baris proporsional
+            $toCleanBr = static fn(string $s): string => str_replace("\n", '<br>', str_replace(["\r\n", "\r"], "\n", htmlspecialchars($s, ENT_NOQUOTES, 'UTF-8')));
             $paragraphs = preg_split('/\n{2,}/', trim($cleanQuestionText)) ?: [];
             $rawParagraphs = [];
             foreach ($paragraphs as $para) {
                 $paraTrim = trim($para);
                 if ($paraTrim !== '') {
-                    $rawParagraphs[] = '<p>' . nl2br(htmlspecialchars($paraTrim, ENT_NOQUOTES, 'UTF-8'), false) . '</p>';
+                    $rawParagraphs[] = '<p>' . $toCleanBr($paraTrim) . '</p>';
                 }
             }
             $rawText = !empty($rawParagraphs) ? implode('', $rawParagraphs) : '<p></p>';
@@ -5777,7 +5778,7 @@ class AdministrasiGuru extends BaseController
                     $optKey = strtoupper(trim((string)$key));
                     $cleanOptions[$optKey] = $cleanVal;
                     // Gunakan pemisah ':' (A: ...) agar CKEditor 5 Autoformat tidak mengubahnya menjadi <ol><li> otomatis
-                    $rawText .= '<p>' . $optKey . ': ' . nl2br(htmlspecialchars(trim($cleanVal), ENT_NOQUOTES, 'UTF-8'), false) . '</p>';
+                    $rawText .= '<p>' . $optKey . ': ' . $toCleanBr(trim($cleanVal)) . '</p>';
                 }
             }
             
@@ -5786,7 +5787,7 @@ class AdministrasiGuru extends BaseController
             } else {
                 $rawText .= '<p>Kunci: esai</p>';
                 if (!empty($ans)) {
-                    $rawText .= '<p>Jawaban: ' . nl2br(htmlspecialchars(trim((string) $ans), ENT_NOQUOTES, 'UTF-8'), false) . '</p>';
+                    $rawText .= '<p>Jawaban: ' . $toCleanBr(trim((string) $ans)) . '</p>';
                 }
             }
 
