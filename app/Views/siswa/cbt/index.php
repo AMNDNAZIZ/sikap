@@ -850,6 +850,9 @@ if (!empty($user['related_id'])) {
   })();
 
   document.addEventListener("DOMContentLoaded", function () {
+    // Sinkronkan referensi waktu dengan jam server agar tidak terpengaruh jam perangkat siswa yang meleset
+    var SERVER_NOW_MS = <?= strtotime($now ?? date('Y-m-d H:i:s')) * 1000 ?>;
+    var CLOCK_OFFSET_MS = SERVER_NOW_MS - Date.now();
 
     // === 🔹 RENDER STATUS KARTU UJIAN ===
     // 🔧 FIX: Use ES5 string concatenation for old browser compatibility
@@ -937,10 +940,10 @@ if (!empty($user['related_id'])) {
       }
     };
 
-    // === 🔹 UPDATE STATUS BERDASARKAN WAKTU ===
+    // === 🔹 UPDATE STATUS BERDASARKAN WAKTU SERVER ===
     var updateStatus = function () {
       try {
-        var now = new Date();
+        var now = new Date(Date.now() + CLOCK_OFFSET_MS);
         var cards = document.querySelectorAll(".exam-card");
 
         for (var i = 0; i < cards.length; i++) {

@@ -84,14 +84,18 @@ class CbtAktivitas extends BaseController
             log_message('info', "[AutoClose] Closing expired session ID={$session['id']}, Student={$studentId}, Test={$testId}");
 
             try {
-                // Hitung skor menggunakan scoring service yang sama dengan submit normal
-                $score = $scoringService->calculateScoreWithBobot($studentId, $testId);
+                // Hitung skor menggunakan scoring service yang sama dengan submit normal (DEC-ESS-01)
+                $breakdown = $scoringService->calculateScoreBreakdown((int) $studentId, (int) $testId);
+                $score = (float) ($breakdown['provisional_score'] ?? 0.0);
+                $totalScore = !empty($breakdown['is_essay_pending']) ? null : $score;
 
                 $this->sessionModel->update($session['id'], [
-                    'status'     => 'finished',
-                    'finished_at' => date('Y-m-d H:i:s', $now),
-                    'score'      => $score,
-                    'total_score' => $score,
+                    'status'        => 'finished',
+                    'finished_at'   => $now,
+                    'last_activity' => $now,
+                    'locked'        => 1,
+                    'score'         => $score,
+                    'total_score'   => $totalScore,
                 ]);
 
                 log_message('info', "[AutoClose] Session ID={$session['id']} closed with score={$score}");
@@ -227,6 +231,10 @@ class CbtAktivitas extends BaseController
         // Validasi ownership - guru hanya bisa lihat aktivitas ujian yang ia jadwalkan
         if (!can_access_cbt_test_status($testId)) {
             return redirect()->to(site_url('admin/cbt/aktivitas'))->with('error', 'Anda tidak memiliki akses ke aktivitas ujian ini.');
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
         }
 
         // 🔹 FORCE NO CACHE - Prevent browser caching
@@ -498,6 +506,10 @@ class CbtAktivitas extends BaseController
             return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized'])->setStatusCode(403);
         }
 
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
         $db = $this->db;
         $test = $db->table('cbt_test_status ts')
             ->select('ts.id, ts.duration, ts.end_time, ts.is_active')
@@ -677,31 +689,14 @@ class CbtAktivitas extends BaseController
         if ($correct === '' || $student === '') return false;
 
         if (in_array($type, ['pgk', 'pg_kompleks'])) {
-            // Order-independent: A,B,C == C,B,A == B,A,C
-            $sArr = array_filter(array_map('trim', explode(',', $student)));
-            $cArr = array_filter(array_map('trim', explode(',', $correct)));
-            sort($sArr);
-            sort($cArr);
-            return $sArr === $cArr;
+            return \App\Services\CbtScoringService::calculateQuestionScoreRatio('pg_kompleks', $student, $correct) >= 1.0;
         }
 
         if (in_array($type, ['bs', 'benar_salah'])) {
-            // Per-item comparison — B,S,B == B,S,B tapi trailing koma diabaikan
-            $sArr = array_map('trim', explode(',', $student));
-            $cArr = array_map('trim', explode(',', $correct));
-            // Samakan panjang dengan kunci
-            $len = count($cArr);
-            for ($i = 0; $i < $len; $i++) {
-                $s = $sArr[$i] ?? '';
-                $c = $cArr[$i] ?? '';
-                if ($c === '') continue; // item kunci kosong, skip
-                if ($s !== $c) return false;
-            }
-            return true;
+            return \App\Services\CbtScoringService::calculateQuestionScoreRatio('benar_salah', $student, $correct) >= 1.0;
         }
 
-        // PG: exact match
-        return $student === $correct;
+        return \App\Services\CbtScoringService::calculateQuestionScoreRatio('pg', $student, $correct) >= 1.0;
     }
 
     /**
@@ -747,6 +742,15 @@ class CbtAktivitas extends BaseController
 
         if (!$session) {
             return '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i> Sesi ujian tidak ditemukan.</div>';
+        }
+
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $session['test_id'])) {
+            return '<div class="alert alert-danger"><i class="fas fa-ban me-2"></i> Anda tidak memiliki akses ke rincian jawaban ujian ini.</div>';
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
         }
 
         $bankId    = $session['bank_id'];
@@ -979,7 +983,12 @@ class CbtAktivitas extends BaseController
         if ($nilaiDisplay === null || $nilaiDisplay === '') {
             $nilaiDisplay = ($session['status'] === 'active') ? "<span class='text-primary' style='font-size:16px;'>{$totalBenar} Benar</span>" : '-';
         }
-        $updatedAt = $latestAnswerTimestamp > 0 ? date('d/m/Y H:i:s', $latestAnswerTimestamp) : (!empty($session['started_at']) ? date('d/m/Y H:i:s', strtotime($session['started_at'])) : '-');
+        $parseTs = static fn($v): int => empty($v) ? 0 : (is_numeric($v) ? (int) $v : (strtotime((string) $v) ?: 0));
+        $startTsVal = $parseTs($session['started_at'] ?? null);
+        $finishTsVal = $parseTs($session['finished_at'] ?? null);
+        $updatedAt = $latestAnswerTimestamp > 0
+            ? date('d/m/Y H:i:s', $latestAnswerTimestamp)
+            : ($startTsVal > 0 ? date('d/m/Y H:i:s', $startTsVal) : '-');
 
         // 6) Render HTML Modal
         $html = "
@@ -1006,7 +1015,7 @@ class CbtAktivitas extends BaseController
                     <span class='small fw-semibold text-primary-emphasis'>Siswa telah menyelesaikan ujian ini.</span>
                 </div>
                 <div class='small text-muted'>
-                    <span>Waktu Selesai: <strong>" . (!empty($session['finished_at']) ? date('d/m/Y H:i:s', strtotime($session['finished_at'])) : $updatedAt) . "</strong></span>
+                    <span>Waktu Selesai: <strong>" . ($finishTsVal > 0 ? date('d/m/Y H:i:s', $finishTsVal) : $updatedAt) . "</strong></span>
                 </div>
             </div>";
         }
@@ -1423,6 +1432,11 @@ class CbtAktivitas extends BaseController
                 return $this->response->setJSON(['error' => 'Sesi tidak ditemukan'])->setStatusCode(404);
             }
 
+            helper('cbt');
+            if (!can_access_cbt_test_status((int) $session['test_id'])) {
+                return $this->response->setJSON(['error' => 'Anda tidak memiliki akses untuk menghentikan ujian ini.'])->setStatusCode(403);
+            }
+
             // Check if already finished
             if ($session['status'] === 'finished') {
                 log_message('warning', '[ForceFinish] Session already finished: ' . $sessionId);
@@ -1534,15 +1548,16 @@ class CbtAktivitas extends BaseController
 
             log_message('info', '[ForceFinish] Calculated score: ' . $finalScore);
 
-            // 🔹 Update sesi: tandai selesai dan kunci
+            $nowTs = time();
+            $hasPendingEssay = ($stats['esai']['total'] > 0) && ($session['essay_score'] === null || $session['essay_score'] === '');
             $updateData = [
-                'status' => 'finished',
-                'finished_at' => date('Y-m-d H:i:s'),
-                'last_activity' => date('Y-m-d H:i:s'),
-                'score' => $finalScore,
-                'essay_score' => null, // bisa diisi manual oleh pengawas
-                'total_score' => $finalScore,
-                'locked' => 1, // siswa tidak bisa simpan jawaban lagi
+                'status'        => 'finished',
+                'finished_at'   => $nowTs,
+                'last_activity' => $nowTs,
+                'score'         => $finalScore,
+                'essay_score'   => $session['essay_score'] ?? null,
+                'total_score'   => $hasPendingEssay ? null : $finalScore,
+                'locked'        => 1,
             ];
 
             log_message('info', '[ForceFinish] Updating session with data: ' . json_encode($updateData));
@@ -1583,6 +1598,15 @@ class CbtAktivitas extends BaseController
      */
     public function forceFinishMassal($testId)
     {
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $testId)) {
+            return $this->response->setJSON(['error' => 'Anda tidak memiliki akses untuk menghentikan ujian ini.'])->setStatusCode(403);
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
         $testStatus = $this->testModel->find($testId);
         if (!$testStatus) {
             return $this->response->setJSON(['error' => 'Data ujian tidak ditemukan'])->setStatusCode(404);
@@ -1671,12 +1695,15 @@ class CbtAktivitas extends BaseController
                     2
                 );
 
+                $nowTs = time();
+                $hasPendingEssay = ($stats['esai']['total'] > 0) && ($session['essay_score'] === null || $session['essay_score'] === '');
                 $this->sessionModel->update($sessionId, [
-                    'status' => 'finished',
-                    'finished_at' => date('Y-m-d H:i:s'),
-                    'score' => $finalScore,
-                    'total_score' => $finalScore,
-                    'locked' => 1
+                    'status'        => 'finished',
+                    'finished_at'   => $nowTs,
+                    'last_activity' => $nowTs,
+                    'score'         => $finalScore,
+                    'total_score'   => $hasPendingEssay ? null : $finalScore,
+                    'locked'        => 1
                 ]);
 
                 $db->transComplete();
@@ -1712,36 +1739,61 @@ class CbtAktivitas extends BaseController
         if (!$session)
             return $this->response->setJSON(['error' => 'Sesi tidak ditemukan']);
 
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $session['test_id'])) {
+            return $this->response->setJSON(['error' => 'Anda tidak memiliki akses ke ujian ini.'])->setStatusCode(403);
+        }
+
+        if (!empty($session['cheat_locked'])) {
+            return $this->response->setJSON(['error' => 'Sesi siswa dikunci karena pelanggaran anti-cheat. Gunakan Reset Sesi jika diizinkan mengulang.'])->setStatusCode(400);
+        }
+
         // Check test end time constraint
         $test = $this->testModel->find($session['test_id']);
+        $nowTs = time();
+        $newExtra = (int) ($session['extra_time'] ?? 0) + $minutes;
         if ($test && !empty($test['end_time'])) {
-            // Calculate current theoretical end time
             $durationSec = ((int) $test['duration']) * 60;
-            $extraSec = ((int) ($session['extra_time'] ?? 0)) * 60;
+            $extraSec = $newExtra * 60;
             $startTs = (int) $session['started_at'];
 
-            $currentEnd = $startTs + $durationSec + $extraSec;
-            $newEnd = $currentEnd + ($minutes * 60);
-
+            // Jika sesi telanjur berakhir sebelum ditambah waktu, pastikan minimal sisa waktu dari sekarang cukup jika end_time masih mencukupi
+            $newEnd = max($startTs + $durationSec + $extraSec, $nowTs + ($minutes * 60));
             $testEndTs = strtotime($test['end_time']);
 
             if ($newEnd > $testEndTs) {
-                // Return error if exceeds
-                $maxMinutes = floor(($testEndTs - $currentEnd) / 60);
+                $maxMinutes = floor(($testEndTs - max($nowTs, $startTs + $durationSec + ((int) ($session['extra_time'] ?? 0) * 60))) / 60);
                 if ($maxMinutes <= 0) {
-                    return $this->response->setJSON(['error' => 'Tidak bisa tambah waktu. Sudah melewati batas akhir ujian (' . $test['end_time'] . ')']);
+                    return $this->response->setJSON(['error' => 'Tidak bisa tambah waktu. Sudah melewati batas akhir ujian (' . $test['end_time'] . '). Perpanjang terlebih dahulu Jam Selesai ujian di menu Jadwal CBT.']);
                 }
-                return $this->response->setJSON(['error' => "Hanya bisa menambah maksimal $maxMinutes menit karena batas waktu ujian."]);
+                return $this->response->setJSON(['error' => "Hanya bisa menambah maksimal $maxMinutes menit karena batas akhir jadwal ujian (" . $test['end_time'] . ")."]);
+            }
+
+            // Jika sebelumnya auto-close dan sekarang dihidupkan lagi, hitung extra_time agar tersisa >= $minutes dari sekarang
+            if ($session['status'] === 'finished') {
+                $neededTotalSec = ($nowTs + ($minutes * 60)) - $startTs;
+                $neededExtraMin = (int) ceil(max(0, $neededTotalSec - $durationSec) / 60);
+                $newExtra = max($newExtra, $neededExtraMin);
             }
         }
 
-        // Update extra_time
-        $currentExtra = (int) ($session['extra_time'] ?? 0);
-        $this->sessionModel->update($sessionId, [
-            'extra_time' => $currentExtra + $minutes
-        ]);
+        $updatePayload = [
+            'extra_time' => $newExtra,
+        ];
+        if ($session['status'] === 'finished') {
+            $updatePayload['status'] = 'active';
+            $updatePayload['finished_at'] = null;
+            $updatePayload['locked'] = 0;
+            $updatePayload['last_activity'] = $nowTs;
+        }
 
-        return $this->response->setJSON(['success' => true]);
+        $this->sessionModel->update($sessionId, $updatePayload);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'reopened' => ($session['status'] === 'finished'),
+            'extra_time' => $newExtra,
+        ]);
     }
 
     /**
@@ -1754,6 +1806,12 @@ class CbtAktivitas extends BaseController
         if (!$session) {
             return $this->response->setJSON(['error' => 'Sesi tidak ditemukan'])
                 ->setStatusCode(404);
+        }
+
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $session['test_id'])) {
+            return $this->response->setJSON(['error' => 'Anda tidak memiliki akses untuk mereset ujian ini.'])
+                ->setStatusCode(403);
         }
 
         // 🔹 (Opsional) Validasi hanya sesi tertentu yang bisa direset
@@ -1877,30 +1935,67 @@ class CbtAktivitas extends BaseController
             return $this->response->setStatusCode(400)->setJSON(['error' => 'Invalid request']);
         }
 
+        helper('cbt');
+        $context = get_cbt_user_context();
+        $db = \Config\Database::connect();
+
+        // Teacher authorization: student must be in teacher's taught class or an exam teacher can access
+        if ($context['is_teacher'] && !$context['is_admin']) {
+            $allowed = false;
+            $studentSessions = $this->sessionModel->where('student_id', (int) $studentId)->findAll();
+            foreach ($studentSessions as $ss) {
+                if (can_access_cbt_test_status((int) $ss['test_id'])) {
+                    $allowed = true;
+                    break;
+                }
+            }
+            if (!$allowed && !empty($context['teacher_id'])) {
+                $teacherClassIds = array_column(get_teacher_classes((int) $context['teacher_id']), 'id');
+                if (!empty($teacherClassIds)) {
+                    $inClass = $db->table('student_records')
+                        ->where('student_id', (int) $studentId)
+                        ->whereIn('class_id', $teacherClassIds)
+                        ->where('status', 'aktif')
+                        ->countAllResults();
+                    $allowed = ($inClass > 0);
+                }
+            }
+            if (!$allowed) {
+                return $this->response->setStatusCode(403)->setJSON(['error' => 'Anda tidak memiliki akses untuk mereset login siswa ini.']);
+            }
+        }
+
         try {
-            // Find user where related_id = studentId and role_id = 3 (Student)
-            $db = \Config\Database::connect();
+            // Find student user account (role_id = 5)
             $user = $db->table('users')
-                ->where('related_id', $studentId)
-                ->where('role_id', 3)
+                ->where('related_id', (int) $studentId)
+                ->where('role_id', 5)
                 ->get()
                 ->getRowArray();
+
+            if (!$user) {
+                // Fallback via students.user_id if related_id differs
+                $studentRow = $db->table('students')->select('user_id')->where('id', (int) $studentId)->get()->getRowArray();
+                if (!empty($studentRow['user_id'])) {
+                    $user = $db->table('users')->where('id', (int) $studentRow['user_id'])->get()->getRowArray();
+                }
+            }
 
             if (!$user) {
                 return $this->response->setStatusCode(404)->setJSON(['error' => 'Data user siswa tidak ditemukan']);
             }
 
-            // Update user table
-            $db->table('users')->where('id', $user['id'])->update([
+            // Clear single-device login lock
+            $db->table('users')->where('id', (int) $user['id'])->update([
                 'active_session_id' => null,
-                'last_activity' => null
+                'last_activity'     => null
             ]);
 
             log_message('info', "[ResetLogin] SUCCESS: user={$user['id']}, student={$studentId}");
 
             return $this->response->setJSON([
                 'success' => true,
-                'message' => 'Sesi login berhasil di-reset. Siswa bisa login kembali.'
+                'message' => 'Sesi login berhasil di-reset. Siswa bisa langsung login dari perangkat lain.'
             ]);
         } catch (\Throwable $e) {
             log_message('error', "[ResetLogin] Exception: " . $e->getMessage());
@@ -1912,6 +2007,10 @@ class CbtAktivitas extends BaseController
      */
     public function resetMassal($testId)
     {
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $testId)) {
+            return $this->response->setJSON(['error' => 'Anda tidak memiliki akses untuk mereset ujian ini.'])->setStatusCode(403);
+        }
         // 🔹 FIX: Get array from POST (handles both session_ids and session_ids[])
         $sessionIds = $this->request->getPost('session_ids');
         
@@ -2033,6 +2132,10 @@ class CbtAktivitas extends BaseController
             helper('cbt');
             $db = $this->db;
             $testId = (int) $testId;
+
+            if (!can_access_cbt_test_status($testId)) {
+                return $this->response->setBody('<div class="alert alert-danger py-3"><i class="fas fa-ban me-2"></i> Anda tidak memiliki akses ke ujian ini.</div>');
+            }
 
             $test = $db->table('cbt_test_status ts')
                 ->select('ts.id, ts.class_codes, ts.bank_id, ts.duration, ts.end_time, ts.subject_type, ts.religion AS test_religion, s.name AS subject_name, s.religion AS subject_religion')
@@ -2291,6 +2394,13 @@ class CbtAktivitas extends BaseController
 
     public function unduhNilai($testId)
     {
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $testId)) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses untuk mengunduh nilai ujian ini.');
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         $classFilter = $this->request->getGet('class') ?? 'all';
         $db = $this->db;
 
@@ -2426,6 +2536,10 @@ class CbtAktivitas extends BaseController
 
     public function analisisSoal($testId)
     {
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $testId)) {
+            return redirect()->to(site_url('admin/cbt/aktivitas'))->with('error', 'Anda tidak memiliki akses ke analisis ujian ini.');
+        }
         $service = new \App\Services\Cbt\Analysis\CbtTpAnalysisService($this->db);
         try {
             $analysisResult = $service->analyzeTest((int)$testId);
@@ -2448,6 +2562,10 @@ class CbtAktivitas extends BaseController
      */
     public function pemetaanTp($testId)
     {
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $testId)) {
+            return redirect()->to(site_url('admin/cbt/aktivitas'))->with('error', 'Anda tidak memiliki akses ke pemetaan TP ujian ini.');
+        }
         $mappingService = new \App\Services\Cbt\Analysis\CbtTpMappingService($this->db);
         try {
             $context = $mappingService->getTestContext((int)$testId);
@@ -2464,6 +2582,10 @@ class CbtAktivitas extends BaseController
      */
     public function aiMatchTp($testId)
     {
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $testId)) {
+            return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Anda tidak memiliki akses ke ujian ini.']);
+        }
         $mappingService = new \App\Services\Cbt\Analysis\CbtTpMappingService($this->db);
 
         $assessmentType = (string)($this->request->getPost('assessment_type') ?? 'formatif');
@@ -2511,6 +2633,13 @@ class CbtAktivitas extends BaseController
      */
     public function simpanPemetaanTp($testId)
     {
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $testId)) {
+            if ($this->request->isAJAX()) {
+                return $this->response->setStatusCode(403)->setJSON(['success' => false, 'message' => 'Anda tidak memiliki akses ke ujian ini.']);
+            }
+            return redirect()->to(site_url('admin/cbt/aktivitas'))->with('error', 'Anda tidak memiliki akses ke ujian ini.');
+        }
         $mappingService = new \App\Services\Cbt\Analysis\CbtTpMappingService($this->db);
 
         $assessmentType = (string)($this->request->getPost('assessment_type') ?? 'formatif');
@@ -2566,6 +2695,13 @@ class CbtAktivitas extends BaseController
 
     public function analisisDownload($testId)
     {
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $testId)) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses ke analisis ujian ini.');
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         $db = $this->db;
 
         // ambil data ujian
@@ -2707,6 +2843,13 @@ class CbtAktivitas extends BaseController
 
     public function downloadAnalisis($testId)
     {
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $testId)) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses ke analisis ujian ini.');
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         $mode = $this->request->getGet('mode');
         $classId = $this->request->getGet('class');
 
@@ -2932,6 +3075,10 @@ class CbtAktivitas extends BaseController
 
     public function laporanJawaban($testId)
     {
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $testId)) {
+            return redirect()->to(site_url('admin/cbt/aktivitas'))->with('error', 'Anda tidak memiliki akses ke laporan ujian ini.');
+        }
         $db = $this->db;
 
         $test = $this->testModel
@@ -2976,175 +3123,71 @@ class CbtAktivitas extends BaseController
 
     public function simpanNilaiEsai()
     {
-        $sessionId = $this->request->getPost('session_id');
-        $nilaiEsai = $this->request->getPost('nilai_esai');
+        $sessionId = (int) $this->request->getPost('session_id');
+        $nilaiEsai = (float) $this->request->getPost('nilai_esai');
+
+        $session = $this->sessionModel->find($sessionId);
+        if (!$session) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Sesi tidak ditemukan'])->setStatusCode(404);
+        }
+
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $session['test_id'])) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Anda tidak memiliki akses ke ujian ini.'])->setStatusCode(403);
+        }
 
         $this->sessionModel->update($sessionId, ['essay_score' => $nilaiEsai]);
 
+        $scoringService = new CbtScoringService();
+        $breakdown = $scoringService->calculateScoreBreakdown((int) $session['student_id'], (int) $session['test_id']);
+        $finalScore = (float) ($breakdown['provisional_score'] ?? 0.0);
+
+        $this->sessionModel->update($sessionId, [
+            'essay_score' => $nilaiEsai,
+            'score'       => $finalScore,
+            'total_score' => $finalScore,
+        ]);
+
+        if ($this->db->tableExists('cbt_session_scores_v3')) {
+            $stats = $breakdown['stats'] ?? [];
+            $existingV3 = $this->db->table('cbt_session_scores_v3')->where('session_id', $sessionId)->get()->getRowArray();
+            $v3Data = [
+                'session_id'              => $sessionId,
+                'score_pg'                => round((float) ($stats['pg']['score'] ?? 0), 3),
+                'score_pg_kompleks'       => round((float) ($stats['pgk']['score'] ?? 0), 3),
+                'score_bs'                => round((float) ($stats['bs']['score'] ?? 0), 3),
+                'score_esai'              => $nilaiEsai,
+                'final_score'             => $finalScore,
+                'report_score'            => $finalScore,
+                'pending_essay_count'     => 0,
+                'publication_eligibility' => 1,
+                'updated_at'              => date('Y-m-d H:i:s'),
+            ];
+            if ($existingV3) {
+                $this->db->table('cbt_session_scores_v3')->where('session_id', $sessionId)->update($v3Data);
+            } else {
+                $v3Data['calculated_at'] = date('Y-m-d H:i:s');
+                $this->db->table('cbt_session_scores_v3')->insert($v3Data);
+            }
+        }
+
         return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'Nilai esai berhasil disimpan'
+            'status'      => 'success',
+            'total_score' => $finalScore,
+            'message'     => 'Nilai esai dan nilai akhir berhasil disimpan'
         ]);
     }
 
     public function laporanJawabanPdf($testId, $studentId)
     {
-        $db = db_connect();
-
-        // 🔹 Ambil detail tes
-        $test = $db->table('cbt_test_status ts')
-            ->select('ts.*, qb.code AS bank_code, s.name AS subject_name, en.name AS exam_name')
-            ->join('cbt_question_banks qb', 'qb.id = ts.bank_id', 'left')
-            ->join('subjects s', 's.id = qb.subject_id', 'left')
-            ->join('cbt_exam_names en', 'en.id = ts.exam_name_id', 'left')
-            ->where('ts.id', $testId)
-            ->get()
-            ->getRowArray();
-
-        if (!$test) {
-            return redirect()->back()->with('error', 'Data tes tidak ditemukan.');
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $testId)) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses ke laporan ujian ini.');
         }
-
-        // 🔹 Ambil data siswa
-        $student = $this->studentModel->find($studentId);
-        if (!$student) {
-            return redirect()->back()->with('error', 'Data siswa tidak ditemukan.');
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
         }
-
-        // 🔹 Ambil semua soal dari bank
-        $allQuestions = $db->table('cbt_questions')
-            ->where('bank_id', $test['bank_id'])
-            ->orderBy('id', 'ASC')
-            ->get()
-            ->getResultArray();
-
-        // 🔹 Ambil jawaban siswa
-        $answers = $this->answerModel
-            ->where('test_id', $testId)
-            ->where('student_id', $studentId)
-            ->get()
-            ->getResultArray();
-
-        // Map jawaban by question_id
-        $answerMap = [];
-        foreach ($answers as $ans) {
-            $answerMap[$ans['question_id']] = $ans['answer'];
-        }
-
-        // 🔹 Hitung nilai PG dan PG Kompleks
-        $pgCount = 0;
-        $pgCorrect = 0;
-        $esaiCount = 0;
-        $esaiScore = 0;
-
-        $questions = [];
-        foreach ($allQuestions as $q) {
-            $qType = strtolower($q['question_type'] ?? 'pg');
-            $answer = $answerMap[$q['id']] ?? '';
-
-            $item = [
-                'type' => $qType,
-                'text' => $q['question'] ?? $q['question_text'] ?? '',
-                'options' => $this->parseOptions($q),
-                'correct_option' => $q['correct_option'] ?? '',
-                'answer' => $answer,
-                'score' => null,
-                'is_correct' => false
-            ];
-
-            // Hitung kebenaran untuk PG dan PG Kompleks
-            if (in_array($qType, ['pg', 'pilihan_ganda', 'multiple_choice'])) {
-                $pgCount++;
-                $item['is_correct'] = ($answer && $answer === strtoupper($q['correct_option']));
-                if ($item['is_correct']) {
-                    $pgCorrect++;
-                }
-            } elseif ($qType === 'pg_kompleks') {
-                $pgCount++;
-
-                // Hitung dengan soft penalty
-                if ($answer && !empty($q['correct_option'])) {
-                    // Normalisasi jawaban: uppercase & trim
-                    $correctStr = strtoupper(trim($q['correct_option']));
-                    $studentStr = strtoupper(trim($answer));
-
-                    $correctArr = array_map('trim', explode(',', $correctStr));
-                    $studentArr = array_map('trim', explode(',', $studentStr));
-
-                    $correctSelected = count(array_intersect($studentArr, $correctArr));
-                    $incorrectSelected = count(array_diff($studentArr, $correctArr));
-                    $totalCorrectOptions = count($correctArr);
-
-                    $rawScore = $correctSelected - (0.5 * $incorrectSelected);
-                    $score = ($totalCorrectOptions > 0) ? (max(0, $rawScore) / $totalCorrectOptions) : 0;
-
-                    // Threshold 70% untuk dihitung benar
-                    $item['is_correct'] = ($score >= 0.7);
-                    if ($item['is_correct']) {
-                        $pgCorrect++;
-                    }
-                }
-            } elseif (in_array($qType, ['esai', 'essay'])) {
-                $esaiCount++;
-                // Ambil nilai esai dari cbt_answers jika ada
-                $esaiAnswer = array_filter($answers, function ($a) use ($q) {
-                    return $a['question_id'] == $q['id'];
-                });
-                if (!empty($esaiAnswer)) {
-                    $esaiAnswer = array_values($esaiAnswer)[0];
-                    $item['score'] = $esaiAnswer['essay_score'] ?? 0;
-                    $esaiScore += (float) $item['score'];
-                }
-            }
-
-            $questions[] = $item;
-        }
-
-        // 🔹 Hitung nilai berdasarkan bobot
-        $bobotPg = (float) ($test['pg_weight'] ?? 60);
-        $bobotEsai = (float) ($test['essay_weight'] ?? 40);
-
-        // Nilai PG (dari jumlah benar)
-        $nilaiPg = ($pgCount > 0) ? round(($pgCorrect / $pgCount) * 100, 2) : 0;
-
-        // Nilai Esai (rata-rata)
-        $nilaiEsai = ($esaiCount > 0) ? round($esaiScore / $esaiCount, 2) : 0;
-
-        // Total akhir (berbobot)
-        $nilaiTotal = round(($nilaiPg * $bobotPg / 100) + ($nilaiEsai * $bobotEsai / 100), 2);
-
-        // 🔹 Render HTML untuk PDF
-        $html = view('admin/cbt/aktivitas/pdf_laporan_jawaban', [
-            'test' => $test,
-            'student' => $student,
-            'questions' => $questions,
-            'nilai_pg' => $nilaiPg,
-            'nilai_esai' => $nilaiEsai,
-            'bobot_pg' => $bobotPg,
-            'bobot_esai' => $bobotEsai,
-            'nilai_total' => $nilaiTotal
-        ]);
-
-        // 🔹 Pastikan tidak ada output lain yang bocor
-        if (ob_get_length()) {
-            ob_end_clean();
-        }
-
-        // 🔹 Inisialisasi Dompdf
-        $dompdf = new Dompdf(['isRemoteEnabled' => true]);
-        $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', 'portrait');
-        $dompdf->render();
-
-        // 🔹 Ambil hasil PDF sebagai string
-        $output = $dompdf->output();
-        $filenameSafe = 'Laporan_Jawaban_' . preg_replace('/[^A-Za-z0-9]/', '_', $student['name'] ?? 'Siswa') . '.pdf';
-
-        // 🔹 Return via response CI4 (aman di hosting)
-        return $this->response
-            ->setHeader('Content-Type', 'application/pdf')
-            ->setHeader('Content-Disposition', 'attachment; filename="' . $filenameSafe . '"')
-            ->setBody($output);
+        return $this->laporanJawabPdf($testId, $studentId);
     }
 
     // Helper method to parse options
@@ -3164,6 +3207,10 @@ class CbtAktivitas extends BaseController
     // ✅ Menampilkan modal isi soal esai dan jawaban siswa
     public function getSoalEsai($testId, $studentId)
     {
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $testId)) {
+            return '<div class="alert alert-danger">Anda tidak memiliki akses ke ujian ini.</div>';
+        }
         $db = db_connect();
 
         // 🔹 Ambil data bobot esai dari cbt_test_status
@@ -3177,10 +3224,10 @@ class CbtAktivitas extends BaseController
             return '<div class="alert alert-danger">Tes tidak ditemukan.</div>';
         }
 
-        // 🔹 Ambil soal esai dan jawaban siswa
+        // 🔹 Ambil soal esai dan jawaban siswa (terikat test_id!)
         $soal = $db->table('cbt_questions q')
             ->select('q.id, q.question_text, a.answer, a.score')
-            ->join('cbt_answers a', 'a.question_id = q.id AND a.student_id = ' . $studentId, 'left')
+            ->join('cbt_answers a', 'a.question_id = q.id AND a.student_id = ' . (int) $studentId . ' AND a.test_id = ' . (int) $testId, 'left')
             ->where('q.bank_id', $test['bank_id'])
             ->whereIn('q.question_type', ['esai', 'essay'])
             ->orderBy('q.id', 'ASC')
@@ -3204,13 +3251,17 @@ class CbtAktivitas extends BaseController
     // ✅ Simpan nilai esai
     public function simpanNilaiEsaiDetail()
     {
-        $testId = $this->request->getPost('test_id');
-        $studentId = $this->request->getPost('student_id');
+        $testId = (int) $this->request->getPost('test_id');
+        $studentId = (int) $this->request->getPost('student_id');
         $nilaiSoal = $this->request->getPost('scores'); // array: [question_id => nilai_per_soal]
+
+        helper('cbt');
+        if (!can_access_cbt_test_status($testId)) {
+            return $this->response->setJSON(['error' => 'Anda tidak memiliki akses untuk menilai ujian ini.'])->setStatusCode(403);
+        }
 
         $db = db_connect();
 
-        // 🔹 Ambil bobot dari test
         $test = $db->table('cbt_test_status')
             ->select('bobot_pg, bobot_pg_kompleks, bobot_bs, bobot_esai, bank_id')
             ->where('id', $testId)
@@ -3221,148 +3272,111 @@ class CbtAktivitas extends BaseController
             return $this->response->setJSON(['error' => 'Data ujian tidak ditemukan'])->setStatusCode(404);
         }
 
-        // 🔹 Ambil session untuk mendapatkan question_order
         $session = $db->table('cbt_sessions')
-            ->select('question_order')
+            ->select('id, question_order')
             ->where('test_id', $testId)
             ->where('student_id', $studentId)
+            ->orderBy('id', 'DESC')
             ->get()
             ->getRowArray();
 
         if (!$session) {
             return $this->response->setJSON(['error' => 'Sesi tidak ditemukan'])->setStatusCode(404);
         }
+        $sessionId = (int) $session['id'];
 
-        // 🔒 FIX: Get question_order from session
-        $questionOrder = json_decode($session['question_order'] ?? '[]', true) ?? [];
-
-        if (empty($questionOrder)) {
-            // Fallback to all questions if question_order is empty
-            $questions = $db->table('cbt_questions')
-                ->select('id, question_type, correct_option')
-                ->where('bank_id', $test['bank_id'])
-                ->get()
-                ->getResultArray();
-        } else {
-            // 🔒 FIX: Fetch ONLY questions that were shown to student
-            $questions = $db->table('cbt_questions')
-                ->select('id, question_type, correct_option')
-                ->whereIn('id', $questionOrder)
-                ->get()
-                ->getResultArray();
-        }
-
-        // 🔹 Ambil semua jawaban siswa
-        $answers = $db->table('cbt_answers')
-            ->select('question_id, answer')
-            ->where('student_id', $studentId)
-            ->where('test_id', $testId)
-            ->get()
-            ->getResultArray();
-
-        $answerMap = [];
-        foreach ($answers as $a) {
-            $answerMap[$a['question_id']] = $a['answer'];
-        }
-
-        // 🔹 Simpan nilai tiap soal esai di cbt_answers.score
-        $totalNilaiEsai = 0;
+        // 🔹 Simpan nilai tiap soal esai di cbt_answers.score (scoped strictly by test_id!)
+        $totalNilaiEsai = 0.0;
         $jumlahSoalEsai = 0;
 
-        foreach ($nilaiSoal as $qid => $nilai) {
-            $totalNilaiEsai += floatval($nilai);
-            $jumlahSoalEsai++;
-            $db->table('cbt_answers')
-                ->where('question_id', $qid)
-                ->where('student_id', $studentId)
-                ->update(['score' => $nilai]);
-        }
+        if (is_array($nilaiSoal)) {
+            foreach ($nilaiSoal as $qid => $nilai) {
+                $qid = (int) $qid;
+                $scoreVal = floatval($nilai);
+                $totalNilaiEsai += $scoreVal;
+                $jumlahSoalEsai++;
 
-        // 🔹 Recalculate ALL scores (PG, PGK, BS, Esai)
-        $totalPg = $totalPgk = $totalBs = $totalEsai = 0;
-        $earnedPg = $earnedPgk = $earnedBs = 0;
+                $existingAns = $db->table('cbt_answers')
+                    ->where('question_id', $qid)
+                    ->where('student_id', $studentId)
+                    ->where('test_id', $testId)
+                    ->get()
+                    ->getRowArray();
 
-        foreach ($questions as $q) {
-            $type = strtolower($q['question_type'] ?? 'pg');
-            $qid = $q['id'];
-            $correctStr = $q['correct_option'] ?? '';
-            $studentAns = isset($answerMap[$qid]) ? ($answerMap[$qid] ?? null) : null;
-
-            if (in_array($type, ['pg', 'pilihan_ganda', 'multiple_choice'])) {
-                $totalPg++;
-                if ($correctStr !== '' && $studentAns !== null && (string) $studentAns === (string) $correctStr) {
-                    $earnedPg += 1;
+                if ($existingAns) {
+                    $db->table('cbt_answers')->where('id', $existingAns['id'])->update(['score' => $scoreVal]);
+                } else {
+                    $db->table('cbt_answers')->insert([
+                        'student_id'  => $studentId,
+                        'test_id'     => $testId,
+                        'question_id' => $qid,
+                        'answer'      => '',
+                        'score'       => $scoreVal,
+                        'updated_at'  => date('Y-m-d H:i:s'),
+                    ]);
                 }
-            } elseif ($type === 'pg_kompleks') {
-                $totalPgk++;
-                if (!empty($correctStr) && !empty($studentAns)) {
-                    $correctArr = explode(',', $correctStr);
-                    $studentArr = explode(',', $studentAns);
-                    $cSel = count(array_intersect($studentArr, $correctArr));
-                    $iSel = count(array_diff($studentArr, $correctArr));
-                    $tCorr = count($correctArr);
-                    $raw = $cSel - (0.5 * $iSel);
-                    $earnedPgk += ($tCorr > 0) ? (max(0, $raw) / $tCorr) : 0;
-                }
-            } elseif ($type === 'benar_salah') {
-                $totalBs++;
-                if (!empty($correctStr) && !empty($studentAns)) {
-                    $correctArr = explode(',', $correctStr);
-                    $studentArr = explode(',', $studentAns);
-                    $matches = 0;
-                    $tItems = count($correctArr);
-                    for ($i = 0; $i < $tItems; $i++) {
-                        $stdAns = isset($studentArr[$i]) ? trim($studentArr[$i]) : '';
-                        $keyAns = isset($correctArr[$i]) ? trim($correctArr[$i]) : '';
-
-                        if ($stdAns !== '' && $stdAns === $keyAns) {
-                            $matches++;
-                        }
-                    }
-                    $earnedBs += ($tItems > 0) ? ($matches / $tItems) : 0;
-                }
-            } elseif (in_array($type, ['esai', 'essay'])) {
-                $totalEsai++;
             }
         }
 
-        // 🔹 Calculate scores per type
+        $essayScore = $jumlahSoalEsai ? round($totalNilaiEsai / $jumlahSoalEsai, 2) : 0.0;
+
+        // Simpan essay_score lalu gunakan CbtScoringService::calculateScoreBreakdown() agar 100% konsisten (PGK & BS parsial)
+        $db->table('cbt_sessions')
+            ->where('id', $sessionId)
+            ->update(['essay_score' => $essayScore]);
+
+        $scoringService = new CbtScoringService();
+        $breakdown = $scoringService->calculateScoreBreakdown($studentId, $testId);
+        $stats = $breakdown['stats'] ?? [];
+        $nilaiPg = round((float) ($stats['pg']['score'] ?? 0), 2);
+        $nilaiPgk = round((float) ($stats['pgk']['score'] ?? 0), 2);
+        $nilaiBs = round((float) ($stats['bs']['score'] ?? 0), 2);
+        $finalScore = (float) ($breakdown['provisional_score'] ?? 0.0);
+
         $bobotPg = (float) ($test['bobot_pg'] ?? 0);
         $bobotPgk = (float) ($test['bobot_pg_kompleks'] ?? 0);
         $bobotBs = (float) ($test['bobot_bs'] ?? 0);
         $bobotEsai = (float) ($test['bobot_esai'] ?? 0);
 
-        $nilaiPg = ($totalPg > 0) ? ($earnedPg / $totalPg) * 100 : 0;
-        $nilaiPgk = ($totalPgk > 0) ? ($earnedPgk / $totalPgk) * 100 : 0;
-        $nilaiBs = ($totalBs > 0) ? ($earnedBs / $totalBs) * 100 : 0;
-        $essayScore = $jumlahSoalEsai ? round($totalNilaiEsai / $jumlahSoalEsai, 2) : 0;
-
-        // 🔹 Calculate final score with weights
-        $finalScore = round(
-            ($nilaiPg * ($bobotPg / 100)) +
-            ($nilaiPgk * ($bobotPgk / 100)) +
-            ($nilaiBs * ($bobotBs / 100)) +
-            ($essayScore * ($bobotEsai / 100)),
-            2
-        );
-
         // 🔹 Simpan ke cbt_sessions
         $db->table('cbt_sessions')
-            ->where('test_id', $testId)
-            ->where('student_id', $studentId)
+            ->where('id', $sessionId)
             ->update([
-                'score' => $finalScore,
+                'score'       => $finalScore,
                 'essay_score' => $essayScore,
                 'total_score' => $finalScore
             ]);
+
+        // Sinkronkan ke cbt_session_scores_v3 bila tersedia
+        if ($db->tableExists('cbt_session_scores_v3')) {
+            $existingV3 = $db->table('cbt_session_scores_v3')->where('session_id', $sessionId)->get()->getRowArray();
+            $v3Data = [
+                'session_id'              => $sessionId,
+                'score_pg'                => $nilaiPg,
+                'score_pg_kompleks'       => $nilaiPgk,
+                'score_bs'                => $nilaiBs,
+                'score_esai'              => $essayScore,
+                'final_score'             => $finalScore,
+                'report_score'            => $finalScore,
+                'pending_essay_count'     => 0,
+                'publication_eligibility' => 1,
+                'updated_at'              => date('Y-m-d H:i:s'),
+            ];
+            if ($existingV3) {
+                $db->table('cbt_session_scores_v3')->where('session_id', $sessionId)->update($v3Data);
+            } else {
+                $v3Data['calculated_at'] = date('Y-m-d H:i:s');
+                $db->table('cbt_session_scores_v3')->insert($v3Data);
+            }
+        }
 
         return $this->response->setJSON([
             'status' => 'success',
             'message' => 'Nilai esai berhasil disimpan',
             'nilai' => [
-                'pg' => round($nilaiPg, 2),
-                'pgk' => round($nilaiPgk, 2),
-                'bs' => round($nilaiBs, 2),
+                'pg' => $nilaiPg,
+                'pgk' => $nilaiPgk,
+                'bs' => $nilaiBs,
                 'esai' => $essayScore,
                 'bobot_pg' => $bobotPg,
                 'bobot_pgk' => $bobotPgk,
@@ -3375,6 +3389,13 @@ class CbtAktivitas extends BaseController
 
     public function laporanJawabPdf($testId, $studentId)
     {
+        helper('cbt');
+        if (!can_access_cbt_test_status((int) $testId)) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses ke laporan ujian ini.');
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         $db = db_connect();
 
         // 🔹 Ambil informasi tes
@@ -3408,10 +3429,11 @@ class CbtAktivitas extends BaseController
             return redirect()->back()->with('error', 'Data siswa tidak ditemukan.');
         }
 
-        // 🔹 Ambil session (jika ada) untuk nilai esai yang sudah dinilai
+        // 🔹 Ambil session terbaru (jika ada) untuk nilai esai yang sudah dinilai
         $session = $db->table('cbt_sessions cs')
             ->where('cs.test_id', $testId)
             ->where('cs.student_id', $studentId)
+            ->orderBy('cs.id', 'DESC')
             ->get()
             ->getRowArray();
 
@@ -3441,44 +3463,22 @@ class CbtAktivitas extends BaseController
             $answer = $a['answer'] ?? ($a['selected_option'] ?? '');
             $isCorrect = false;
 
-            // --- Logika Penilaian ---
+            // --- Logika Penilaian (Skor Parsial Terpusat) ---
             if (in_array($type, ['pg', 'pilihan_ganda', 'multiple_choice'])) {
                 $totalPg++;
-                if ($answer && strtoupper($answer) === strtoupper($a['correct_option'])) {
-                    $isCorrect = true;
-                    $scorePg++;
-                }
+                $ratio = CbtScoringService::calculateQuestionScoreRatio('pg', $answer, $a['correct_option'] ?? '');
+                $scorePg += $ratio;
+                $isCorrect = ($ratio >= 1.0);
             } elseif ($type === 'pg_kompleks' || $type === 'pgk') {
                 $totalPgk++;
-                if ($answer && !empty($a['correct_option'])) {
-                    $correctArr = explode(',', strtoupper($a['correct_option']));
-                    $studentArr = explode(',', strtoupper($answer));
-                    $cSel = count(array_intersect($studentArr, $correctArr));
-                    $iSel = count(array_diff($studentArr, $correctArr));
-                    $tCorr = count($correctArr);
-                    $raw = $cSel - (0.5 * $iSel);
-                    $score = ($tCorr > 0) ? (max(0, $raw) / $tCorr) : 0;
-                    if ($score >= 0.7) {
-                        $isCorrect = true;
-                        $scorePgk++;
-                    }
-                }
+                $ratio = CbtScoringService::calculateQuestionScoreRatio('pg_kompleks', $answer, $a['correct_option'] ?? '');
+                $scorePgk += $ratio;
+                $isCorrect = ($ratio >= 0.7);
             } elseif ($type === 'benar_salah' || $type === 'bs') {
                 $totalBs++;
-                if ($answer && !empty($a['correct_option'])) {
-                    $cArr = explode(',', strtoupper($a['correct_option']));
-                    $sArr = explode(',', strtoupper($answer));
-                    $m = 0;
-                    $ti = count($cArr);
-                    for ($k = 0; $k < $ti; $k++) {
-                        if (isset($sArr[$k]) && $sArr[$k] === $cArr[$k])
-                            $m++;
-                    }
-                    if ($ti > 0 && ($m / $ti) >= 0.7) {
-                        $isCorrect = true;
-                        $scoreBs++;
-                    }
-                }
+                $ratio = CbtScoringService::calculateQuestionScoreRatio('benar_salah', $answer, $a['correct_option'] ?? '');
+                $scoreBs += $ratio;
+                $isCorrect = ($ratio >= 0.7);
             }
 
             $questionData[] = [
@@ -3589,47 +3589,7 @@ class CbtAktivitas extends BaseController
      */
     private function calculateNormalizedScore($type, $studentAns, $correctAns)
     {
-        $type = strtolower(str_replace(' ', '_', $type ?? 'pg'));
-        $studentAns = trim((string) ($studentAns ?? ''));
-        $correctAns = trim((string) ($correctAns ?? ''));
-
-        if (empty($studentAns) || empty($correctAns)) {
-            return 0;
-        }
-
-        // Standard Single Choice (PG)
-        if (in_array($type, ['pg', 'pilihan_ganda', 'multiple_choice'])) {
-            return (strtoupper($studentAns) === strtoupper($correctAns)) ? 1 : 0;
-        }
-
-        // Complex Single Choice (PGK)
-        if ($type === 'pg_kompleks' || $type === 'pgk') {
-            $correctArr = explode(',', $correctAns);
-            $studentArr = explode(',', $studentAns);
-            $cSel = count(array_intersect($studentArr, $correctArr));
-            $iSel = count(array_diff($studentArr, $correctArr));
-            $tCorr = count($correctArr);
-            $raw = $cSel - (0.5 * $iSel);
-            return ($tCorr > 0) ? (max(0, $raw) / $tCorr) : 0;
-        }
-
-        // True/False (BS)
-        if ($type === 'benar_salah' || $type === 'bs') {
-            $cArr = explode(',', $correctAns);
-            $sArr = explode(',', $studentAns);
-            $matches = 0;
-            $tItems = count($cArr);
-            for ($i = 0; $i < $tItems; $i++) {
-                $std = isset($sArr[$i]) ? strtoupper(trim($sArr[$i])) : '';
-                $key = isset($cArr[$i]) ? strtoupper(trim($cArr[$i])) : '';
-                if ($std !== '' && $std === $key) {
-                    $matches++;
-                }
-            }
-            return ($tItems > 0) ? ($matches / $tItems) : 0;
-        }
-
-        return 0;
+        return CbtScoringService::calculateQuestionScoreRatio((string) $type, $studentAns, (string) $correctAns);
     }
 
     /**
@@ -3705,6 +3665,13 @@ class CbtAktivitas extends BaseController
     public function exportNilai($testId)
     {
         $testId = (int) $testId;
+        helper('cbt');
+        if (!can_access_cbt_test_status($testId)) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => 'Anda tidak memiliki akses ke ujian ini.']);
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         $db     = $this->db;
 
         // Info ujian

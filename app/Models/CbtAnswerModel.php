@@ -9,7 +9,7 @@ class CbtAnswerModel extends Model
 {
     protected $table = 'cbt_answers';
     protected $primaryKey = 'id';
-    protected $allowedFields = ['student_id', 'test_id', 'question_id', 'answer', 'score', 'updated_at'];
+    protected $allowedFields = ['student_id', 'test_id', 'question_id', 'answer', 'is_doubtful', 'score', 'updated_at'];
     protected $useTimestamps = false;
     protected $returnType = 'array';
 
@@ -35,15 +35,28 @@ class CbtAnswerModel extends Model
     {
         if (empty($answers))
             return true;
-        $fields = ['student_id', 'test_id', 'question_id', 'answer'];
+        $hasDoubtful = false;
+        foreach ($answers as $r) {
+            if (array_key_exists('is_doubtful', $r)) {
+                $hasDoubtful = true;
+                break;
+            }
+        }
+        $fields = $hasDoubtful
+            ? ['student_id', 'test_id', 'question_id', 'answer', 'is_doubtful']
+            : ['student_id', 'test_id', 'question_id', 'answer'];
         $placeholders = '(' . implode(',', array_fill(0, count($fields), '?')) . ')';
         $valuesSql = implode(',', array_fill(0, count($answers), $placeholders));
+        $updateSet = $hasDoubtful
+            ? 'answer = VALUES(answer), is_doubtful = VALUES(is_doubtful), updated_at = NOW()'
+            : 'answer = VALUES(answer), updated_at = NOW()';
         $sql = 'INSERT INTO ' . $this->table . ' (' . implode(',', $fields) . ') VALUES ' . $valuesSql .
-            ' ON DUPLICATE KEY UPDATE answer = VALUES(answer), updated_at = NOW()';
+            ' ON DUPLICATE KEY UPDATE ' . $updateSet;
         $params = [];
         foreach ($answers as $r) {
-            foreach ($fields as $f)
-                $params[] = $r[$f];
+            foreach ($fields as $f) {
+                $params[] = ($f === 'is_doubtful') ? (int) ($r[$f] ?? 0) : $r[$f];
+            }
         }
         try {
             return (bool) $this->db->query($sql, $params);

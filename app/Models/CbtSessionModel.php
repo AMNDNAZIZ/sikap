@@ -22,6 +22,7 @@ class CbtSessionModel extends Model
         'finished_at',
         'reset_token',
         'cheat_locked',
+        'locked',
         'extra_time'
     ];
 

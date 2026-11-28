@@ -316,6 +316,7 @@ if (!function_exists('update_last_activity_throttled')) {
                 ->select('last_activity')
                 ->where('student_id', $studentId)
                 ->where('test_id', $testId)
+                ->orderBy('id', 'DESC')
                 ->get()
                 ->getRowArray();
 
@@ -323,14 +324,21 @@ if (!function_exists('update_last_activity_throttled')) {
                 return;
             }
 
-            $lastActivity = $session['last_activity'] ? strtotime($session['last_activity']) : 0;
+            $rawLast = $session['last_activity'] ?? null;
+            if ($rawLast === null || $rawLast === '') {
+                $lastActivity = 0;
+            } elseif (is_numeric($rawLast)) {
+                $lastActivity = ((int) $rawLast > 1000000000) ? (int) $rawLast : 0;
+            } else {
+                $lastActivity = strtotime((string) $rawLast) ?: 0;
+            }
             $now = time();
 
             if (($now - $lastActivity) >= $intervalSeconds) {
                 $db->table('cbt_sessions')
                     ->where('student_id', $studentId)
                     ->where('test_id', $testId)
-                    ->set(['last_activity' => date('Y-m-d H:i:s', $now)])
+                    ->set(['last_activity' => $now])
                     ->update();
 
                 log_message('debug', "[update_last_activity_throttled] Updated for student=$studentId, test=$testId");

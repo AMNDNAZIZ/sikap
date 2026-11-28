@@ -55,8 +55,38 @@ class Auth extends BaseController
                 return redirect()->back()->with('error', 'Username atau password salah. Silakan coba lagi.');
             }
 
+            // Single-Device Login Enforcement for Students (role_id = 5)
+            $userRoleId = (int) ($user['role_id'] ?? 0);
+            if ($userRoleId === 5 && !empty($user['active_session_id'])) {
+                $clientDeviceToken = $session->get('device_token');
+                if ($clientDeviceToken !== $user['active_session_id']) {
+                    $lastActTs = (int) ($user['last_activity'] ?? 0);
+                    $isRecentlyActive = ($lastActTs > 0) && ((time() - $lastActTs) < 1800);
+                    $hasActiveCbt = false;
+                    if (!empty($user['related_id'])) {
+                        $hasActiveCbt = (bool) db_connect()->table('cbt_sessions')
+                            ->where('student_id', (int) $user['related_id'])
+                            ->where('status', 'active')
+                            ->countAllResults();
+                    }
+
+                    if ($isRecentlyActive || $hasActiveCbt) {
+                        log_message('warning', "[SingleDevice] Blocked login for student user ID {$user['id']} from IP {$ip}");
+                        return redirect()->back()->with('error', 'Akun Anda sedang aktif di perangkat lain. Silakan logout dari perangkat sebelumnya atau minta pengawas/admin melakukan Reset Login.');
+                    }
+                }
+            }
+
             // Regenerate session ID to prevent session fixation
             $session->regenerate();
+
+            $deviceToken = bin2hex(random_bytes(24));
+            $nowTs = time();
+
+            $model->update($user['id'], [
+                'active_session_id' => $deviceToken,
+                'last_activity'     => $nowTs,
+            ]);
             
             $sessionData = [
                 'id' => $user['id'],
@@ -97,7 +127,8 @@ class Auth extends BaseController
 
             $session->set('user', $sessionData);
             $session->set('logged_in', true);
-            $session->set('last_activity', time());
+            $session->set('last_activity', $nowTs);
+            $session->set('device_token', $deviceToken);
 
             // 📝 Catat audit trail login
             helper('audit');
@@ -124,8 +155,19 @@ class Auth extends BaseController
     public function logout()
     {
         helper('audit');
-        if (session()->get('user')) {
+        $user = session()->get('user');
+        if ($user) {
             audit_log('logout');
+            if (!empty($user['id'])) {
+                try {
+                    (new UserModel())->update((int) $user['id'], [
+                        'active_session_id' => null,
+                        'last_activity'     => null,
+                    ]);
+                } catch (\Throwable $e) {
+                    log_message('error', '[Auth::logout] Clear device token failed: ' . $e->getMessage());
+                }
+            }
         }
         session()->destroy();
         return redirect()->to('/login');
@@ -145,12 +187,22 @@ class Auth extends BaseController
             ]);
         }
 
+        $nowTs = time();
         // Update last activity timestamp
-        session()->set('last_activity', time());
+        session()->set('last_activity', $nowTs);
+        $user = session()->get('user');
+        if (!empty($user['id'])) {
+            try {
+                db_connect()->table('users')
+                    ->where('id', (int) $user['id'])
+                    ->update(['last_activity' => $nowTs]);
+            } catch (\Throwable $e) {
+            }
+        }
 
         return $this->response->setJSON([
             'success' => true,
-            'timestamp' => time()
+            'timestamp' => $nowTs
         ]);
     }
 

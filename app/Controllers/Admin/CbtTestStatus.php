@@ -827,6 +827,9 @@ class CbtTestStatus extends BaseController
         // -------------------------------------------------------
         try {
             $this->testStatusModel->update($id, $update);
+            helper('cache');
+            cache()->delete('cbt_test_info_' . (int) $id);
+            cache()->delete('cbt_test_detail_' . (int) $id);
 
             return $this->response->setJSON([
                 'success' => true,
@@ -860,6 +863,9 @@ class CbtTestStatus extends BaseController
         if (!$test)
             return redirect()->back()->with('error', 'Data tidak ditemukan.');
         $this->testStatusModel->update($id, ['is_paused' => !$test['is_paused']]);
+        helper('cache');
+        cache()->delete('cbt_test_info_' . (int) $id);
+        cache()->delete('cbt_test_detail_' . (int) $id);
         return redirect()->back()->with('success', 'Status ujian diperbarui.');
     }
 
@@ -874,6 +880,9 @@ class CbtTestStatus extends BaseController
         if (!$test)
             return redirect()->back()->with('error', 'Data tidak ditemukan.');
         $this->testStatusModel->update($id, ['is_visible' => !$test['is_visible']]);
+        helper('cache');
+        cache()->delete('cbt_test_info_' . (int) $id);
+        cache()->delete('cbt_test_detail_' . (int) $id);
         return redirect()->back()->with('success', 'Tampilan ujian diperbarui.');
     }
 
@@ -889,6 +898,9 @@ class CbtTestStatus extends BaseController
 
         // TODO: tambahkan penghapusan data hasil ujian di sini bila tabelnya sudah siap
         $this->testStatusModel->delete($id);
+        helper('cache');
+        cache()->delete('cbt_test_info_' . (int) $id);
+        cache()->delete('cbt_test_detail_' . (int) $id);
         return redirect()->back()->with('success', 'Jadwal ujian berhasil dihapus.');
     }
 

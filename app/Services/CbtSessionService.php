@@ -155,11 +155,11 @@ class CbtSessionService extends BaseService
     public function validateSession(int $studentId, int $testId): array
     {
         try {
-            // Get session
+            // Get latest session
             $session = $this->sessionModel->where([
                 'student_id' => $studentId,
                 'test_id' => $testId
-            ])->first();
+            ])->orderBy('id', 'DESC')->first();
 
             if (!$session) {
                 return [
@@ -193,6 +193,14 @@ class CbtSessionService extends BaseService
                     'valid' => false,
                     'reason' => 'test_not_found',
                     'message' => 'Ujian tidak ditemukan'
+                ];
+            }
+
+            if (!empty($test['is_paused'])) {
+                return [
+                    'valid' => false,
+                    'reason' => 'test_paused',
+                    'message' => 'Ujian sedang dijeda sementara oleh pengawas.'
                 ];
             }
 
@@ -259,10 +267,12 @@ class CbtSessionService extends BaseService
         $durationMin = (int) ($test['duration'] ?? 0);
         $extraMin = (int) ($session['extra_time'] ?? 0);
 
-        $totalDurationSec = ($durationMin + $extraMin) * 60;
-        $elapsed = time() - $startTs;
+        $totalDurationSec = max(10, ($durationMin + $extraMin) * 60);
+        $sessionEndTs = $startTs + $totalDurationSec;
+        $testEndTs = !empty($test['end_time']) ? strtotime((string) $test['end_time']) : PHP_INT_MAX;
+        $effectiveEndTs = min($sessionEndTs, $testEndTs);
 
-        return $elapsed > ($totalDurationSec + $graceSeconds);
+        return time() > ($effectiveEndTs + $graceSeconds);
     }
 
     /**

@@ -60,10 +60,10 @@ class CbtExecutionPipelineService
         $allocatedScore = null;
         $isDoubtful = 0;
 
-        // Automated objective grading
-        if (in_array($questionType, ['pg', 'benar_salah', 'bs'], true)) {
-            $isCorrect = (string)$answerPayload === (string)$correctKey;
-            $allocatedScore = $isCorrect ? $itemWeight : 0.0;
+        // Automated objective grading (uses partial scoring parity with CbtScoringService)
+        if (in_array($questionType, ['pg', 'pilihan_ganda', 'multiple_choice', 'pg_kompleks', 'pgk', 'benar_salah', 'bs', 'true_false'], true)) {
+            $ratio = \App\Services\CbtScoringService::calculateQuestionScoreRatio($questionType, $answerPayload, $correctKey);
+            $allocatedScore = round($itemWeight * $ratio, 3);
         } elseif ($questionType === 'esai' || $questionType === 'essay') {
             // DEC-ESS-01: Essay is left unallocated until manual grading
             $allocatedScore = null;

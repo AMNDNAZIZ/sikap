@@ -86,32 +86,11 @@ class CbtScoringService extends BaseService
                 $studentAnswer = $answerMap[$qid] ?? '';
 
                 if (in_array($type, ['pg', 'pilihan_ganda', 'multiple_choice'])) {
-                    // PG scoring
-                    $correctAnswer = strtoupper(trim($q['correct_answer'] ?? ''));
-                    $studentAnswerUpper = strtoupper(trim($studentAnswer));
-                    
-                    if ($studentAnswerUpper === $correctAnswer) {
-                        $earnedPg += (float) ($q['score'] ?? 1);
-                    }
+                    $earnedPg += self::calculateQuestionScoreRatio('pg', $studentAnswer, $q['correct_answer'] ?? $q['correct_option'] ?? '') * (float) ($q['score'] ?? 1);
                 } elseif (in_array($type, ['pg_kompleks', 'pgk'])) {
-                    // PG Kompleks scoring
-                    $correctAnswer = strtoupper(trim($q['correct_answer'] ?? ''));
-                    $studentAnswerUpper = strtoupper(trim($studentAnswer));
-                    
-                    // Normalize: sort letters
-                    $correctSorted = $this->sortLetters($correctAnswer);
-                    $studentSorted = $this->sortLetters($studentAnswerUpper);
-                    
-                    if ($correctSorted === $studentSorted) {
-                        $earnedPgk += (float) ($q['score'] ?? 1);
-                    }
+                    $earnedPgk += self::calculateQuestionScoreRatio('pg_kompleks', $studentAnswer, $q['correct_answer'] ?? $q['correct_option'] ?? '') * (float) ($q['score'] ?? 1);
                 } elseif (in_array($type, ['benar_salah', 'bs', 'true_false'])) {
-                    // Benar-Salah scoring
-                    $correctAnswer = $q['correct_answer'] ?? '';
-                    
-                    if ($this->compareBenarSalah($studentAnswer, $correctAnswer)) {
-                        $earnedBs += (float) ($q['score'] ?? 1);
-                    }
+                    $earnedBs += self::calculateQuestionScoreRatio('benar_salah', $studentAnswer, $q['correct_answer'] ?? $q['correct_option'] ?? '') * (float) ($q['score'] ?? 1);
                 }
             }
 
@@ -182,6 +161,171 @@ class CbtScoringService extends BaseService
     }
 
     /**
+     * Authoritative partial score ratio (0.0 to 1.0) for a single objective question.
+     * Enforces consistent normalization (trim + uppercase + empty-filtering) across all CBT modules:
+     * - PG: 1.0 on exact match, else 0.0
+     * - PGK: max(0, correctSelected - 0.5 * incorrectSelected) / totalCorrectKeys
+     * - BS: matchedStatements / totalStatements
+     */
+    public static function calculateQuestionScoreRatio(string $type, mixed $studentAnswer, ?string $correctKey): float
+    {
+        $normType = strtolower(str_replace(' ', '_', trim($type)));
+        $studentStr = strtoupper(trim((string) ($studentAnswer ?? '')));
+        $correctStr = strtoupper(trim((string) ($correctKey ?? '')));
+
+        if ($studentStr === '' || $correctStr === '') {
+            return 0.0;
+        }
+
+        if (in_array($normType, ['pg', 'pilihan_ganda', 'multiple_choice'], true)) {
+            return ($studentStr === $correctStr) ? 1.0 : 0.0;
+        }
+
+        if (in_array($normType, ['pg_kompleks', 'pgk'], true)) {
+            $cArr = array_values(array_unique(array_filter(array_map('trim', explode(',', $correctStr)), fn($v) => $v !== '')));
+            $sArr = array_values(array_unique(array_filter(array_map('trim', explode(',', $studentStr)), fn($v) => $v !== '')));
+            $tCorr = count($cArr);
+            if ($tCorr === 0 || empty($sArr)) {
+                return 0.0;
+            }
+            $cSel = count(array_intersect($sArr, $cArr));
+            $iSel = count(array_diff($sArr, $cArr));
+            $raw = $cSel - (0.5 * $iSel);
+            return max(0.0, min(1.0, $raw / $tCorr));
+        }
+
+        if (in_array($normType, ['benar_salah', 'bs', 'true_false'], true)) {
+            $cArr = array_map('trim', explode(',', $correctStr));
+            $sArr = array_map('trim', explode(',', $studentStr));
+            $totalItems = count($cArr);
+            if ($totalItems === 0) {
+                return 0.0;
+            }
+            $matches = 0;
+            $validKeys = 0;
+            for ($i = 0; $i < $totalItems; $i++) {
+                $keyAns = $cArr[$i] ?? '';
+                if ($keyAns === '') {
+                    continue;
+                }
+                $validKeys++;
+                $stdAns = $sArr[$i] ?? '';
+                if ($stdAns !== '' && $stdAns === $keyAns) {
+                    $matches++;
+                }
+            }
+            return ($validKeys > 0) ? ($matches / $validKeys) : 0.0;
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * Authoritative full score breakdown with bobot & DEC-ESS-01 essay pending gate.
+     */
+    public function calculateScoreBreakdown(int $studentId, int $testId): array
+    {
+        $sessionModel = new \App\Models\CbtSessionModel();
+        $session = $sessionModel
+            ->where('student_id', $studentId)
+            ->where('test_id', $testId)
+            ->orderBy('id', 'DESC')
+            ->first();
+
+        if (!$session) {
+            return [
+                'found' => false,
+                'final_score' => 0.0,
+                'provisional_score' => 0.0,
+                'is_essay_pending' => false,
+            ];
+        }
+
+        $test = (new \App\Models\CbtTestStatusModel())->find($testId);
+        if (!$test) {
+            return [
+                'found' => false,
+                'final_score' => 0.0,
+                'provisional_score' => 0.0,
+                'is_essay_pending' => false,
+            ];
+        }
+
+        $questionOrder = json_decode($session['question_order'] ?? '[]', true) ?? [];
+        if (empty($questionOrder)) {
+            $questions = $this->questionModel->where('bank_id', $test['bank_id'])->findAll();
+        } else {
+            $questions = $this->questionModel->whereIn('id', $questionOrder)->findAll();
+        }
+
+        $answers = $this->answerModel
+            ->where('student_id', $studentId)
+            ->where('test_id', $testId)
+            ->findAll();
+
+        $answerMap = [];
+        foreach ($answers as $a) {
+            $answerMap[$a['question_id']] = $a['answer'] ?? '';
+        }
+
+        $stats = [
+            'pg'   => ['total' => 0, 'earned' => 0.0, 'weight' => (float) ($test['bobot_pg'] ?? 0)],
+            'pgk'  => ['total' => 0, 'earned' => 0.0, 'weight' => (float) ($test['bobot_pg_kompleks'] ?? 0)],
+            'bs'   => ['total' => 0, 'earned' => 0.0, 'weight' => (float) ($test['bobot_bs'] ?? 0)],
+            'esai' => ['total' => 0, 'earned' => (float) ($session['essay_score'] ?? 0), 'weight' => (float) ($test['bobot_esai'] ?? 0)],
+        ];
+
+        foreach ($questions as $q) {
+            $type = strtolower(str_replace(' ', '_', $q['question_type'] ?? 'pg'));
+            $qid = $q['id'];
+            $correctStr = $q['correct_option'] ?? $q['correct_answer'] ?? '';
+            $studentAns = $answerMap[$qid] ?? '';
+
+            if (in_array($type, ['pg', 'pilihan_ganda', 'multiple_choice'], true)) {
+                $stats['pg']['total']++;
+                $stats['pg']['earned'] += self::calculateQuestionScoreRatio('pg', $studentAns, $correctStr);
+            } elseif (in_array($type, ['pg_kompleks', 'pgk'], true)) {
+                $stats['pgk']['total']++;
+                $stats['pgk']['earned'] += self::calculateQuestionScoreRatio('pg_kompleks', $studentAns, $correctStr);
+            } elseif (in_array($type, ['benar_salah', 'bs', 'true_false'], true)) {
+                $stats['bs']['total']++;
+                $stats['bs']['earned'] += self::calculateQuestionScoreRatio('benar_salah', $studentAns, $correctStr);
+            } else {
+                $stats['esai']['total']++;
+            }
+        }
+
+        $stats['pg']['score'] = ($stats['pg']['total'] > 0) ? ($stats['pg']['earned'] / $stats['pg']['total']) * 100 : 0.0;
+        $stats['pgk']['score'] = ($stats['pgk']['total'] > 0) ? ($stats['pgk']['earned'] / $stats['pgk']['total']) * 100 : 0.0;
+        $stats['bs']['score'] = ($stats['bs']['total'] > 0) ? ($stats['bs']['earned'] / $stats['bs']['total']) * 100 : 0.0;
+        $stats['esai']['score'] = ($stats['esai']['total'] > 0) ? ($stats['esai']['earned']) : 0.0;
+
+        $stats['pg']['contribution'] = $stats['pg']['score'] * ($stats['pg']['weight'] / 100);
+        $stats['pgk']['contribution'] = $stats['pgk']['score'] * ($stats['pgk']['weight'] / 100);
+        $stats['bs']['contribution'] = $stats['bs']['score'] * ($stats['bs']['weight'] / 100);
+        $stats['esai']['contribution'] = $stats['esai']['score'] * ($stats['esai']['weight'] / 100);
+
+        $provisionalScore = round(
+            $stats['pg']['contribution']
+            + $stats['pgk']['contribution']
+            + $stats['bs']['contribution']
+            + $stats['esai']['contribution'],
+            2
+        );
+
+        $isEssayPending = ($stats['esai']['total'] > 0) && ($session['essay_score'] === null || $session['essay_score'] === '');
+
+        return [
+            'found' => true,
+            'session' => $session,
+            'stats' => $stats,
+            'is_essay_pending' => $isEssayPending,
+            'provisional_score' => $provisionalScore,
+            'final_score' => $isEssayPending ? null : $provisionalScore,
+        ];
+    }
+
+    /**
      * Calculate score with bobot (weight-based scoring)
      * This is the CORRECT logic that matches what users see in selesai() and hasil() pages
      * 
@@ -194,116 +338,14 @@ class CbtScoringService extends BaseService
     public function calculateScoreWithBobot(int $studentId, int $testId): float
     {
         try {
-            $sessionModel = new \App\Models\CbtSessionModel();
-            $session = $sessionModel
-                ->where('student_id', $studentId)
-                ->where('test_id', $testId)
-                ->first();
-
-            if (!$session) {
-                $this->logError('CbtScoringService::calculateScoreWithBobot', 'Session not found');
+            $breakdown = $this->calculateScoreBreakdown($studentId, $testId);
+            if (empty($breakdown['found'])) {
+                $this->logError('CbtScoringService::calculateScoreWithBobot', 'Session or test not found');
                 return 0.0;
             }
-
-            $testModel = new \App\Models\CbtTestStatusModel();
-            $test = $testModel->find($testId);
-            
-            if (!$test) {
-                $this->logError('CbtScoringService::calculateScoreWithBobot', 'Test not found');
-                return 0.0;
-            }
-
-            // Get question_order from session (only questions shown to student)
-            $questionOrder = json_decode($session['question_order'] ?? '[]', true) ?? [];
-            
-            if (empty($questionOrder)) {
-                $questions = $this->questionModel->where('bank_id', $test['bank_id'])->findAll();
-            } else {
-                $questions = $this->questionModel->whereIn('id', $questionOrder)->findAll();
-            }
-
-            // Get answers
-            $answers = $this->answerModel
-                ->where('student_id', $studentId)
-                ->where('test_id', $testId)
-                ->findAll();
-
-            $answerMap = [];
-            foreach ($answers as $a) {
-                $answerMap[$a['question_id']] = $a['answer'] ?? '';
-            }
-
-            // Initialize stats
-            $stats = [
-                'pg' => ['total' => 0, 'earned' => 0, 'weight' => (float) ($test['bobot_pg'] ?? 0)],
-                'pgk' => ['total' => 0, 'earned' => 0, 'weight' => (float) ($test['bobot_pg_kompleks'] ?? 0)],
-                'bs' => ['total' => 0, 'earned' => 0, 'weight' => (float) ($test['bobot_bs'] ?? 0)],
-                'esai' => ['total' => 0, 'earned' => (float) ($session['essay_score'] ?? 0), 'weight' => (float) ($test['bobot_esai'] ?? 0)]
-            ];
-
-            // Count by type
-            foreach ($questions as $q) {
-                $type = strtolower(str_replace(' ', '_', $q['question_type'] ?? 'pg'));
-                $qid = $q['id'];
-                $correctStr = $q['correct_answer'] ?? $q['correct_option'] ?? '';
-                $studentAns = $answerMap[$qid] ?? '';
-
-                if (in_array($type, ['pg', 'pilihan_ganda', 'multiple_choice'])) {
-                    $stats['pg']['total']++;
-                    if ($correctStr !== '' && $studentAns !== '' && strtoupper(trim($studentAns)) === strtoupper(trim($correctStr))) {
-                        $stats['pg']['earned']++;
-                    }
-                } elseif ($type === 'pg_kompleks' || $type === 'pgk') {
-                    $stats['pgk']['total']++;
-                    if (!empty($correctStr) && !empty($studentAns)) {
-                        $cArr = explode(',', $correctStr);
-                        $sArr = explode(',', $studentAns);
-                        $cSel = count(array_intersect($sArr, $cArr));
-                        $iSel = count(array_diff($sArr, $cArr));
-                        $tCorr = count($cArr);
-                        $raw = $cSel - (0.5 * $iSel);
-                        $qScore = ($tCorr > 0) ? (max(0, $raw) / $tCorr) : 0;
-                        $stats['pgk']['earned'] += $qScore;
-                    }
-                } elseif ($type === 'benar_salah' || $type === 'bs') {
-                    $stats['bs']['total']++;
-                    if (!empty($correctStr) && !empty($studentAns)) {
-                        $cArr = explode(',', $correctStr);
-                        $sArr = explode(',', $studentAns);
-                        $matches = 0;
-                        $totalItems = count($cArr);
-                        for ($i = 0; $i < $totalItems; $i++) {
-                            $stdAns = isset($sArr[$i]) ? trim($sArr[$i]) : '';
-                            $keyAns = isset($cArr[$i]) ? trim($cArr[$i]) : '';
-                            
-                            if ($stdAns !== '' && strtoupper($stdAns) === strtoupper($keyAns)) {
-                                $matches++;
-                            }
-                        }
-                        $qScore = ($totalItems > 0) ? ($matches / $totalItems) : 0;
-                        $stats['bs']['earned'] += $qScore;
-                    }
-                } else {
-                    $stats['esai']['total']++;
-                }
-            }
-
-            // Calculate final score with bobot
-            $stats['pg']['score'] = ($stats['pg']['total'] > 0) ? ($stats['pg']['earned'] / $stats['pg']['total']) * 100 : 0;
-            $stats['pgk']['score'] = ($stats['pgk']['total'] > 0) ? ($stats['pgk']['earned'] / $stats['pgk']['total']) * 100 : 0;
-            $stats['bs']['score'] = ($stats['bs']['total'] > 0) ? ($stats['bs']['earned'] / $stats['bs']['total']) * 100 : 0;
-            $stats['esai']['score'] = ($stats['esai']['total'] > 0) ? ($stats['esai']['earned']) : 0;
-
-            $stats['pg']['contribution'] = $stats['pg']['score'] * ($stats['pg']['weight'] / 100);
-            $stats['pgk']['contribution'] = $stats['pgk']['score'] * ($stats['pgk']['weight'] / 100);
-            $stats['bs']['contribution'] = $stats['bs']['score'] * ($stats['bs']['weight'] / 100);
-            $stats['esai']['contribution'] = $stats['esai']['score'] * ($stats['esai']['weight'] / 100);
-
-            $finalScore = $stats['pg']['contribution'] + $stats['pgk']['contribution'] + $stats['bs']['contribution'] + $stats['esai']['contribution'];
-
+            $finalScore = (float) $breakdown['provisional_score'];
             $this->logDebug('CbtScoringService::calculateScoreWithBobot', "Final score: {$finalScore}");
-
-            return round($finalScore, 2);
+            return $finalScore;
         } catch (\Throwable $e) {
             $this->logError('CbtScoringService::calculateScoreWithBobot', 'Failed to calculate score', $e);
             return 0.0;
@@ -351,6 +393,7 @@ class CbtScoringService extends BaseService
             $session = (new \App\Models\CbtSessionModel())
                 ->where('student_id', $studentId)
                 ->where('test_id', $testId)
+                ->orderBy('id', 'DESC')
                 ->first();
 
             if ($session && !empty($session['question_order'])) {

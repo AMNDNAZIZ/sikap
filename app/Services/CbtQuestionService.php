@@ -173,11 +173,25 @@ class CbtQuestionService extends BaseService
             $showPgk = (int) ($testConfig['show_pg_kompleks_count'] ?? 0);
             $showBs = (int) ($testConfig['show_bs_count'] ?? 0);
             $showEsai = (int) ($testConfig['show_esai_count'] ?? 0);
-            
-            $pgQuestions = ($showPg > 0) ? array_slice($grouped['pg'], 0, $showPg) : $grouped['pg'];
-            $pgkQuestions = ($showPgk > 0) ? array_slice($grouped['pgk'], 0, $showPgk) : $grouped['pgk'];
-            $bsQuestions = ($showBs > 0) ? array_slice($grouped['bs'], 0, $showBs) : $grouped['bs'];
-            $essayQuestions = ($showEsai > 0) ? array_slice($grouped['essay'], 0, $showEsai) : $grouped['essay'];
+
+            $allCountsZero = ($showPg === 0 && $showPgk === 0 && $showBs === 0 && $showEsai === 0);
+            $bobotPg = (float) ($testConfig['bobot_pg'] ?? 0);
+            $bobotPgk = (float) ($testConfig['bobot_pg_kompleks'] ?? 0);
+            $bobotBs = (float) ($testConfig['bobot_bs'] ?? 0);
+            $bobotEsai = (float) ($testConfig['bobot_esai'] ?? 0);
+
+            $pgQuestions = ($showPg > 0)
+                ? array_slice($grouped['pg'], 0, $showPg)
+                : (($allCountsZero || $bobotPg > 0) ? $grouped['pg'] : []);
+            $pgkQuestions = ($showPgk > 0)
+                ? array_slice($grouped['pgk'], 0, $showPgk)
+                : (($allCountsZero || $bobotPgk > 0) ? $grouped['pgk'] : []);
+            $bsQuestions = ($showBs > 0)
+                ? array_slice($grouped['bs'], 0, $showBs)
+                : (($allCountsZero || $bobotBs > 0) ? $grouped['bs'] : []);
+            $essayQuestions = ($showEsai > 0)
+                ? array_slice($grouped['essay'], 0, $showEsai)
+                : (($allCountsZero || $bobotEsai > 0) ? $grouped['essay'] : []);
             
             // Merge all types
             $mergedQuestions = array_merge($pgQuestions, $pgkQuestions, $bsQuestions, $essayQuestions);

@@ -1068,20 +1068,20 @@ $routes->group('siswa', ['namespace' => 'App\Controllers\Siswa', 'filter' => 'au
     $routes->post('tugas/(:num)/submit', 'Tugas::submit/$1');
     $routes->post('tugas/upload-image', 'Tugas::uploadImage');
 
-    $routes->get('cbt', 'Cbt::index');
-    $routes->post('cbt/verifyToken/(:num)', 'Cbt::verifyToken/$1');
-    $routes->post('cbt/ping', 'Cbt::ping');
-    $routes->get('cbt/getScore/(:num)', 'Cbt::getScore/$1');
-    $routes->get('cbt/peraturan/(:num)', 'Cbt::peraturan/$1');
-    $routes->get('cbt/mulai/(:num)', 'Cbt::mulai/$1');
-    $routes->post('cbt/saveAnswer', 'Cbt::saveAnswer');
-    $routes->post('cbt/submit/(:num)', 'Cbt::submit/$1');
-    $routes->get('cbt/selesai/(:num)', 'Cbt::selesai/$1');
-    $routes->get('cbt/hasil/(:num)', 'Cbt::hasil/$1');
-    $routes->post('cbt/saveAnswersBulk', 'Cbt::saveAnswersBulk');
-    $routes->get('cbt/saveAnswersBulk', 'Cbt::saveAnswersBulk');
-    $routes->post('cbt/keepAlive', 'Cbt::ping');
-    $routes->get('cbt/refreshCsrf', 'Cbt::refreshCsrf');
+    $routes->get('cbt', 'Cbt::index', ['filter' => 'auth:5']);
+    $routes->post('cbt/verifyToken/(:num)', 'Cbt::verifyToken/$1', ['filter' => 'auth:5']);
+    $routes->post('cbt/ping', 'Cbt::ping', ['filter' => 'auth:5']);
+    $routes->post('cbt/getTimerSync', 'Cbt::getTimerSync', ['filter' => 'auth:5']);
+    $routes->get('cbt/getScore/(:num)', 'Cbt::getScore/$1', ['filter' => 'auth:5']);
+    $routes->get('cbt/peraturan/(:num)', 'Cbt::peraturan/$1', ['filter' => 'auth:5']);
+    $routes->get('cbt/mulai/(:num)', 'Cbt::mulai/$1', ['filter' => 'auth:5']);
+    $routes->post('cbt/saveAnswer', 'Cbt::saveAnswer', ['filter' => 'auth:5']);
+    $routes->post('cbt/submit/(:num)', 'Cbt::submit/$1', ['filter' => 'auth:5']);
+    $routes->get('cbt/selesai/(:num)', 'Cbt::selesai/$1', ['filter' => 'auth:5']);
+    $routes->get('cbt/hasil/(:num)', 'Cbt::hasil/$1', ['filter' => 'auth:5']);
+    $routes->post('cbt/saveAnswersBulk', 'Cbt::saveAnswersBulk', ['filter' => 'auth:5']);
+    $routes->post('cbt/keepAlive', 'Cbt::ping', ['filter' => 'auth:5']);
+    $routes->get('cbt/refreshCsrf', 'Cbt::refreshCsrf', ['filter' => 'auth:5']);
 
     // Materi Pelajaran + Progress Tracking (lama — tetap aktif)
     $routes->get('materials',                        'Materials::index');

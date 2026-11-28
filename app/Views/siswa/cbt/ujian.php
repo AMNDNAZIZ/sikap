@@ -1265,6 +1265,28 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
               <div class="stimulus-text">
                 <?= $qTextForRender ?: '<div class="alert alert-warning">Konten bacaan tidak tersedia.</div>' ?>
               </div>
+
+              <?php if (!empty($q['media_audio'])): ?>
+                <?php
+                $audioSrc = $q['media_audio'];
+                if (!preg_match('#^https?://#i', $audioSrc)) {
+                    $audioSrc = base_url('uploads/audio/' . ltrim($audioSrc, '/'));
+                }
+                $audioLimit = (int) ($test['audio_limit'] ?? 0);
+                ?>
+                <div class="cbt-audio-box mt-3 p-3 rounded-3 border bg-light" data-audio-qid="<?= $qid ?>" data-audio-limit="<?= $audioLimit ?>">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="small fw-bold text-primary"><i class="bi bi-volume-up-fill me-1"></i> Audio Soal</span>
+                    <?php if ($audioLimit > 0): ?>
+                      <span class="badge bg-info text-dark audio-limit-badge">Maks. <?= $audioLimit ?>x putar (Sisa: <span class="audio-remaining"><?= $audioLimit ?></span>)</span>
+                    <?php endif; ?>
+                  </div>
+                  <audio controls preload="metadata" controlsList="nodownload" class="w-100 cbt-question-audio" data-audio-qid="<?= $qid ?>" data-audio-limit="<?= $audioLimit ?>">
+                    <source src="<?= esc($audioSrc) ?>">
+                    Browser Anda tidak mendukung pemutar audio.
+                  </audio>
+                </div>
+              <?php endif; ?>
             </div>
 
             <!-- RIGHT COLUMN: QUESTION & OPTIONS -->
@@ -2713,7 +2735,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
               .then(res => {
                 setTimeout(() => {
                   window.location.href = res.redirect || '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>?forced=1';
-                }, 1500); // Increased delay to show message
+                }, 1500);
               })
               .catch(() => {
                 setTimeout(() => {
@@ -2721,16 +2743,44 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
                 }, 2000);
               });
           } else {
-            // Non-cheat (timeout): kirim semua jawaban terlebih dahulu sebelum redirect
-            fetch('<?= site_url('siswa/cbt/submit/' . $test['id']) ?>?forced=1', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-              body: JSON.stringify({ forced: true, timeout: true, answers: allAnswers })
-            }).finally(() => {
-              setTimeout(() => {
-                window.location.href = '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>?timeout=1';
-              }, 1500);
-            });
+            // Non-cheat (timeout): kirim semua jawaban; jika offline, tahan & auto-retry saat online agar jawaban antrean tidak hilang!
+            const submitTimeoutAnswers = () => {
+              fetch('<?= site_url('siswa/cbt/submit/' . $test['id']) ?>?forced=1', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ forced: true, timeout: true, answers: allAnswers })
+              })
+                .then(r => {
+                  if (!r.ok) throw new Error('HTTP ' + r.status);
+                  return r.json();
+                })
+                .then(res => {
+                  safeStore.removeItem(OFFLINE_QUEUE_KEY);
+                  setTimeout(() => {
+                    window.location.href = res.redirect || '<?= site_url('siswa/cbt/selesai/' . $test['id']) ?>?timeout=1';
+                  }, 1200);
+                })
+                .catch(() => {
+                  const popupHtml = Swal.getHtmlContainer();
+                  if (popupHtml) {
+                    popupHtml.innerHTML = `<div class="alert alert-warning text-start mb-3">
+                      <strong><i class="bi bi-wifi-off me-1"></i> Koneksi Terputus Saat Waktu Habis</strong><br>
+                      <span class="small">Jawaban Anda masih aman tersimpan di perangkat. Jangan tutup halaman ini — sistem akan otomatis mengirim begitu internet kembali aktif.</span>
+                    </div>
+                    <button type="button" id="btnRetryTimeoutSubmit" class="btn btn-primary fw-bold px-4">Kirim Jawaban Sekarang</button>`;
+                    const retryBtn = document.getElementById('btnRetryTimeoutSubmit');
+                    if (retryBtn) {
+                      retryBtn.onclick = () => {
+                        retryBtn.disabled = true;
+                        retryBtn.textContent = 'Mengirim...';
+                        submitTimeoutAnswers();
+                      };
+                    }
+                  }
+                  window.addEventListener('online', submitTimeoutAnswers, { once: true });
+                });
+            };
+            submitTimeoutAnswers();
           }
         }
       });
@@ -2775,9 +2825,7 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         }
         warningHtml += '</div>';
 
-        // Pause timer saat notifikasi muncul
-        if (timerInterval) clearInterval(timerInterval);
-
+        // Server timer terus berjalan — jangan hentikan interval tampilan waktu siswa saat modal peringatan muncul
         Swal.fire({
           title: 'Peringatan Kecurangan!',
           html: warningHtml,
@@ -2788,8 +2836,6 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
           confirmButtonText: 'OK, Saya Mengerti',
           confirmButtonColor: '#f5576c',
           width: '500px'
-        }).then(() => {
-          startTimer();
         });
       });
     };
@@ -2808,11 +2854,48 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         body: JSON.stringify(data)
       }).then(r => {
         clearTimeout(timeoutId);
+        if (r.status === 401) {
+          return r.json().then(d => {
+            examFinished = true;
+            window.onbeforeunload = null;
+            Swal.fire({
+              title: 'Sesi Berakhir',
+              text: d.message || 'Sesi login Anda telah di-reset atau berpindah perangkat.',
+              icon: 'warning',
+              allowOutsideClick: false,
+              confirmButtonText: 'Login Kembali'
+            }).then(() => {
+              window.location.href = d.redirect || '<?= site_url('login') ?>';
+            });
+            return { status: 'unauthenticated' };
+          });
+        }
         if (!r.ok && r.status >= 500 && retry < 2) {
             throw new Error('Server Busy');
         }
         return r.json();
       }).then(res => {
+        if (!res || res.status === 'unauthenticated') return res;
+
+        // Handle Pause Ujian oleh Pengawas
+        let pauseModalOpen = window.__cbtPauseActive || false;
+        if (res.status === 'paused' || res.is_paused) {
+          if (!pauseModalOpen) {
+            window.__cbtPauseActive = true;
+            Swal.fire({
+              title: 'Ujian Dijeda Sementara',
+              html: 'Pengawas/admin sedang menjeda ujian ini sementara.<br><small class="text-muted">Jangan tutup halaman. Ujian akan otomatis terbuka kembali saat dilanjutkan.</small>',
+              icon: 'info',
+              allowOutsideClick: false,
+              allowEscapeKey: false,
+              showConfirmButton: false
+            });
+          }
+          return res;
+        } else if (pauseModalOpen) {
+          window.__cbtPauseActive = false;
+          Swal.close();
+        }
         // Sync local violation count and limit with server
         if (res.violation_count !== undefined) violationCount = res.violation_count;
         if (res.violation_limit !== undefined) violationLimit = res.violation_limit;
@@ -3271,19 +3354,19 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
       }, 1500);
     };
 
-    // Ragu-ragu toggle - HANYA UI, tidak kirim ke server
+    // Ragu-ragu toggle - UI + persistence lokal + sinkronisasi ke server
     if (checkRagu) {
       checkRagu.onchange = (e) => {
         const activeQ = items[activeIdx];
         if (!activeQ) return;
         const isChecked = e.target.checked;
 
-        // Update UI saja
+        // Update UI
         activeQ.dataset.doubtful = isChecked ? '1' : '0';
         updateRaguVisual();
         updateAnswerStats();
 
-        // Simpan ke storage untuk persistence
+        // Simpan ke storage lokal untuk persistence cepat
         const doubtfulKey = `cbt_doubtful_${TEST_ID}`;
         let doubtfulList = JSON.parse(safeStore.getItem(doubtfulKey, '[]'));
         const qid = activeQ.dataset.qid;
@@ -3295,6 +3378,21 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
         }
 
         safeStore.setItem(doubtfulKey, JSON.stringify(doubtfulList));
+
+        // Sinkronisasi status ragu-ragu ke server DB
+        if (isOnline && !timeExpiredHandled && !examFinished) {
+          fetch('<?= site_url('siswa/cbt/saveAnswersBulk') ?>', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+              test_id: TEST_ID,
+              doubtful: { [qid]: isChecked ? 1 : 0 }
+            })
+          }).catch(() => {});
+        }
       };
     }
 
@@ -4066,7 +4164,55 @@ $remaining_seconds = (int) ($remaining_seconds ?? 0);
 
     function chr(c) { return String.fromCharCode(c); }
 
-    // Restore ragu-ragu dari storage
+    // Enforce audio playback limit (audio_limit) per question
+    document.querySelectorAll('.cbt-question-audio').forEach(audioEl => {
+      const qid = audioEl.dataset.audioQid;
+      const limit = parseInt(audioEl.dataset.audioLimit || '0', 10);
+      if (!limit || limit <= 0) return;
+
+      const box = audioEl.closest('.cbt-audio-box');
+      const remEl = box ? box.querySelector('.audio-remaining') : null;
+      const storageKey = `cbt_audio_plays_${TEST_ID}_${qid}`;
+      let plays = parseInt(safeStore.getItem(storageKey, '0'), 10) || 0;
+
+      const refreshAudioUi = () => {
+        const remaining = Math.max(0, limit - plays);
+        if (remEl) remEl.textContent = String(remaining);
+        if (remaining <= 0) {
+          audioEl.pause();
+          audioEl.controls = false;
+          audioEl.style.opacity = '0.5';
+          if (box && !box.querySelector('.audio-limit-msg')) {
+            const msg = document.createElement('div');
+            msg.className = 'small text-danger fw-bold mt-1 audio-limit-msg';
+            msg.textContent = `Batas putar audio (${limit}x) telah tercapai.`;
+            box.appendChild(msg);
+          }
+        }
+      };
+
+      let countedCurrentRun = false;
+      audioEl.addEventListener('play', () => {
+        if (plays >= limit) {
+          refreshAudioUi();
+          return;
+        }
+        if (!countedCurrentRun) {
+          countedCurrentRun = true;
+          plays++;
+          safeStore.setItem(storageKey, String(plays));
+          refreshAudioUi();
+        }
+      });
+      audioEl.addEventListener('ended', () => {
+        countedCurrentRun = false;
+        refreshAudioUi();
+      });
+
+      refreshAudioUi();
+    });
+
+    // Restore ragu-ragu dari storage lokal (gabung dengan data DB pada data-doubtful)
     const doubtfulKey = `cbt_doubtful_${TEST_ID}`;
     const doubtfulList = JSON.parse(safeStore.getItem(doubtfulKey, '[]'));
     items.forEach(item => {

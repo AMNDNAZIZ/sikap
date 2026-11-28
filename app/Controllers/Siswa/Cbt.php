@@ -223,6 +223,10 @@ class Cbt extends BaseController
     // =========================
     public function saveAnswersBulk()
     {
+        if (!$this->request->is('post')) {
+            return $this->fail('Metode request tidak diizinkan.', 405);
+        }
+
         log_message('info', '[CBT::saveAnswersBulk] Hit from ' . $this->request->getIPAddress());
 
         $studentId = $this->getStudentId();
@@ -232,7 +236,6 @@ class Cbt extends BaseController
         }
 
         // 🚀 SHARED HOSTING OPTIMIZATION: Release session lock immediately!
-        // Prevents database/file session locks from blocking concurrent requests.
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close();
         }
@@ -247,30 +250,41 @@ class Cbt extends BaseController
         }
 
         $testId = isset($payload['test_id']) ? (int) $payload['test_id'] : null;
-        $answersInput = $payload['answers'] ?? null;
+        $answersInput = $payload['answers'] ?? [];
+        $doubtfulInput = $payload['doubtful'] ?? [];
 
-        if (empty($testId) || empty($answersInput)) {
+        if (empty($testId) || (empty($answersInput) && empty($doubtfulInput))) {
             log_message('error', "[CBT::saveAnswersBulk] Incomplete payload - Student: $studentId, TestID: " . ($testId ?? 'null'));
             return $this->failValidationErrors('Payload tidak lengkap atau kosong.');
         }
-
-        log_message('debug', "[CBT::saveAnswersBulk] Processing - Student: $studentId, Test: $testId, Answers count: " . (is_array($answersInput) ? count($answersInput) : 'unknown'));
 
         // Validate session using service
         $validation = $this->sessionService->validateSession($studentId, $testId);
 
         if (!$validation['valid']) {
             log_message('error', "[CBT::saveAnswersBulk] Validation failed - Student: $studentId, Test: $testId, Reason: {$validation['reason']}, Message: {$validation['message']}");
-            $statusCode = in_array($validation['reason'], ['session_expired', 'cheat_locked']) ? 403 : 400;
-            return $this->fail($validation['message'], $statusCode);
+            $statusCode = in_array($validation['reason'], ['session_expired', 'cheat_locked', 'test_paused']) ? 403 : 400;
+            return $this->respond([
+                'status' => $validation['reason'] === 'test_paused' ? 'paused' : 'error',
+                'reason' => $validation['reason'],
+                'error' => $validation['message'],
+                'message' => $validation['message']
+            ], $statusCode);
         }
 
         $session = $validation['session'];
 
-        // Check if locked by cheat detection
         if ($session['cheat_locked'] ?? 0) {
-            log_message('warning', "[CBT::saveAnswersBulk] Student $studentId locked by anti-cheat for test $testId");
             return $this->failForbidden('Ujian telah ditutup oleh pengawas.');
+        }
+
+        // Update doubtful-only flags if provided
+        if (is_array($doubtfulInput) && !empty($doubtfulInput)) {
+            foreach ($doubtfulInput as $dqid => $isD) {
+                if (is_numeric((string) $dqid)) {
+                    $this->answerService->markAsDoubtful($studentId, $testId, (int) $dqid, (bool) $isD);
+                }
+            }
         }
 
         // Normalize answers into array structure
@@ -283,8 +297,14 @@ class Cbt extends BaseController
             }
         }
 
-        if (!is_array($answersInput)) {
-            return $this->failValidationErrors('Invalid answers payload');
+        if (!is_array($answersInput) || empty($answersInput)) {
+            return $this->respond([
+                'status'    => 'ok',
+                'saved'     => 0,
+                'succeeded' => [],
+                'failed'    => [],
+                'conflicts' => []
+            ]);
         }
 
         // Parse answers into normalized format
@@ -300,7 +320,6 @@ class Cbt extends BaseController
             ]);
         }
 
-        // Extract expected_version map if client tracked CAS versions
         $expectedVersions = [];
         if (is_array($answersInput)) {
             foreach ($answersInput as $item) {
@@ -313,7 +332,7 @@ class Cbt extends BaseController
             }
         }
 
-        // Save using service (legacy layer)
+        // Save using service (primary operational layer)
         $result = $this->answerService->saveBulkAnswers($studentId, $testId, $answers);
 
         if (!$result['success']) {
@@ -321,87 +340,87 @@ class Cbt extends BaseController
             return $this->fail($result['message'], 500);
         }
 
-        log_message('info', "[CBT::saveAnswersBulk] Success - Student: $studentId, Test: $testId, Saved: " . ($result['data']['count'] ?? 0) . " answers");
-
-        $succeeded = [];
+        $succeeded = array_map('intval', array_keys($answers));
         $failed = [];
         $conflicts = [];
 
-        // 🚀 BULK V3 QUERY OPTIMIZATION (Eliminate N+1 query loop):
-        // Pre-fetch all questions and existing V3 answers in 2 batch queries
-        // instead of executing 120-160 sequential queries inside the loop!
-        $qIds = array_map('intval', array_keys($answers));
-        $qMap = [];
-        if (!empty($qIds)) {
-            $qRows = $this->questionModel->whereIn('id', $qIds)->findAll();
-            foreach ($qRows as $qr) {
-                $qMap[(int)$qr['id']] = $qr;
-            }
-        }
+        // Sync to V3 pipeline ONLY if session has provisioned V3 session_items (prevents false FK failure blocking offline queue)
+        $hasV3Items = db_connect()->table('cbt_session_items')
+            ->where('session_id', (int) $session['id'])
+            ->countAllResults() > 0;
 
-        $v3Model = new \App\Models\CbtAnswerV3Model();
-        $existingMap = [];
-        if (!empty($qIds)) {
-            $existingRows = $v3Model->where('session_id', (int)$session['id'])
-                ->whereIn('item_version_id', $qIds)
-                ->findAll();
-            foreach ($existingRows as $er) {
-                $existingMap[(int)$er['item_version_id']] = $er;
-            }
-        }
-
-        // 🔹 V3 Assessment Intelligence Pipeline Sync with CAS & Partial Batch Distinction
-        foreach ($answers as $qid => $ansVal) {
-            $qidInt = (int)$qid;
-            $q = $qMap[$qidInt] ?? null;
-
-            if (!$q) {
-                $failed[] = [
-                    'question_id'   => $qidInt,
-                    'incident_type' => 'SERVER_PERSISTENCE_FAILURE',
-                    'error'         => 'Question not found'
-                ];
-                continue;
+        if ($hasV3Items) {
+            $succeeded = [];
+            $qIds = array_map('intval', array_keys($answers));
+            $qMap = [];
+            if (!empty($qIds)) {
+                $qRows = $this->questionModel->whereIn('id', $qIds)->findAll();
+                foreach ($qRows as $qr) {
+                    $qMap[(int)$qr['id']] = $qr;
+                }
             }
 
-            $existing = $existingMap[$qidInt] ?? null;
-            $payloadStr = is_string($ansVal) ? $ansVal : json_encode($ansVal);
-            $expVer = $expectedVersions[$qid] ?? null;
-
-            // 🚀 FAST-PATH: If answer payload is identical to existing DB state, skip writes!
-            if ($existing && (string)$existing['answer_payload'] === (string)$payloadStr) {
-                $succeeded[] = $qidInt;
-                continue;
+            $v3Model = new \App\Models\CbtAnswerV3Model();
+            $existingMap = [];
+            if (!empty($qIds)) {
+                $existingRows = $v3Model->where('session_id', (int)$session['id'])
+                    ->whereIn('item_version_id', $qIds)
+                    ->findAll();
+                foreach ($existingRows as $er) {
+                    $existingMap[(int)$er['item_version_id']] = $er;
+                }
             }
 
-            // Sync new or modified answer to V3 pipeline
-            try {
-                $qType = strtolower($q['question_type'] ?? 'pg');
-                $correctKey = $q['correct_option'] ?? null;
-                $weight = (float)($q['score'] ?? 1.0);
-                $res = $this->pipelineService->submitAnswer(
-                    (int)$session['id'],
-                    $qidInt,
-                    (int)$studentId,
-                    $qType,
-                    $ansVal,
-                    $correctKey,
-                    $weight,
-                    $expVer
-                );
-                $succeeded[] = $qidInt;
-            } catch (\RuntimeException $e) {
-                $conflicts[] = [
-                    'question_id'   => $qidInt,
-                    'incident_type' => 'STALE_VERSION_CONFLICT',
-                    'message'       => $e->getMessage()
-                ];
-            } catch (\Throwable $e) {
-                $failed[] = [
-                    'question_id'   => $qidInt,
-                    'incident_type' => 'SERVER_PERSISTENCE_FAILURE',
-                    'error'         => $e->getMessage()
-                ];
+            foreach ($answers as $qid => $ansVal) {
+                $qidInt = (int)$qid;
+                $q = $qMap[$qidInt] ?? null;
+
+                if (!$q) {
+                    $failed[] = [
+                        'question_id'   => $qidInt,
+                        'incident_type' => 'SERVER_PERSISTENCE_FAILURE',
+                        'error'         => 'Question not found'
+                    ];
+                    continue;
+                }
+
+                $existing = $existingMap[$qidInt] ?? null;
+                $payloadStr = is_string($ansVal) ? $ansVal : json_encode($ansVal);
+                $expVer = $expectedVersions[$qid] ?? null;
+
+                if ($existing && (string)$existing['answer_payload'] === (string)$payloadStr) {
+                    $succeeded[] = $qidInt;
+                    continue;
+                }
+
+                try {
+                    $qType = strtolower($q['question_type'] ?? 'pg');
+                    $correctKey = $q['correct_option'] ?? null;
+                    $weight = (float)($q['score'] ?? 1.0);
+                    $this->pipelineService->submitAnswer(
+                        (int)$session['id'],
+                        $qidInt,
+                        (int)$studentId,
+                        $qType,
+                        $ansVal,
+                        $correctKey,
+                        $weight,
+                        $expVer
+                    );
+                    $succeeded[] = $qidInt;
+                } catch (\RuntimeException $e) {
+                    $conflicts[] = [
+                        'question_id'   => $qidInt,
+                        'incident_type' => 'STALE_VERSION_CONFLICT',
+                        'message'       => $e->getMessage()
+                    ];
+                } catch (\Throwable $e) {
+                    $failed[] = [
+                        'question_id'   => $qidInt,
+                        'incident_type' => 'SERVER_PERSISTENCE_FAILURE',
+                        'error'         => $e->getMessage()
+                    ];
+                }
             }
         }
 
@@ -521,6 +540,7 @@ class Cbt extends BaseController
         $session = $this->sessionModel
             ->where('student_id', $studentId)
             ->where('test_id', (int) $testId)
+            ->orderBy('id', 'DESC')
             ->first();
 
         if (!$session) {
@@ -541,6 +561,8 @@ class Cbt extends BaseController
             return $this->fail('Data ujian tidak ditemukan.', 404);
         }
 
+        $isPaused = !empty($test['is_paused']);
+
         // Calculate remaining time
         $startTs = (int) $session['started_at'];
         $durationSec = max(10, ((int) $test['duration']) * 60);
@@ -556,7 +578,8 @@ class Cbt extends BaseController
 
         return $this->respond([
             'success' => true,
-            'status' => 'active',
+            'status' => $isPaused ? 'paused' : 'active',
+            'is_paused' => $isPaused,
             'remaining_seconds' => $remainingSeconds,
             'elapsed_seconds' => $elapsedSeconds,
             'server_time' => $nowTs
@@ -568,10 +591,14 @@ class Cbt extends BaseController
     // =========================
     public function ping()
     {
+        if (!$this->request->is('post')) {
+            return $this->fail('Metode request harus POST.', 405);
+        }
+
         try {
             $studentId = $this->getStudentId();
             if (!$studentId) {
-                return $this->respond(['status' => 'unauthenticated']);
+                return $this->respond(['status' => 'unauthenticated'], 401);
             }
 
             // 🚀 SHARED HOSTING OPTIMIZATION: Release session lock immediately!
@@ -587,6 +614,7 @@ class Cbt extends BaseController
                 $session = $this->sessionModel
                     ->where('student_id', $studentId)
                     ->where('test_id', (int) $testId)
+                    ->orderBy('id', 'DESC')
                     ->first();
 
                 if (!$session) {
@@ -601,20 +629,23 @@ class Cbt extends BaseController
                     ]);
                 }
 
-                // Update last_activity using datetime string
+                $nowTs = time();
+
+                // Update last_activity using Unix integer timestamp
                 try {
                     $this->sessionModel->where('student_id', $studentId)
                         ->where('test_id', (int) $testId)
-                        ->set(['last_activity' => date('Y-m-d H:i:s')])
+                        ->set(['last_activity' => $nowTs])
                         ->update();
                 } catch (\Throwable $e) {
                 }
 
-                // Handle anti-cheat logic
+                // Handle anti-cheat logic & pause check
                 $test = $this->testModel->find($testId);
+                $isPaused = !empty($test['is_paused']);
                 $antiCheat = $test['anti_cheat'] ?? 'tidak';
 
-                if ($event && $antiCheat !== 'tidak') {
+                if ($event && $antiCheat !== 'tidak' && !$isPaused) {
                     // Log the violation
                     try {
                         $db = db_connect();
@@ -622,7 +653,7 @@ class Cbt extends BaseController
                             'student_id' => $studentId,
                             'test_id' => (int) $testId,
                             'event' => $event,
-                            'created_at' => date('Y-m-d H:i:s')
+                            'created_at' => date('Y-m-d H:i:s', $nowTs)
                         ]);
                     } catch (\Throwable $e) {
                         log_message('error', '[CBT::ping] Error logging cheat: ' . $e->getMessage());
@@ -635,7 +666,6 @@ class Cbt extends BaseController
                 // 🚀 PIGGYBACK TIMER SYNC: calculate remaining seconds
                 $remainingSeconds = null;
                 $elapsedSeconds = null;
-                $nowTs = time();
                 if (!empty($session['started_at']) && !empty($test['duration'])) {
                     $startTs = (int) $session['started_at'];
                     $durationSec = max(10, ((int) $test['duration']) * 60);
@@ -647,8 +677,11 @@ class Cbt extends BaseController
                     $elapsedSeconds = max(0, $nowTs - $startTs);
                 }
 
+                $respStatus = $cheatStatus['is_locked'] ? 'finished' : ($isPaused ? 'paused' : 'ok');
+
                 return $this->respond(array_merge([
-                    'status' => $cheatStatus['is_locked'] ? 'finished' : 'ok',
+                    'status' => $respStatus,
+                    'is_paused' => $isPaused,
                     'is_locked' => $cheatStatus['is_locked'],
                     'remaining_seconds' => $remainingSeconds,
                     'elapsed_seconds' => $elapsedSeconds,
@@ -755,6 +788,11 @@ class Cbt extends BaseController
         // 10. Save session data
         $this->saveActiveTestSession($test, $session['started_at'], $resetToken);
 
+        // 🚀 SHARED HOSTING OPTIMIZATION: Release PHP session lock before view rendering
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
         // 11. Get existing violation count for anti-cheat
         $existingViolationCount = 0;
         if (($test['anti_cheat'] ?? 'tidak') !== 'tidak') {
@@ -788,11 +826,11 @@ class Cbt extends BaseController
             return $this->response->setStatusCode(400)->setJSON(['error' => 'Invalid request']);
         }
 
-        // 🔹 FIX: Use getStudentId() method for consistent student ID retrieval
         $studentId = $this->getStudentId();
         $testId = $this->request->getPost('test_id');
         $questionId = $this->request->getPost('question_id');
         $answer = $this->request->getPost('answer');
+        $isDoubtful = (bool) ($this->request->getPost('is_doubtful') ?? false);
 
         if (!$studentId || !$testId || !$questionId) {
             log_message('error', "[CBT::saveAnswer] MISSING DATA: studentId=" . var_export($studentId, true) . ", testId=" . var_export($testId, true) . ", qid=" . var_export($questionId, true));
@@ -808,8 +846,11 @@ class Cbt extends BaseController
         $validation = $this->sessionService->validateSession($studentId, $testId);
 
         if (!$validation['valid']) {
-            $statusCode = in_array($validation['reason'], ['session_expired', 'cheat_locked']) ? 403 : 400;
-            return $this->response->setStatusCode($statusCode)->setJSON(['error' => $validation['message']]);
+            $statusCode = in_array($validation['reason'], ['session_expired', 'cheat_locked', 'test_paused']) ? 403 : 400;
+            return $this->response->setStatusCode($statusCode)->setJSON([
+                'status' => $validation['reason'] === 'test_paused' ? 'paused' : 'error',
+                'error'  => $validation['message'],
+            ]);
         }
 
         $session = $validation['session'];
@@ -820,14 +861,20 @@ class Cbt extends BaseController
         }
 
         // Save answer using service
-        $result = $this->answerService->saveAnswer($studentId, $testId, $questionId, $answer, false);
+        $result = $this->answerService->saveAnswer($studentId, $testId, $questionId, $answer, $isDoubtful);
 
         if (!$result['success']) {
             return $this->response->setStatusCode(500)->setJSON(['error' => $result['message']]);
         }
 
-        // 🔹 V3 Assessment Intelligence Pipeline Sync
-        $v3Res = $this->syncToV3Pipeline((int)$session['id'], (int)$studentId, (int)$questionId, $answer);
+        // 🔹 V3 Assessment Intelligence Pipeline Sync (only when V3 session_items are provisioned)
+        $v3Res = ['status' => 'skipped_legacy', 'version' => 1];
+        $hasV3Items = db_connect()->table('cbt_session_items')
+            ->where('session_id', (int) $session['id'])
+            ->countAllResults() > 0;
+        if ($hasV3Items) {
+            $v3Res = $this->syncToV3Pipeline((int)$session['id'], (int)$studentId, (int)$questionId, $answer);
+        }
 
         // Update last_activity with throttling (30 seconds interval)
         helper('cbt');
@@ -886,24 +933,24 @@ class Cbt extends BaseController
                 return $this->respond(['error' => 'Data ujian tidak ditemukan.'], 404);
             }
 
-            // Check if forced submit
-            $isForced = $this->isForcedSubmit();
+        // Check if server confirms forced submit (cheat_locked OR time expired)
+        $isForced = $this->isForcedSubmit($session, $test);
 
-            // Check if already finished
-            if ($session['status'] === 'finished') {
+        // Check if already finished
+        if ($session['status'] === 'finished') {
+            $db->transRollback();
+            $redirectUrl = $this->determineSubmitRedirect($testId, $test, $isForced);
+            return $this->respond(['redirect' => $redirectUrl]);
+        }
+
+        // Validate submission timing (unless forced)
+        if (!$isForced) {
+            $timingValidation = $this->validateSubmitTiming($session, $test);
+            if (!$timingValidation['valid']) {
                 $db->transRollback();
-                $redirectUrl = $this->determineSubmitRedirect($testId, $test, $isForced);
-                return $this->respond(['redirect' => $redirectUrl]);
+                return $this->respond(['error' => $timingValidation['message']], 403);
             }
-
-            // Validate submission timing (unless forced)
-            if (!$isForced) {
-                $timingValidation = $this->validateSubmitTiming($session, $test);
-                if (!$timingValidation['valid']) {
-                    $db->transRollback();
-                    return $this->respond(['error' => $timingValidation['message']], 403);
-                }
-            }
+        }
 
             // 🔹 BULLETPROOF ANSWER SYNC:
             // Simpan semua jawaban yang dikirimkan bersama payload submit (JSON / POST) ke DB sebelum validasi.
@@ -1046,44 +1093,64 @@ class Cbt extends BaseController
      */
     protected function lockAndGetSession($db, int $studentId, int $testId): ?array
     {
-        $session = $db->table('cbt_sessions')
-            ->where('student_id', $studentId)
-            ->where('test_id', $testId)
-            ->get()
-            ->getRowArray();
+        $session = $db->query(
+            'SELECT * FROM cbt_sessions WHERE student_id = ? AND test_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE',
+            [$studentId, $testId]
+        )->getRowArray();
 
         return $session ?: null;
     }
 
     /**
-     * Check if this is a forced submit (from anti-cheat or admin)
-     * 
-     * @return bool True if forced submit
+     * Check if this is a legitimate forced submit (verified server-side against anti-cheat lock or server expiry)
+     *
+     * @param array $session Session data
+     * @param array $test    Test data
+     * @return bool True only if server confirms cheat lock or deadline reached
      */
-    protected function isForcedSubmit(): bool
+    protected function isForcedSubmit(array $session = [], array $test = []): bool
     {
-        // Check GET parameter
+        $clientRequestedForced = false;
         if ($this->request->getGet('forced') === '1') {
-            return true;
+            $clientRequestedForced = true;
         }
-        
-        // Check POST parameter
         $postForced = $this->request->getPost('forced');
         if ($postForced === true || $postForced === '1' || $postForced === 1) {
-            return true;
+            $clientRequestedForced = true;
         }
-        
-        // Check JSON body (with error handling)
         try {
             $json = $this->request->getJSON();
-            if ($json && isset($json->forced) && $json->forced) {
-                return true;
+            if ($json && (!empty($json->forced) || !empty($json->timeout))) {
+                $clientRequestedForced = true;
             }
         } catch (\Throwable $e) {
-            // Not a JSON request or invalid JSON - ignore
-            log_message('debug', '[CBT::isForcedSubmit] JSON parse failed (expected for non-JSON requests): ' . $e->getMessage());
+            log_message('debug', '[CBT::isForcedSubmit] JSON parse skipped: ' . $e->getMessage());
         }
-        
+
+        if (!$clientRequestedForced) {
+            return false;
+        }
+
+        // Server-side verification: NEVER let students bypass minimum time or required questions arbitrarily
+        if (!empty($session['cheat_locked'])) {
+            return true;
+        }
+
+        if (!empty($session['started_at']) && !empty($test['duration'])) {
+            $startTs = (int) $session['started_at'];
+            $durationSec = max(10, ((int) $test['duration']) * 60);
+            $extraDuration = ((int) ($session['extra_time'] ?? 0)) * 60;
+            $sessionEndTs = $startTs + $durationSec + $extraDuration;
+            $testEndTs = !empty($test['end_time']) ? strtotime((string) $test['end_time']) : PHP_INT_MAX;
+            $effectiveEndTs = min($sessionEndTs, $testEndTs);
+
+            // Allow a small 5-second clock drift buffer for auto-submit at timer=0
+            if (time() >= ($effectiveEndTs - 5)) {
+                return true;
+            }
+        }
+
+        log_message('warning', '[CBT::isForcedSubmit] Rejected spoofed forced=1 submit from student ' . ($session['student_id'] ?? '?'));
         return false;
     }
 
@@ -1161,6 +1228,7 @@ class Cbt extends BaseController
         $session = $this->sessionModel
             ->where('student_id', $studentId)
             ->where('test_id', $testId)
+            ->orderBy('id', 'DESC')
             ->first();
 
         if (!$session)
@@ -1169,16 +1237,20 @@ class Cbt extends BaseController
             return true; // already done
 
         // Calculate score with bobot (delegates to centralized scoring service)
-        $score = $this->scoringService->calculateScoreWithBobot($studentId, $testId);
+        $breakdown = $this->scoringService->calculateScoreBreakdown((int) $studentId, (int) $testId);
+        $score = (float) ($breakdown['provisional_score'] ?? 0.0);
+        $isEssayPending = !empty($breakdown['is_essay_pending']);
+        $totalScoreToStore = $isEssayPending ? null : $score;
 
-        log_message('info', "[CBT::internalSubmit] Test: $testId, Student: $studentId, Score: $score");
+        log_message('info', "[CBT::internalSubmit] Test: $testId, Student: $studentId, ProvisionalScore: $score, EssayPending: " . ($isEssayPending ? 'true' : 'false'));
 
         $updateData = [
-            'status' => 'finished',
+            'status'      => 'finished',
             'finished_at' => time(),
-            'score' => $score,
-            'essay_score' => null,
-            'total_score' => $score,
+            'locked'      => 1,
+            'score'       => $score,
+            'essay_score' => $session['essay_score'] ?? null,
+            'total_score' => $totalScoreToStore,
         ];
 
         try {
@@ -1457,6 +1529,7 @@ class Cbt extends BaseController
         return $this->sessionModel
             ->where('student_id', $studentId)
             ->where('test_id', $testId)
+            ->orderBy('id', 'DESC')
             ->first();
     }
 
@@ -1586,38 +1659,20 @@ class Cbt extends BaseController
      */
     protected function checkAnswerCorrectness(string $type, string $studentAnswer, ?string $correctOption): bool
     {
-        if (empty($correctOption) || empty($studentAnswer)) {
+        if (empty($correctOption) || trim($studentAnswer) === '') {
             return false;
         }
 
         if (in_array($type, ['pg', 'pilihan_ganda', 'multiple_choice'])) {
-            return $studentAnswer === $correctOption;
+            return \App\Services\CbtScoringService::calculateQuestionScoreRatio('pg', $studentAnswer, $correctOption) >= 1.0;
         }
 
         if ($type === 'pg_kompleks' || $type === 'pgk') {
-            $correctArr = explode(',', $correctOption);
-            $studentArr = explode(',', $studentAnswer);
-            $cSel = count(array_intersect($studentArr, $correctArr));
-            $iSel = count(array_diff($studentArr, $correctArr));
-            $tCorr = count($correctArr);
-            $raw = $cSel - (0.5 * $iSel);
-            $qScore = ($tCorr > 0) ? (max(0, $raw) / $tCorr) : 0;
-            return $qScore >= 0.7;
+            return \App\Services\CbtScoringService::calculateQuestionScoreRatio('pg_kompleks', $studentAnswer, $correctOption) >= 0.7;
         }
 
         if ($type === 'benar_salah' || $type === 'bs') {
-            $cArr = explode(',', $correctOption);
-            $sArr = explode(',', $studentAnswer);
-            $matches = 0;
-            $ti = count($cArr);
-            for ($k = 0; $k < $ti; $k++) {
-                $studentAns = isset($sArr[$k]) ? trim($sArr[$k]) : '';
-                $correctAns = isset($cArr[$k]) ? trim($cArr[$k]) : '';
-                if ($studentAns !== '' && $studentAns === $correctAns) {
-                    $matches++;
-                }
-            }
-            return ($ti > 0 && ($matches / $ti) >= 0.7);
+            return \App\Services\CbtScoringService::calculateQuestionScoreRatio('benar_salah', $studentAnswer, $correctOption) >= 0.7;
         }
 
         return false;
@@ -1747,18 +1802,7 @@ class Cbt extends BaseController
      */
     protected function calculatePgkScore(string $studentAnswer, ?string $correctOption): float
     {
-        if (empty($correctOption) || empty($studentAnswer)) {
-            return 0;
-        }
-
-        $correctArr = explode(',', $correctOption);
-        $studentArr = explode(',', $studentAnswer);
-        $cSel = count(array_intersect($studentArr, $correctArr));
-        $iSel = count(array_diff($studentArr, $correctArr));
-        $tCorr = count($correctArr);
-
-        $rawScore = $cSel - (0.5 * $iSel);
-        return $tCorr > 0 ? (max(0, $rawScore) / $tCorr) : 0;
+        return \App\Services\CbtScoringService::calculateQuestionScoreRatio('pg_kompleks', $studentAnswer, $correctOption);
     }
 
     /**
@@ -1770,36 +1814,22 @@ class Cbt extends BaseController
      */
     protected function calculateBsScore(string $studentAnswer, ?string $correctOption): float
     {
-        if (empty($correctOption) || empty($studentAnswer)) {
-            return 0;
-        }
-
-        $correctArr = explode(',', $correctOption);
-        $studentArr = explode(',', $studentAnswer);
-        $matches = 0;
-        $totalItems = count($correctArr);
-
-        for ($k = 0; $k < $totalItems; $k++) {
-            $studentAns = isset($studentArr[$k]) ? trim($studentArr[$k]) : '';
-            $correctAns = isset($correctArr[$k]) ? trim($correctArr[$k]) : '';
-            if ($studentAns !== '' && $studentAns === $correctAns) {
-                $matches++;
-            }
-        }
-
-        return ($totalItems > 0) ? ($matches / $totalItems) : 0;
+        return \App\Services\CbtScoringService::calculateQuestionScoreRatio('benar_salah', $studentAnswer, $correctOption);
     }
 
     /**
      * Update session score if it differs from calculated score
      * 
      * @param array $session Session data
-     * @param float $calculatedScore Calculated score
+     * @param float|null $calculatedScore Calculated score (null if pending essay)
      * @return void
      */
-    protected function updateSessionScoreIfNeeded(array $session, float $calculatedScore): void
+    protected function updateSessionScoreIfNeeded(array $session, ?float $calculatedScore): void
     {
-        if (!isset($session['score']) || (float) $session['score'] != $calculatedScore) {
+        if ($calculatedScore === null) {
+            return;
+        }
+        if (!isset($session['score']) || (float) $session['score'] != $calculatedScore || (float) ($session['total_score'] ?? -1) != $calculatedScore) {
             $this->sessionModel->update($session['id'], [
                 'score' => $calculatedScore,
                 'total_score' => $calculatedScore
@@ -1842,6 +1872,7 @@ class Cbt extends BaseController
         $session = $this->sessionModel
             ->where('student_id', $studentId)
             ->where('test_id', $testId)
+            ->orderBy('id', 'DESC')
             ->first();
 
         if (!$session) {
@@ -1890,38 +1921,13 @@ class Cbt extends BaseController
 
             if (in_array($type, ['pg', 'pilihan_ganda', 'multiple_choice'])) {
                 $stats['pg']['total']++;
-                if ($correctStr !== '' && $studentAns !== null && strtoupper(trim((string) $studentAns)) === strtoupper(trim((string) $correctStr))) {
-                    $stats['pg']['earned']++;
-                }
+                $stats['pg']['earned'] += \App\Services\CbtScoringService::calculateQuestionScoreRatio('pg', $studentAns, $correctStr);
             } elseif ($type === 'pg_kompleks' || $type === 'pgk') {
                 $stats['pgk']['total']++;
-                if (!empty($correctStr) && !empty($studentAns)) {
-                    $cArr = explode(',', $correctStr);
-                    $sArr = explode(',', $studentAns);
-                    $cSel = count(array_intersect($sArr, $cArr));
-                    $iSel = count(array_diff($sArr, $cArr));
-                    $tCorr = count($cArr);
-                    $raw = $cSel - (0.5 * $iSel);
-                    $stats['pgk']['earned'] += ($tCorr > 0) ? (max(0, $raw) / $tCorr) : 0;
-                }
+                $stats['pgk']['earned'] += \App\Services\CbtScoringService::calculateQuestionScoreRatio('pg_kompleks', $studentAns, $correctStr);
             } elseif ($type === 'benar_salah' || $type === 'bs') {
                 $stats['bs']['total']++;
-                if (!empty($correctStr) && !empty($studentAns)) {
-                    $cArr = explode(',', $correctStr);
-                    $sArr = explode(',', $studentAns);
-                    $m = 0;
-                    $ti = count($cArr);
-                    for ($i = 0; $i < $ti; $i++) {
-                        // 🔒 FIX: Handle empty answers properly
-                        $stdAns = isset($sArr[$i]) ? trim($sArr[$i]) : '';
-                        $keyAns = isset($cArr[$i]) ? trim($cArr[$i]) : '';
-
-                        if ($stdAns !== '' && strtoupper($stdAns) === strtoupper($keyAns)) {
-                            $m++;
-                        }
-                    }
-                    $stats['bs']['earned'] += ($ti > 0) ? ($m / $ti) : 0;
-                }
+                $stats['bs']['earned'] += \App\Services\CbtScoringService::calculateQuestionScoreRatio('benar_salah', $studentAns, $correctStr);
             } else {
                 $stats['esai']['total']++;
             }
@@ -1983,6 +1989,7 @@ class Cbt extends BaseController
         $session = $this->sessionModel
             ->where('student_id', $studentId)
             ->where('test_id', $testId)
+            ->orderBy('id', 'DESC')
             ->first();
 
         if (!$session) {
@@ -1992,29 +1999,13 @@ class Cbt extends BaseController
         return $this->response->setJSON([
             'success' => true,
             'status' => $session['status'],
-            'score' => $session['score'] ?? '-'
+            'score' => $session['total_score'] ?? $session['score'] ?? '-'
         ]);
     }
 
     // =========================
-    // cekToken(), verifyToken(), peraturan() - token & rules checks
+    // verifyToken(), peraturan() - token & rules checks
     // =========================
-    public function cekToken($id)
-    {
-        $token = $this->request->getPost('token');
-        $test = $this->testModel->find($id);
-
-        if (!$test) {
-            return redirect()->back()->with('error', 'Ujian tidak ditemukan.');
-        }
-
-        if (strtoupper($token) !== strtoupper($test['token'])) {
-            return redirect()->back()->with('error', 'Token salah.');
-        }
-
-        return redirect()->to('siswa/cbt/peraturan/' . $id);
-    }
-
     public function verifyToken($testId = null)
     {
         if (!$this->request->is('post')) {
@@ -2024,7 +2015,7 @@ class Cbt extends BaseController
         $inputToken = strtoupper(trim($this->request->getPost('token') ?? ''));
 
         $test = $this->testModel
-            ->select('cbt_test_status.*, cbt_question_banks.code AS bank_code, subjects.name AS subject_name')
+            ->select('cbt_test_status.*, cbt_question_banks.code AS bank_code, subjects.name AS subject_name, subjects.religion AS subject_religion')
             ->join('cbt_question_banks', 'cbt_question_banks.id = cbt_test_status.bank_id', 'left')
             ->join('subjects', 'subjects.id = cbt_question_banks.subject_id', 'left')
             ->find($testId);
@@ -2033,11 +2024,26 @@ class Cbt extends BaseController
             return redirect()->back()->with('error', 'Ujian tidak ditemukan.');
         }
 
+        if ((int) ($test['is_visible'] ?? 0) !== 1) {
+            return redirect()->back()->with('error', 'Ujian sedang dinonaktifkan oleh pengawas/admin.');
+        }
+
+        if (!empty($test['is_paused'])) {
+            return redirect()->back()->with('error', 'Ujian sedang dijeda sementara oleh pengawas/admin.');
+        }
+
         $user = session()->get('user');
-        $studentId = $user['related_id'] ?? null;
+        $studentId = ((int) ($user['role_id'] ?? 0) === 5) ? ($user['student_id'] ?? $user['related_id'] ?? null) : null;
 
         if (!$studentId) {
-            return redirect()->to('/login')->with('error', 'Sesi login tidak valid.');
+            return redirect()->to('/login')->with('error', 'Sesi login siswa tidak valid.');
+        }
+
+        // Token brute-force rate limit (5 failed attempts -> 60s block)
+        $rateKey = 'cbt_token_fail_' . (int) $studentId . '_' . (int) $testId;
+        $failCount = (int) (cache($rateKey) ?? 0);
+        if ($failCount >= 5) {
+            return redirect()->back()->with('error', 'Terlalu banyak percobaan token salah. Tunggu 1 menit sebelum mencoba lagi.');
         }
 
         log_message('info', "[CBT::verifyToken] Student $studentId attempting test $testId with token");
@@ -2077,8 +2083,10 @@ class Cbt extends BaseController
         }
 
         if (strtoupper($test['token']) !== $inputToken) {
+            cache()->save($rateKey, $failCount + 1, 60);
             return redirect()->back()->with('error', 'Token ujian salah.');
         }
+        cache()->delete($rateKey);
 
         $now = time();
         $start = strtotime($test['start_time']);
@@ -2181,36 +2189,12 @@ class Cbt extends BaseController
     protected function validateAndGetStudentId(int $testId): ?int
     {
         $user = session()->get('user');
-        $studentId = $user['student_id'] ?? $user['related_id'] ?? null;
-
-        // 🔒 REFRESH PROTECTION: If session is empty but there's an active exam, try to restore
-        if (!$studentId) {
-            $activeSession = $this->sessionModel
-                ->select('cbt_sessions.*, students.user_id')
-                ->join('students', 'students.id = cbt_sessions.student_id', 'left')
-                ->where('cbt_sessions.test_id', $testId)
-                ->where('cbt_sessions.status', 'active')
-                ->orderBy('cbt_sessions.started_at', 'DESC')
-                ->first();
-
-            if ($activeSession && !empty($activeSession['user_id'])) {
-                $userModel = new \App\Models\UserModel();
-                $userData = $userModel->find($activeSession['user_id']);
-
-                if ($userData) {
-                    session()->set([
-                        'logged_in' => true,
-                        'user' => $userData,
-                        'student_id' => $activeSession['student_id']
-                    ]);
-
-                    $studentId = $activeSession['student_id'];
-                    log_message('info', "[CBT::mulai] Session restored for student {$studentId} after refresh");
-                }
-            }
+        if (empty($user) || (int) ($user['role_id'] ?? 0) !== 5) {
+            return null;
         }
 
-        return $studentId;
+        $studentId = $user['student_id'] ?? $user['related_id'] ?? null;
+        return $studentId ? (int) $studentId : null;
     }
 
     /**
@@ -2299,6 +2283,11 @@ class Cbt extends BaseController
             return ['valid' => false, 'message' => 'Ujian ini tidak aktif.'];
         }
 
+        // Check if test is paused by admin/proctor
+        if (!empty($test['is_paused'])) {
+            return ['valid' => false, 'message' => 'Ujian sedang dijeda sementara oleh pengawas/admin. Silakan tunggu hingga dilanjutkan kembali.'];
+        }
+
         // Check start time
         if ($nowStr < $test['start_time']) {
             return ['valid' => false, 'message' => 'Ujian belum dimulai.'];
@@ -2335,14 +2324,11 @@ class Cbt extends BaseController
         $db = db_connect();
         $db->transStart();
 
-        // Use FOR UPDATE to lock the row
-        $existingSession = $db->table('cbt_sessions')
-            ->where('student_id', $studentId)
-            ->where('test_id', $testId)
-            ->orderBy('id', 'DESC')
-            ->limit(1)
-            ->get()
-            ->getRowArray();
+        // Use genuine FOR UPDATE row lock inside transaction to prevent double-click races
+        $existingSession = $db->query(
+            'SELECT * FROM cbt_sessions WHERE student_id = ? AND test_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE',
+            [$studentId, $testId]
+        )->getRowArray();
 
         // Check if already finished
         if ($existingSession && ($existingSession['status'] === 'finished')) {
@@ -2357,31 +2343,37 @@ class Cbt extends BaseController
         $session = null;
 
         if ($existingSession) {
-            // Check for admin reset token mismatch
-            $clientActiveTest = session()->get('active_test') ?? [];
-            $clientToken = $clientActiveTest['reset_token'] ?? '';
-            $serverToken = $existingSession['reset_token'] ?? '';
-
-            if (!empty($serverToken) && $clientToken !== $serverToken) {
-                // Admin reset - clear answers and mark for recreation
-                $this->clearStudentAnswers($studentId, $testId);
-                $needCreate = true;
-            } else {
-                // Check if session expired
-                $sessionEndTs = $this->calculateSessionEndTime($existingSession, $test);
-                if ($sessionEndTs === null || $nowTs >= $sessionEndTs) {
-                    $needCreate = true;
-                } else {
-                    // Check if question_order is empty (failsafe)
-                    $qOrderCheck = json_decode($existingSession['question_order'] ?? '[]', true);
-                    if (empty($qOrderCheck)) {
-                        $needCreate = true;
-                    } else {
-                        // Reuse existing session
-                        $session = $existingSession;
-                    }
+            // Check if duration already expired: auto-submit instead of wiping answers!
+            $sessionEndTs = $this->calculateSessionEndTime($existingSession, $test);
+            if ($sessionEndTs === null || $nowTs >= $sessionEndTs) {
+                $this->internalSubmit($studentId, $testId, false);
+                $db->transComplete();
+                if (!empty($existingSession['id'])) {
+                    $this->syncFinishToV3Pipeline((int) $existingSession['id'], (int) $testId);
                 }
+                return [
+                    'redirect' => redirect()->to(site_url('siswa/cbt'))->with('info', 'Waktu pengerjaan ujian Anda telah berakhir dan jawaban telah dikumpulkan otomatis.')
+                ];
             }
+
+            // Check if question_order is empty (failsafe without wiping answers)
+            $qOrderCheck = json_decode($existingSession['question_order'] ?? '[]', true);
+            if (empty($qOrderCheck)) {
+                $questionOrder = $this->questionService->generateQuestionOrder($test['bank_id'], $test);
+                $mergedQuestions = $this->questionService->getQuestionsInOrder($questionOrder);
+                $shouldShuffleOptions = ($test['shuffle_option'] ?? 'tidak') === 'ya';
+                $optionOrders = $this->questionService->generateOptionOrders($mergedQuestions, $shouldShuffleOptions);
+
+                $db->table('cbt_sessions')->where('id', $existingSession['id'])->update([
+                    'question_order' => json_encode($questionOrder),
+                    'option_orders'  => json_encode($optionOrders),
+                    'last_activity'  => $nowTs,
+                ]);
+                $existingSession['question_order'] = json_encode($questionOrder);
+                $existingSession['option_orders'] = json_encode($optionOrders);
+            }
+
+            $session = $existingSession;
         } else {
             $needCreate = true;
         }
@@ -2390,11 +2382,6 @@ class Cbt extends BaseController
         $resetToken = '';
 
         if ($needCreate) {
-            // Clear old answers if exists
-            if ($existingSession && !empty($existingSession['id'])) {
-                $this->clearStudentAnswers($studentId, $testId);
-            }
-
             $isNewSession = true;
 
             // Generate question and option orders using service
@@ -2412,22 +2399,18 @@ class Cbt extends BaseController
                 'status' => 'active',
                 'question_order' => json_encode($questionOrder),
                 'option_orders' => json_encode($optionOrders),
-                'last_activity' => date('Y-m-d H:i:s'),
+                'last_activity' => $nowTs,
                 'reset_token' => $resetToken,
-                'cheat_locked' => 0,
+                'cheat_locked' => null,
+                'locked' => 0,
                 'finished_at' => null,
                 'score' => null,
                 'essay_score' => null,
                 'total_score' => null
             ];
 
-            if ($existingSession && !empty($existingSession['id'])) {
-                $db->table('cbt_sessions')->where('id', $existingSession['id'])->update($insertData);
-                $sessionId = $existingSession['id'];
-            } else {
-                $db->table('cbt_sessions')->insert($insertData);
-                $sessionId = $db->insertID();
-            }
+            $db->table('cbt_sessions')->insert($insertData);
+            $sessionId = $db->insertID();
 
             $session = $db->table('cbt_sessions')->where('id', $sessionId)->get()->getRowArray();
         } else {
@@ -2525,35 +2508,24 @@ class Cbt extends BaseController
             }
         }
 
-        // Self-healing: Check for stale session data
-        $showPg = (int) ($test['show_pg_count'] ?? 0);
-        $showPgk = (int) ($test['show_pg_kompleks_count'] ?? 0);
-        $showBs = (int) ($test['show_bs_count'] ?? 0);
-        $showEsai = (int) ($test['show_esai_count'] ?? 0);
-        $expectedTotal = $showPg + $showPgk + $showBs + $showEsai;
-
-        $missingIdsCount = count($questionOrder) - $availableCount;
-        $countMismatch = count($questionOrder) !== $expectedTotal;
-
-        if (($missingIdsCount > 0 && $availableCount < $expectedTotal) || ($countMismatch && $expectedTotal > 0)) {
-            log_message('info', "[CBT::mulai] Self-healing triggered for student {$studentId}, test {$testId}");
-
-            $this->clearStudentAnswers($studentId, $testId);
-            $questionOrder = $this->questionService->generateQuestionOrder($test['bank_id'], $test);
-
-            $this->sessionModel->update($session['id'] ?? 0, [
-                'question_order' => json_encode($questionOrder),
-                'option_orders' => '{}'
-            ]);
-
-            // Clear cache and refetch
+        // Safe repair: only filter out deleted question IDs without EVER wiping existing student answers
+        $validQuestionOrder = array_values(array_filter($questionOrder, fn($qid) => isset($qMap[$qid])));
+        if (count($validQuestionOrder) !== count($questionOrder)) {
             cache()->delete($bankCacheKey);
             $bankRows = $this->questionModel->where('bank_id', $bankId)->findAll();
             $qMap = [];
             foreach ($bankRows as $q) {
                 $qMap[$q['id']] = $q;
             }
-            $optionOrders = [];
+            $validQuestionOrder = array_values(array_filter($questionOrder, fn($qid) => isset($qMap[$qid])));
+            if (empty($validQuestionOrder)) {
+                $validQuestionOrder = $this->questionService->generateQuestionOrder($bankId, $test);
+            }
+            $questionOrder = $validQuestionOrder;
+            $this->sessionModel->update($session['id'] ?? 0, [
+                'question_order' => json_encode($questionOrder),
+            ]);
+            log_message('info', "[CBT::mulai] Safely repaired deleted question IDs for student {$studentId}, test {$testId} without clearing answers");
         }
 
         // Process questions

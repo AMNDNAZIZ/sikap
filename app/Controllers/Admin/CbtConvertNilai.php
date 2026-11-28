@@ -91,13 +91,16 @@ class CbtConvertNilai extends BaseController
             return redirect()->back()->with('error', 'Bank Soal dan Kelas harus dipilih.');
         }
 
-        // Ambil data ujian terkait bank soal ini
-        $test = $this->db->table('cbt_test_status ts')
+        $testId = (int) $this->request->getPost('test_id');
+        $testBuilder = $this->db->table('cbt_test_status ts')
             ->select('ts.id, qb.code as bank_code, s.name as subject_name, s.id as subject_id')
             ->join('cbt_question_banks qb', 'qb.id = ts.bank_id')
             ->join('subjects s', 's.id = qb.subject_id')
-            ->where('ts.bank_id', $bankId)
-            ->get()->getRowArray();
+            ->where('ts.bank_id', $bankId);
+        if ($testId > 0) {
+            $testBuilder->where('ts.id', $testId);
+        }
+        $test = $testBuilder->orderBy('ts.id', 'DESC')->get()->getRowArray();
 
         if (!$test) {
             return redirect()->back()->with('error', 'Tidak ada jadwal ujian untuk Bank Soal ini.');
@@ -385,7 +388,8 @@ class CbtConvertNilai extends BaseController
                 $updateCount++;
             } else {
                 $existingScore = (float) $row['score'];
-                if ($newScore > $existingScore) {
+                $sameCbtSource = ($table === 'pts_scores' && ($row['source'] ?? '') === 'cbt_convert');
+                if ($newScore > $existingScore || ($sameCbtSource && $newScore != $existingScore)) {
                     $this->db->table($table)->where($matchWhere)->update(['score' => $newScore]);
                     $updateCount++;
                 } else {
@@ -466,13 +470,17 @@ class CbtConvertNilai extends BaseController
             return redirect()->back()->with('error', 'Data tidak lengkap.');
         }
 
-        // Ambil info test untuk bank soal ini
-        $test = $this->db->table('cbt_test_status ts')
+        // Ambil info test terbaru untuk bank soal ini
+        $testId = (int) $this->request->getPost('test_id');
+        $testBuilder = $this->db->table('cbt_test_status ts')
             ->select('ts.id, qb.code as bank_code, s.name as subject_name, s.id as subject_id')
             ->join('cbt_question_banks qb', 'qb.id = ts.bank_id')
             ->join('subjects s', 's.id = qb.subject_id')
-            ->where('ts.bank_id', $bankId)
-            ->get()->getRowArray();
+            ->where('ts.bank_id', $bankId);
+        if ($testId > 0) {
+            $testBuilder->where('ts.id', $testId);
+        }
+        $test = $testBuilder->orderBy('ts.id', 'DESC')->get()->getRowArray();
 
         if (!$test) {
             return redirect()->back()->with('error', 'Tidak ada jadwal ujian untuk Bank Soal ini. Pastikan bank soal sudah dijadwalkan.');

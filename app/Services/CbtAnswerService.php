@@ -77,6 +77,7 @@ class CbtAnswerService extends BaseService
                 // Update existing answer
                 $updated = $this->answerModel->update($existing['id'], [
                     'answer' => $normalizedAnswer,
+                    'is_doubtful' => $isDoubtful ? 1 : 0,
                     'updated_at' => $now
                 ]);
 
@@ -92,6 +93,7 @@ class CbtAnswerService extends BaseService
                     'test_id' => $testId,
                     'question_id' => $questionId,
                     'answer' => $normalizedAnswer,
+                    'is_doubtful' => $isDoubtful ? 1 : 0,
                     'updated_at' => $now
                 ]);
 
@@ -284,12 +286,25 @@ class CbtAnswerService extends BaseService
                 'question_id' => $questionId
             ])->first();
 
+            $now = date('Y-m-d H:i:s');
             if (!$answer) {
-                return $this->errorResponse('Jawaban tidak ditemukan');
+                $inserted = $this->answerModel->insert([
+                    'student_id'  => $studentId,
+                    'test_id'     => $testId,
+                    'question_id' => $questionId,
+                    'answer'      => '',
+                    'is_doubtful' => $isDoubtful ? 1 : 0,
+                    'updated_at'  => $now,
+                ]);
+                if (!$inserted) {
+                    return $this->errorResponse('Gagal update status ragu-ragu');
+                }
+                return $this->successResponse(null, 'Status ragu-ragu berhasil diupdate');
             }
 
             $updated = $this->answerModel->update($answer['id'], [
-                'updated_at' => date('Y-m-d H:i:s')
+                'is_doubtful' => $isDoubtful ? 1 : 0,
+                'updated_at' => $now
             ]);
 
             if (!$updated) {

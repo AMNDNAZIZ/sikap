@@ -29,6 +29,8 @@ class UserModel extends Model
         'must_change_password',
         'password_changed_at',
         'is_active',
+        'active_session_id',
+        'last_activity',
         'gemini_api_key',
         'ai_provider'
     ];
