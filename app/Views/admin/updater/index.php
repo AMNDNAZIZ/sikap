@@ -11,16 +11,23 @@
             <?php endif; ?>
         </span>
     </div>
-    <div class="d-flex align-items-center gap-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
         <?php if (!empty($updateInfo['has_update'])): ?>
             <span class="badge bg-danger fs-6 px-3 py-2 update-pulse">
-                <i class="bi bi-cloud-arrow-down-fill me-1"></i> Update Tersedia: v<?= esc($updateInfo['remote_version']) ?>
+                <i class="bi bi-cloud-arrow-down-fill me-1"></i>
+                Update Tersedia: v<?= esc($updateInfo['remote_version']) ?>
+                <?php if (!empty($updateInfo['pending_files'])): ?>
+                    (<?= (int) $updateInfo['pending_files'] ?> file)
+                <?php endif; ?>
             </span>
         <?php else: ?>
             <span class="badge bg-success bg-opacity-10 text-success border border-success fs-6 px-3 py-2">
                 <i class="bi bi-check-circle-fill me-1"></i> Versi Sistem Terbaru
             </span>
         <?php endif; ?>
+        <a href="<?= base_url('admin/updater?refresh=1') ?>" class="btn btn-sm btn-outline-primary" title="Bersihkan cache dan periksa langsung ke server GitHub">
+            <i class="bi bi-arrow-clockwise me-1"></i> Segarkan Status
+        </a>
     </div>
 </div>
 
@@ -228,6 +235,12 @@ $isLocalhost = file_exists(ROOTPATH . '.dev_mode');
                             <p class="small text-muted mb-3">
                                 Sistem akan otomatis mendeteksi perubahan file di komputer ini, meng-commit ke <code>origin/main</code>, membuat manifest baru, dan merilisnya ke <code>espata-update</code>.
                             </p>
+                            <div class="mb-3">
+                                <label for="release_version" class="form-label fw-bold">Versi Rilis (Opsional):</label>
+                                <input type="text" class="form-control" id="release_version" name="release_version"
+                                       placeholder="Saat ini: <?= defined('APP_VERSION') ? esc(APP_VERSION) : '1.0.0' ?> (misal isi 2.0.8 untuk menaikkan versi)">
+                                <small class="text-muted">Kosongkan jika rilis patch di versi saat ini, atau isi angka versi baru (format x.y.z).</small>
+                            </div>
                             <div class="mb-3">
                                 <label for="commit_message" class="form-label fw-bold">Pesan Commit (Opsional):</label>
                                 <input type="text" class="form-control" id="commit_message" name="commit_message"

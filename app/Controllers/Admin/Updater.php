@@ -14,7 +14,11 @@ class Updater extends BaseController
             $deployStatus = json_decode(file_get_contents($deployStatusPath), true);
         }
 
-        $updateInfo = \App\Libraries\UpdateChecker::check();
+        $forceRefresh = ($this->request->getGet('refresh') === '1');
+        if ($forceRefresh) {
+            \App\Libraries\UpdateChecker::clearCache();
+        }
+        $updateInfo = \App\Libraries\UpdateChecker::check($forceRefresh);
 
         $data = [
             'title'        => 'System Updater',
@@ -713,39 +717,77 @@ class Updater extends BaseController
     }
 
     /**
-     * Dapatkan daftar URL mirror untuk file tertentu di repository update.
-     * Menggunakan multi-CDN mirror (GitHub Raw, jsDelivr via Cloudflare Edge, Fastly jsDelivr)
-     * agar update tetap berjalan lancar meski salah satu jalur mengalami gangguan ISP / DNS / IPv6.
+     * Resolve latest commit SHA dari GitHub API agar CDN tidak melayani file lama dari cache.
      */
-    private function getRemoteMirrors(string $path): array
+    private function resolveLatestRemoteRef(): string
+    {
+        $cfg = $this->getUpdateConfig();
+        $fallbackBranch = $cfg['github_branch'];
+
+        try {
+            $url = "https://api.github.com/repos/{$cfg['github_user']}/{$cfg['github_repo']}/commits/{$fallbackBranch}";
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 4);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Accept: application/vnd.github.sha',
+                'User-Agent: ESPATA-Siakad-Updater/1.0',
+                'Cache-Control: no-cache',
+            ]);
+
+            $sha = trim((string) curl_exec($ch));
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode === 200 && preg_match('/^[a-f0-9]{40}$/i', $sha)) {
+                return $sha;
+            }
+        } catch (\Throwable $e) {
+            log_message('warning', '[Updater::resolveLatestRemoteRef] Fallback to branch: ' . $e->getMessage());
+        }
+
+        return $fallbackBranch;
+    }
+
+    /**
+     * Dapatkan daftar URL mirror untuk file tertentu di repository update.
+     * Memakai commit SHA immutable bila tersedia agar CDN (GitHub Raw/Fastly/jsDelivr) selalu 100% segar.
+     */
+    private function getRemoteMirrors(string $path, ?string $ref = null): array
     {
         $cfg = $this->getUpdateConfig();
         $user = $cfg['github_user'];
         $repo = $cfg['github_repo'];
-        $branch = $cfg['github_branch'];
+        $targetRef = $ref ?: $cfg['github_branch'];
         $cleanPath = ltrim($path, '/');
         $cacheBuster = '?t=' . time();
 
         return [
-            // Mirror 1: GitHub Raw langsung (paling update jika tidak ada blokir ISP/DNS)
-            "https://raw.githubusercontent.com/{$user}/{$repo}/{$branch}/{$cleanPath}",
-            // Mirror 2: jsDelivr CDN via Cloudflare Edge (sangat stabil & cepat di Indonesia)
-            "https://cdn.jsdelivr.net/gh/{$user}/{$repo}@{$branch}/{$cleanPath}{$cacheBuster}",
+            // Mirror 1: GitHub Raw langsung + cache buster & immutable ref
+            "https://raw.githubusercontent.com/{$user}/{$repo}/{$targetRef}/{$cleanPath}{$cacheBuster}",
+            // Mirror 2: jsDelivr CDN via Cloudflare Edge
+            "https://cdn.jsdelivr.net/gh/{$user}/{$repo}@{$targetRef}/{$cleanPath}{$cacheBuster}",
             // Mirror 3: Fastly jsDelivr CDN
-            "https://fastly.jsdelivr.net/gh/{$user}/{$repo}@{$branch}/{$cleanPath}{$cacheBuster}",
+            "https://fastly.jsdelivr.net/gh/{$user}/{$repo}@{$targetRef}/{$cleanPath}{$cacheBuster}",
         ];
     }
 
     /**
-     * Unduh konten file dari remote server dengan multi-mirror fallback dan IPv4.
+     * Unduh konten file dari remote server dengan multi-mirror fallback, bypass cache, dan IPv4.
      *
      * @param string $path Path relatif file di repositori
      * @param int $timeout Timeout per attempt dalam detik
+     * @param string|null $ref Commit SHA atau nama branch
      * @return array ['success' => bool, 'body' => string, 'error' => string, 'source' => string]
      */
-    private function fetchRemoteContent(string $path, int $timeout = 30): array
+    private function fetchRemoteContent(string $path, int $timeout = 30, ?string $ref = null): array
     {
-        $mirrors = $this->getRemoteMirrors($path);
+        $mirrors = $this->getRemoteMirrors($path, $ref);
         $lastError = '';
 
         foreach ($mirrors as $url) {
@@ -754,12 +796,14 @@ class Updater extends BaseController
             curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-            // Paksa IPv4 untuk menghindari cURL error 7: Network is unreachable akibat routing IPv6
             curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-            // Kompatibilitas SSL pada server tanpa CA bundle terbaru
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-            curl_setopt($ch, CURLOPT_USERAGENT, 'ESPATA-Siakad-Updater/1.0');
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Cache-Control: no-cache',
+                'Pragma: no-cache',
+                'User-Agent: ESPATA-Siakad-Updater/1.0',
+            ]);
 
             $body = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -812,8 +856,14 @@ class Updater extends BaseController
         putenv('USERPROFILE=C:\\Users\\SAKA');
         putenv('GIT_TERMINAL_PROMPT=0');
 
-        // Step 0: Sinkronkan APP_VERSION dari database changelogs
-        $syncedVersion = $this->syncVersionFromChangelogs();
+        // Step 0: Tangani bump versi manual opsional atau sinkronkan dari changelogs + segarkan LAST_UPDATE
+        $requestedVersion = trim((string) ($this->request->getVar('release_version') ?? ''));
+        if ($requestedVersion !== '' && preg_match('/^\d+\.\d+\.\d+(?:-[A-Za-z0-9.\-]+)?$/', $requestedVersion)) {
+            $this->updateConstantsVersion($requestedVersion, date('Y-m-d H:i'));
+            $syncedVersion = $requestedVersion;
+        } else {
+            $syncedVersion = $this->syncVersionFromChangelogs(true);
+        }
 
         // Ambil custom commit message jika dikirimkan oleh user
         $customMsg = trim($this->request->getVar('commit_message') ?? '');
@@ -865,10 +915,11 @@ class Updater extends BaseController
 
         ksort($files);
 
+        $releaseDateNow = date('Y-m-d H:i');
         $manifest = [
             'version'     => $syncedVersion,
             'generated'   => date('Y-m-d H:i:s'),
-            'last_update' => defined('LAST_UPDATE') ? LAST_UPDATE : date('Y-m-d H:i'),
+            'last_update' => $releaseDateNow,
             'total_files' => count($files),
             'files'       => $files,
         ];
@@ -923,12 +974,36 @@ class Updater extends BaseController
     }
 
     /**
+     * Perbarui APP_VERSION dan LAST_UPDATE di app/Config/Constants.php
+     */
+    private function updateConstantsVersion(string $version, string $lastUpdate): void
+    {
+        $constantsPath = APPPATH . 'Config/Constants.php';
+        if (!is_file($constantsPath)) {
+            return;
+        }
+        $content = file_get_contents($constantsPath);
+        $content = preg_replace(
+            "/define\('APP_VERSION',\s*'[^']+'\);/",
+            "define('APP_VERSION', '{$version}');",
+            $content
+        );
+        $content = preg_replace(
+            "/define\('LAST_UPDATE',\s*'[^']*'\);/",
+            "define('LAST_UPDATE', '{$lastUpdate}');",
+            $content
+        );
+        file_put_contents($constantsPath, $content);
+    }
+
+    /**
      * Sinkronkan APP_VERSION dan LAST_UPDATE di Constants.php dari tabel changelogs.
      * Ini memastikan versi manifest selalu sesuai dengan changelog terbaru.
      * 
+     * @param bool $refreshReleaseDate Perbarui LAST_UPDATE ke waktu sekarang walaupun versi tidak naik
      * @return string Versi terbaru yang disinkronkan
      */
-    private function syncVersionFromChangelogs(): string
+    private function syncVersionFromChangelogs(bool $refreshReleaseDate = false): string
     {
         $currentVersion = defined('APP_VERSION') ? APP_VERSION : '1.0.0';
 
@@ -943,41 +1018,27 @@ class Updater extends BaseController
                 ->getRowArray();
 
             if (!$changelog) {
+                if ($refreshReleaseDate) {
+                    $this->updateConstantsVersion($currentVersion, date('Y-m-d H:i'));
+                }
                 return $currentVersion;
             }
 
             $dbVersion = $changelog['version'];
 
-            // Gunakan versi yang LEBIH TINGGI antara DB dan Constants.php
-            // Ini mencegah versi yang sudah di-bump manual di Constants.php
-            // ter-override oleh versi lama di tabel changelogs
             if (version_compare($dbVersion, $currentVersion, '>')) {
                 $newVersion = $dbVersion;
-                $newDate = date('Y-m-d H:i', strtotime($changelog['release_date']));
+                $newDate = $refreshReleaseDate ? date('Y-m-d H:i') : date('Y-m-d H:i', strtotime($changelog['release_date']));
             } else {
-                // Constants.php sudah lebih baru, pertahankan
                 $newVersion = $currentVersion;
-                $newDate = defined('LAST_UPDATE') ? LAST_UPDATE : date('Y-m-d H:i');
+                if ($refreshReleaseDate) {
+                    $this->updateConstantsVersion($newVersion, date('Y-m-d H:i'));
+                }
                 log_message('info', "[syncVersionFromChangelogs] Keeping Constants.php version {$currentVersion} (DB has {$dbVersion})");
                 return $newVersion;
             }
 
-            // Update Constants.php
-            $constantsPath = APPPATH . 'Config/Constants.php';
-            $content = file_get_contents($constantsPath);
-
-            $content = preg_replace(
-                "/define\('APP_VERSION',\s*'[^']+'\);/",
-                "define('APP_VERSION', '{$newVersion}');",
-                $content
-            );
-            $content = preg_replace(
-                "/define\('LAST_UPDATE',\s*'[^']*'\);/",
-                "define('LAST_UPDATE', '{$newDate}');",
-                $content
-            );
-
-            file_put_contents($constantsPath, $content);
+            $this->updateConstantsVersion($newVersion, $newDate);
             log_message('info', "[syncVersionFromChangelogs] Updated Constants.php: APP_VERSION={$newVersion}, LAST_UPDATE={$newDate}");
 
             return $newVersion;
@@ -1012,8 +1073,9 @@ class Updater extends BaseController
         $commands = [
             "{$git} checkout --orphan _update_push 2>&1",
             "{$git} reset 2>&1",
-            // Gunakan --all agar file baru (untracked di main) juga ikut masuk
+            // Stage app/ public/ lalu keluarkan public/uploads & 6 file inti lisensi agar repo tetap ringan & aman
             "{$git} add --all app/ public/ update_manifest.json README.md .gitattributes 2>&1",
+            "{$git} rm -rf --cached --ignore-unmatch -- public/uploads app/Libraries/LicenseGuard.php app/Libraries/SecurityGuard.php app/Libraries/SecureConfig.php app/Helpers/license_helper.php app/Filters/LicenseFilter.php app/Models/LicenseModel.php app/Config/.lic_hash app/Config/.security_hash 2>&1",
             "{$git} commit -m \"v{$version} - Release " . date('Y-m-d H:i') . "\" 2>&1",
             "{$git} push update _update_push:main --force 2>&1",
         ];
@@ -1105,7 +1167,10 @@ class Updater extends BaseController
     {
         set_time_limit(120);
 
-        $fetchResult = $this->fetchRemoteContent('update_manifest.json', 30);
+        \App\Libraries\UpdateChecker::clearCache();
+        $remoteRef = $this->resolveLatestRemoteRef();
+
+        $fetchResult = $this->fetchRemoteContent('update_manifest.json', 30, $remoteRef);
         if (!$fetchResult['success']) {
             return redirect()->to(base_url('admin/updater'))->with('error', 'Gagal menghubungi server update: ' . $fetchResult['error']);
         }
@@ -1148,13 +1213,14 @@ class Updater extends BaseController
 
         $totalChanges = count($changedFiles) + count($newFiles);
 
-        // Simpan di session — hindari data terlalu besar
+        // Simpan di session termasuk commit SHA terverifikasi agar file unduhan konsisten
         session()->set('online_update', [
             'changed_files' => $changedFiles,
             'new_files'     => $newFiles,
+            'remote_ref'    => $remoteRef,
         ]);
 
-        log_message('info', '[checkOnlineUpdate] totalChanges=' . $totalChanges . ' changed=' . count($changedFiles) . ' new=' . count($newFiles));
+        log_message('info', '[checkOnlineUpdate] ref=' . $remoteRef . ' totalChanges=' . $totalChanges . ' changed=' . count($changedFiles) . ' new=' . count($newFiles));
 
         return view('admin/updater/online_update', [
             'title'         => 'Update Online',
@@ -1183,6 +1249,7 @@ class Updater extends BaseController
 
         $changedFiles = $updateData['changed_files'] ?? [];
         $newFiles     = $updateData['new_files'] ?? [];
+        $remoteRef    = $updateData['remote_ref'] ?? null;
         $allFiles     = array_merge($changedFiles, $newFiles);
 
         if (empty($allFiles)) {
@@ -1196,7 +1263,7 @@ class Updater extends BaseController
         try {
             $this->enableMaintenanceMode();
 
-            // Step 1: Download semua file ke staging folder
+            // Step 1: Download semua file ke staging folder menggunakan ref commit yang konsisten
             if (!is_dir($stagingDir)) {
                 mkdir($stagingDir, 0755, true);
             }
@@ -1205,7 +1272,7 @@ class Updater extends BaseController
             $failedFiles = [];
 
             foreach ($allFiles as $relativePath) {
-                $fetchResult = $this->fetchRemoteContent($relativePath, 45);
+                $fetchResult = $this->fetchRemoteContent($relativePath, 45, $remoteRef);
 
                 if ($fetchResult['success']) {
                     $stagingPath = $stagingDir . $relativePath;
